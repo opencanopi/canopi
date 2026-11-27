@@ -20,7 +20,6 @@
     "desktop/web/src/app/canvas-context-menu/entries.ts: knip:types/CanvasContextMenuSubmenu": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts: knip:exports/WORKSPACE_VIEW_SETTLE_MS": { "count": 1 },
     "desktop/web/src/app/canvas-map-surface/workspace-runtime-composition.ts: knip:types/WorkspaceRuntimeStartOutcome": { "count": 1 },
-    "desktop/web/src/app/canvas-pdf/workflow.ts: knip:types/PdfCapture": { "count": 1 },
     "desktop/web/src/app/command-table/object-capabilities.ts: knip:files/file": { "count": 1, "bead": "canopi-f47t.52.76" },
     "desktop/web/src/app/contracts/document.ts: knip:exports/DOCUMENT_FILE_FIELD_OWNERS": { "count": 1 },
     "desktop/web/src/app/contracts/document.ts: knip:exports/extractDocumentExtra": { "count": 1 },

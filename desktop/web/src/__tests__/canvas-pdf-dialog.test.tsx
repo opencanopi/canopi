@@ -320,3 +320,45 @@ it('PDF segmented controls size their columns from their own option count, so ev
   expect(group).toContain('grid-auto-flow: column')
   expect(group).not.toContain('grid-template-columns')
 })
+
+it('applies As on screen and saved view bearings from the page angle toolbar', async () => {
+  const container = document.createElement('div'); document.body.append(container)
+  const canvas = { layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
+    annotations: [{ id: 'a1', text: 'Check bearing', position: { x: 0, y: 0 }, fontSize: 14, rotation: 0 }] }
+  const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
+  const workflow = createPdfWorkflow({
+    capture: () => ({
+      identity: canvas,
+      isCurrent: () => true,
+      input: {
+        name: 'Garden',
+        locale: 'en',
+        unitSystem: 'metric',
+        viewBearingDeg: 28,
+        savedViews: [{ id: 'v-south', name: 'South terrace', bearingDeg: 145 }],
+        commonNames: {},
+        canvas,
+      },
+    }),
+    prepare: async ({ input, setup, labels }) => ({ plan: buildPdfPlan(input, setup, text, labels), bytes: new Uint8Array([1]) }),
+    resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }),
+    resolveHabits: async () => ({}),
+    delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
+    labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'Plants', actualSize: '100%' }),
+    namePrintArea: number => `Area ${number}`,
+  })
+  try {
+    await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
+    await act(async () => { await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
+    const angleGroup = container.querySelector('fieldset[aria-label="Page angle"]')!
+    const asOnScreen = Array.from(angleGroup.querySelectorAll('button')).find((b) => b.textContent === 'As on screen')!
+    await act(async () => { asOnScreen.click(); await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
+    expect(workflow.setup.value.views?.overview?.angleDeg).toBe(28)
+
+    const savedViewTrigger = angleGroup.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!
+    await act(async () => { savedViewTrigger.click() })
+    const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((el) => el.textContent === 'South terrace')!
+    await act(async () => { option.click(); await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
+    expect(workflow.setup.value.views?.overview?.angleDeg).toBe(145)
+  } finally { render(null, container); workflow.dispose(); container.remove() }
+})

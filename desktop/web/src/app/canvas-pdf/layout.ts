@@ -111,7 +111,8 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
     const requested = area.wholeDesign && printed ? wholeDesignGroundFor(areaCtx) : areaToFrame(areaCtx.frame, area.bounds, area.pivot)
     if (![requested.x, requested.y, requested.width, requested.height].every(Number.isFinite) || requested.width <= 0 || requested.height <= 0) throw new Error('invalid-page-view')
     const reqCenter = { x: requested.x + requested.width / 2, y: requested.y + requested.height / 2 }
-    const scaleFactor = areaCtx.groundDistance(reqCenter, { x: reqCenter.x + 1, y: reqCenter.y })
+    const scaleOrigin = area.pivot ? areaCtx.frame.toFrame(area.pivot) : reqCenter
+    const scaleFactor = areaCtx.groundDistance(scaleOrigin, { x: scaleOrigin.x + 1, y: scaleOrigin.y })
     const choices = requested.width === requested.height && (!view?.orientation || view.orientation === 'auto') ? ['portrait'] as const : orientations(view)
     const candidates = choices.map(orientation => {
       const geometry = pageGeometry(setup.paper, orientation, 'detail')
@@ -129,7 +130,9 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
   })
   if (fittedDetails.length) {
     // Identity collisions follow the printed colours, so grayscale and black get enclosures where needed.
-    const references = fieldReferences({ ...input, canvas: { ...input.canvas, plants: recolorPlants(input.canvas.plants, setup.plantColors) } }, plan, dimensions, fittedDetails.map(p => p.ground))
+    // Evaluate sheet containment in each detail page's own turned frame so mixed page angles never collide frames.
+    const detailPredicates = fittedDetails.map(p => (plant: { position: PrintPoint }) => contains(p.ground, p.areaCtx.frame.toFrame(plant.position)))
+    const references = fieldReferences({ ...original, canvas: { ...original.canvas, plants: recolorPlants(original.canvas.plants, setup.plantColors) } }, plan, dimensions, detailPredicates)
     references.measurementHomes = new Map(selected.canvas.measurements.flatMap(guide => {
       const planStart = frame.fromFrame(guide.start), planEnd = frame.fromFrame(guide.end)
       const home = fittedDetails.filter(p => contains(p.ground, p.areaCtx.frame.toFrame(planStart)) && contains(p.ground, p.areaCtx.frame.toFrame(planEnd)))
@@ -137,6 +140,7 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
       return home ? [[guide.id, home.id]] : []
     }))
     for (const { id, area, areaCtx, scaleSpec, geometry, ground, pointsPerMeter, summary } of [...fittedDetails].sort((a, b) => Number(b.id === options.priority) - Number(a.id === options.priority))) {
+      const pageReferences = { ...references, zones: areaCtx.dimensions }
       const visible = { ...areaCtx.selected, canvas: visibleFieldCanvas(areaCtx.selected.canvas, ground) }
       const names = Object.fromEntries(visible.canvas.plants.map(p => [p.canonicalName,
         [input.commonNames[p.canonicalName], input.habits?.[p.canonicalName], input.englishFallbacks?.includes(p.canonicalName)]]))
@@ -157,7 +161,7 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
             height: geometry.height - geometry.bodyTop! - 20 * MM }
           const leftWidth = keyFrame.x - 16 * MM
           const shifted = { ...geometry, keyFrame, frame: { ...geometry.frame, x: 10 * MM + (leftWidth - geometry.frame.width) / 2 } }
-          const drawing = drawField(visible, shifted.frame, ground, pointsPerMeter, { id, ...shifted, reserved: [keyFrame], summary }, text, references, areaCtx.groundDistance)
+          const drawing = drawField(visible, shifted.frame, ground, pointsPerMeter, { id, ...shifted, reserved: [keyFrame], summary }, text, pageReferences, areaCtx.groundDistance)
           const candidate = asPages(id, shifted, ground, pointsPerMeter, drawing, area.name, areaCtx.frame.angleDeg, scaleSpec)
           if (candidate.length === 1) { integrated = candidate; break }
         }
@@ -167,13 +171,13 @@ function buildPages(original: PdfInput, setup: PdfSetup, text: PdfTextEngine, la
             const available = keyFrame.y - 6 * MM - geometry.bodyTop!
             if (available < geometry.frame.height + 8 * MM) continue
             const shifted = { ...geometry, keyFrame, frame: { ...geometry.frame, y: geometry.bodyTop! + (available - geometry.frame.height) / 2 } }
-            const drawing = drawField(visible, shifted.frame, ground, pointsPerMeter, { id, ...shifted, reserved: [keyFrame], summary }, text, references, areaCtx.groundDistance)
+            const drawing = drawField(visible, shifted.frame, ground, pointsPerMeter, { id, ...shifted, reserved: [keyFrame], summary }, text, pageReferences, areaCtx.groundDistance)
             const candidate = asPages(id, shifted, ground, pointsPerMeter, drawing, area.name, areaCtx.frame.angleDeg, scaleSpec)
             if (candidate.length === 1) { integrated = candidate; break }
           }
         }
         local = integrated ?? asPages(id, geometry, ground, pointsPerMeter,
-          drawField(visible, geometry.frame, ground, pointsPerMeter, { id, ...geometry, summary }, text, references, areaCtx.groundDistance), area.name, areaCtx.frame.angleDeg, scaleSpec)
+          drawField(visible, geometry.frame, ground, pointsPerMeter, { id, ...geometry, summary }, text, pageReferences, areaCtx.groundDistance), area.name, areaCtx.frame.angleDeg, scaleSpec)
       }
       const glyphs = new Set(local.flatMap(p => p.operations.flatMap(op => op.kind === 'text' ? op.line.runs.flatMap(r => r.glyphs.map(g => g.key)) : [])))
       options.retain?.(id, { key, pages: local, outlines: Object.fromEntries([...glyphs].map(key => [key, text.outlines[key]!])) })

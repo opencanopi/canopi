@@ -197,4 +197,105 @@ describe('PDF export per-page angles, splits, and print_setup persistence (2c-4b
     const readerDecode = await core.decode(new TextEncoder().encode(JSON.stringify(raw)))
     expect('ok' in readerDecode).toBe(true)
   })
+
+  it('draws zone dimensions and assigns colliding plant enclosures in a 32° detail page frame when overview is north-up', () => {
+    const text = testText()
+    // Place the zone and colliding plants far enough from the origin that a 32° rotation separates the 0° and 32° frames.
+    const zone = {
+      id: 'z-far',
+      name: 'South Bed',
+      fill: '#d8e2dc',
+      stroke: '#3a5a40',
+      opacity: 0.4,
+      path: 'M26 2 L34 2 L34 6 L26 6 Z',
+      bounds: { x: 26, y: 2, width: 8, height: 4 },
+      geometry: {
+        kind: 'polygon' as const,
+        points: [
+          { x: 26, y: 2 },
+          { x: 34, y: 2 },
+          { x: 34, y: 6 },
+          { x: 26, y: 6 },
+        ],
+      },
+    }
+    const plants = [
+      { id: 'p-a1', canonicalName: 'Malus domestica', position: { x: 28, y: 4 }, color: '#2d6a4f', symbol: 'apple', mark, pinnedName: false },
+      { id: 'p-a2', canonicalName: 'Malus domestica', position: { x: 29, y: 4 }, color: '#2d6a4f', symbol: 'apple', mark, pinnedName: false },
+      { id: 'p-b1', canonicalName: 'Pyrus communis', position: { x: 31, y: 4 }, color: '#2d6a4f', symbol: 'apple', mark, pinnedName: false },
+      { id: 'p-b2', canonicalName: 'Pyrus communis', position: { x: 32, y: 4 }, color: '#2d6a4f', symbol: 'apple', mark, pinnedName: false },
+    ]
+    const input: PdfInput = {
+      ...makeInput(0),
+      commonNames: { 'Malus domestica': 'Apple', 'Pyrus communis': 'Pear' },
+      canvas: { ...makeInput(0).canvas, plants, zones: [zone] },
+    }
+    const setup: PdfSetup = {
+      paper: 'A4',
+      layers: ['plants', 'zones'],
+      northArrow: true,
+      areas: [{ id: '1', name: 'Rotated Bed', bounds: { x: 24, y: 0, width: 12, height: 8 }, angleDeg: 32 }],
+      views: { overview: { angleDeg: 0 } },
+    }
+    const plan = buildPdfPlan(input, setup, text, LABELS)
+    const detail = plan.pages.find((p) => p.id === 'area:1')!
+    const texts = detail.operations
+      .filter((op): op is Extract<PdfPage['operations'][number], { kind: 'text' }> => op.kind === 'text')
+      .map((op) => op.line.runs.map((r) => r.text).join(''))
+    // Zone label and outer dimensions must be drawn in the 32° detail frame (not missed due to 0° overview coordinates).
+    expect(texts).toContain('Z01')
+    expect(texts.some((t) => /8\s*m/.test(t))).toBe(true)
+    // Both colliding species on the 32° sheet receive distinct enclosure styles in the legend.
+    expect(detail.legend).toHaveLength(2)
+    expect(new Set(detail.legend.flatMap((entry) => entry.enclosures ?? [])).size).toBe(2)
+  })
+
+  it('re-syncs print_setup after Undo and reopen on the same Design', async () => {
+    const identity = {}
+    const store: { current: PrintSetupV10 | null } = { current: null }
+    const readStore = (): PrintSetupV10 | null => store.current
+    const endCoalesce = vi.fn()
+    const workflow = createPdfWorkflow({
+      capture: () => ({ identity, input: makeInput(4), isCurrent: () => true }),
+      resolveDisplayNames: async () => ({ names: { 'Malus domestica': 'Apple' }, englishFallbacks: [] }),
+      resolveHabits: async () => ({ 'Malus domestica': 'Tree' }),
+      prepare: async () => ({ plan: { pages: [], angleDeg: 0, outlines: {}, blocked: null }, bytes: new Uint8Array([37, 80, 68, 70]) }),
+      delivery: { deliverFile: vi.fn().mockResolvedValue('saved') },
+      labels: () => LABELS,
+      namePrintArea: (n) => `Print area ${n}`,
+      printSetup: {
+        read: readStore,
+        write: (next) => { store.current = next },
+        endCoalesce,
+      },
+    })
+
+    workflow.show()
+    await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
+    workflow.configure({ paper: 'Letter' })
+    workflow.addPrintArea({ x: -5, y: -5, width: 10, height: 10 })
+    await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
+    expect(workflow.setup.value.paper).toBe('Letter')
+    expect(workflow.setup.value.areas).toHaveLength(1)
+    expect(readStore()?.paper).toBe('Letter')
+
+    workflow.close()
+    expect(endCoalesce).toHaveBeenCalledTimes(1)
+
+    // Simulate Undo reverting design.print_setup back to absent (null) on the same Design identity.
+    store.current = null
+    workflow.show()
+    await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
+    expect(workflow.setup.value.paper).toBe('A4')
+    expect(workflow.setup.value.areas ?? []).toHaveLength(0)
+
+    // A subsequent edit builds on the reverted state rather than reviving the undone Letter/area.
+    workflow.configure({ northArrow: false })
+    await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
+    const saved = readStore()
+    expect(saved?.paper).toBe('A4')
+    expect(saved?.pages ?? []).toHaveLength(0)
+    expect(saved?.north_arrow).toBe(false)
+    workflow.dispose()
+  })
 })

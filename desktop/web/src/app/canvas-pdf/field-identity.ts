@@ -7,13 +7,15 @@ import { contains } from './field-geometry'
 export const appearanceKey = (plant: PrintPlant): string => JSON.stringify([plant.symbol, plant.color.toLowerCase()])
 const identityKey = (plant: PrintPlant): string => JSON.stringify([appearanceKey(plant), plant.canonicalName])
 
-export function assignFieldIdentity(plants: readonly PrintPlant[], fields?: readonly PrintBounds[]): ReadonlyMap<string, PdfEnclosure> {
+export type FieldPredicate = PrintBounds | ((plant: PrintPlant) => boolean)
+
+export function assignFieldIdentity(plants: readonly PrintPlant[], fields?: readonly FieldPredicate[]): ReadonlyMap<string, PdfEnclosure> {
   const counts = new Map<string, number>(), neighbours = new Map<string, Set<string>>()
   for (const p of plants) { const key = identityKey(p); counts.set(key, (counts.get(key) ?? 0) + 1); neighbours.set(key, new Set()) }
   for (const field of fields ?? [undefined]) {
     const groups = new Map<string, Set<string>>()
     for (const p of plants) {
-      if (field && !contains(field, p.position)) continue
+      if (field && !(typeof field === 'function' ? field(p) : contains(field, p.position))) continue
       const appearance = appearanceKey(p), group = groups.get(appearance) ?? new Set<string>()
       group.add(identityKey(p)); groups.set(appearance, group)
     }

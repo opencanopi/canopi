@@ -28,10 +28,28 @@ function PageAngleControl({
     workflow.setPageAngle(pageId, normalisePrintAngle(parsed))
   }
 
+  const screenAngle = workflow.viewBearingDeg.value
+  const savedViews = workflow.savedViews.value
+  const isAsOnScreen = Math.abs(normalisePrintAngle(currentAngle - screenAngle)) < 0.05
+
   return <fieldset disabled={disabled} className={styles.toolbarGroup} aria-label={t('pdf.pageAngle')}>
     <button type="button" aria-pressed={currentAngle === 0} onClick={() => workflow.setPageAngle(pageId, 0)}>
       {t('pdf.mapOrientationNorthUp')}
     </button>
+    <button type="button" aria-pressed={isAsOnScreen} onClick={() => workflow.setPageAngle(pageId, screenAngle)}>
+      {t('pdf.mapOrientationAsOnScreen')}
+    </button>
+    {savedViews.length > 0 && <Dropdown<string>
+      ariaLabel={t('pdf.savedViewAngle')}
+      trigger={t('pdf.savedViewAngle')}
+      value=""
+      items={savedViews.map((v) => ({ value: v.id, label: v.name }))}
+      onChange={(id) => {
+        const chosen = savedViews.find((v) => v.id === id)
+        if (chosen) workflow.setPageAngle(pageId, chosen.bearingDeg)
+      }}
+      preserveOverlays
+    />}
     <label className={styles.zoomControl}>
       <input
         aria-label={t('pdf.angleDegrees')}

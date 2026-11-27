@@ -65,6 +65,8 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
   const setup = signal<PdfSetup>(defaults())
   const splitPreview = signal<PdfSetup | null>(null)
   const availableLayers = signal<readonly string[]>([])
+  const viewBearingDeg = signal(0)
+  const savedViews = signal<readonly NonNullable<PdfInput['savedViews']>[number][]>([])
   let cache: PdfLayoutCache = {}
   let priority = 'overview'
   let nextAreaId = 0
@@ -106,9 +108,24 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
     if (identity !== null && identity !== nextIdentity) {
       endSessionCoalesce()
       stop(); cache = {}; splitPreview.value = null; identity = null; capture = null; heldBearing = null; nextAreaId = 0; nextSplitId = 0; persistedSetup = null
-      batch(() => { open.value = false; state.value = IDLE; setup.value = defaults(); availableLayers.value = [] })
+      batch(() => { open.value = false; state.value = IDLE; setup.value = defaults(); availableLayers.value = []; viewBearingDeg.value = 0; savedViews.value = [] })
     } else if (open.peek() && ((capture && !capture.isCurrent()) || state.peek().error === 'canvas-busy')) {
       refreshSoon()
+    }
+  }
+  function syncStoredSetup(stored: PrintSetupV10 | null, captured: PdfCapture, defaultLayers: string[]): void {
+    if (stored && captured.input.canvas.planeOrigin) {
+      persistedSetup = stored
+      const projected = inPlane(stored, createSessionPlane(captured.input.canvas.planeOrigin), defaultLayers)
+      const numericIds = (projected.areas ?? []).map((a) => Number(a.id)).filter(Number.isFinite)
+      nextAreaId = numericIds.length ? Math.max(...numericIds) : 0
+      nextSplitId = (stored.splits ?? []).length
+      setup.value = projected
+    } else {
+      persistedSetup = null
+      nextAreaId = 0
+      nextSplitId = 0
+      setup.value = { paper: 'A4', layers: defaultLayers }
     }
   }
   async function rebuild(): Promise<void> {
@@ -119,30 +136,22 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
       state.value = { status: 'error', error: 'prepare-failed', result: null }; return
     }
     if (!next) { state.value = { status: 'error', error: 'canvas-busy', result: null }; return }
+    const defaultLayers = next.input.canvas.layers.filter((l) => EXPORTABLE.has(l.name) && l.visible && l.opacity > 0).map((l) => l.name)
+    const stored = deps.printSetup?.read() ?? null
     if (identity !== next.identity) {
       identity = next.identity
       heldBearing = null
-      nextAreaId = 0
-      nextSplitId = 0
-      const defaultLayers = next.input.canvas.layers.filter((l) => EXPORTABLE.has(l.name) && l.visible && l.opacity > 0).map((l) => l.name)
-      const stored = deps.printSetup?.read() ?? null
-      if (stored && next.input.canvas.planeOrigin) {
-        persistedSetup = stored
-        const projected = inPlane(stored, createSessionPlane(next.input.canvas.planeOrigin), defaultLayers)
-        const numericIds = (projected.areas ?? []).map((a) => Number(a.id)).filter(Number.isFinite)
-        nextAreaId = numericIds.length ? Math.max(...numericIds) : 0
-        nextSplitId = (stored.splits ?? []).length
-        setup.value = projected
-      } else {
-        persistedSetup = null
-        setup.value = { paper: 'A4', layers: defaultLayers }
-      }
+      syncStoredSetup(stored, next, defaultLayers)
+    } else if (deps.printSetup && stored !== persistedSetup) {
+      syncStoredSetup(stored, next, defaultLayers)
     }
     availableLayers.value = next.input.canvas.layers.filter((layer) => EXPORTABLE.has(layer.name) && layer.opacity > 0).map((layer) => layer.name)
+    savedViews.value = next.input.savedViews ?? []
     if (heldBearing === null && next.turning) {
       capture = next; state.value = { status: 'preparing', error: null, result: null }; return
     }
     heldBearing ??= next.input.viewBearingDeg
+    viewBearingDeg.value = normalisePrintAngle(heldBearing)
     next = { ...next, input: { ...next.input, viewBearingDeg: heldBearing } }
     capture = next
     if (setup.peek().layers.some((name) => !availableLayers.peek().includes(name))) {
@@ -347,8 +356,8 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
       state.value = { ...snapshot, status: 'error', error: 'delivery-failed' }
     } finally { if (controller === abort) controller = null }
   }
-  function dispose(): void { if (disposed) return; disposed = true; endSessionCoalesce(); stop(); cache = {}; splitPreview.value = null; deps.delivery.dispose?.(); open.value = false; state.value = IDLE; capture = null; heldBearing = null; persistedSetup = null; setup.value = defaults(); availableLayers.value = [] }
-  return { open, state, setup, splitPreview, availableLayers, prioritize, addWholeDesign, previewSplit, applySplit, cancelSplit, show, close, rebuild, configure, selectLayer, addPrintArea, removeArea, setPageAngle, setPageScale, setPageView, fitPage, save, synchronize, dispose }
+  function dispose(): void { if (disposed) return; disposed = true; endSessionCoalesce(); stop(); cache = {}; splitPreview.value = null; deps.delivery.dispose?.(); open.value = false; state.value = IDLE; capture = null; heldBearing = null; persistedSetup = null; setup.value = defaults(); availableLayers.value = []; viewBearingDeg.value = 0; savedViews.value = [] }
+  return { open, state, setup, splitPreview, availableLayers, viewBearingDeg, savedViews, prioritize, addWholeDesign, previewSplit, applySplit, cancelSplit, show, close, rebuild, configure, selectLayer, addPrintArea, removeArea, setPageAngle, setPageScale, setPageView, fitPage, save, synchronize, dispose }
 }
 export type PdfWorkflow = ReturnType<typeof createPdfWorkflow>
 

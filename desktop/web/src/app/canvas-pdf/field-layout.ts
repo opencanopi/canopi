@@ -9,7 +9,7 @@ import { nearestPlantSpacing } from '../../canvas/plant-spacing'
 import { contains, clipSegment, distance, hits, inflate, outlineSegments, type Segment } from './field-geometry'
 import { FieldSpace, type FieldLabel } from './field-placement'
 import { fieldDimensions } from './field-dimensions'
-import { appearanceKey, assignFieldIdentity, drawEnclosure, enclosureRadius, fieldIdentity } from './field-identity'
+import { appearanceKey, assignFieldIdentity, drawEnclosure, enclosureRadius, fieldIdentity, type FieldPredicate } from './field-identity'
 import { directAnnotation } from './field-annotations'
 import type { ZoneMeasurements } from './zone-measurements'
 import { zoneLabels } from './zone-labels'
@@ -55,7 +55,7 @@ const paper = (r: PrintBounds): PrintBounds => ({ x: r.x * MM, y: r.y * MM, widt
  * Allocated once from the whole Design, so cropping and locale never renumber a species; N, P and M follow the unturned
  * `plan` (top, then left, then id), so a code names the same object at every Map orientation.
  */
-export function fieldReferences(input: PdfInput, plan: CanvasPrintSnapshot, zones: readonly ZoneMeasurements[], fields?: readonly PrintBounds[]): FieldReferences {
+export function fieldReferences(input: PdfInput, plan: CanvasPrintSnapshot, zones: readonly ZoneMeasurements[], fields?: readonly FieldPredicate[]): FieldReferences {
   const codes = new Map(input.canvas.plants.map(p => [p.canonicalName, p.speciesCode ?? p.canonicalName]))
   const names = [...codes.keys()].sort((a, b) => codes.get(a)!.localeCompare(codes.get(b)!, 'en') || a.localeCompare(b, 'en'))
   return { zones, allPlants: input.canvas.plants, identities: assignFieldIdentity(input.canvas.plants, fields), species: new Map(names.map((name, i) => [name, String(i + 1).padStart(2, '0')])),
