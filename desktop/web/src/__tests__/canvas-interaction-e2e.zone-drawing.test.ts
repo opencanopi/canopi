@@ -629,8 +629,7 @@ describe('SceneInteractionSession', () => {
     events.pointerMove({ x: 70, y: 100 }, { button: 0 })
 
     expect(draftChips()).toEqual([
-      'W 60 m',
-      'H 80 m',
+      '60 m × 80 m',
       '3770 m²',
     ])
     expect(store.persisted.annotations).toHaveLength(0)

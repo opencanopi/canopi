@@ -4,7 +4,6 @@ import {
   getCommonNames,
   getDynamicFilterOptions,
   getFilterOptions,
-  getFlowerColorBatch,
   getLocaleCommonNames,
   getSpeciesBatch,
   getSpeciesDetail,
@@ -96,8 +95,6 @@ describe('native IPC wire format', () => {
     expect(invoke).toHaveBeenLastCalledWith('get_species_habits', { canonicalNames: ['Malus domestica'], operation: op })
     await getSpeciesBatch(['Malus domestica'], 'en')
     expect(invoke).toHaveBeenLastCalledWith('get_species_batch', { canonicalNames: ['Malus domestica'], locale: 'en', operation: op })
-    await getFlowerColorBatch(['Malus domestica'])
-    expect(invoke).toHaveBeenLastCalledWith('get_flower_color_batch', { canonicalNames: ['Malus domestica'], operation: op })
     await getLocaleCommonNames('Malus domestica', 'en')
     expect(invoke).toHaveBeenLastCalledWith('get_locale_common_names', { canonicalName: 'Malus domestica', locale: 'en', operation: op })
     await getSpeciesImages('Malus domestica')

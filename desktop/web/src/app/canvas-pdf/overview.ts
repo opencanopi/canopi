@@ -1,4 +1,5 @@
 import type { PrintBounds, PrintPoint } from '../../canvas/print'
+import { formatNumber } from '../../utils/format'
 import type { PdfInput } from './types'
 import type { PdfTextEngine } from './text'
 import type { FieldDrawing } from './field-layout'
@@ -28,7 +29,7 @@ export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintB
   const space = new FieldSpace({ x: frame.x / MM, y: frame.y / MM, width: frame.width / MM, height: frame.height / MM }, text)
   const project = (p: PrintPoint) => { const q = point(p); return { x: q.x / MM, y: q.y / MM } }
   for (const p of canvas.plants) {
-    const q = project(p.position), r = Math.max(.42, Math.min(1, paperPlantRadius(canvas.plants, p, scale) / MM))
+    const q = project(p.position), r = paperPlantRadius(canvas.plants, p, scale, canvas.symbolScale) / MM
     space.mark(p.id, { x: q.x - r, y: q.y - r, width: r * 2, height: r * 2 })
   }
   const dimensions = labels ? fieldDimensions(canvas.measurements.filter(g => !grouped.has(g.id) && contains(ground, g.start) && contains(ground, g.end)), project, space, input.locale, 7.5, groundDistance) : []
@@ -52,7 +53,7 @@ export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintB
       const dx = (b.y - a.y) / length * .6 * MM, dy = (a.x - b.x) / length * .6 * MM
       for (const p of [a, b]) operations.push({ ...pathOp(`M${p.x - dx} ${p.y - dy} L${p.x + dx} ${p.y + dy}`, '#656058', null, .15 * MM), opacity: opacity('measurement-guides') })
     }
-    const value = new Intl.NumberFormat(input.locale, { maximumFractionDigits: 2 }).format(groundDistance(guide.start, guide.end))
+    const value = formatNumber(groundDistance(guide.start, guide.end), input.locale, { maximumFractionDigits: 2 })
     if (!grouped.has(guide.id) && !labels) operations.push(textOp(text.line(`${value} m`, 10 * textScale), (a.x + b.x) / 2, (a.y + b.y) / 2 - textScale, 10 * textScale, 0, opacity('measurement-guides')))
   }
   for (const d of dimensions) {
@@ -65,19 +66,19 @@ export function drawOverview(input: PdfInput, frame: PrintBounds, ground: PrintB
       const reference = measurementCodes.get(guide.id)
       if (!reference || grouped.has(guide.id) || dimensionIds.has(guide.id)) continue
       const position = { x: (guide.start.x + guide.end.x) / 2, y: (guide.start.y + guide.end.y) / 2 }
-      const n = new Intl.NumberFormat(input.locale, { maximumFractionDigits: 2 })
+      const fmt = (n: number) => formatNumber(n, input.locale, { maximumFractionDigits: 2 })
       const label = space.place(space.measure(reference, 7.5), [project(position)], [], '', { near: true })
       if (label) {
         label.route = []; space.admit(label)
         operations.push(textOp(label.lines[0]!, (label.bounds.x + label.inset) * MM, (label.bounds.y + label.baseline) * MM, 7.5, 0, opacity('measurement-guides')))
       }
       drawing.notes.push({ id: guide.id, reference, position, kind: 'distance',
-        text: `${n.format(groundDistance(guide.start, guide.end))} m · (${n.format(guide.start.x)}, ${n.format(guide.start.y)}) — (${n.format(guide.end.x)}, ${n.format(guide.end.y)})` })
+        text: `${fmt(groundDistance(guide.start, guide.end))} m · (${fmt(guide.start.x)}, ${fmt(guide.start.y)}) — (${fmt(guide.end.x)}, ${fmt(guide.end.y)})` })
     }
   }
   for (const plant of canvas.plants) {
     const p = point(plant.position)
-    drawMark(plant, p.x, p.y, Math.max(.42 * MM, Math.min(MM, paperPlantRadius(canvas.plants, plant, scale))), opacity('plants'), operations)
+    drawMark(plant, p.x, p.y, paperPlantRadius(canvas.plants, plant, scale, canvas.symbolScale), opacity('plants'), operations)
     if (plant.pinnedName) operations.push(textOp(text.line(plant.canonicalName, 12 * textScale), p.x + MM, p.y - textScale, 12 * textScale, 0, opacity('plants')))
   }
   if (labels) {

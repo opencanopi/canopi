@@ -27,7 +27,6 @@ import type {
   FileGrantId,
   FileHomeGrant,
   FilterOptions,
-  FlowerColorResolution,
   FormatDecodeAnswer,
   FormatRefusal,
   GeoPointV10,

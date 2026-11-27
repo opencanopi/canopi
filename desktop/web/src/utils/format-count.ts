@@ -1,8 +1,7 @@
 // utils/format-count.ts
-// Owner of number formatting (number-format-only-in-utils, ADR 0028; §18 F11) until 2a's
-// utils/format.ts. Invariant: numbers are formatted only by the locale number owner.
+// Count helper delegating to the locale number owner (utils/format.ts, §18 F11).
 
-const formatters = new Map<string, Intl.NumberFormat>()
+import { formatNumber } from './format'
 
 /**
  * A count shown on its own ("175,473", "175 473" in French). Counts inside a
@@ -10,10 +9,5 @@ const formatters = new Map<string, Intl.NumberFormat>()
  * plural form.
  */
 export function formatCount(value: number, locale: string): string {
-  let formatter = formatters.get(locale)
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 })
-    formatters.set(locale, formatter)
-  }
-  return formatter.format(value)
+  return formatNumber(value, locale, { maximumFractionDigits: 0 })
 }

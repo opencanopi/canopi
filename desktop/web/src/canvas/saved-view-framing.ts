@@ -8,6 +8,7 @@ import { createSessionPlane, roundGeoDegrees, storedBearing, type GeographicView
 import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from '../geo/workspace-camera-policy'
 import { SAVED_VIEW_MAX_GROUND_SIZE_M, SAVED_VIEW_MAX_ZOOM } from '../generated/canopi-design-format'
 import type { SavedViewCamera } from '../types/design'
+import { formatPrecision } from '../utils/format'
 
 type GroundSize = SavedViewCamera['ground_size_m']
 
@@ -46,7 +47,7 @@ export function savedViewCameraOf(view: GeographicView, screen: WindowSize): Sav
  */
 function savedViewGroundSize(camera: Pick<SavedViewCamera, 'lat' | 'zoom'>, window: WindowSize): GroundSize | null {
   const metresPerPixel = groundMetresPerPixel(camera)
-  const side = (pixels: number) => Math.min(Number((pixels * metresPerPixel).toPrecision(10)), SAVED_VIEW_MAX_GROUND_SIZE_M)
+  const side = (pixels: number) => Math.min(Number(formatPrecision(pixels * metresPerPixel, 10)), SAVED_VIEW_MAX_GROUND_SIZE_M)
   const ground = { width: side(window.width), height: side(window.height) }
   return [ground.width, ground.height].every((length) => Number.isFinite(length) && length > 0) ? ground : null
 }

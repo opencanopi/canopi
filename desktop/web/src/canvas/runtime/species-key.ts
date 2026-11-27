@@ -1,8 +1,7 @@
 import { resolvePlantSymbolForPlant, type PlantSymbolId } from './scene/plant-symbols'
 import type { ScenePersistedState } from './scene/types'
 import { resolvePlantBaseColor } from './plant-presentation'
-import { normalizeHexColor } from '../plant-colors'
-import { getStratumColor } from '../plants'
+import { DEFAULT_PLANT_COLOR, normalizeHexColor } from '../plant-colors'
 import type { SpeciesCacheEntry } from './presentation-data'
 import { compareSpeciesByShownName } from '../../utils/species-sort'
 
@@ -25,7 +24,7 @@ export function speciesPlacementAppearance(
 ): SpeciesAppearance {
   return {
     symbol: resolvePlantSymbolForPlant({ canonicalName: species.canonicalName }, scene.plantSpeciesSymbols),
-    color: normalizeHexColor(scene.plantSpeciesColors[species.canonicalName]) ?? getStratumColor(species.stratum),
+    color: normalizeHexColor(scene.plantSpeciesColors[species.canonicalName]) ?? DEFAULT_PLANT_COLOR,
   }
 }
 

@@ -1,6 +1,7 @@
 import { editionPorts } from '../../platform/edition-ports'
 import { raiseNotice } from '../../failures/notices'
 import { t } from '../../i18n'
+import { currencyFractionDigits, formatFixed } from '../../utils/format'
 import { escapeBudgetCsvField } from './formatting'
 import { readBudgetPlanningSurface } from '../planning-projection'
 
@@ -27,16 +28,17 @@ export async function exportBudgetCsv(
     t('canvas.budget.currency'),
   ].map(escapeBudgetCsvField).join(',')
 
+  const decimals = currencyFractionDigits(options.currency)
   const csvRows = [header]
   for (const row of rows) {
     const entry = options.lineItemPriceMap.get(row.canonical)
     const displayName = row.commonName || row.canonical
     const priceColumns = entry
-      ? `${entry.unit_cost.toFixed(2)},${(row.count * entry.unit_cost).toFixed(2)}`
+      ? `${formatFixed(entry.unit_cost, decimals)},${formatFixed(row.count * entry.unit_cost, decimals)}`
       : ','
     csvRows.push(`${escapeBudgetCsvField(displayName)},${row.count},${priceColumns},${escapeBudgetCsvField(options.currency)}`)
   }
-  csvRows.push(`${escapeBudgetCsvField(t('canvas.budget.grandTotal'))},,,${options.grandTotal.toFixed(2)},`)
+  csvRows.push(`${escapeBudgetCsvField(t('canvas.budget.grandTotal'))},,,${formatFixed(options.grandTotal, decimals)},`)
 
   const outcome = await editionPorts().fileDelivery.deliverFile(
     'budget-csv',

@@ -13,6 +13,7 @@ export function buildCanvasPrintSnapshot(
 ): CanvasPrintSnapshot {
   return {
     ...(plane ? { planeOrigin: { lon: plane.origin.lon, lat: plane.origin.lat } } : {}),
+    symbolScale: getCanvasPlantDisplay().symbolScale,
     layers: scene.layers.map(({ name, visible, opacity }) => ({ name, visible, opacity })),
     plants: scene.plants.map((plant) => {
       const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)

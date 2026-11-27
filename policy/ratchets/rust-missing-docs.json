@@ -19,6 +19,6 @@
     "canopi-types/src/lidar.rs: clippy:missing_docs": { "count": 21 },
     "canopi-types/src/saved_object_stamps.rs: clippy:missing_docs": { "count": 1 },
     "canopi-types/src/settings.rs: clippy:missing_docs": { "count": 10 },
-    "canopi-types/src/species.rs: clippy:missing_docs": { "count": 15 }
+    "canopi-types/src/species.rs: clippy:missing_docs": { "count": 14 }
   }
 }

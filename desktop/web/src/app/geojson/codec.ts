@@ -349,7 +349,7 @@ function decodeDesignGeoJson(value: unknown, options: GeoJsonDecodeOptions = {})
             canopy_spread_m: positiveOrNull(properties.canopy_spread_m),
             notes: stringOrNull(properties.notes),
             planted_date: stringOrNull(properties.planted_date),
-            quantity: countOrNull(properties.quantity),
+            quantity: countOrNull(properties.quantity) ?? 1,
           })
           addMemberships(properties, { kind: 'plant', id })
           return

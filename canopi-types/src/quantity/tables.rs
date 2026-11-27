@@ -373,7 +373,8 @@ pub fn is_whole_si_unit(abs_si: f64) -> bool {
 
 /// Selects the effective [`DisplayStyle`] for `abs_si`, applying the per-value
 /// whole-source precision rule (`whole_source_rounds_to_whole_unit`) when
-/// `abs_si >= 1.0` is a whole SI unit (contracts §14, Q2 Option A).
+/// `abs_si >= 1.0` is a whole SI unit (contracts §14, Q2 Option A) and the
+/// selected band is not `km` or `mi` (#394 N1).
 #[must_use]
 pub fn select_display_style(kind: QuantityKind, system: UnitSystem, abs_si: f64) -> DisplayStyle {
     let spec = spec_for(kind);
@@ -382,6 +383,10 @@ pub fn select_display_style(kind: QuantityKind, system: UnitSystem, abs_si: f64)
         return style;
     }
     match style {
+        DisplayStyle::Single {
+            unit: UnitId::Kilometer | UnitId::Mile,
+            ..
+        } => style,
         DisplayStyle::Single { unit, .. } => DisplayStyle::Single { unit, decimals: 0 },
         DisplayStyle::FeetAndInches { .. } => DisplayStyle::Single {
             unit: UnitId::Foot,

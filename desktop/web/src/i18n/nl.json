@@ -241,7 +241,6 @@
       "selectedCount_few": "{{count}} geselecteerd",
       "selectedCount_many": "{{count}} geselecteerd",
       "selectedCount_other": "{{count}} geselecteerd",
-      "suggested": "Voorgesteld op basis van bloemkleur",
       "moreColors": "Eigen kleur",
       "hue": "Tint",
       "saturationLightness": "Verzadiging en lichtheid",
@@ -1960,7 +1959,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "Over Canopi…",
     "mapStyle": "Kaartstijl",
-    "googleKeyKept": "Je Google-sleutel blijft opgeslagen op dit apparaat, maar wordt niet gebruikt. Kies Mijn Google-sleutel om hem weer te gebruiken."
+    "googleKeyKept": "Je Google-sleutel blijft opgeslagen op dit apparaat, maar wordt niet gebruikt. Kies Mijn Google-sleutel om hem weer te gebruiken.",
+    "units": {
+      "label": "Eenheden",
+      "metric": "Metrisch",
+      "usCustomary": "Amerikaans"
+    }
   },
   "savedViews": {
     "defaultName": "Weergave {{number}}",

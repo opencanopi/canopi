@@ -112,7 +112,6 @@ installSpeciesCacheLoader({
       growth_rate: entry?.growth_rate ?? null,
     }
   }),
-  getFlowerColorBatch: async () => [],
   isPlantDbUnavailableError: () => false,
 })
 

@@ -4,7 +4,6 @@ import {
   STORY_IMAGES_MAX_TOTAL_BYTES,
 } from '../../generated/canopi-design-format'
 import type { CanopiFile } from '../../types/design'
-import { formatByteSize } from '../../utils/format'
 import { designEmbeddedImageBytes, embeddedImageBytes } from '../contracts/views-admission'
 
 export { designEmbeddedImageBytes }
@@ -160,10 +159,4 @@ function readAsDataUrl(file: Blob): Promise<string> {
     reader.onerror = () => reject(reader.error ?? new Error('unreadable'))
     reader.readAsDataURL(file)
   })
-}
-
-
-/** An image size for people in decimal SI (2.1-Q359): "1.5 MB" in the interface language. */
-export function formatImageBytes(bytes: number, locale: string): string {
-  return formatByteSize(bytes, locale)
 }

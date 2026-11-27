@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
+import { getScaleBarDisplay } from '../../canvas/map-scale'
+import { formatScaleBarDistance, type UnitSystem } from '../../utils/format'
+import { MM } from './page-drawing'
 import { groundScale } from './page-furniture'
 import { createPdfTextEngine, type PdfFontId } from './text'
 import type { PdfOperation } from './types'
@@ -32,4 +35,23 @@ it('groundScale turns the arrow by northAngleDeg', () => {
   const half = arrow(groundScale(page, 'en', text(), 'N', -30))
   const direction = Math.atan2(half.tip.y - half.notch.y, half.tip.x - half.notch.x) * 180 / Math.PI
   expect(direction).toBeCloseTo(-90 - 30, 6)
+})
+
+it('PDF and zoom-group scale bars label the same distance the same way, in both unit systems', () => {
+  const engine = text()
+  const systems: readonly UnitSystem[] = ['metric', 'us_customary']
+  for (const system of systems) {
+    for (const maxMeters of [0.6, 5, 35, 500, 2000]) {
+      // Match the PDF 35 mm budget and zoom-group 125 px budget to the same maxMeters.
+      const pdfPage = { width: 600, height: 800, pointsPerMeter: (35 * MM) / maxMeters }
+      const ops = groundScale(pdfPage, 'en-US', engine, 'N', 0, 1, system)
+      const labels = ops
+        .filter((op): op is Extract<PdfOperation, { kind: 'text' }> => op.kind === 'text')
+        .map((op) => op.line.runs.map((r) => r.text).join(''))
+      const pdfDistanceLabel = labels.find((label) => label !== '0' && label !== 'N')!
+      const zoomBar = getScaleBarDisplay(125 / maxMeters, system)
+      const zoomDistanceLabel = formatScaleBarDistance(zoomBar.meters, system, 'en-US')
+      expect(pdfDistanceLabel).toBe(zoomDistanceLabel)
+    }
+  }
 })

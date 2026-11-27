@@ -72,7 +72,7 @@ function isNoteEditable(scene: Readonly<ScenePersistedState>, annotation: SceneA
   const target = { kind: 'annotation', id: annotation.id } as const
   if (getSceneGroupedMemberKeys(scene).has(sceneObjectGroupMemberKey(target))) return false
   const layer = scene.layers.find((entry) => entry.name === 'annotations')
-  if (layer?.visible === false || layer?.locked === true) return false
+  if (layer?.visible === false || (layer?.opacity ?? 1) <= 0 || layer?.locked === true) return false
   return !isSceneDesignObjectLocked(scene, target)
 }
 

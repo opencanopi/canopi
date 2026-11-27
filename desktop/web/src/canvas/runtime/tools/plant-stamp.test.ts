@@ -9,7 +9,7 @@ import {
   type ToolHarnessOptions,
 } from '../../../__tests__/support/tool-harness'
 import { t } from '../../../i18n'
-import { getStratumColor } from '../../plants'
+import { DEFAULT_PLANT_COLOR } from '../../plant-colors'
 import type { PlantStampSourceInput } from '../../stamp-drag-data'
 import { resolvePlantBaseColor } from '../plant-presentation'
 import type { SpeciesCacheEntry } from '../presentation-data'
@@ -209,17 +209,15 @@ describe('Place plants tool', () => {
       expect(h.store.persisted).toEqual(before)
     })
 
-    it('the Place plants ghost of a species not in the Design shows its stratum colour', () => {
-      // A Favorite or recent pick: no plant of it in the Design and no species-cache entry, so only the source has its stratum.
+    it('the Place plants ghost of a species not in the Design shows the default plant colour', () => {
       const h = stampHarness({ ...APPLE, stratum: 'emergent' }, { scale: 10 })
 
       h.hover({ x: 130, y: 140 })
 
-      expect(ghostPlant(h)?.color).toBe(getStratumColor('emergent'))
+      expect(ghostPlant(h)?.color).toBe(DEFAULT_PLANT_COLOR)
     })
 
     it('the ghost of a Design species picked without a stratum takes the colour its placed plant draws in', () => {
-      // Plant detail's Place builds a source with no stratum; the renderer's species cache has the Design species' stratum.
       const speciesCache = new Map([['Malus domestica', { stratum: 'high' } as SpeciesCacheEntry]])
       const h = stampHarness(APPLE, {
         scale: 10,
@@ -231,8 +229,8 @@ describe('Place plants tool', () => {
       h.click({ x: 130, y: 140 })
       const placed = h.store.persisted.plants.at(-1)!
 
-      expect(resolvePlantBaseColor(placed, speciesCache)).toBe(getStratumColor('high'))
-      expect(resolvePlantBaseColor(ghost, speciesCache)).toBe(getStratumColor('high'))
+      expect(resolvePlantBaseColor(placed, speciesCache)).toBe(DEFAULT_PLANT_COLOR)
+      expect(resolvePlantBaseColor(ghost, speciesCache)).toBe(DEFAULT_PLANT_COLOR)
     })
 
     it('has no ring without a mature width and no guide to a plant beyond 320 px', () => {

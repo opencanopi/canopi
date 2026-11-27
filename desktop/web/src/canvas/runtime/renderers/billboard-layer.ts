@@ -406,11 +406,12 @@ function buildPlants(
   destroyEntriesNotIn(badgeById, keep, destroySharedGraphics)
   destroyEntriesNotIn(badgeTextById, keep)
   const layer = getSceneLayerStyle(snapshot.scene, 'plants')
-  layers.root.visible = layer.visible
+  const shown = layer.visible && layer.opacity > 0
+  layers.root.visible = shown
   layers.setLayerOpacity(layer.opacity)
-  overlay.visible = layer.visible
+  overlay.visible = shown
   overlay.alpha = layer.opacity
-  if (!layer.visible) {
+  if (!shown) {
     for (const plantId of visibleIds) hidePlant(plants, plantId)
     visibleIds.clear()
     plants.built = null
@@ -724,11 +725,12 @@ function buildNotes(createText: () => Text, notes: NoteGraphics, snapshot: Scene
   destroyEntriesNotIn(markerById, keep, destroySharedGraphics)
   destroyEntriesNotIn(outlineById, keep)
   const layer = getSceneLayerStyle(snapshot.scene, 'annotations')
-  textLayer.visible = layer.visible
+  const shown = layer.visible && layer.opacity > 0
+  textLayer.visible = shown
   textLayer.alpha = layer.opacity
-  highlightLayer.visible = layer.visible
+  highlightLayer.visible = shown
   highlightLayer.alpha = layer.opacity
-  if (!layer.visible) {
+  if (!shown) {
     for (const marker of markerById.values()) hideShared(shared, marker)
     notes.built = null
     return
@@ -871,10 +873,11 @@ interface MeasurementLabelGraphics {
 function buildMeasurementLabels(createText: () => Text, labels: MeasurementLabelGraphics, snapshot: SceneRendererSnapshot): void {
   const { layer, labelById } = labels
   const style = getSceneLayerStyle(snapshot.scene, 'measurement-guides')
-  layer.visible = style.visible
+  const shown = style.visible && style.opacity > 0
+  layer.visible = shown
   layer.alpha = style.opacity
   const built: Array<{ readonly guide: SceneMeasurementGuideEntity; readonly text: Text }> = []
-  if (style.visible) {
+  if (shown) {
     for (const guide of snapshot.scene.measurementGuides) {
       const presentation = createMeasurementGuidePresentation(guide, snapshot.groundMeasure)
       if (!presentation) continue

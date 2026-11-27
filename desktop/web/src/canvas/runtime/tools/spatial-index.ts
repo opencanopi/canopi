@@ -71,7 +71,8 @@ export function createToolScene(source: ToolSceneSource): ToolScene {
     },
     nearestPlant(world: WorldPoint) {
       const scene = persisted()
-      if (scene.layers.find((layer) => layer.name === 'plants')?.visible === false) return null
+      const plantsLayer = scene.layers.find((layer) => layer.name === 'plants')
+      if (plantsLayer?.visible === false || (plantsLayer?.opacity ?? 1) <= 0) return null
       const plane = source.store.sessionPlane
       let best: { plant: ScenePlantEntity; distanceM: number } | null = null
       for (const plant of scene.plants) {

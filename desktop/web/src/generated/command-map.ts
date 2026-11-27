@@ -17,7 +17,6 @@ import type {
   FileGrantId,
   FileHomeGrant,
   FilterOptions,
-  FlowerColorResolution,
   FormatDecodeAnswer,
   FormatRefusal,
   GeoPointV10,
@@ -79,7 +78,6 @@ export const COMMAND_NAMES = [
   'get_common_names',
   'get_species_habits',
   'get_species_batch',
-  'get_flower_color_batch',
   'get_filter_options',
   'get_dynamic_filter_options',
   'get_species_images',
@@ -171,7 +169,6 @@ export type CommandMap = {
   readonly 'get_common_names': { readonly args: { readonly canonicalNames: readonly string[]; readonly locale: string }; readonly reply: Record<string, string> }
   readonly 'get_species_habits': { readonly args: { readonly canonicalNames: readonly string[] }; readonly reply: Record<string, string> }
   readonly 'get_species_batch': { readonly args: { readonly canonicalNames: readonly string[]; readonly locale: string }; readonly reply: SpeciesDetail[] }
-  readonly 'get_flower_color_batch': { readonly args: { readonly canonicalNames: readonly string[] }; readonly reply: FlowerColorResolution[] }
   readonly 'get_filter_options': { readonly args: undefined; readonly reply: FilterOptions }
   readonly 'get_dynamic_filter_options': { readonly args: { readonly fields: readonly string[]; readonly locale: string }; readonly reply: DynamicFilterOptions[] }
   readonly 'get_species_images': { readonly args: { readonly canonicalName: string }; readonly reply: SpeciesImage[] }
@@ -278,7 +275,6 @@ export const COMMAND_SYNC_KINDS: Readonly<Record<CommandName, CommandSyncKind>> 
   'get_common_names': 'async',
   'get_species_habits': 'async',
   'get_species_batch': 'async',
-  'get_flower_color_batch': 'async',
   'get_filter_options': 'async',
   'get_dynamic_filter_options': 'async',
   'get_species_images': 'async',

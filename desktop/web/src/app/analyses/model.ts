@@ -16,6 +16,7 @@ import type {
 } from '../../generated/contracts'
 import type { EditionCapabilitySet } from '../../generated/edition-capabilities'
 import type { LocaleKey } from '../../generated/locale-keys'
+import { formatNumber, localeNumberSeparators } from '../../utils/format'
 
 /**
  * The Analyze dialog as a pure model, generated from the analysis registry.
@@ -393,7 +394,7 @@ export function paramUnitSuffix(unit: ParamUnit): string {
 
 /** A number as a field shows it in this locale: no grouping, locale decimal mark. */
 export function formatLocaleNumber(value: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 6 }).format(value)
+  return formatNumber(value, locale, { useGrouping: false, maximumFractionDigits: 6 })
 }
 
 /**
@@ -402,7 +403,7 @@ export function formatLocaleNumber(value: number, locale: string): string {
  * rather than guessed.
  */
 export function parseLocaleNumber(text: string, locale: string): number | null {
-  const decimal = new Intl.NumberFormat(locale).formatToParts(1.5).find((part) => part.type === 'decimal')?.value ?? '.'
+  const { decimal } = localeNumberSeparators(locale)
   let normalised = text.replace(/[\s  ]/g, '')
   if (decimal !== '.') normalised = normalised.split(decimal).join('.')
   if (!/^[-+]?(\d+\.?\d*|\.\d+)$/.test(normalised)) return null

@@ -237,7 +237,6 @@ describe('focus moves go through the focus owner', () => {
           singleSpeciesCanonicalName: 'Malus domestica',
           singleSpeciesCommonName: 'Apple',
           sharedCurrentColor: null,
-          suggestedColor: null,
           singleSpeciesDefaultColor: null,
         }),
       },

@@ -135,7 +135,6 @@ function createController(file = makeFile()) {
         localizedCommonNames: new Map(),
       }),
       getLocalizedCommonNames: () => new Map(),
-      getSuggestedPlantColor: (canonicalName) => canonicalName === 'Malus domestica' ? '#C44230' : null,
     },
     invalidateScene: () => {
       state.invalidations += 1

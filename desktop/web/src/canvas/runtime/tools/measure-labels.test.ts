@@ -54,18 +54,23 @@ describe('zone measurement labels', () => {
       draft.layers = draft.layers.map((layer) => layer.name === 'zones' ? { ...layer, visible: false } : layer)
     })
     expect(selectedZoneMeasurementLabels(store.persisted, [{ kind: 'zone', id: 'rect' }])).toEqual([])
+
+    store.updatePersisted((draft) => {
+      draft.layers = draft.layers.map((layer) => layer.name === 'zones' ? { ...layer, visible: true, opacity: 0 } : layer)
+    })
+    expect(selectedZoneMeasurementLabels(store.persisted, [{ kind: 'zone', id: 'rect' }])).toEqual([])
   })
 
   it('draws area chips as measure and edge and dimension chips as measure-quiet, at the label point', () => {
     const labels: ZoneMeasurementLabel[] = [
       { id: 'edge-0', kind: 'edge', text: '10 m', worldPosition: { x: 5, y: 0 }, worldStart: { x: 0, y: 0 }, worldEnd: { x: 10, y: 0 } },
-      { id: 'w', kind: 'dimension', text: 'W 8 m', worldPosition: { x: 1, y: 2 } },
+      { id: 'ellipse-dimensions', kind: 'dimension', text: '8 m × 4 m', worldPosition: { x: 1, y: 2 } },
       { id: 'area', kind: 'area', text: '50 m²', worldPosition: { x: 5, y: 2.5 } },
     ]
 
     expect(measureLabelShapes(labels, screenDistanceAt(10))).toEqual([
       { kind: 'label', anchor: { x: 5, y: 0 }, offsetPx: { x: 0, y: 0 }, text: '10 m', tone: 'measure-quiet' },
-      { kind: 'label', anchor: { x: 1, y: 2 }, offsetPx: { x: 0, y: 0 }, text: 'W 8 m', tone: 'measure-quiet' },
+      { kind: 'label', anchor: { x: 1, y: 2 }, offsetPx: { x: 0, y: 0 }, text: '8 m × 4 m', tone: 'measure-quiet' },
       { kind: 'label', anchor: { x: 5, y: 2.5 }, offsetPx: { x: 0, y: 0 }, text: '50 m²', tone: 'measure' },
     ])
   })

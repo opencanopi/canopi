@@ -8,6 +8,7 @@ import {
 } from '../../app/rotate-selection/state'
 import { locale } from '../../app/settings/state'
 import { t } from '../../i18n'
+import { formatNumber } from '../../utils/format'
 import { WorkspaceDialog } from '../shared/WorkspaceDialog'
 import styles from './RotateSelectionDialog.module.css'
 
@@ -34,7 +35,7 @@ function RotateSelectionDialogContent() {
 
   const step = (delta: number) => {
     const next = stepRotationDegrees(text, delta)
-    setText(new Intl.NumberFormat(activeLocale, { maximumFractionDigits: 2, useGrouping: false }).format(next))
+    setText(formatNumber(next, activeLocale, { maximumFractionDigits: 2, useGrouping: false }))
     setInvalid(false)
   }
 

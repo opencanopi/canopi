@@ -79,10 +79,6 @@ export class SceneRuntimePresentationController {
     return this._plantLabels.getEnglishFallbackSnapshot(this._getLocale())
   }
 
-  getSuggestedPlantColor(canonicalName: string): string | null {
-    return this._speciesCache.getSuggestedPlantColor(canonicalName)
-  }
-
   createPlantPresentationContext(
     viewportScale = this._readPixelsPerMetre(),
     plants: readonly ScenePlantEntity[] = this._sceneStore.persisted.plants,

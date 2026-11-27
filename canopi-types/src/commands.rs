@@ -83,7 +83,6 @@ commands! {
     get_common_names => "commands::species::get_common_names": Async (canonicalNames: "readonly string[]", locale: "string") -> "Record<string, string>",
     get_species_habits => "commands::species::get_species_habits": Async (canonicalNames: "readonly string[]") -> "Record<string, string>",
     get_species_batch => "commands::species::get_species_batch": Async (canonicalNames: "readonly string[]", locale: "string") -> "SpeciesDetail[]",
-    get_flower_color_batch => "commands::species::get_flower_color_batch": Async (canonicalNames: "readonly string[]") -> "FlowerColorResolution[]",
     get_filter_options => "commands::species::get_filter_options": Async () -> "FilterOptions",
     get_dynamic_filter_options => "commands::species::get_dynamic_filter_options": Async (fields: "readonly string[]", locale: "string") -> "DynamicFilterOptions[]",
     get_species_images => "commands::species::get_species_images": Async (canonicalName: "string") -> "SpeciesImage[]",

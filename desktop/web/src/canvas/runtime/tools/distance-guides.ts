@@ -41,7 +41,8 @@ export function plantDragDistanceGuideShapes(
   dragged: ReadonlySet<string>,
 ): DraftShape[] {
   const { layers, plants } = scene.persisted
-  if (!dragged.has(active.id) || layers.find((layer) => layer.name === 'plants')?.visible === false) return []
+  const plantsLayer = layers.find((layer) => layer.name === 'plants')
+  if (!dragged.has(active.id) || plantsLayer?.visible === false || (plantsLayer?.opacity ?? 1) <= 0) return []
   const measure = scene.groundMeasure
   return plants
     .filter((plant) => !dragged.has(plant.id))

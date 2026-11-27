@@ -559,7 +559,7 @@ function annotationIntersectsPolygon(
 
 function isLayerVisible(scene: ScenePersistedState, layerName: string): boolean {
   const layer = scene.layers.find((entry) => entry.name === layerName)
-  return layer?.visible !== false
+  return layer?.visible !== false && (layer?.opacity ?? 1) > 0
 }
 
 function plantPresentationContext(

@@ -186,9 +186,10 @@ function traceLattice(graphics: Graphics, box: SceneBounds, step: number): void 
 /** `strokeScale`: the band's centre scale, which sizes every stroke traced in this band. */
 function syncZones(layer: Container, graphicsById: Map<string, Graphics>, snapshot: SceneRendererSnapshot, strokeScale: number): void {
   const style = getSceneLayerStyle(snapshot.scene, 'zones')
-  layer.visible = style.visible
+  const shown = style.visible && style.opacity > 0
+  layer.visible = shown
   layer.alpha = style.opacity
-  if (!style.visible) {
+  if (!shown) {
     destroyEntriesNotIn(graphicsById, new Set(snapshot.scene.zones.map((zone) => zone.id)))
     return
   }
@@ -281,9 +282,10 @@ function syncMeasurementGuides(
   strokeScale: number,
 ): void {
   const style = getSceneLayerStyle(snapshot.scene, 'measurement-guides')
-  layer.visible = style.visible
+  const shown = style.visible && style.opacity > 0
+  layer.visible = shown
   layer.alpha = style.opacity
-  if (!style.visible) {
+  if (!shown) {
     destroyEntriesNotIn(graphicsById, new Set(snapshot.scene.measurementGuides.map((guide) => guide.id)))
     return
   }

@@ -91,7 +91,8 @@ export function selectedZoneMeasurementLabels(
   if (selection.length !== 1) return []
   const target = selection[0]!
   if (target.kind !== 'zone') return []
-  if (scene.layers.find((layer) => layer.name === 'zones')?.visible === false) return []
+  const zonesLayer = scene.layers.find((layer) => layer.name === 'zones')
+  if (zonesLayer?.visible === false || (zonesLayer?.opacity ?? 1) <= 0) return []
   if (scene.groups.some((group) => group.members.some((member) => isSceneObjectGroupMemberTarget(member, target)))) return []
   const zone = scene.zones.find((entry) => entry.id === target.id)
   if (!zone) return []

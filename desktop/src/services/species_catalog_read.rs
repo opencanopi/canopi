@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use crate::db::PlantDbConnectionGuard;
 use canopi_types::species::{
-    CommonNameEntry, DynamicFilterOptions, FilterOptions, FlowerColorResolution, PaginatedResult,
-    SpeciesDetail, SpeciesImage, SpeciesListItem, SpeciesSearchRequest,
+    CommonNameEntry, DynamicFilterOptions, FilterOptions, PaginatedResult, SpeciesDetail,
+    SpeciesImage, SpeciesListItem, SpeciesSearchRequest,
 };
 
 mod common_names;
@@ -11,7 +11,6 @@ mod detail;
 mod detail_projection;
 mod detail_row_map;
 mod filters;
-mod flower;
 mod habit;
 mod list_items;
 mod list_projection;
@@ -82,13 +81,6 @@ impl<'guard, 'connection> SpeciesCatalogRead<'guard, 'connection> {
         locale: &str,
     ) -> Result<Vec<CommonNameEntry>, String> {
         common_names::locale_common_names_for_canonical_name(self.conn, canonical_name, locale)
-    }
-
-    pub(crate) fn flower_colors_for_canonical_names(
-        &self,
-        canonical_names: &[String],
-    ) -> Result<Vec<FlowerColorResolution>, String> {
-        flower::read_projection(self.conn, canonical_names)
     }
 
     pub(crate) fn filter_options(&self) -> Result<FilterOptions, String> {
@@ -286,23 +278,6 @@ mod tests {
 
         assert_eq!(habits.len(), 1);
         assert_eq!(habits["Apple"], "Tree");
-    }
-
-    #[test]
-    fn flower_color_projection_reads_direct_species_colors() {
-        let plant_db = test_support::test_plant_db();
-        let conn = crate::db::require_plant_db(&plant_db).unwrap();
-        let catalog = SpeciesCatalogRead::new(&conn);
-        let rows = catalog
-            .flower_colors_for_canonical_names(&["Apple".to_owned(), "Pear".to_owned()])
-            .unwrap();
-
-        let apple = rows
-            .iter()
-            .find(|row| row.canonical_name == "Apple")
-            .unwrap();
-        assert_eq!(apple.flower_color.as_deref(), Some("White"));
-        assert_eq!(apple.source, "species");
     }
 
     #[test]

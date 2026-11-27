@@ -4,6 +4,7 @@ import type { AnalysisAvailability, ParamError } from '../../../app/analyses/mod
 import { formatLocaleNumber, paramUnitSuffix } from '../../../app/analyses/model'
 import { itemTypeLabel, unitSuffix } from '../../../app/data-library/item-types'
 import { t } from '../../../i18n'
+import { formatNumber } from '../../../utils/format'
 
 /**
  * Localized wording for analysis states shared by the Analyze dialog, the
@@ -59,5 +60,5 @@ export function paramValueText(entry: AnalysisEntry | null, parameter: AnalysisP
   if ('Boolean' in value) return value.Boolean ? t('analyses.dialog.yes') : t('analyses.dialog.no')
   const number = 'Number' in value ? value.Number : value.Integer
   const unit = spec?.kind.type === 'number' ? unitSuffix(paramUnitSuffix(spec.kind.unit)) : ''
-  return `${new Intl.NumberFormat(locale, { maximumFractionDigits: 6 }).format(number)}${unit}`
+  return `${formatNumber(number, locale, { maximumFractionDigits: 6 })}${unit}`
 }

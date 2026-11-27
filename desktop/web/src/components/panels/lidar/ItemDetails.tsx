@@ -9,6 +9,7 @@ import { locale } from '../../../app/settings/state'
 import { formatInstantInDetail } from '../../../planning/civil-date'
 import type { ProcessingRun, Provenance } from '../../../generated/contracts'
 import { t } from '../../../i18n'
+import { formatNumber } from '../../../utils/format'
 import { Notice } from '../../shared/Notice'
 import { paramValueText, staleReasonText } from '../analyze/analysis-text'
 import { isRunning, isStale, itemStatusLabel } from './item-text'
@@ -191,5 +192,5 @@ function ProcessingHistory({ definitionId }: { definitionId: string }) {
 function runOutputs(run: ProcessingRun, language: string): string {
   if (run.outputs.length === 0) return t('analyses.details.noOutputs')
   const cells = run.outputs.reduce((total, output) => total + Number(output.coverage_cells ?? 0), 0)
-  return t('analyses.details.coverage', { cells: new Intl.NumberFormat(language).format(cells) })
+  return t('analyses.details.coverage', { cells: formatNumber(cells, language) })
 }

@@ -63,12 +63,9 @@ export function buildBudgetPlanningProjection({
     const target = getBudgetSpeciesTarget(item)
     if (!target) continue
     itemByCanonical.set(target.canonical_name, item)
-    const itemCurrency = typeof item.ext?.currency === 'string' && item.ext.currency.length > 0
-      ? item.ext.currency
-      : currency
     lineItemPriceMap.set(target.canonical_name, {
       unit_cost: item.unit_cost,
-      currency: itemCurrency,
+      currency,
     })
   }
 
@@ -92,7 +89,7 @@ export function buildBudgetPlanningProjection({
         item,
         hasPrice: price !== undefined,
         unitCost,
-        currency: price?.currency ?? currency,
+        currency,
         subtotal: value.count * unitCost,
       }
     })

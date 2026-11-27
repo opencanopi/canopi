@@ -58,7 +58,6 @@ function runtimeOverOneApple() {
       getViewportScale: () => 1,
       createPlantPresentationContext: (scale = 1) => presentation.createPlantPresentationContext(scale),
       getLocalizedCommonNames: () => presentation.getLocalizedCommonNames(),
-      getSuggestedPlantColor: () => null,
     },
     invalidateScene: () => {},
   })

@@ -1,25 +1,3 @@
-.suggestion {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  margin-bottom: var(--space-2);
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-md);
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
-.suggestionSwatch {
-  width: var(--icon-size-sm);
-  height: var(--icon-size-sm);
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border);
-  flex-shrink: 0;
-}
-
 .palette {
   display: grid;
   grid-template-columns: repeat(6, var(--control-size-lg));
@@ -181,7 +159,59 @@
   outline-offset: 2px;
 }
 
-.colorSquare:focus-visible, .hueStrip:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.colorSquare:focus-visible,
+.hueStrip:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
 
-.suggestion:hover { color: var(--color-primary); }
-.suggestion:focus-visible { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.swatchTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--control-size-md);
+  height: var(--control-size-md);
+  padding: var(--space-0-5);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.swatchTriggerCompact {
+  width: var(--control-size-sm);
+  height: var(--control-size-sm);
+}
+
+.swatchTrigger:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.swatchTrigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.swatchFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.popover {
+  position: fixed;
+  width: 288px;
+  max-width: calc(100vw - var(--space-4));
+  max-height: calc(100dvh - var(--space-4));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  z-index: var(--z-popover);
+}

@@ -390,7 +390,7 @@ function pushBlocked(
 function isOnHiddenOrLockedLayer(persisted: ScenePersistedState, target: SceneSelectionTarget): boolean {
   return sceneTargetLayerNames(persisted, target)
     .map((layerName) => persisted.layers.find((layer) => layer.name === layerName))
-    .some((layer) => layer?.visible === false || layer?.locked === true)
+    .some((layer) => layer?.visible === false || (layer?.opacity ?? 1) <= 0 || layer?.locked === true)
 }
 
 /**

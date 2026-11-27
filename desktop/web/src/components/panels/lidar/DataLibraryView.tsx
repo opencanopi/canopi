@@ -25,8 +25,9 @@ import { InlineRenameField } from '../../shared/InlineRenameField'
 import { Notice } from '../../shared/Notice'
 import { SurfaceSearch } from '../../shared/SurfaceSearch'
 import { WorkspaceDialog } from '../../shared/WorkspaceDialog'
+import { formatByteSize } from '../../../utils/format'
 import { ItemDetails } from './ItemDetails'
-import { formatDiskSize, isRunning, isStale, itemStatusLabel, itemSummary } from './item-text'
+import { isRunning, isStale, itemStatusLabel, itemSummary } from './item-text'
 import { LibraryPreview, usePreviewClient } from './LibraryPreview'
 import { isItemNameTaken } from './LibraryItemNameField'
 import styles from './data-library.module.css'
@@ -303,7 +304,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
       footer={<>
         <span className={styles.footerNote}>
           {t('canvas.lidar.library.itemCount', { count })}
-          {diskUsage !== null && ` · ${t('canvas.lidar.library.onThisComputer', { size: formatDiskSize(diskUsage, locale.value) })}`}
+          {diskUsage !== null && ` · ${t('canvas.lidar.library.onThisComputer', { size: formatByteSize(diskUsage, locale.value) })}`}
         </span>
         <button type="button" className={`${styles.dialogButton} ${styles.ghost}`} onClick={() => void run(showDataLibraryFolder)}>
           {t('canvas.lidar.library.showInFolder')}
@@ -598,10 +599,7 @@ function DeleteConfirmation({ item, inCurrentDesign, busy, error, onKeep, onDele
       role="group"
       aria-labelledby="library-delete-title"
       onKeyDown={(event) => {
-        if (event.key !== 'Escape') return
-        event.preventDefault()
-        event.stopPropagation()
-        onKeep()
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onKeep() }
       }}
     >
       <p id="library-delete-title" className={styles.confirmTitle} tabIndex={-1} ref={title}>{t('canvas.lidar.library.deleteTitle', { name: item.name })}</p>

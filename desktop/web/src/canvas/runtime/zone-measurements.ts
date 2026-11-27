@@ -1,4 +1,5 @@
 import type { GroundMeasure } from '../../geo/session-plane'
+import { formatFixed } from '../../utils/format'
 import type { ScenePoint } from './scene'
 import { degreesToRadians, polygonArea, rotatePointAround } from './zone-geometry'
 
@@ -30,21 +31,14 @@ export function createEllipticalZoneMeasurements(
   if (width < 0.5 || height < 0.5) return []
 
   const widthPosition = rotatePointAround({ x: center.x, y: center.y - ry }, center, radians)
-  const heightPosition = rotatePointAround({ x: center.x + rx, y: center.y }, center, radians)
   const area = Math.PI * rx * ry * (scale ? scale.x * scale.y : 1)
 
   return [
     {
-      id: 'ellipse-width',
+      id: 'ellipse-dimensions',
       kind: 'dimension',
-      text: `W ${formatMetricDistance(width)}`,
+      text: `${formatMetricDistance(width)} × ${formatMetricDistance(height)}`,
       worldPosition: widthPosition,
-    },
-    {
-      id: 'ellipse-height',
-      kind: 'dimension',
-      text: `H ${formatMetricDistance(height)}`,
-      worldPosition: heightPosition,
     },
     {
       id: 'area',
@@ -196,7 +190,7 @@ function averagePoint(points: readonly ScenePoint[]): ScenePoint {
 
 function formatMetricNumber(value: number): string {
   const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
+  return Number.isInteger(rounded) ? String(rounded) : formatFixed(rounded, 1)
 }
 
 function pointsEqual(a: ScenePoint, b: ScenePoint): boolean {

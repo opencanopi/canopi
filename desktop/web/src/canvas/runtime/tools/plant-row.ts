@@ -343,7 +343,7 @@ export function createPlantRowTool(): CanvasTool {
     const target = { kind: 'plant', id: candidate.sourceId } as const
     if (isSceneDesignObjectLocked(persisted, target)) return false
     const layer = persisted.layers.find((entry) => entry.name === 'plants')
-    if (layer?.visible === false || layer?.locked === true) return false
+    if (layer?.visible === false || (layer?.opacity ?? 1) <= 0 || layer?.locked === true) return false
     const plant = persisted.plants.find((entry) => entry.id === candidate.sourceId)
     const picked = candidate.plant.position
     if (!plant || plant.position.x !== picked.x || plant.position.y !== picked.y) return false

@@ -548,51 +548,33 @@ mod tests {
                 decimals: 2
             }
         );
-        // CatalogSize (contracts §14, Q2 Option A): whole-m values >= 1 m round
-        // to whole m / whole ft, while fractional values follow Length bands.
+        // CatalogSize (contracts §14, Q2 Option A): whole-m values >= 1 m round to whole m/ft,
+        // fractional values follow Length bands, and km/mi keep 2 decimals (#394 N1).
+        let cat = |sys, v| select_display_style(QuantityKind::CatalogSize, sys, v);
+        let single = |unit, decimals| DisplayStyle::Single { unit, decimals };
+        let ft_in = DisplayStyle::FeetAndInches {
+            drop_zero_inches: true,
+        };
         for whole_m in [2.0, 3.0] {
+            assert_eq!(cat(UnitSystem::Metric, whole_m), single(UnitId::Meter, 0));
             assert_eq!(
-                select_display_style(QuantityKind::CatalogSize, UnitSystem::Metric, whole_m),
-                DisplayStyle::Single {
-                    unit: UnitId::Meter,
-                    decimals: 0
-                }
-            );
-            assert_eq!(
-                select_display_style(QuantityKind::CatalogSize, UnitSystem::UsCustomary, whole_m),
-                DisplayStyle::Single {
-                    unit: UnitId::Foot,
-                    decimals: 0
-                }
+                cat(UnitSystem::UsCustomary, whole_m),
+                single(UnitId::Foot, 0)
             );
         }
         for frac_m in [1.5, 2.5, 1.8288] {
-            assert_eq!(
-                select_display_style(QuantityKind::CatalogSize, UnitSystem::Metric, frac_m),
-                DisplayStyle::Single {
-                    unit: UnitId::Meter,
-                    decimals: 1
-                }
-            );
-            assert_eq!(
-                select_display_style(QuantityKind::CatalogSize, UnitSystem::UsCustomary, frac_m),
-                DisplayStyle::FeetAndInches {
-                    drop_zero_inches: true
-                }
-            );
+            assert_eq!(cat(UnitSystem::Metric, frac_m), single(UnitId::Meter, 1));
+            assert_eq!(cat(UnitSystem::UsCustomary, frac_m), ft_in);
         }
+        assert_eq!(cat(UnitSystem::Metric, 0.5), single(UnitId::Centimeter, 0));
+        assert_eq!(cat(UnitSystem::UsCustomary, 0.5), ft_in);
         assert_eq!(
-            select_display_style(QuantityKind::CatalogSize, UnitSystem::Metric, 0.5),
-            DisplayStyle::Single {
-                unit: UnitId::Centimeter,
-                decimals: 0
-            }
+            cat(UnitSystem::Metric, 1_500.0),
+            single(UnitId::Kilometer, 2)
         );
         assert_eq!(
-            select_display_style(QuantityKind::CatalogSize, UnitSystem::UsCustomary, 0.5),
-            DisplayStyle::FeetAndInches {
-                drop_zero_inches: true
-            }
+            cat(UnitSystem::UsCustomary, 2_000.0),
+            single(UnitId::Mile, 2)
         );
     }
 }

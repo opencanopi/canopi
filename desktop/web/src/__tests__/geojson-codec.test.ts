@@ -253,9 +253,9 @@ describe('GeoJSON codec import', () => {
     expect(imported.objects.plants[0]?.canopy_spread_m).toBe(scale)
   })
 
-  it.each<[unknown, number | null]>([
-    [0, 0], [3, 3], [2.5, null], [-1, null], [4294967295, 4294967295], [4294967296, null], ['2', null],
-  ])('reads quantity %s as a count the Design format accepts', (quantity, expected) => {
+  it.each<[unknown, number]>([
+    [0, 0], [3, 3], [2.5, 1], [-1, 1], [4294967295, 4294967295], [4294967296, 1], ['2', 1], [undefined, 1],
+  ])('reads quantity %s as a count the Design format accepts, defaulting to 1', (quantity, expected) => {
     const imported = parseDesignGeoJson(collection(
       feature({ type: 'Point', coordinates: [1, 2] }, { species: 'Malus domestica', quantity }),
     ))

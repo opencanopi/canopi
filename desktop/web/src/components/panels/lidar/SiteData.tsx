@@ -24,6 +24,7 @@ import { formatRowValue } from '../../../app/data-library/value-format'
 import { locale } from '../../../app/settings/state'
 import type { LibraryItemSummary } from '../../../generated/contracts'
 import { t } from '../../../i18n'
+import { formatPercent } from '../../../utils/format'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { ControlIcon } from '../../shared/ControlIcon'
 import { LayerVisibilityIcon } from '../../shared/LayerVisibilityIcon'
@@ -588,7 +589,7 @@ function PendingLine({ line }: { readonly line: Extract<ListLine, { kind: 'pendi
         <span className={styles.chevronSlot} aria-hidden="true" />
         <span className={styles.name}>{name}</span>
         <span className={`${styles.trailing} ${styles.muted}`}>
-          {percent !== undefined ? `${status} · ${new Intl.NumberFormat(locale.value, { style: 'percent' }).format(percent / 100)}` : status}
+          {percent !== undefined ? `${status} · ${formatPercent(percent / 100, locale.value)}` : status}
         </span>
         {(line.work === 'analysis' || first.import_job) && (
           <button

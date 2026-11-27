@@ -32,6 +32,7 @@ export interface PrintZone {
 export interface CanvasPrintSnapshot {
   /** Session-plane WGS84 anchor for true ground-metre PDF measurements (contracts §20, 2.1-M520). */
   readonly planeOrigin?: GeoPoint
+  readonly symbolScale?: number
   readonly layers: readonly { readonly name: string; readonly visible: boolean; readonly opacity: number }[]
   readonly plants: readonly PrintPlant[]
   readonly zones: readonly PrintZone[]

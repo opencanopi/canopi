@@ -109,11 +109,6 @@
   gap: var(--space-1);
 }
 
-.legendSwatch {
-  width: var(--control-size-sm);
-  height: var(--control-size-sm);
-}
-
 .hint {
   margin: 0;
   padding: var(--space-2) var(--space-2) 0;
@@ -140,32 +135,6 @@
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-/* A species swatch: the colour of every plant of that species. */
-.swatch {
-  flex-shrink: 0;
-  width: var(--control-size-md);
-  height: var(--control-size-md);
-  padding: var(--space-0-5);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background: var(--color-surface);
-  cursor: pointer;
-}
-
-.swatch::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
-
-.swatch::-webkit-color-swatch {
-  border: 0;
-  border-radius: var(--radius-sm);
-}
-
-.swatch:focus-visible {
-  outline: 2px solid var(--color-focus);
-  outline-offset: 2px;
 }
 
 .rowAction {

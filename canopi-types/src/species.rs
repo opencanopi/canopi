@@ -218,17 +218,6 @@ pub struct SpeciesDetail {
     missing_docs,
     reason = "undocumented before 2.1-Q217; document when this file is next touched"
 )]
-pub struct FlowerColorResolution {
-    pub canonical_name: String,
-    pub flower_color: Option<String>,
-    pub source: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
 pub struct SpeciesUse {
     pub use_category: String,
     pub use_description: Option<String>,

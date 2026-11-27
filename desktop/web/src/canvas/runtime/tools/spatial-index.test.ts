@@ -182,6 +182,11 @@ describe('ToolScene over today\'s hit tests', () => {
       draft.layers = draft.layers.map((layer) => layer.name === 'plants' ? { ...layer, visible: false } : layer)
     })
     expect(scene.nearestPlant({ x: 0, y: 0 })).toBeNull()
+
+    store.updatePersisted((draft) => {
+      draft.layers = draft.layers.map((layer) => layer.name === 'plants' ? { ...layer, visible: true, opacity: 0 } : layer)
+    })
+    expect(scene.nearestPlant({ x: 0, y: 0 })).toBeNull()
   })
 
   it('names a plant in today\'s order and gives its display colour and symbol radius', () => {

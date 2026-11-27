@@ -9,7 +9,6 @@ import type {
   DynamicFilterOptions,
   CommonNameEntry,
   SpeciesImage,
-  FlowerColorResolution,
 } from '../types/species';
 
 // Plain transport: the plant DB health gate lives in app/plant-browser/live.desktop.ts.
@@ -61,12 +60,6 @@ export async function getSpeciesBatch(
   locale: string,
 ): Promise<SpeciesDetail[]> {
   return invokeTyped('get_species_batch', { canonicalNames, locale }, mintOperationId('u'));
-}
-
-export async function getFlowerColorBatch(
-  canonicalNames: string[],
-): Promise<FlowerColorResolution[]> {
-  return invokeTyped('get_flower_color_batch', { canonicalNames }, mintOperationId('u'));
 }
 
 /** Returns all common names for a species in the given locale. */

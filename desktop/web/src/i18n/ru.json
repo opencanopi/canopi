@@ -241,7 +241,6 @@
       "selectedCount_few": "Выбрано: {{count}}",
       "selectedCount_many": "Выбрано: {{count}}",
       "selectedCount_other": "Выбрано: {{count}}",
-      "suggested": "Подсказка по цвету цветка",
       "moreColors": "Свой цвет",
       "hue": "Оттенок",
       "saturationLightness": "Насыщенность и светлота",
@@ -1960,7 +1959,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "О Canopi…",
     "mapStyle": "Стиль карты",
-    "googleKeyKept": "Ваш ключ Google остаётся сохранённым на этом устройстве, но не используется. Выберите «Мой ключ Google», чтобы снова его использовать."
+    "googleKeyKept": "Ваш ключ Google остаётся сохранённым на этом устройстве, но не используется. Выберите «Мой ключ Google», чтобы снова его использовать.",
+    "units": {
+      "label": "Единицы измерения",
+      "metric": "Метрические",
+      "usCustomary": "Американские"
+    }
   },
   "savedViews": {
     "defaultName": "Вид {{number}}",

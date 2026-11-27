@@ -1,4 +1,5 @@
 import type { PrintPlant } from '../../canvas/print'
+import { formatScaleBarDistance, niceDistanceAtMost, type UnitSystem } from '../../utils/format'
 import type { PdfInput, PdfLabels, PdfOperation, PdfPage, PdfPaper } from './types'
 import type { PdfTextEngine } from './text'
 import { MM, PRINT, drawMark, pathOp, textOp } from './page-drawing'
@@ -28,7 +29,7 @@ export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabel
  * Ground scale bar centred in the footer, with a north arrow to its right pointing to true north: `northAngleDeg` is the
  * arrow's clockwise turn on paper, minus the layout angle (0 on North up pages). Its letter sits beyond the tip, level.
  */
-export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerMeter'>, locale: string, text: PdfTextEngine, north = 'N', northAngleDeg = 0, groundScaleFactor = 1): PdfOperation[] {
+export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerMeter'>, locale: string, text: PdfTextEngine, north = 'N', northAngleDeg = 0, groundScaleFactor = 1, unitSystem: UnitSystem = 'metric'): PdfOperation[] {
   const operations: PdfOperation[] = [], y = page.height - 10 * MM
   const emit = (value: string, x: number, y: number, size: number, right = false, strong = false) => {
     const line = text.line(value, size, strong)
@@ -36,12 +37,12 @@ export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerM
     return line
   }
   const pointsPerGroundMeter = page.pointsPerMeter / groundScaleFactor
-  const wanted = 35 * MM / pointsPerGroundMeter, magnitude = 10 ** Math.floor(Math.log10(wanted))
-  const metres = [1, 2, 5].map(n => n * magnitude).filter(n => n <= wanted).pop() ?? magnitude
+  const wanted = 35 * MM / pointsPerGroundMeter
+  const metres = niceDistanceAtMost(wanted, unitSystem)
   const length = metres * pointsPerGroundMeter, x = (page.width - length) / 2
   operations.push(pathOp(`M${x} ${y + MM} h${length} M${x} ${y} v${2 * MM} M${x + length / 2} ${y} v${2 * MM} M${x + length} ${y} v${2 * MM}`, PRINT.ink, null, .2 * MM))
   emit('0', x, y - MM, 7)
-  emit(`${new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(metres)} m`, x + length, y - MM, 7, true)
+  emit(formatScaleBarDistance(metres, unitSystem, locale), x + length, y - MM, 7, true)
   // Arrow: a filled half and an open half, tip up, with the letter above it.
   const ax = x + length + 8 * MM, tip = y - 1.5 * MM, base = y + 2.5 * MM, half = 1.3 * MM, middle = (tip + base) / 2
   const angle = northAngleDeg % 360 ? northAngleDeg * Math.PI / 180 : 0, c = Math.cos(angle), s = Math.sin(angle)

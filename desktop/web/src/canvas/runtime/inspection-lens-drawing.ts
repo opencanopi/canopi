@@ -87,7 +87,7 @@ function drawZones(
   paintTokens: CanvasPaintTokens,
 ): void {
   const layer = getSceneLayerStyle(scene, 'zones')
-  if (!layer.visible) return
+  if (!layer.visible || layer.opacity <= 0) return
 
   for (const zone of scene.zones) {
     const visual = resolveZoneVisual(zone, paintTokens)

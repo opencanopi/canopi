@@ -1,5 +1,7 @@
+import { CONVERSION_CONSTANTS, formatNumber, niceDistanceAtMost, type UnitSystem } from '../utils/format'
+
 /** One CSS pixel on screen is 1/96 inch. */
-const CSS_PIXEL_METERS = 0.0254 / 96
+const CSS_PIXEL_METERS = CONVERSION_CONSTANTS.mPerInch / 96
 
 /** Common scales offered by the zoom group's scale menu. */
 export const COMMON_MAP_SCALES: readonly number[] = [100, 200, 500, 1000, 2000, 5000, 10000, 25000]
@@ -19,7 +21,7 @@ export function roundScaleDenominator(denominator: number): number {
 }
 
 export function formatMapScale(denominator: number, locale: string): string {
-  return `1:${new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(roundScaleDenominator(denominator))}`
+  return `1:${formatNumber(roundScaleDenominator(denominator), locale, { maximumFractionDigits: 0 })}`
 }
 
 /** Zoom factor that turns the current scale into `1:target`. */
@@ -37,14 +39,7 @@ interface ScaleBarDisplay {
 }
 
 /** `scale` is CSS pixels per ground metre, positive and finite on a validated camera. */
-export function getScaleBarDisplay(scale: number): ScaleBarDisplay {
-  const meters = niceDistanceAtMost(SCALE_BAR_MAX_PX / scale)
+export function getScaleBarDisplay(scale: number, system: UnitSystem = 'metric'): ScaleBarDisplay {
+  const meters = niceDistanceAtMost(SCALE_BAR_MAX_PX / scale, system)
   return { barScreenPx: meters * scale, meters }
-}
-
-/** The largest 1, 2 or 5 times a power of ten that is at most `maximum`. */
-function niceDistanceAtMost(maximum: number): number {
-  const power = 10 ** Math.floor(Math.log10(maximum))
-  const normalized = maximum / power
-  return (normalized >= 5 ? 5 : normalized >= 2 ? 2 : 1) * power
 }

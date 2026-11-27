@@ -169,7 +169,6 @@ describe('the Esc chain', () => {
           singleSpeciesCanonicalName: 'Malus domestica',
           singleSpeciesCommonName: 'Apple',
           sharedCurrentColor: '#C8A51E',
-          suggestedColor: null,
           singleSpeciesDefaultColor: null,
         }),
       },

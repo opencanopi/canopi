@@ -1,5 +1,4 @@
-import type { FlowerColorResolution, SpeciesDetail } from '../../generated/contracts'
-import { getFlowerColorHex } from '../../canvas/plant-colors'
+import type { SpeciesDetail } from '../../generated/contracts'
 import type {
   CanvasSpeciesPresentationCache,
   SpeciesCacheEntry,
@@ -9,13 +8,11 @@ export type { SpeciesCacheEntry } from '../../canvas/runtime/presentation-data'
 
 export interface SpeciesCacheLoader {
   readonly getSpeciesBatch: (canonicalNames: string[], locale: string) => Promise<SpeciesDetail[]>
-  readonly getFlowerColorBatch: (canonicalNames: string[]) => Promise<FlowerColorResolution[]>
   readonly isPlantDbUnavailableError: (error: unknown) => boolean
 }
 
 const DEFAULT_LOADER: SpeciesCacheLoader = {
   getSpeciesBatch: async () => [],
-  getFlowerColorBatch: async () => [],
   isPlantDbUnavailableError: () => false,
 }
 
@@ -51,12 +48,8 @@ export class CanvasSpeciesCache implements CanvasSpeciesPresentationCache {
 
     const loader = this._loader ?? loaderSlot.current
     let details: SpeciesDetail[]
-    let flowerColors: FlowerColorResolution[]
     try {
-      [details, flowerColors] = await Promise.all([
-        loader.getSpeciesBatch(missingNames, activeLocale),
-        loader.getFlowerColorBatch(missingNames),
-      ])
+      details = await loader.getSpeciesBatch(missingNames, activeLocale)
     } catch (error) {
       if (!loader.isPlantDbUnavailableError(error)) {
         throw error
@@ -64,8 +57,6 @@ export class CanvasSpeciesCache implements CanvasSpeciesPresentationCache {
       for (const canonicalName of missingNames) {
         this._cache.set(canonicalName, {
           canonical_name: canonicalName,
-          resolved_flower_color: null,
-          resolved_flower_color_source: 'none',
         })
       }
       return true
@@ -73,26 +64,12 @@ export class CanvasSpeciesCache implements CanvasSpeciesPresentationCache {
     const detailByName = new Map(
       details.map((detail) => [detail.canonical_name, detail as unknown as SpeciesCacheEntry]),
     )
-    const flowerByName = new Map(flowerColors.map((entry) => [entry.canonical_name, entry]))
 
     for (const canonicalName of missingNames) {
       const detail = detailByName.get(canonicalName) ?? { canonical_name: canonicalName }
-      const flower = flowerByName.get(canonicalName)
-      this._cache.set(canonicalName, {
-        ...detail,
-        resolved_flower_color: flower?.flower_color ?? null,
-        resolved_flower_color_source: flower?.source ?? 'none',
-      })
+      this._cache.set(canonicalName, { ...detail })
     }
 
     return true
-  }
-
-  getSuggestedPlantColor(canonicalName: string): string | null {
-    const detail = this._cache.get(canonicalName)
-    return getFlowerColorHex(
-      (detail?.resolved_flower_color as string | null | undefined)
-      ?? (detail?.flower_color as string | null | undefined),
-    )
   }
 }

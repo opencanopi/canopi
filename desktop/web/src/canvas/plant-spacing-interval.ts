@@ -1,3 +1,5 @@
+import { formatFixed } from '../utils/format'
+
 const FALLBACK_PLANT_SPACING_INTERVAL_M = 0.5
 
 export type PlantSpacingIntervalParseResult =
@@ -43,7 +45,7 @@ function formatMetricLength(meters: number): string {
 }
 
 function formatDecimal(value: number): string {
-  return Number(value.toFixed(3)).toString()
+  return Number(formatFixed(value, 3)).toString()
 }
 
 type PlantRowCountParseResult =

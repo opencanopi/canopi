@@ -18,15 +18,12 @@ import { formatByteSize } from '../../utils/format'
 type Reason = LidarImportRefusalReason
 type Kind = Reason['kind']
 
-/** "2.1 GB", "537 MB": a limit in mebibytes formatted in decimal SI (2.1-Q359), in the interface language. */
-function formatLimit(limitMib: number): string {
-  return formatByteSize(limitMib * 1024 * 1024, locale.value)
-}
+const BYTES_PER_MIB = 1024 * 1024
 
 const REFUSAL_COPY = {
   TooManyFiles: (reason) => t('canvas.lidar.failure.tooManyFiles', { limit: reason.limit }),
-  SourceTooLarge: (reason) => t('canvas.lidar.failure.sourceTooLarge', { file: reason.file, size: formatLimit(reason.limit_mib) }),
-  ImportTooLarge: (reason) => t('canvas.lidar.failure.importTooLarge', { size: formatLimit(reason.limit_mib) }),
+  SourceTooLarge: (reason) => t('canvas.lidar.failure.sourceTooLarge', { file: reason.file, size: formatByteSize(reason.limit_mib * BYTES_PER_MIB, locale.value) }),
+  ImportTooLarge: (reason) => t('canvas.lidar.failure.importTooLarge', { size: formatByteSize(reason.limit_mib * BYTES_PER_MIB, locale.value) }),
   SourceMissing: (reason) => t('canvas.lidar.failure.sourceMissing', { file: reason.file }),
   Unreadable: (reason) => t('canvas.lidar.failure.unreadable', { file: reason.file }),
   NotGeotiff: (reason) => t('canvas.lidar.failure.notGeotiff', { file: reason.file }),

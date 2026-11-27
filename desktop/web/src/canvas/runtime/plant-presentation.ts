@@ -1,5 +1,5 @@
-import { normalizeHexColor } from '../plant-colors'
-import { getStratumColor, isDotScale } from '../plants'
+import { DEFAULT_PLANT_COLOR, normalizeHexColor } from '../plant-colors'
+import { isDotScale } from '../plants'
 import { resolvePlantSymbolForPlant, type PlantSymbolId } from './scene/plant-symbols'
 import type { ScenePlantEntity, ScenePoint } from './scene/types'
 import type { SpeciesCacheEntry } from './presentation-data'
@@ -129,12 +129,12 @@ export function hitTestPlant(
   return dx * dx + dy * dy <= radiusWorld * radiusWorld
 }
 
-/** The plant's own colour, else its species' stratum colour from the catalog entries the runtime has loaded. */
+/** The plant's own colour, else the default plant colour. */
 export function resolvePlantBaseColor(
   plant: Pick<ScenePlantEntity, 'canonicalName' | 'color'>,
-  speciesCache: ReadonlyMap<string, SpeciesCacheEntry>,
+  _speciesCache?: ReadonlyMap<string, SpeciesCacheEntry>,
 ): string {
-  return normalizeHexColor(plant.color) ?? getStratumColor(cachedStratum(speciesCache, plant.canonicalName))
+  return normalizeHexColor(plant.color) ?? DEFAULT_PLANT_COLOR
 }
 
 /** The species' stratum in the loaded catalog entries; null when not loaded or the catalog has none. */

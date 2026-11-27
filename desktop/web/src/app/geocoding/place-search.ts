@@ -1,5 +1,6 @@
 import { signal, type ReadonlySignal } from '@preact/signals'
 import { WEB_MERCATOR_MAX_LATITUDE_DEG } from '../../generated/canopi-design-format'
+import { formatFixed } from '../../utils/format'
 import {
   DEFAULT_FORWARD_GEOCODE_ENDPOINT,
   NOMINATIM_PROVIDER,
@@ -141,7 +142,7 @@ export function createPlaceSearchController(options: PlaceSearchOptions): PlaceS
       const coordinates = parseCoordinates(trimmed)
       if (coordinates) {
         results.value = [{
-          label: `${coordinates.lat.toFixed(6)}, ${coordinates.lon.toFixed(6)}`,
+          label: `${formatFixed(coordinates.lat, 6)}, ${formatFixed(coordinates.lon, 6)}`,
           detail: null,
           ...coordinates,
           source: 'coordinates',

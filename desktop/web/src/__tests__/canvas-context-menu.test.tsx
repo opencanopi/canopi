@@ -114,7 +114,6 @@ describe('CanvasContextMenu', () => {
           ...plantContext,
           plantIds: currentCanvasSelection.value.size > 0 ? plantContext.plantIds : [],
           sharedCurrentColor: null,
-          suggestedColor: null,
           singleSpeciesDefaultColor: null,
         }),
         getSelectedPlantSymbolContext: () => ({

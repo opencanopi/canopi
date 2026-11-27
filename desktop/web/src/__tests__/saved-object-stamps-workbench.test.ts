@@ -778,7 +778,7 @@ describe('Saved Object Stamp Workbench', () => {
         position: { lon: 0, lat: 0 },
         notes: null,
         planted_date: null,
-        quantity: null,
+        quantity: 1,
       }],
       consortiums: [],
       timeline: [],

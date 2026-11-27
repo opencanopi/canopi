@@ -80,7 +80,7 @@ export function composeSavedObjectStampCanopiFile({
       canopy_spread_m: plant.scale,
       notes: null,
       planted_date: null,
-      quantity: null,
+      quantity: 1,
     })),
     zones: payload.zones.map((zone) => ({
       id: zone.id,

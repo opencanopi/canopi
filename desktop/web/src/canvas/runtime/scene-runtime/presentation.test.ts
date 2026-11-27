@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../ipc/species', () => ({
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 
@@ -15,12 +14,11 @@ import { CanvasSpeciesCache, installSpeciesCacheLoader } from '../../../app/canv
 import { createDetachedCanvasPlantLabelSource } from '../presentation-data'
 import { SceneRuntimePresentationController } from './presentation'
 import { projectScenePlantLabels } from '../selection-labels'
-import { getCommonNames, getFlowerColorBatch, getSpeciesBatch } from '../../../ipc/species'
+import { getCommonNames, getSpeciesBatch } from '../../../ipc/species'
 import { isPlantDbUnavailableError } from '../../../ipc/plant-db-errors'
 
 installSpeciesCacheLoader({
   getSpeciesBatch,
-  getFlowerColorBatch,
   isPlantDbUnavailableError,
 })
 
@@ -106,10 +104,8 @@ describe('scene runtime presentation controller', () => {
   beforeEach(() => {
     vi.mocked(getCommonNames).mockReset()
     vi.mocked(getSpeciesBatch).mockReset()
-    vi.mocked(getFlowerColorBatch).mockReset()
     vi.mocked(getCommonNames).mockResolvedValue({})
     vi.mocked(getSpeciesBatch).mockResolvedValue([])
-    vi.mocked(getFlowerColorBatch).mockResolvedValue([])
   })
 
   it('loads labels and species data as one plant-names revision, leaving the Scene as saved', async () => {
@@ -121,12 +117,6 @@ describe('scene runtime presentation controller', () => {
       locked: false,
       stratum: 'canopy',
       width_max_m: 4.5,
-    } as never])
-    vi.mocked(getFlowerColorBatch).mockResolvedValue([{
-      canonical_name: 'Malus domestica',
-      locked: false,
-      flower_color: 'white',
-      source: 'detail',
     } as never])
 
     const { controller, sceneStore, state } = createController()
@@ -141,7 +131,6 @@ describe('scene runtime presentation controller', () => {
     expect(controller.getLocalizedCommonNames().get('Malus domestica')).toBe('Pommier')
     expect(sceneStore.persisted).toEqual(saved)
     expect(controller.getSpeciesCache().get('Malus domestica')).toMatchObject({
-      resolved_flower_color: 'white',
       stratum: 'canopy',
       width_max_m: 4.5,
     })

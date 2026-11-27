@@ -845,26 +845,6 @@
     ]
   },
   {
-    "name": "FlowerColorResolution",
-    "fields": [
-      {
-        "name": "canonical_name",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "flower_color",
-        "flatten": false,
-        "skip": false
-      },
-      {
-        "name": "source",
-        "flatten": false,
-        "skip": false
-      }
-    ]
-  },
-  {
     "name": "FormatRefusal",
     "fields": [
       {

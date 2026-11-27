@@ -2,6 +2,7 @@ import { DockPanelHeader } from '../shared/DockPanelHeader'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
 import { formatCount } from '../../utils/format-count'
+import { formatNumber, formatPercent } from '../../utils/format'
 import type { CanvasLayerPresentationDetail, CanvasLayerPresentationRow } from '../../app/canvas-layer-presentation/presentation'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { Dropdown } from '../shared/Dropdown'
@@ -246,7 +247,7 @@ function terrainCaption(row: CanvasLayerPresentationRow): string | undefined {
   if (row.detail.type === 'contours') {
     return row.detail.contourIntervalMeters > 0
       ? t('canvas.terrain.contoursEvery', {
-        interval: new Intl.NumberFormat(locale.value).format(row.detail.contourIntervalMeters),
+        interval: formatNumber(row.detail.contourIntervalMeters, locale.value),
       })
       : t('canvas.terrain.contoursByZoom')
   }
@@ -452,7 +453,7 @@ function OpacitySlider({ row, actions }: { row: CanvasLayerPresentationRow; acti
       min={0}
       max={100}
       value={Math.round(row.opacity * 100)}
-      format={(percent) => new Intl.NumberFormat(locale.value, { style: 'percent' }).format(percent / 100)}
+      format={(percent) => formatPercent(percent / 100, locale.value)}
       onInput={(percent) => actions.opacity(row.id, percent / 100)}
     />
   )

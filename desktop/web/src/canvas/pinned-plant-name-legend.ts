@@ -35,7 +35,7 @@ export function buildPinnedPlantNameLegendEntries(
   for (const plant of scene.plants) {
     if (plant.pinnedName !== true) continue
 
-    const label = localizedNames.get(plant.canonicalName) ?? plant.commonName ?? plant.canonicalName
+    const label = localizedNames.get(plant.canonicalName) || plant.commonName || plant.canonicalName
     // The canvas's colour: a plant without its own takes its stratum's from the species entries the runtime loaded.
     const color = resolvePlantDisplayColor(plant, speciesCache, display)
     const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)

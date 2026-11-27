@@ -11,6 +11,7 @@ import { DEFAULT_PLANT_SYMBOL_ID } from '../../canvas/runtime/scene'
 import { t } from '../../i18n'
 import { locale, mapLayers } from '../../app/settings/state'
 import { formatCount } from '../../utils/format-count'
+import { formatPercent as formatLocalePercent } from '../../utils/format'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { navigateTo } from '../../app/shell/state'
 import { usePlanningViewState } from '../../app/planning-view/state'
@@ -26,6 +27,7 @@ import {
 import type { SpeciesListItem } from '../../types/species'
 import { PlantSymbolGlyph } from '../canvas/PlantSymbolGlyph'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
+import { CanopiColorSwatchPicker } from '../canvas/CanopiColorPicker'
 import { ControlIcon } from '../shared/ControlIcon'
 import { DockPanelHeader } from '../shared/DockPanelHeader'
 import { EmptyState } from '../shared/EmptyState'
@@ -251,12 +253,10 @@ function DisplayOnMap() {
           {display.colorBy === 'one-color' && (
             <label className={styles.inlineField}>
               <span>{t('speciesKey.oneColor')}</span>
-              <input
-                type="color"
-                className={styles.swatch}
-                value={display.oneColor.toLowerCase()}
-                aria-label={t('speciesKey.oneColorLabel')}
-                onInput={(event) => setPlantDisplayOptions({ oneColor: event.currentTarget.value })}
+              <CanopiColorSwatchPicker
+                value={display.oneColor}
+                ariaLabel={t('speciesKey.oneColorLabel')}
+                onChange={(oneColor) => setPlantDisplayOptions({ oneColor })}
               />
             </label>
           )}
@@ -305,7 +305,7 @@ function DisplayOnMap() {
 }
 
 function formatPercent(percent: number): string {
-  return new Intl.NumberFormat(locale.value, { style: 'percent' }).format(percent / 100)
+  return formatLocalePercent(percent / 100, locale.value)
 }
 
 /**
@@ -322,12 +322,11 @@ function StratumLegend({ display }: { readonly display: PlantDisplay }) {
           return (
             <li key={key}>
               <label className={styles.legendEntry}>
-                <input
-                  type="color"
-                  className={`${styles.swatch} ${styles.legendSwatch}`}
-                  value={stratumDisplayColor(key, display).toLowerCase()}
-                  aria-label={t('speciesKey.stratumColorOf', { stratum: label })}
-                  onInput={(event) => setStratumDisplayColor(key, event.currentTarget.value)}
+                <CanopiColorSwatchPicker
+                  compact
+                  value={stratumDisplayColor(key, display)}
+                  ariaLabel={t('speciesKey.stratumColorOf', { stratum: label })}
+                  onChange={(color) => setStratumDisplayColor(key, color)}
                 />
                 {label}
               </label>
@@ -377,13 +376,11 @@ function SpeciesRow({ entry, result, focused, detail, onOpenDetail }: {
     <li className={row.row} data-selected={focused}>
       {/* While searching, Select takes the swatch's room (FindPlants board). */}
       {bySpecies && !result.active && color && /^#[0-9a-f]{6}$/i.test(color) && (
-        <input
-          type="color"
-          className={styles.swatch}
+        <CanopiColorSwatchPicker
           value={color}
-          aria-label={t('speciesKey.colorOf', { name })}
-          onInput={(event) => {
-            currentCanvasPlantPresentationCommandSurface.value?.setPlantColorForSpecies(entry.canonicalName, event.currentTarget.value)
+          ariaLabel={t('speciesKey.colorOf', { name })}
+          onChange={(nextColor) => {
+            currentCanvasPlantPresentationCommandSurface.value?.setPlantColorForSpecies(entry.canonicalName, nextColor)
           }}
         />
       )}

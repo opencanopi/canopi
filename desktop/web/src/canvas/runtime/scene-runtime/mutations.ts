@@ -59,7 +59,6 @@ const EMPTY_PLANT_COLOR_CONTEXT: SelectedPlantColorContext = {
   singleSpeciesCanonicalName: null,
   singleSpeciesCommonName: null,
   sharedCurrentColor: null,
-  suggestedColor: null,
   singleSpeciesDefaultColor: null,
 }
 
@@ -90,7 +89,6 @@ interface SceneRuntimeMutationControllerOptions {
     getViewportScale(): number
     createPlantPresentationContext(viewportScale?: number): PlantPresentationContext
     getLocalizedCommonNames(): ReadonlyMap<string, string | null>
-    getSuggestedPlantColor(canonicalName: string): string | null
   }
   /** Live camera bearing in degrees (2.1-Q89: screen-aligned pivot/anchor on a turned map); defaults to 0. */
   getBearingDeg?(): number
@@ -585,9 +583,6 @@ export class SceneRuntimeMutationController {
       singleSpeciesCanonicalName,
       singleSpeciesCommonName,
       sharedCurrentColor,
-      suggestedColor: singleSpeciesCanonicalName
-        ? this._presentation.getSuggestedPlantColor(singleSpeciesCanonicalName)
-        : null,
       singleSpeciesDefaultColor,
     }
   }

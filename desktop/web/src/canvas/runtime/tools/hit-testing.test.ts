@@ -397,4 +397,13 @@ describe('scene hit testing', () => {
     scene.layers = scene.layers.map((layer) => layer.name === 'zones' ? { ...layer, locked: false, visible: false } : layer)
     expect(at(10, 9)).toBeNull()
   })
+
+  it('treats a layer at opacity 0 as hidden for selection and visible picking', () => {
+    const scene = createScene()
+    scene.layers = scene.layers.map((layer) => layer.name === 'plants' ? { ...layer, visible: true, opacity: 0 } : layer)
+    const plantPos = scene.plants[0]!.position
+    expect(hitTestTopLevel(scene, plantPos, 10, 'mouse', new Map(), getPlantContext)).toBeNull()
+    expect(hitTestVisibleTopLevel(scene, plantPos, 10, 'mouse', new Map(), getPlantContext)).toBeNull()
+    expect(queryQuadTopLevel(scene, box({ x: plantPos.x - 5, y: plantPos.y - 5, width: 10, height: 10 }), 10, new Map(), getPlantContext)).toEqual([])
+  })
 })

@@ -602,12 +602,6 @@ export type FilterValue = {
 	label: string,
 };
 
-export type FlowerColorResolution = {
-	canonical_name: string,
-	flower_color: string | null,
-	source: string,
-};
-
 // Wire answer envelope returned by `canopi-format-wasm` `decode_design`.
 export type FormatDecodeAnswer =
 // Successful decode outcome.

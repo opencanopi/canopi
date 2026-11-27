@@ -241,7 +241,6 @@
       "selectedCount_few": "已选择 {{count}} 个",
       "selectedCount_many": "已选择 {{count}} 个",
       "selectedCount_other": "已选择 {{count}} 个",
-      "suggested": "根据花色推荐",
       "moreColors": "自定义颜色",
       "hue": "色相",
       "saturationLightness": "饱和度和明度",
@@ -1960,7 +1959,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "关于 Canopi…",
     "mapStyle": "地图样式",
-    "googleKeyKept": "你的 Google 密钥仍保存在此设备上，但未使用。选择“我的 Google 密钥”即可再次使用。"
+    "googleKeyKept": "你的 Google 密钥仍保存在此设备上，但未使用。选择“我的 Google 密钥”即可再次使用。",
+    "units": {
+      "label": "单位",
+      "metric": "公制",
+      "usCustomary": "美制"
+    }
   },
   "savedViews": {
     "defaultName": "视图 {{number}}",

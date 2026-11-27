@@ -4,12 +4,12 @@ import { expect, it, vi } from 'vitest'
 import { buildSpeciesKey } from './species-key'
 import { geoAt } from '../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
-import { getStratumColor } from '../plants'
+import { DEFAULT_PLANT_COLOR } from '../plant-colors'
 import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from './scene-runtime'
 import type { SpeciesCacheEntry } from './presentation-data'
 
-it('the species key shows an opened plant\'s stratum colour once the catalog loads', async () => {
+it('the species key shows an opened plant\'s default colour when none is set', async () => {
   // A saved plant carries no stratum: the key takes its colour from the species catalog, as the canvas does.
   const speciesCache = new Map<string, SpeciesCacheEntry>()
   const renderer = { setSnapshot: vi.fn(), setDraft: vi.fn(), requestRender: vi.fn() }
@@ -23,7 +23,6 @@ it('the species key shows an opened plant\'s stratum colour once the catalog loa
             for (const name of canonicalNames) speciesCache.set(name, { canonical_name: name, stratum: 'emergent' })
             return true
           },
-          getSuggestedPlantColor: () => null,
         },
         plantLabels: { getLocaleSnapshot: () => new Map(), getEnglishFallbackSnapshot: () => new Map(), ensureEntries: async () => false },
       },
@@ -55,7 +54,7 @@ it('the species key shows an opened plant\'s stratum colour once the catalog loa
   await runtime.init(host)
   await vi.waitFor(() => expect(renderer.setSnapshot).toHaveBeenCalled())
 
-  expect(keyColor()).toBe(getStratumColor('emergent'))
+  expect(keyColor()).toBe(DEFAULT_PLANT_COLOR)
   runtime.destroy()
 })
 

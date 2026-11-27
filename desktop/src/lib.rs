@@ -83,7 +83,6 @@ pub fn run() {
             commands::species::get_common_names,
             commands::species::get_species_habits,
             commands::species::get_species_batch,
-            commands::species::get_flower_color_batch,
             commands::species::get_filter_options,
             commands::species::get_dynamic_filter_options,
             commands::species::get_species_images,

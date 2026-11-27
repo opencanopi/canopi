@@ -1,14 +1,15 @@
 import type { PrintBounds } from '../../canvas/print'
+import { formatNumber } from '../../utils/format'
 import type { PdfTextEngine, TextLine } from './text'
 import type { ZoneMeasurements } from './zone-measurements'
 
 export function fieldSummary(zones: readonly ZoneMeasurements[], ground: PrintBounds, width: number, locale: string, text: PdfTextEngine): TextLine[] {
-  const number = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }), lines: TextLine[] = []
+  const fmt = (n: number) => formatNumber(n, locale, { maximumFractionDigits: 2 }), lines: TextLine[] = []
   let row = ''
   for (const item of zones) {
     const b = item.zone.bounds
     if (b.x > ground.x + ground.width || b.x + b.width < ground.x || b.y > ground.y + ground.height || b.y + b.height < ground.y) continue
-    const value = `${item.reference} · ${item.diameter ? 'Ø ' : ''}${item.lengths.map(n => number.format(n)).join(' / ')}${item.widths.length ? ` × ${item.widths.map(n => number.format(n)).join('–')}` : ''} m`
+    const value = `${item.reference} · ${item.diameter ? 'Ø ' : ''}${item.lengths.map(fmt).join(' / ')}${item.widths.length ? ` × ${item.widths.map(fmt).join('–')}` : ''} m`
     const next = row ? `${row}     ${value}` : value
     if (text.line(next, 8).width <= width) { row = next; continue }
     if (row) lines.push(text.line(row, 8))

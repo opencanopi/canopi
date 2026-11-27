@@ -278,7 +278,7 @@ function scenePlantFromSavedPlant(
     rotationDeg: plant.rotationDeg,
     notes: null,
     plantedDate: null,
-    quantity: null,
+    quantity: 1,
     pinnedName: false,
   }
 }

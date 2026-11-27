@@ -70,7 +70,7 @@ import { sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import { openLayerRow } from '../app/canvas-layer-presentation/open-row'
 import { dropdownTrigger } from './support/dropdown-trigger'
-import { formatDiskSize } from '../components/panels/lidar/item-text'
+import { formatByteSize } from '../utils/format'
 import { hoveredTooltip } from './support/tooltip'
 import type * as LibraryStoreModule from '../app/data-library/library-store'
 
@@ -1161,9 +1161,9 @@ function CSS_ESCAPE(id: string): string {
 
 describe('Data library size', () => {
   it('reads as kilobytes, megabytes or gigabytes', () => {
-    expect(formatDiskSize(0, 'en')).toBe('0 kB')
-    expect(formatDiskSize(12_345, 'en')).toBe('12.3 kB')
-    expect(formatDiskSize(340_000_000, 'en')).toBe('340 MB')
-    expect(formatDiskSize(1_240_000_000, 'en')).toBe('1.2 GB')
+    expect(formatByteSize(0, 'en')).toBe('0 kB')
+    expect(formatByteSize(12_345, 'en')).toBe('12.3 kB')
+    expect(formatByteSize(340_000_000, 'en')).toBe('340 MB')
+    expect(formatByteSize(1_240_000_000, 'en')).toBe('1.2 GB')
   })
 })

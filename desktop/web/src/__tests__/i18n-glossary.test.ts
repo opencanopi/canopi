@@ -69,6 +69,7 @@ const NAMES: Record<string, Terms> = {
   'Favorites': terms('Favoris', 'Favoritos', 'Favoritos', 'Preferiti', 'Favoriten', 'Favorieten', 'Избранное', '收藏', 'お気に入り', '즐겨찾기'),
   'Plant catalog': terms('Catalogue des plantes', 'Catálogo de plantas', 'Catálogo de plantas', 'Catalogo delle piante', 'Pflanzenkatalog', 'Plantencatalogus', 'Каталог растений', '植物目录', '植物カタログ', '식물 카탈로그'),
   'Data library': terms('Bibliothèque de données', 'Biblioteca de datos', 'Biblioteca de dados', 'Libreria dati', 'Datenbibliothek', 'Databibliotheek', 'Библиотека данных', '数据资料库', 'データライブラリ', '데이터 라이브러리'),
+  'Codes': terms('Codes', 'Códigos', 'Códigos', 'Codici', 'Kürzel', 'Codes', 'Коды', '代码', 'コード', '코드'),
 }
 
 /** Labels whose English text is a tool name but whose meaning is the verb, not the tool. */

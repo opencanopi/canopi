@@ -8,6 +8,7 @@ import type { LidarPresentationItem } from '../../../app/data-library/library-st
 import { locale } from '../../../app/settings/state'
 import type { LidarColourRange, LidarRamp } from '../../../generated/contracts'
 import { t } from '../../../i18n'
+import { formatNumber, formatPercent } from '../../../utils/format'
 import { SegmentedControl } from '../../shared/SegmentedControl'
 import { Slider } from '../../shared/Slider'
 import styles from './raster-display-controls.module.css'
@@ -29,7 +30,7 @@ type RangeMode = LidarColourRange['mode']
  */
 export function RasterDisplayControls({ item }: { readonly item: LidarPresentationItem }) {
   const style = lidarDisplayStyle(item)
-  const percent = new Intl.NumberFormat(locale.value, { style: 'percent' })
+  const activeLocale = locale.value
   const relief = style?.ramp === 'Relief'
   return (
     <div className={styles.controls}>
@@ -46,7 +47,7 @@ export function RasterDisplayControls({ item }: { readonly item: LidarPresentati
         min={0}
         max={100}
         value={Math.round(item.opacity * 100)}
-        format={(value) => percent.format(value / 100)}
+        format={(value) => formatPercent(value / 100, activeLocale)}
         onInput={(value) => setLidarEntryDisplay(item.id, { opacity: value / 100 })}
       />
     </div>
@@ -180,7 +181,7 @@ function Range({ item, mode, values }: {
 function fieldNumber(value: number, localeTag: string): string {
   const magnitude = Number.isFinite(value) && value !== 0 ? Math.floor(Math.log10(Math.abs(value))) : 0
   const digits = Math.min(20, Math.max(2, 2 - magnitude))
-  return new Intl.NumberFormat(localeTag, { useGrouping: false, maximumFractionDigits: digits }).format(value)
+  return formatNumber(value, localeTag, { useGrouping: false, maximumFractionDigits: digits })
 }
 
 /**

@@ -69,7 +69,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: '#C8A51E',
-      suggestedColor: null,
       singleSpeciesDefaultColor: null,
     })
     await act(async () => render(<PlantColorMenu buttonRef={buttonRef} />, container))
@@ -101,34 +100,11 @@ describe('PlantColorMenu', () => {
     expect(setSelectedPlantColor).not.toHaveBeenCalled()
   })
 
-  it('previews the species suggestion without applying until confirmed', async () => {
-    getSelectedPlantColorContext.mockReturnValue({
-      plantIds: ['plant-1'],
-      singleSpeciesCanonicalName: 'Malus domestica',
-      singleSpeciesCommonName: 'Apple',
-      sharedCurrentColor: '#123ABC',
-      suggestedColor: '#C8A51E',
-      singleSpeciesDefaultColor: null,
-    })
-    await act(async () => render(<PlantColorMenu buttonRef={buttonRef} />, container))
-    const suggestion = [...document.querySelectorAll('button')].find(button =>
-      button.textContent?.includes('Suggested'),
-    )
-    expect(suggestion).toBeDefined()
-    await act(async () => suggestion!.click())
-    expect(setSelectedPlantColor).not.toHaveBeenCalled()
-    const apply = [...document.querySelectorAll('button')].find(button =>
-      button.textContent?.includes('Apply to'),
-    )!
-    await act(async () => apply.click())
-    expect(setSelectedPlantColor).toHaveBeenCalledWith('#C8A51E')
-  })
-
   it('adjusts custom color with the keyboard without applying it', async () => {
     getSelectedPlantColorContext.mockReturnValue({
       plantIds: ['plant-1'], singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple', sharedCurrentColor: '#C8A51E',
-      suggestedColor: null, singleSpeciesDefaultColor: null,
+      singleSpeciesDefaultColor: null,
     })
     await act(async () => render(<PlantColorMenu buttonRef={buttonRef} />, container))
     await act(async () => { [...document.querySelectorAll('button')].find(button => button.textContent === 'Custom color')!.click() })
@@ -148,7 +124,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -183,7 +158,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: commonName,
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     }))
 
@@ -209,8 +183,7 @@ describe('PlantColorMenu', () => {
       plantIds: ['plant-1'],
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
-      sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
+      sharedCurrentColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -238,7 +211,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: '#C8A51E',
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: '#C8A51E',
     })
 
@@ -264,7 +236,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: null,
       singleSpeciesCommonName: null,
       sharedCurrentColor: 'mixed',
-      suggestedColor: null,
       singleSpeciesDefaultColor: null,
     })
 
@@ -284,7 +255,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -314,7 +284,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -339,7 +308,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 

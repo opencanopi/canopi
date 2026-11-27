@@ -1,6 +1,7 @@
 import type { ComponentChildren } from 'preact'
 import { openSetText, t } from '../../i18n'
 import { locale } from '../../app/settings/state'
+import { formatNumber } from '../../utils/format'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import {
   writePlantStampDragData,
@@ -118,7 +119,7 @@ function catalogFacts(plant: SpeciesListItem, currentLocale: string): string {
   const facts: string[] = []
   if (plant.habit) facts.push(openSetText('filters.habit_', plant.habit))
   if (plant.height_max_m !== null) {
-    const height = new Intl.NumberFormat(currentLocale, { maximumFractionDigits: 1 }).format(plant.height_max_m)
+    const height = formatNumber(plant.height_max_m, currentLocale, { maximumFractionDigits: 1 })
     facts.push(t('plantDb.factHeight', { height }))
   }
   const min = plant.hardiness_zone_min

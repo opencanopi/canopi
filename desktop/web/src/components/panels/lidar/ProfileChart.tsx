@@ -16,6 +16,7 @@ import { clearProfile } from '../../../app/data-library/site-transients'
 import { formatLength } from '../../../app/map-selection/zone-label'
 import { locale } from '../../../app/settings/state'
 import { t } from '../../../i18n'
+import { formatNumber, formatPercent } from '../../../utils/format'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { ControlIcon } from '../../shared/ControlIcon'
 import styles from './profile.module.css'
@@ -102,18 +103,6 @@ function offersRetry(profile: SiteProfile): boolean {
 function CursorDistance({ profile, language }: { readonly profile: ReadyProfile; readonly language: string }) {
   const cursor = profileCursor.value
   return cursor === null ? null : <>{t('siteData.chart.at', { distance: formatLength(profile.samples.distances[cursor]!, language) })}</>
-}
-
-/** One formatter per locale and options: the legend re-renders at scrub rate. */
-const formatters = new Map<string, Intl.NumberFormat>()
-function numberFormat(language: string, options: Intl.NumberFormatOptions): Intl.NumberFormat {
-  const key = `${language}|${JSON.stringify(options)}`
-  let format = formatters.get(key)
-  if (!format) {
-    format = new Intl.NumberFormat(language, options)
-    formatters.set(key, format)
-  }
-  return format
 }
 
 const STATE_TEXT: Readonly<Record<'needs-layer' | 'reading' | 'no-values', LocaleKey>> = {
@@ -232,7 +221,7 @@ function ReadyChart({ profile, language, retry, retryButton }: {
   const x = drawn[0]!.geometry.x
   const axisLabel = (value: number | null, curve: ProfileCurve) => value === null
     ? ''
-    : `${numberFormat(language, { maximumFractionDigits: 1 }).format(value)}${unitSuffix(curve.units)}`
+    : `${formatNumber(value, language, { maximumFractionDigits: 1 })}${unitSuffix(curve.units)}`
   const plots = useMemo(() => (
     <>
       {drawn.map(({ plot, geometry }) => (
@@ -329,7 +318,6 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
 }) {
   const cursor = showsReading ? profileCursor.value : null
   const style = curveStyle(index)
-  const one = numberFormat(language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
   let reading: JSX.Element
   if (curve.readFailed) {
     reading = <span className={styles.reading}>{t('siteData.chart.readFailed')}</span>
@@ -340,10 +328,9 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
       : <span className={styles.reading}>{formatRowValue(value, curve.units, language)}</span>
   } else if (curve.stats.role === 'elevation') {
     const { rise, steepest } = curve.stats
-    const signed = numberFormat(language, { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' })
     reading = (
       <span className={styles.reading}>
-        {rise === null ? null : t('siteData.chart.rise', { value: `${signed.format(rise)}${unitSuffix(curve.units)}` })}
+        {rise === null ? null : t('siteData.chart.rise', { value: `${formatNumber(rise, language, { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: 'exceptZero' })}${unitSuffix(curve.units)}` })}
         {rise !== null && steepest ? ' · ' : null}
         {steepest ? (
           <button
@@ -353,7 +340,7 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
             onFocusOut={releaseSteepest}
           >
             {t('siteData.chart.steepest', {
-              percent: numberFormat(language, { style: 'percent', maximumFractionDigits: 0 }).format(steepest.percent / 100),
+              percent: formatPercent(steepest.percent / 100, language, { maximumFractionDigits: 0 }),
               run: formatLength(steepest.runM, language),
             })}
           </button>
@@ -364,7 +351,7 @@ function LegendLine({ curve, index, language, reading: showsReading, releaseStee
     const { highest } = curve.stats
     reading = (
       <span className={styles.reading}>
-        {highest === null ? null : t('siteData.chart.highest', { value: `${one.format(highest)}${unitSuffix(curve.units)}` })}
+        {highest === null ? null : t('siteData.chart.highest', { value: `${formatNumber(highest, language, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}${unitSuffix(curve.units)}` })}
       </span>
     )
   }

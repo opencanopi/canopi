@@ -269,8 +269,6 @@ export function createSceneRuntimeConstruction(
       createPlantPresentationContext: (viewportScale) =>
         presentation.createPlantPresentationContext(viewportScale),
       getLocalizedCommonNames: () => presentation.getLocalizedCommonNames(),
-      getSuggestedPlantColor: (canonicalName) =>
-        presentation.getSuggestedPlantColor(canonicalName),
     },
     getBearingDeg: () => cameraHost.frames.viewFrame.peek().view.camera.bearingDeg,
     invalidateScene: () => callbacks.invalidate(),

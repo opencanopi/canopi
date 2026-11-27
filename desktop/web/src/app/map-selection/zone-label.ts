@@ -3,6 +3,7 @@ import { measureZone } from '../../canvas/runtime/zone-geometry'
 import { zoneDisplayName } from '../../canvas/runtime/zone-identity'
 import type { GroundMeasure } from '../../geo/view/types'
 import { t } from '../../i18n'
+import { formatNumber } from '../../utils/format'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 const ZONE_TYPE_KEYS: Readonly<Record<string, LocaleKey>> = {
@@ -41,15 +42,15 @@ export function missingZoneLabel(): string {
 /** Lengths as the map labels them: two decimals below 1 m, one below 100 m, none above. */
 export function formatLength(meters: number, activeLocale: string): string {
   const digits = meters < 1 ? 2 : meters < 100 ? 1 : 0
-  return new Intl.NumberFormat(activeLocale, { style: 'unit', unit: 'meter', unitDisplay: 'short', maximumFractionDigits: digits }).format(meters)
+  return formatNumber(meters, activeLocale, { style: 'unit', unit: 'meter', unitDisplay: 'short', maximumFractionDigits: digits })
 }
 
 /** Areas in m² (one decimal below 10 m²), or in hectares from 1 ha. */
 export function formatArea(squareMeters: number, activeLocale: string): string {
   if (squareMeters >= 10_000) {
-    return new Intl.NumberFormat(activeLocale, { style: 'unit', unit: 'hectare', unitDisplay: 'short', maximumFractionDigits: 2 }).format(squareMeters / 10_000)
+    return formatNumber(squareMeters / 10_000, activeLocale, { style: 'unit', unit: 'hectare', unitDisplay: 'short', maximumFractionDigits: 2 })
   }
   // Intl has no square-metre unit; the symbol m² is the same in every interface language.
-  const value = new Intl.NumberFormat(activeLocale, { maximumFractionDigits: squareMeters < 10 ? 1 : 0 }).format(squareMeters)
+  const value = formatNumber(squareMeters, activeLocale, { maximumFractionDigits: squareMeters < 10 ? 1 : 0 })
   return `${value} m²`
 }

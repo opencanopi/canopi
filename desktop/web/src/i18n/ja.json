@@ -241,7 +241,6 @@
       "selectedCount_few": "{{count}} 件を選択",
       "selectedCount_many": "{{count}} 件を選択",
       "selectedCount_other": "{{count}} 件を選択",
-      "suggested": "花色からの提案",
       "moreColors": "カスタムカラー",
       "hue": "色相",
       "saturationLightness": "彩度と明度",
@@ -1960,7 +1959,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "Canopi について…",
     "mapStyle": "地図のスタイル",
-    "googleKeyKept": "Google キーはこのデバイスに保存されたまま、使われていません。もう一度使うには「自分の Google キー」を選んでください。"
+    "googleKeyKept": "Google キーはこのデバイスに保存されたまま、使われていません。もう一度使うには「自分の Google キー」を選んでください。",
+    "units": {
+      "label": "単位",
+      "metric": "メートル法",
+      "usCustomary": "米国慣用単位"
+    }
   },
   "savedViews": {
     "defaultName": "ビュー {{number}}",

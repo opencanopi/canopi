@@ -14,6 +14,7 @@ import {
   activeGoogleMapsApiKey,
   scrollWheel,
   singleKeyShortcuts,
+  unitSystem,
 } from '../app/settings/state'
 import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
 import { resetFrontendDiagnosticsForTests } from '../failures/ring'
@@ -85,6 +86,7 @@ beforeEach(() => {
   newDesignDefaults.value = DEFAULT_NEW_DESIGNS
   singleKeyShortcuts.value = true
   scrollWheel.value = 'zoom'
+  unitSystem.value = 'metric'
   resetFrontendDiagnosticsForTests()
   consoleSpies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((method) => vi.spyOn(console, method))
 })
@@ -133,6 +135,19 @@ describe('Settings sections', () => {
       '日本語',
       '한국어',
     ])
+  })
+
+  it('switches the unit system between Metric and US customary (2.1-Q119/Q120)', async () => {
+    await openSection('appearance')
+    expect(radio('Metric').getAttribute('aria-checked')).toBe('true')
+    expect(unitSystem.value).toBe('metric')
+
+    await act(async () => { radio('US customary').click() })
+    expect(unitSystem.value).toBe('us_customary')
+    expect(radio('US customary').getAttribute('aria-checked')).toBe('true')
+
+    await act(async () => { radio('Metric').click() })
+    expect(unitSystem.value).toBe('metric')
   })
 })
 

@@ -118,6 +118,19 @@ describe('i18n completeness', () => {
     expect(fr.canvas.tools.objectStamp).toBe('Placer un tampon')
     expect(fr.menu['edit.saveAsStamp']).toBe('Enregistrer comme tampon')
   })
+
+  it('calls species codes Kürzel everywhere in German (2.1-Q93)', () => {
+    expect(de.speciesKey.labelsCodes).toBe('Kürzel')
+    expect(de.menu['view.labelsCodes']).toBe('Kürzel')
+    expect(de.plantDetail.codeInDesign).toBe('Artkürzel in diesem Design')
+    expect(de.stories.labelsCodes).toBe('Beschriftungen: Kürzel')
+    expect(de.plantFinder.placeholder).toContain('Kürzel')
+    expect(de.plantFinder.placeholder).not.toMatch(/\bCode/i)
+    expect(de.plantFinder.searchHint).toContain('Kürzel')
+    expect(de.plantFinder.searchHint).not.toMatch(/\bCodes?\b/i)
+    expect(de.canvas.calendar.addSpeciesPlaceholder).toContain('Kürzel')
+    expect(de.canvas.calendar.addSpeciesPlaceholder).not.toMatch(/\bCode/i)
+  })
 })
 
 const PLURAL_SUFFIX = /_(zero|one|two|few|many|other)$/

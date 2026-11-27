@@ -136,7 +136,7 @@ describe('Saved Object Stamp file composition', () => {
       canopy_spread_m: 2,
       notes: null,
       planted_date: null,
-      quantity: null,
+      quantity: 1,
     }])
     expect(file.zones).toEqual([{
       id: 'zone-source',

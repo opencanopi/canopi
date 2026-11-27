@@ -3,7 +3,6 @@ import { itemTypeLabel } from '../../../app/data-library/item-types'
 import type { LibraryItem } from '../../../app/data-library/library-items'
 import { locale } from '../../../app/settings/state'
 import { t } from '../../../i18n'
-import { formatByteSize } from '../../../utils/format'
 
 /** Wording and states of one library item, shared by the Data library and Layers details. */
 export function isStale(row: LibraryItem): boolean {
@@ -37,9 +36,4 @@ export function itemStatusLabel(row: LibraryItem): string {
   }
   if (row.run?.state === 'Cancelled') return t('canvas.lidar.library.cancelled')
   return row.role === 'Derived' ? t('canvas.lidar.library.calculationFailed') : t('canvas.lidar.library.importFailed')
-}
-
-/** "1.2 GB", "340 MB", "12 kB": the space the library takes on this computer (2.1-Q359). */
-export function formatDiskSize(bytes: number, activeLocale: string): string {
-  return formatByteSize(bytes, activeLocale)
 }

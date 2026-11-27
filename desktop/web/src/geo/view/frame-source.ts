@@ -200,7 +200,9 @@ export function createViewReadSurface(frames: ViewFrameSource): ViewReadSurface 
 }
 
 function threeSignificantFigures(value: number): number {
-  return Number.isFinite(value) && value > 0 ? Number(value.toPrecision(3)) : value
+  if (!Number.isFinite(value) || value <= 0) return value
+  const scale = 10 ** (2 - Math.floor(Math.log10(value)))
+  return Math.round(value * scale) / scale
 }
 
 /** A computed that keeps its previous value while the next one is equal, so dependents see changes of value only. */

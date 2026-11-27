@@ -24,7 +24,7 @@ type Geometry = Pick<PdfPage, 'width' | 'height' | 'frame'> & { bodyTop?: number
 const orientations = (view: PdfPageView = {}) => !view.orientation || view.orientation === 'auto' ? ['portrait', 'landscape'] as const : [view.orientation]
 export function printableCanvas(canvas: CanvasPrintSnapshot, layers: readonly string[], plantColors?: PdfPlantColors): CanvasPrintSnapshot {
   const selected = (name: string) => layers.includes(name) && (canvas.layers.find(l => l.name === name)?.opacity ?? 1) > 0
-  return { layers: canvas.layers, plants: selected('plants') ? recolorPlants(canvas.plants, plantColors) : [], zones: selected('zones') ? canvas.zones : [],
+  return { ...(canvas.symbolScale === undefined ? {} : { symbolScale: canvas.symbolScale }), layers: canvas.layers, plants: selected('plants') ? recolorPlants(canvas.plants, plantColors) : [], zones: selected('zones') ? canvas.zones : [],
     annotations: selected('annotations') ? canvas.annotations : [], measurements: selected('measurement-guides') ? canvas.measurements : [] }
 }
 
@@ -266,7 +266,7 @@ function drawNavigation(overview: PdfPage, details: readonly PdfPage[], canvas: 
   const { frame, ground, pointsPerMeter: scale } = overview
   const space = new FieldSpace({ x: frame.x / MM, y: frame.y / MM, width: frame.width / MM, height: frame.height / MM }, text)
   for (const plant of canvas.plants) {
-    const r = Math.max(.42, Math.min(1, paperPlantRadius(canvas.plants, plant, scale) / MM))
+    const r = paperPlantRadius(canvas.plants, plant, scale, canvas.symbolScale) / MM
     space.mark(plant.id, { x: (frame.x + (plant.position.x - ground.x) * scale) / MM - r,
       y: (frame.y + (plant.position.y - ground.y) * scale) / MM - r, width: r * 2, height: r * 2 })
   }

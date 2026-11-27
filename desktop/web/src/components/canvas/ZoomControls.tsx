@@ -1,7 +1,8 @@
 import type { FunctionComponent } from 'preact'
 import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { CanvasToolbarActionCommand } from '../../app/canvas-commands'
-import { locale } from '../../app/settings/state'
+import { locale, unitSystem } from '../../app/settings/state'
+import { formatScaleBarDistance } from '../../utils/format'
 import { phoneLayout } from '../../app/shell/phone-layout'
 import {
   COMMON_MAP_SCALES,
@@ -57,9 +58,11 @@ export function ZoomControls({ viewActions, myLocation: MyLocation }: {
   const zoomLimit = view?.zoomLimit.value ?? null
   const atMinimum = zoomLimit === 'min'
   const atMaximum = zoomLimit === 'max'
+  const system = unitSystem.value
   const groundMetresPerPixel = view?.groundMetresPerPixel.value
   const denominator = groundMetresPerPixel === undefined ? null : mapScaleDenominator(groundMetresPerPixel)
-  const bar = groundMetresPerPixel === undefined ? null : getScaleBarDisplay(1 / groundMetresPerPixel)
+  const bar = groundMetresPerPixel === undefined ? null : getScaleBarDisplay(1 / groundMetresPerPixel, system)
+  const barLabel = bar ? formatScaleBarDistance(bar.meters, system, locale.value) : null
 
   // The attribution pill is placed against this group's measured width.
   usePublishedWidth(group, '--zoom-group-width')
@@ -81,9 +84,9 @@ export function ZoomControls({ viewActions, myLocation: MyLocation }: {
 
   return (
     <div ref={group} className={styles.group} role="group" aria-label={t('canvas.grid.zoom')} data-zoom-group>
-      {bar && (
-        <span className={styles.scaleBar} role="img" aria-label={t('canvas.zoom.scaleBar', { distance: formatDistance(bar.meters, locale.value) })}>
-          <span className={styles.scaleLabel}>{formatDistance(bar.meters, locale.value)}</span>
+      {bar && barLabel && (
+        <span className={styles.scaleBar} role="img" aria-label={t('canvas.zoom.scaleBar', { distance: barLabel })}>
+          <span className={styles.scaleLabel}>{barLabel}</span>
           <span className={styles.scaleLine} style={{ width: `${Math.round(bar.barScreenPx)}px` }} />
         </span>
       )}
@@ -239,10 +242,7 @@ function ScaleMenu({ denominator }: { readonly denominator: number }) {
   )
 }
 
-/** "5 m", "2 km", "50 cm": the scale bar's distance in the interface language. */
+/** "5 m", "2 km", "50 cm", "100 ft": the scale bar's distance in the interface language and unit system. */
 export function formatDistance(meters: number, activeLocale: string): string {
-  const [value, unit] = meters >= 1000 ? [meters / 1000, 'kilometer']
-    : meters < 1 ? [meters * 100, 'centimeter']
-      : [meters, 'meter']
-  return new Intl.NumberFormat(activeLocale, { style: 'unit', unit, unitDisplay: 'short', maximumFractionDigits: 1 }).format(value)
+  return formatScaleBarDistance(meters, unitSystem.value, activeLocale)
 }

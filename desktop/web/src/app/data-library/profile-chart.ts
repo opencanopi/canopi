@@ -6,6 +6,8 @@
 // path into runs (a lone value is a short dash), a height plot starts at zero, round distance ticks, and a curve style
 // per draw-order index.
 
+import { formatFixed, formatPrecision } from '../../utils/format'
+
 /** Where a plot draws, in SVG pixels: x0 to x1 across, top to bottom down. */
 export interface PlotArea {
   readonly x0: number
@@ -33,7 +35,7 @@ interface ProfilePlot {
   y(value: number): number
 }
 
-const px = (value: number) => value.toFixed(2)
+const px = (value: number) => formatFixed(value, 2)
 /** A value with no data on both sides is a level dash this wide either side of it, so every value counted is drawn. */
 const LONE_HALF_WIDTH = 1.5
 
@@ -83,7 +85,7 @@ export function distanceTicks(total: number): number[] {
     for (const mantissa of [1, 2, 5]) {
       const step = mantissa * 10 ** power
       const count = Math.floor(total / step + 1e-9) + 1
-      if (count <= 5) return Array.from({ length: count }, (_, index) => Number((index * step).toPrecision(12)))
+      if (count <= 5) return Array.from({ length: count }, (_, index) => Number(formatPrecision(index * step, 12)))
     }
   }
   return [0, total]

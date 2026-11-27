@@ -70,6 +70,20 @@ describe('Automatic Detail', () => {
       .toEqual(['Menthe verte', 'Menthe verte'])
   })
 
+  it('includes the species code on pinned plants when codes mode is active', () => {
+    const base = createTestSceneRendererSnapshot({
+      scene: {
+        plants: [{ ...plant('a', 0, 0), pinnedName: true }, plant('b', 1, 0)],
+        plantSpeciesCodes: { 'Mentha spicata': 'MSP' },
+      },
+    })
+    const snapshot = { ...base, plantLabels: 'codes' as const }
+    expect(getCanvasPlantNameLabels(snapshot, 400).map((label) => ({ id: label.plantId, text: label.text }))).toEqual([
+      { id: 'a', text: 'MSP · Menthe verte' },
+      { id: 'b', text: 'MSP' },
+    ])
+  })
+
   it('keeps collision admission stable during panning and a round trip through overview zoom', () => {
     const snapshot = createTestSceneRendererSnapshot({
       scene: { plants: [plant('a', 0, 0), plant('b', .4, 0), plant('c', .8, 0)] },

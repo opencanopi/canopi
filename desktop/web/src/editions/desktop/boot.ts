@@ -42,7 +42,7 @@ import { speciesCatalogWorkbench as desktopSpeciesCatalogWorkbench } from "./spe
 import { installSpeciesCacheLoader } from "../../app/canvas-runtime/species-cache";
 import { installGeoJsonWorkflow } from "../../app/geojson/workflow";
 import { desktopGeoJsonWorkflow } from "./geojson";
-import { getFlowerColorBatch, getSpeciesBatch } from "../../ipc/species";
+import { getSpeciesBatch } from "../../ipc/species";
 import { installNativeAssetUrlResolver } from "../../ipc/transport";
 import { isPlantDbUnavailableError } from "../../ipc/plant-db-errors";
 import { createDesktopCanvasHostRuntime } from "../../app/canvas-map-surface/desktop-workspace-runtime";
@@ -113,7 +113,7 @@ export function bootDesktopEdition(): () => void {
       openFailurePresenter: presentDesktopDesignOpenFailure,
     }),
     installNativeAssetUrlResolver(),
-    installSpeciesCacheLoader({ getSpeciesBatch, getFlowerColorBatch, isPlantDbUnavailableError }),
+    installSpeciesCacheLoader({ getSpeciesBatch, isPlantDbUnavailableError }),
     installGeoJsonWorkflow(desktopGeoJsonWorkflow),
   ];
   installProblemReportPort(desktopProblemReport);

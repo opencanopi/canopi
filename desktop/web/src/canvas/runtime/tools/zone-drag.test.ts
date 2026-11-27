@@ -170,7 +170,7 @@ describe('Zone drag tools', () => {
       style: DRAFT_STROKE,
       fill: ZONE_FILL,
     })
-    expect(chips(h)).toEqual([['W 60 m', 'measure-quiet'], ['H 80 m', 'measure-quiet'], ['3770 m²', 'measure']])
+    expect(chips(h)).toEqual([['60 m × 80 m', 'measure-quiet'], ['3770 m²', 'measure']])
 
     h.release(sb)
     expect(h.store.persisted.zones[0]).toMatchObject({
@@ -345,7 +345,7 @@ describe('Zone drag tools', () => {
     expect(draft).toMatchObject({ kind: 'ellipse', rotationDeg: 30 })
     if (draft?.kind !== 'ellipse') return
     expectScreen(h, [draft.center], [{ x: 160, y: 140 }])
-    expect(chips(h).map(([text]) => text.slice(0, 2))).toEqual(['W ', 'H ', expect.any(String)])
+    expect(chips(h).map(([text]) => text)).toEqual([expect.stringContaining(' × '), expect.any(String)])
     h.release({ x: 220, y: 180 })
 
     const zone = h.store.persisted.zones[0]!

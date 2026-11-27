@@ -297,7 +297,7 @@ describe('saved object stamp tool', () => {
       rotationDeg: 15,
       notes: null,
       plantedDate: null,
-      quantity: null,
+      quantity: 1,
     })
     expect(zone).toMatchObject({
       locked: false,

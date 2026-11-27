@@ -241,7 +241,6 @@
       "selectedCount_few": "{{count}} selezionate",
       "selectedCount_many": "{{count}} selezionate",
       "selectedCount_other": "{{count}} selezionate",
-      "suggested": "Suggerito dal colore del fiore",
       "moreColors": "Colore personalizzato",
       "hue": "Tonalità",
       "saturationLightness": "Saturazione e luminosità",
@@ -1960,7 +1959,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "Informazioni su Canopi…",
     "mapStyle": "Stile della mappa",
-    "googleKeyKept": "La tua chiave Google resta salvata su questo dispositivo, inutilizzata. Scegli La mia chiave Google per usarla di nuovo."
+    "googleKeyKept": "La tua chiave Google resta salvata su questo dispositivo, inutilizzata. Scegli La mia chiave Google per usarla di nuovo.",
+    "units": {
+      "label": "Unità",
+      "metric": "Metrico",
+      "usCustomary": "Sistema statunitense"
+    }
   },
   "savedViews": {
     "defaultName": "Vista {{number}}",

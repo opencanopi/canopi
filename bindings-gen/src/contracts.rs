@@ -193,7 +193,6 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::species::FilterOp>()
         .register::<canopi_types::species::FilterOptions>()
         .register::<canopi_types::species::FilterValue>()
-        .register::<canopi_types::species::FlowerColorResolution>()
         .register::<canopi_types::species::PaginatedResult<canopi_types::species::SpeciesListItem>>(
         )
         .register::<canopi_types::species::Sort>()

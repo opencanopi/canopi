@@ -2535,8 +2535,7 @@ describe('SceneInteractionSession', () => {
     events.pointerUp({ x: 80, y: 60 }, { button: 0 })
 
     expect(draftLabelTexts(deps)).toEqual([
-      'W 60 m',
-      'H 40 m',
+      '60 m × 40 m',
       '1885 m²',
     ])
     session.dispose()
@@ -3981,7 +3980,7 @@ describe('SceneInteractionSession', () => {
       closePoint({ x: 60, y: 50 }),
       closePoint({ x: 30, y: 10 }),
     ])
-    expect(draftLabelTexts(deps)).toEqual(['W 60 m', 'H 20 m', '942 m²'])
+    expect(draftLabelTexts(deps)).toEqual(['60 m × 20 m', '942 m²'])
 
     events.pointerUp(screen({ x: 90, y: 50 }), { button: 0 })
 

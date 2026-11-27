@@ -15,7 +15,6 @@ import '../../__tests__/support/camera-tolerance'
 vi.mock('../../ipc/species', async (importOriginal) => ({
   ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 // The Desktop adapter reads labels from the live workbench, whose cache would
@@ -2212,7 +2211,6 @@ describe('scene canvas runtime', () => {
           speciesCache: {
             getCache: () => cache,
             ensureEntries,
-            getSuggestedPlantColor: () => null,
           },
         },
       },
@@ -2257,7 +2255,6 @@ describe('scene canvas runtime', () => {
           speciesCache: {
             getCache: () => cache,
             ensureEntries,
-            getSuggestedPlantColor: () => null,
           },
         },
       },
@@ -2311,7 +2308,6 @@ describe('scene canvas runtime', () => {
               if (failSpeciesRefresh) throw speciesFailure
               return false
             },
-            getSuggestedPlantColor: () => null,
           },
         },
       },
@@ -2358,7 +2354,6 @@ describe('scene canvas runtime', () => {
           speciesCache: {
             getCache: () => new Map(),
             ensureEntries: async () => false,
-            getSuggestedPlantColor: () => null,
           },
         },
       },
@@ -2406,7 +2401,6 @@ describe('scene canvas runtime', () => {
           speciesCache: {
             getCache: () => new Map(),
             ensureEntries: ensureSpeciesEntries,
-            getSuggestedPlantColor: () => null,
           },
         },
       },

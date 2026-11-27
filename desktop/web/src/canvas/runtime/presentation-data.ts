@@ -26,7 +26,6 @@ export interface CanvasPlantLabelSource {
 export interface CanvasSpeciesPresentationCache {
   getCache(): Map<string, SpeciesCacheEntry>
   ensureEntries(canonicalNames: string[], activeLocale: string): Promise<boolean>
-  getSuggestedPlantColor(canonicalName: string): string | null
 }
 
 export function createDetachedCanvasPlantLabelSource(): CanvasPlantLabelSource {
@@ -46,12 +45,9 @@ export function createDetachedCanvasSpeciesPresentationCache(): CanvasSpeciesPre
       for (const canonicalName of missing) {
         cache.set(canonicalName, {
           canonical_name: canonicalName,
-          resolved_flower_color: null,
-          resolved_flower_color_source: 'none',
         })
       }
       return missing.length > 0
     },
-    getSuggestedPlantColor: () => null,
   }
 }

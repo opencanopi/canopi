@@ -1,4 +1,5 @@
 import type { LidarRamp } from '../../generated/contracts'
+import { formatNumber } from '../../utils/format'
 import { unitSuffix } from './item-types'
 
 /**
@@ -53,17 +54,9 @@ export function legendGradient(ramp: LidarRamp, reversed: boolean): string {
   return `linear-gradient(90deg, ${stops.join(', ')})`
 }
 
-const formatters = new Map<string, Intl.NumberFormat>()
-
 /** A number with exactly `digits` decimals, in the interface locale's digits and separators. */
 function fixed(value: number, digits: number, locale: string): string {
-  const key = `${locale}:${digits}`
-  let formatter = formatters.get(key)
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })
-    formatters.set(key, formatter)
-  }
-  return formatter.format(value)
+  return formatNumber(value, locale, { minimumFractionDigits: digits, maximumFractionDigits: digits })
 }
 
 export function formatLegendValue(value: number, units: string, locale: string): string {

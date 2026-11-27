@@ -241,7 +241,6 @@
       "selectedCount_few": "{{count}}개 선택됨",
       "selectedCount_many": "{{count}}개 선택됨",
       "selectedCount_other": "{{count}}개 선택됨",
-      "suggested": "꽃 색상 기반 추천",
       "moreColors": "사용자 지정 색상",
       "hue": "색조",
       "saturationLightness": "채도 및 명도",
@@ -1960,7 +1959,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "Canopi 정보…",
     "mapStyle": "지도 스타일",
-    "googleKeyKept": "Google 키는 이 기기에 저장된 채로 사용되지 않습니다. 다시 쓰려면 내 Google 키를 선택하세요."
+    "googleKeyKept": "Google 키는 이 기기에 저장된 채로 사용되지 않습니다. 다시 쓰려면 내 Google 키를 선택하세요.",
+    "units": {
+      "label": "단위",
+      "metric": "미터법",
+      "usCustomary": "미국 단위"
+    }
   },
   "savedViews": {
     "defaultName": "보기 {{number}}",

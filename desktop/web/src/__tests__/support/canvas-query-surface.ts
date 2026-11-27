@@ -153,7 +153,6 @@ export function createTestCanvasQuerySurface({
       singleSpeciesCanonicalName: null,
       singleSpeciesCommonName: null,
       sharedCurrentColor: null,
-      suggestedColor: null,
       singleSpeciesDefaultColor: null,
     }),
     getSelectedPlantSymbolContext: () => ({

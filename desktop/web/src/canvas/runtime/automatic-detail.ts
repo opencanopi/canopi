@@ -51,10 +51,11 @@ export function getCanvasPlantNameLabels(
     if (!existing && !plant.pinnedName && !forced && (!automatic || scale < minimumScale || (!codes && nearestPlantSpacing(scene.plants, plant.position) * scale < 35))) continue
     const opacity = forced ? 1 : existing?.opacity ?? getCanvasTextOpacity(scale)
     if (!opacity) continue
-    const commonName = snapshot.localizedCommonNames.get(plant.canonicalName) ?? plant.commonName
+    const commonName = snapshot.localizedCommonNames.get(plant.canonicalName) || plant.commonName
     const code = codes ? scene.plantSpeciesCodes[plant.canonicalName] : null
-    const text = existing?.text ?? code ?? (commonName || plant.canonicalName)
-    const fontStyle = existing?.fontStyle ?? (code || commonName ? 'normal' : 'italic')
+    const baseText = commonName || plant.canonicalName
+    const text = existing?.text ?? (plant.pinnedName && code ? `${code} · ${baseText}` : code ?? baseText)
+    const fontStyle = existing?.fontStyle ?? ((code && !plant.pinnedName) || commonName ? 'normal' : 'italic')
     const radius = getPlantWorldBounds(plant, context).width * scale / 2
     const x = plant.position.x * scale, y = plant.position.y * scale
     const candidates = [nameBounds(text, x, y + radius + 4), nameBounds(text, x, y - radius - 20)]

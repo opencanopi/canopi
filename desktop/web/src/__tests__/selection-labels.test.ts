@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ScenePlantEntity, ScenePoint } from '../canvas/runtime/scene'
-import { computePinnedPlantNameLabels, computeSelectionLabels } from '../canvas/runtime/selection-labels'
-import { createTestRendererView } from './support/scene-renderer-snapshot'
+import { computePinnedPlantNameLabels, computeSelectionLabels, projectScenePlantLabels } from '../canvas/runtime/selection-labels'
+import { createTestRendererView, createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import './support/camera-tolerance'
 
 function createViewport(overrides: Partial<{ x: number; y: number; scale: number }> = {}) {
@@ -131,7 +131,7 @@ describe('selection labels', () => {
     expect(result[0]!.fontStyle).toBe('normal')
   })
 
-  it('falls back to abbreviated canonical name when no common name exists', () => {
+  it('falls back to full canonical name when no common name exists', () => {
     const plant = createPlant({ id: 'a', commonName: null, canonicalName: 'Lavandula angustifolia' })
     const result = computeSelectionLabels(
       [plant],
@@ -139,8 +139,25 @@ describe('selection labels', () => {
       createViewport().scale,
       new Map(),
     )
-    expect(result[0]!.text).toBe('L. ang.')
+    expect(result[0]!.text).toBe('Lavandula angustifolia')
     expect(result[0]!.fontStyle).toBe('italic')
+  })
+
+  it('includes the species code on selected and pinned plants when codes mode is active', () => {
+    const selected = createPlant({ id: 'a', canonicalName: 'Malus domestica', commonName: 'Apple', pinnedName: false })
+    const pinned = createPlant({ id: 'b', canonicalName: 'Lavandula angustifolia', commonName: null, pinnedName: true })
+    const base = createTestSceneRendererSnapshot({
+      scene: {
+        plants: [selected, pinned],
+        plantSpeciesCodes: { 'Malus domestica': 'MDO', 'Lavandula angustifolia': 'LAN' },
+      },
+    })
+    const snapshot = { ...base, selectionLabelPlantIds: new Set(['a']), plantLabels: 'codes' as const }
+    const projected = projectScenePlantLabels(snapshot, 20)
+    expect(projected.selectionLabels[0]?.text).toBe('MDO · Apple')
+    expect(projected.selectionLabels[0]?.fontStyle).toBe('normal')
+    expect(projected.pinnedPlantNameLabels[0]?.text).toBe('LAN · Lavandula angustifolia')
+    expect(projected.pinnedPlantNameLabels[0]?.fontStyle).toBe('italic')
   })
 
   it('fades pinned names smoothly on zoom reversal without changing saved pinning', () => {

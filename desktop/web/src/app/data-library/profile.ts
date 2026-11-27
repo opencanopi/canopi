@@ -29,6 +29,7 @@ import { lidarLibrary, readCurrentLidarPresentation, type LidarPresentationItem 
 import { siteSampler, type SiteSampler } from './sampler'
 import { profileLine, setProfileLine } from './site-transients'
 import type { LocaleKey } from '../../generated/locale-keys'
+import { formatNumber } from '../../utils/format'
 
 /** At most this many points along a line (LIDAR_SAMPLE_MAX_POINTS). */
 const PROFILE_MAX_POINTS = 4096
@@ -204,8 +205,8 @@ function profileHighest(values: readonly (number | null)[]): number | null {
 }
 
 /** Numbers in the copied text: the locale's decimal separator, no grouping, a fixed number of decimals. */
-function fixed(locale: string, decimals: number): Intl.NumberFormat {
-  return new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: false })
+function fixed(value: number, locale: string, decimals: number): string {
+  return formatNumber(value, locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: false })
 }
 
 /**
@@ -219,8 +220,6 @@ export function profileCopyText(
   locale: string,
   translate: (key: LocaleKey) => string,
 ): string {
-  const two = fixed(locale, 2)
-  const seven = fixed(locale, 7)
   const cell = (text: string) => text.replace(/[\t\r\n]+/g, ' ')
   const curves = profile.curves.filter((curve) => !curve.readFailed)
   const header = [
@@ -230,12 +229,12 @@ export function profileCopyText(
     ...curves.map((curve) => cell(curve.units && curve.units !== 'unknown' ? `${curve.name} (${curve.units})` : curve.name)),
   ]
   const rows = profile.samples.points.map((point, index) => [
-    two.format(profile.samples.distances[index]!),
-    seven.format(point.lon),
-    seven.format(point.lat),
+    fixed(profile.samples.distances[index]!, locale, 2),
+    fixed(point.lon, locale, 7),
+    fixed(point.lat, locale, 7),
     ...curves.map((curve) => {
       const value = curve.values[index]
-      return value === null || value === undefined ? '' : two.format(value)
+      return value === null || value === undefined ? '' : fixed(value, locale, 2)
     }),
   ])
   return [header, ...rows].map((row) => row.join('\t')).join('\n') + '\n'

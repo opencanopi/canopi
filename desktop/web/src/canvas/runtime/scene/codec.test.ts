@@ -236,7 +236,6 @@ describe('scene codec lossless v10 preservation', () => {
           localizedCommonNames: new Map(),
         }),
         getLocalizedCommonNames: () => new Map(),
-        getSuggestedPlantColor: () => null,
       },
       invalidateScene: () => {},
     })
@@ -302,7 +301,6 @@ describe('scene codec lossless v10 preservation', () => {
           localizedCommonNames: new Map(),
         }),
         getLocalizedCommonNames: () => new Map(),
-        getSuggestedPlantColor: () => null,
       },
       invalidateScene: () => {},
     })

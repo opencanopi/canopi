@@ -12,7 +12,6 @@ import {
   designEmbeddedImageBytes,
   dismissStoryUndo,
   duplicateStep,
-  formatImageBytes,
   goToStepView,
   moveStepBy,
   readStoryImageFile,
@@ -27,6 +26,7 @@ import {
   undoStoryDelete,
   useCurrentViewForStep,
 } from '../app/stories'
+import { formatByteSize } from '../utils/format'
 import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } from '../app/document-session/live-core'
 import { currentDesign } from '../app/document-session/store'
 import type { CanopiFile, RichTextBlock, SavedView, Story } from '../types/design'
@@ -427,8 +427,8 @@ describe('story images', () => {
   it('counts only embedded bytes and formats sizes for people', () => {
     expect(designEmbeddedImageBytes(currentDesign.value)).toBe(3)
     expect(designEmbeddedImageBytes(null)).toBe(0)
-    expect(formatImageBytes(1.5 * 1024 * 1024, 'en')).toBe('1.6 MB')
-    expect(formatImageBytes(100, 'fr')).toBe('0,1\u202fko')
+    expect(formatByteSize(1_500_000, 'en')).toBe('1.5 MB')
+    expect(formatByteSize(100, 'fr')).toBe('0,1\u202fko')
   })
 
   it('refuses an image that would take the Design over 10 MB', async () => {

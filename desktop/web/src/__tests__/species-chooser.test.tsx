@@ -214,10 +214,10 @@ describe('Place plants species chooser', () => {
     expect(glyph('Rubus idaeus').querySelector('svg')?.getAttribute('data-plant-symbol')).toBe('round')
   })
 
-  it('the chooser swatch for a Design species shows the cached stratum colour', async () => {
+  it('the chooser swatch for a Design species shows the default plant colour when none is set', async () => {
     const fig = options().find((option) => option.dataset.speciesOption === 'Ficus carica')!
-    // getStratumColor('emergent'), #1B5E20: the colour the canvas draws a Fig with no colour of its own.
-    expect(fig.querySelector<HTMLElement>('[data-species-glyph]')!.style.color).toBe('rgb(27, 94, 32)')
+    // DEFAULT_PLANT_COLOR, #4CAF50: the colour the canvas draws a Fig with no colour of its own.
+    expect(fig.querySelector<HTMLElement>('[data-species-glyph]')!.style.color).toBe('rgb(76, 175, 80)')
   })
 
   it('rings a species\' plants with the hover stroke only while its row is pointed at or focused', async () => {

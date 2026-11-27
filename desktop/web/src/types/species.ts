@@ -4,7 +4,6 @@ export type {
   DynamicFilterOptions,
   FilterOp,
   FilterOptions,
-  FlowerColorResolution,
   PaginatedResult,
   SpeciesDetail,
   SpeciesFilter,

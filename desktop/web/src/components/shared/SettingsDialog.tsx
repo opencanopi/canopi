@@ -11,6 +11,7 @@ import {
   scrollWheel,
   singleKeyShortcuts,
   theme,
+  unitSystem,
   type NewDesignDefaults,
 } from '../../app/settings/state'
 import {
@@ -24,9 +25,11 @@ import { toggleToolNames, toolRailShowsNames } from '../../app/tool-rail/learnin
 import { modKeyName } from '../../app/shell-commands/shortcut-text'
 import { PLANT_SYMBOL_SCALE_MAX, PLANT_SYMBOL_SCALE_MIN } from '../../canvas/runtime/plant-display'
 import type { AppFolder, AppFolderLocations, BasemapStyle, PlantLabels, ScrollWheel } from '../../generated/contracts'
+import type { UnitSystem } from '../../generated/quantity-table'
 import { SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
 import type { Locale, Theme } from '../../types/settings'
 import { t } from '../../i18n'
+import { formatPercent } from '../../utils/format'
 import { ControlIcon, type ControlIconName } from './ControlIcon'
 import { Dropdown, type DropdownItem } from './Dropdown'
 import { SegmentedControl } from './SegmentedControl'
@@ -155,6 +158,14 @@ function AppearanceSection() {
         onChange={(next) => setSetting('locale', next)}
       />
     </SettingField>
+    <SettingField label="settings.units.label">
+      <SegmentedControl<UnitSystem>
+        label={t('settings.units.label')}
+        value={unitSystem.value}
+        options={[opt('metric', 'settings.units.metric'), opt('us_customary', 'settings.units.usCustomary')]}
+        onChange={(next) => setSetting('unitSystem', next)}
+      />
+    </SettingField>
     <Switch
       label={t('settings.toolNames')}
       hint={t('settings.toolNamesHint')}
@@ -230,7 +241,7 @@ function NewDesignsSection() {
       max={PLANT_SYMBOL_SCALE_MAX * 100}
       step={10}
       value={sizePercent}
-      format={(percent) => new Intl.NumberFormat(locale.value, { style: 'percent' }).format(percent / 100)}
+      format={(percent) => formatPercent(percent / 100, locale.value)}
       // Slider-driven, so persistence is queued rather than written per step.
       onInput={(percent) => setNewDesignDefault({ symbolScale: percent / 100 }, 'queued')}
     />
