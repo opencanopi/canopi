@@ -2264,5 +2264,8 @@
   },
   "editionCapability": {
     "needsDesktop": "Needs Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "Could not save to that file name. Choose a different file name or folder and try again."
   }
 }

@@ -1,8 +1,16 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { NewDesignInputContract, SavedObjectStampPayload } from '../../generated/contracts'
+import { installCommandTransport } from '../../types/command-transport'
 import { createGalleryEditionPorts } from './ports'
 
 describe('createGalleryEditionPorts', () => {
+  let disposeTransport: (() => void) | null = null
+
+  afterEach(() => {
+    disposeTransport?.()
+    disposeTransport = null
+  })
+
   it('provides inert gallery ports and refuses DesignCore codec calls', async () => {
     const ports = createGalleryEditionPorts('web')
     expect(ports.settings.load()).toBeDefined()
@@ -44,5 +52,49 @@ describe('createGalleryEditionPorts', () => {
     await expect(ports.designCore.draftSummary(new Uint8Array(), '2026-11-26T00:00:00Z')).rejects.toThrow()
     await expect(ports.designCore.decodeStamp('{}')).rejects.toThrow()
     await expect(ports.designCore.encodeStamp(stamp)).rejects.toThrow()
+  })
+
+  it('lists the Data library through the installed Gallery command transport and resolves asset URLs without throwing', async () => {
+    const calls: string[] = []
+    disposeTransport = installCommandTransport(async (command) => {
+      calls.push(command)
+      if (command === 'lidar_list_library') {
+        return {
+          items: [
+            {
+              id: 'lidar-ground',
+              name: 'IGN ground elevation',
+              role: 'Source',
+              item_type: { kind: 'Raster', quantity: 'GroundElevation' },
+              units: 'm',
+              state: 'Ready',
+              generation_id: 'lidar-ground-g1',
+              bounds: [12.9998, 22.9998, 13.0001, 23.0002],
+              value_range: [131.2, 287.8],
+              display_range: { min: 131.2, max: 287.8, basis: 'Exact' },
+              resolution_m: 0.5,
+              coverage_cells: '4000000',
+              import_job: null,
+              provenance: null,
+              freshness: { state: 'Current' },
+              run: null,
+              offers: [],
+              dependents: 0,
+              created_at: '1789205400000',
+            },
+          ],
+          read_only: false,
+          read_only_reason: null,
+        }
+      }
+      return null
+    })
+
+    const ports = createGalleryEditionPorts('desktop')
+    const snapshot = await ports.dataLibrary.listLibrary()
+    expect(calls).toEqual(['lidar_list_library'])
+    expect(snapshot.items).toHaveLength(1)
+    expect(snapshot.items[0]?.id).toBe('lidar-ground')
+    expect(ports.dataLibrary.resolveAssetUrl('/assets/cog.tif')).toBe('/assets/cog.tif')
   })
 })

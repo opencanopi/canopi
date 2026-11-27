@@ -55,7 +55,7 @@ type GeoJsonImportOutcome =
 
 type GeoJsonExportOutcome =
   | { readonly status: 'written'; readonly featureCount: number }
-  | { readonly status: 'cancelled' | 'unavailable' | 'busy' | 'write-failed' }
+  | { readonly status: 'cancelled' | 'unavailable' | 'busy' | 'refused' | 'write-failed' }
 
 export interface GeoJsonWorkflowDeps {
   readonly pickGeoJsonFile: () => Promise<GeoJsonSourceFile | null>
@@ -104,12 +104,13 @@ function readCurrentGeoJsonCanvas(): GeoJsonCanvas | null {
 
 export function createGeoJsonWorkflow({
   pickGeoJsonFile,
-  fileDelivery = () => editionPorts().fileDelivery,
+  fileDelivery: customFileDelivery,
   notify,
   designName,
   canvas = readCurrentGeoJsonCanvas,
   sessionIdentity = () => designSessionStore.sessionIdentity.peek(),
 }: GeoJsonWorkflowDeps): GeoJsonWorkflow {
+  const fileDelivery = customFileDelivery ?? (() => editionPorts().fileDelivery)
   const importTitle = 'geojson.importTitle'
   const exportTitle = 'geojson.exportTitle'
   const error = async (title: LocaleKey, message: LocaleKey, params?: NoticeParams) =>
@@ -179,7 +180,7 @@ export function createGeoJsonWorkflow({
       return { status: 'busy' }
     }
     const text = serializeDesignGeoJson(objects)
-    let outcome: 'saved' | 'downloaded' | 'cancelled'
+    let outcome: 'saved' | 'downloaded' | 'cancelled' | 'refused'
     try {
       const delivery = fileDelivery()
       outcome = await delivery.deliverFile('geojson', designName(), { text })
@@ -189,6 +190,10 @@ export function createGeoJsonWorkflow({
       return { status: 'write-failed' }
     }
     if (outcome === 'cancelled') return { status: 'cancelled' }
+    if (outcome === 'refused') {
+      await error(exportTitle, 'fileDelivery.refused')
+      return { status: 'refused' }
+    }
     return {
       status: 'written',
       featureCount: objects.plants.length + objects.zones.length + objects.annotations.length
@@ -197,7 +202,7 @@ export function createGeoJsonWorkflow({
   }
 
   return {
-    isAvailable: () => canvas() !== null && (hasEditionPorts() || fileDelivery !== undefined),
+    isAvailable: () => canvas() !== null && (hasEditionPorts() || customFileDelivery !== undefined),
     importGeoJson,
     exportGeoJson,
   }

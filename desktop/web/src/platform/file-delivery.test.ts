@@ -25,6 +25,10 @@ describe('FileDelivery suite (contracts §16, 2.1-M422, 2.1-M522, 2.1-Q359, cano
     expect(buildDeliveryFileName('canopi-copy', 'North:Garden/2026*Plan?')).toBe('North Garden 2026 Plan.canopi')
     expect(buildDeliveryFileName('canopi-copy', '  My   <Oak> | "Orchard"  ')).toBe('My Oak Orchard.canopi')
     expect(buildDeliveryFileName('canopi-copy', ':::/*?', t('titleBar.untitledDesign'))).toBe('Untitled Design.canopi')
+    expect(buildDeliveryFileName('pdf', 'Garden.')).toBe('Garden.pdf')
+    expect(buildDeliveryFileName('pdf', 'CON', t('titleBar.untitledDesign'))).toBe('Untitled Design.pdf')
+    expect(buildDeliveryFileName('geojson', 'Plan.json')).toBe('Plan.geojson')
+    expect(buildDeliveryFileName('pdf', 'a'.repeat(250)).length).toBeLessThanOrEqual(204)
     locale.value = 'fr'
     expect(buildDeliveryFileName('canopi-copy', '   ', t('titleBar.untitledDesign'))).not.toBe('.canopi')
   })
@@ -118,18 +122,26 @@ describe('FileDelivery suite (contracts §16, 2.1-M422, 2.1-M522, 2.1-Q359, cano
 
     const disposeWrongExt = installCommandTransport(async (command) => {
       if (command === 'pick_save') return { kind: 'picked', path: '/chosen/wrong.txt' }
-      if (command === 'deliver_file') throw new Error('Export destination for pdf must have a .pdf extension')
+      if (command === 'deliver_file') {
+        return Promise.reject({
+          code: { kind: 'invalid' },
+          user_may_retry: false,
+          op: 'export.deliver_file',
+          operation: null,
+          detail: 'Export destination extension refused',
+        })
+      }
       return null
     })
     try {
       const desktop = createDesktopFileDelivery()
-      await expect(desktop.deliverFile('pdf', 'Garden', { bytes: new Uint8Array([1]) })).rejects.toThrow(/extension/)
+      expect(await desktop.deliverFile('pdf', 'Garden', { bytes: new Uint8Array([1]) })).toBe('refused')
     } finally {
       disposeWrongExt()
     }
   })
 
-  it('Web adapter triggers Blob downloads for every content row, respects cancel, and refuses native-only rows', async () => {
+  it('Web adapter triggers Blob downloads for every content row, respects cancel, and revokes on dispose', async () => {
     const downloads: Array<{ download: string; type: string }> = []
     const origCreate = URL.createObjectURL
     const origRevoke = URL.revokeObjectURL
@@ -157,8 +169,8 @@ describe('FileDelivery suite (contracts §16, 2.1-M422, 2.1-M522, 2.1-Q359, cano
         { download: 'North Plot.canopi', type: 'application/json' },
       ])
 
-      await expect(web.deliverFile('geotiff', 'Slope', { native: 'item-1' })).rejects.toThrow(/native-only/)
       web.dispose?.()
+      expect(URL.revokeObjectURL).toHaveBeenCalledTimes(3)
     } finally {
       URL.createObjectURL = origCreate
       URL.revokeObjectURL = origRevoke

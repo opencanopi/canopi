@@ -329,6 +329,8 @@ pub mod ops {
     pub const SETTINGS_PATCH_RECORD: &str = "settings.patch_record";
     /// User origin: writing a Design home through `home_write` (contracts §4, ADR 0027).
     pub const HOME_WRITE: &str = "home.write";
+    /// User origin: delivering an exported file through `deliver_file` (contracts §16, 2.1-M154).
+    pub const EXPORT_DELIVER_FILE: &str = "export.deliver_file";
 
     /// Every op constant.
     pub const ALL: &[&str] = &[
@@ -349,6 +351,7 @@ pub mod ops {
         SETTINGS_GET_RECORD,
         SETTINGS_PATCH_RECORD,
         HOME_WRITE,
+        EXPORT_DELIVER_FILE,
     ];
 }
 

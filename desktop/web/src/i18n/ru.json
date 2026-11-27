@@ -2264,5 +2264,8 @@
   },
   "editionCapability": {
     "needsDesktop": "Требуется Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "Не удалось сохранить под этим именем файла. Выберите другое имя или папку и попробуйте снова."
   }
 }

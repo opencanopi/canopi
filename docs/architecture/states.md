@@ -221,7 +221,7 @@ stateDiagram-v2
   preparing --> error: prepare-failed, prepare-timeout, coverage-too-large
   ready --> preparing: setup edited
   ready --> delivering: Save or Download
-  delivering --> saved: Desktop dialog and save_canvas_pdf
+  delivering --> saved: Desktop dialog and deliver_file
   delivering --> downloaded: Web download
   delivering --> ready: cancelled
   delivering --> error: delivery-failed

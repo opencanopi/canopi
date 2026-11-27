@@ -2264,5 +2264,8 @@
   },
   "editionCapability": {
     "needsDesktop": "Nécessite Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "Impossible d’enregistrer sous ce nom de fichier. Choisissez un autre nom ou dossier et réessayez."
   }
 }

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use canopi_types::dialog::FileKind;
+use canopi_types::failure::{Failure, FailureCode, IoFailureKind, ops};
 
 /// Upper bound for one delivered export file, matching the Canvas PDF and GeoJSON caps.
 pub const MAX_EXPORT_BYTES: usize = 64 * 1024 * 1024;
@@ -8,60 +9,54 @@ pub const MAX_EXPORT_BYTES: usize = 64 * 1024 * 1024;
 /// Upper bound for an imported GeoJSON file; the read stops one byte past it.
 const MAX_GEOJSON_IMPORT_BYTES: u64 = 64 * 1024 * 1024;
 
-/// Resolve the destination path for `kind`, enforcing the host-side extension rule (2.1-M155):
-/// - If `path` already has one of `kind`'s extensions (case-insensitive), use it as-is.
-/// - If `path` has a different extension, refuse it so the boundary cannot overwrite a Design or
-///   other unrelated file.
-/// - If `path` has no extension, append `kind`'s primary extension and refuse with an `exists`
-///   error when that appended file already exists on disk.
-fn resolve_delivery_path(kind: FileKind, path: &Path) -> Result<PathBuf, String> {
+/// File kinds Desktop delivers through `deliver_file` before 2b's host grants (`canopi-f47t.52.74`).
+/// `canopi`, `geotiff`, and `zip` are refused so page script cannot overwrite Designs or library rasters.
+pub fn is_deliverable_kind(kind: FileKind) -> bool {
+    matches!(kind, FileKind::Pdf | FileKind::Geojson | FileKind::Csv)
+}
+
+/// Validate that `path` carries one of `kind`'s allowed extensions (case-insensitive).
+/// Missing extensions are appended and checked for existing files in `pick_save` (2.1-M155).
+fn resolve_delivery_path(kind: FileKind, path: &Path) -> Result<PathBuf, Failure> {
     let allowed = kind.extensions();
     match path.extension().and_then(|ext| ext.to_str()) {
-        Some(ext) => {
+        Some(ext)
             if allowed
                 .iter()
-                .any(|candidate| ext.eq_ignore_ascii_case(candidate))
-            {
-                Ok(path.to_path_buf())
-            } else {
-                Err(format!(
-                    "Export destination for {} must have a .{} extension",
-                    kind.literal(),
-                    allowed.join(" or .")
-                ))
-            }
+                .any(|candidate| ext.eq_ignore_ascii_case(candidate)) =>
+        {
+            Ok(path.to_path_buf())
         }
-        None => {
-            let primary = allowed
-                .first()
-                .ok_or_else(|| format!("No extensions configured for {}", kind.literal()))?;
-            let mut appended = path.as_os_str().to_os_string();
-            appended.push(".");
-            appended.push(primary);
-            let appended_path = PathBuf::from(appended);
-            if appended_path.exists() {
-                return Err("exists: destination already exists".to_string());
-            }
-            Ok(appended_path)
-        }
+        _ => Err(Failure::new(FailureCode::Invalid, ops::EXPORT_DELIVER_FILE)
+            .with_english("Export destination extension refused")),
     }
 }
 
 /// Atomically write an exported payload chosen through the Save dialog (contracts §16,
 /// 2.1-M154, 2.1-M155, 2.1-M522).
-pub fn deliver_file(kind: FileKind, data: Vec<u8>, path: String) -> Result<String, String> {
+pub fn deliver_file(kind: FileKind, data: Vec<u8>, path: String) -> Result<String, Failure> {
+    if !is_deliverable_kind(kind) {
+        return Err(Failure::new(FailureCode::Invalid, ops::EXPORT_DELIVER_FILE)
+            .with_english("Unsupported delivery kind"));
+    }
     if data.len() > MAX_EXPORT_BYTES {
-        return Err(format!(
-            "Export exceeds the {} MiB limit",
-            MAX_EXPORT_BYTES / (1024 * 1024)
-        ));
+        return Err(Failure::new(FailureCode::Invalid, ops::EXPORT_DELIVER_FILE)
+            .with_english("Export exceeds the 64 MiB limit"));
     }
     if kind == FileKind::Pdf && (!data.starts_with(b"%PDF-") || !data.ends_with(b"%%EOF\n")) {
-        return Err("Invalid Canvas PDF output".to_string());
+        return Err(Failure::new(FailureCode::Invalid, ops::EXPORT_DELIVER_FILE)
+            .with_english("Invalid Canvas PDF output"));
     }
     let resolved = resolve_delivery_path(kind, Path::new(&path))?;
-    crate::design::write_derived_file(&resolved, &data)
-        .map_err(|error| format!("Could not write export: {error}"))?;
+    crate::design::write_derived_file(&resolved, &data).map_err(|_| {
+        Failure::new(
+            FailureCode::Io {
+                io: IoFailureKind::Other,
+            },
+            ops::EXPORT_DELIVER_FILE,
+        )
+        .with_english("Could not write export")
+    })?;
     Ok(resolved.display().to_string())
 }
 
@@ -220,24 +215,23 @@ mod tests {
     }
 
     #[test]
-    fn deliver_file_appends_missing_extension_and_refuses_when_appended_exists() {
-        let temp_dir = TempTestDir::new("append-ext");
+    fn deliver_file_refuses_disallowed_kinds_and_missing_extensions() {
+        let temp_dir = TempTestDir::new("disallowed-kind");
+        for (kind, name) in [
+            (FileKind::Canopi, "garden.canopi"),
+            (FileKind::Geotiff, "dem.tif"),
+            (FileKind::Zip, "report.zip"),
+        ] {
+            let path = temp_dir.file(name);
+            let err = deliver_file(kind, b"data".to_vec(), path.display().to_string()).unwrap_err();
+            assert_eq!(err.code, canopi_types::failure::FailureCode::Invalid);
+            assert!(!path.exists());
+        }
         let bare = temp_dir.file("orchard");
-        let written =
-            deliver_file(FileKind::Csv, b"a,b".to_vec(), bare.display().to_string()).unwrap();
-        let expected = temp_dir.file("orchard.csv");
-        assert_eq!(written, expected.display().to_string());
-        assert_eq!(std::fs::read(&expected).unwrap(), b"a,b");
-
-        // Second write to the bare name must refuse with `exists` rather than overwrite orchard.csv.
-        let err = deliver_file(
-            FileKind::Csv,
-            b"overwrite".to_vec(),
-            bare.display().to_string(),
-        )
-        .unwrap_err();
-        assert!(err.contains("exists"), "{err}");
-        assert_eq!(std::fs::read(&expected).unwrap(), b"a,b");
+        let err =
+            deliver_file(FileKind::Csv, b"a,b".to_vec(), bare.display().to_string()).unwrap_err();
+        assert_eq!(err.code, canopi_types::failure::FailureCode::Invalid);
+        assert!(!bare.exists());
     }
 
     #[test]
@@ -247,10 +241,11 @@ mod tests {
         std::fs::write(&design, b"design").unwrap();
         for name in ["garden.canopi", "notes.txt", "user.db"] {
             let path = temp_dir.file(name);
-            assert!(
-                deliver_file(FileKind::Csv, b"x".to_vec(), path.display().to_string())
-                    .unwrap_err()
-                    .contains("extension"),
+            let err =
+                deliver_file(FileKind::Csv, b"x".to_vec(), path.display().to_string()).unwrap_err();
+            assert_eq!(
+                err.code,
+                canopi_types::failure::FailureCode::Invalid,
                 "{name}"
             );
         }
@@ -275,7 +270,7 @@ mod tests {
             oversized.display().to_string(),
         )
         .unwrap_err();
-        assert!(error.contains("limit"), "{error}");
+        assert_eq!(error.code, canopi_types::failure::FailureCode::Invalid);
         assert!(!oversized.exists());
         assert_eq!(std::fs::read_dir(&temp_dir.root).unwrap().count(), 2);
     }

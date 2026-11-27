@@ -12,9 +12,6 @@ vi.mock('@tauri-apps/api/core', () => ({
   invoke: invokeMock,
   convertFileSrc: (path: string) => path,
 }))
-vi.mock('@tauri-apps/plugin-dialog', () => ({
-  message: vi.fn().mockResolvedValue(undefined),
-}))
 
 import { flattenDocumentForJson as encodeCanopiDesign } from '../../app/contracts/document'
 import { createJsonSessionCodec, createSessionCore, getLiveSessionCore, installLiveSessionCore } from '../../app/document-session/live-core'

@@ -816,6 +816,7 @@ export type LocaleKey =
   | "favorites.remove"
   | "favorites.search"
   | "favorites.searchAll"
+  | "fileDelivery.refused"
   | "filters.activeFilters"
   | "filters.category.climate"
   | "filters.category.ecology"

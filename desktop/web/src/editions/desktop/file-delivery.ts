@@ -4,6 +4,7 @@
  * the host Save dialog (`pickSave`) and raw binary IPC (`deliverFileBytes`), returning `{ kind: 'cancelled' }`
  * only on dialog dismissal or caller AbortSignal; extension and overwrite rules are enforced by the host.
  */
+import { IpcFailure } from '../../failures/ipc-failure'
 import { reportFailure } from '../../failures/report'
 import { deliverFileBytes } from '../../ipc/bytes'
 import { pickSave } from '../../ipc/dialogs'
@@ -33,18 +34,20 @@ export function createDesktopFileDelivery(untitled?: () => string): FileDelivery
         throw error
       }
       const bytes = deliveryContentBytes(content)
-      if (bytes === null) {
-        const error = new Error(`Desktop FileDelivery row "${kind}" requires byte or text content`)
-        reportFailure(error, { shown: 'none' })
+      const suggestedName = buildDeliveryFileName(kind, suggestedStem, untitled?.())
+      try {
+        const picked = await pickSave(row.dialogKind, suggestedName)
+        if (picked.kind === 'cancelled') return 'cancelled'
+        if (signal?.aborted) return 'cancelled'
+
+        await deliverFileBytes(row.fileKind, picked.path, bytes)
+        return 'saved'
+      } catch (error) {
+        if (error instanceof IpcFailure && error.failure.code.kind === 'invalid') {
+          return 'refused'
+        }
         throw error
       }
-      const suggestedName = buildDeliveryFileName(kind, suggestedStem, untitled?.())
-      const picked = await pickSave(row.dialogKind, suggestedName)
-      if (picked.kind === 'cancelled') return 'cancelled'
-      if (signal?.aborted) return 'cancelled'
-
-      await deliverFileBytes(row.fileKind, picked.path, bytes)
-      return 'saved'
     },
     dispose() {
       // Desktop delivery holds no temporary blob URLs.

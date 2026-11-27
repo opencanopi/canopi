@@ -1,5 +1,5 @@
 import { effect } from '@preact/signals'
-import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
+import { editionPorts } from '../../platform/edition-ports'
 import type { FileDeliveryPort } from '../../platform/file-delivery'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { designSessionStore } from '../document-session/store'
@@ -66,9 +66,6 @@ function createLazyPdfDelivery(): FileDeliveryPort {
   return {
     deliverFile(kind, stem, content, signal) {
       return editionPorts().fileDelivery.deliverFile(kind, stem, content, signal)
-    },
-    dispose() {
-      if (hasEditionPorts()) editionPorts().fileDelivery.dispose?.()
     },
   }
 }

@@ -2264,5 +2264,8 @@
   },
   "editionCapability": {
     "needsDesktop": "Vereist Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "Opslaan onder die bestandsnaam is niet gelukt. Kies een andere naam of map en probeer het opnieuw."
   }
 }

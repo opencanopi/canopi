@@ -187,7 +187,7 @@ function PrintWorkspace({ workflow }: { readonly workflow: PdfWorkflow }) {
               }} />}
           </div>
           {state.error && <div role="alert" className={styles.notice}><span>{t(PDF_ERROR_KEYS[state.error] ?? 'pdf.errors.prepare-failed')}</span>
-            {state.error !== 'selection-missing' && <button type="button" disabled={delivering} onClick={() => void (state.error === 'delivery-failed' ? workflow.save() : workflow.rebuild())}>{t('pdf.retry')}</button>}</div>}
+            {state.error !== 'selection-missing' && <button type="button" disabled={delivering} onClick={() => void (state.error === 'delivery-failed' || state.error === 'delivery-refused' ? workflow.save() : workflow.rebuild())}>{t('pdf.retry')}</button>}</div>}
           {plan?.blocked === 'empty' && <p role="status" className={styles.notice}>{t('pdf.empty')}</p>}
         </main>
       </div>
@@ -212,6 +212,7 @@ const PDF_ERROR_KEYS: Readonly<Record<string, LocaleKey>> = {
   'unsupported-text': 'pdf.errors.unsupported-text',
   'text-too-wide': 'pdf.errors.text-too-wide',
   'delivery-failed': 'pdf.errors.delivery-failed',
+  'delivery-refused': 'fileDelivery.refused',
   'selection-missing': 'pdf.errors.selection-missing',
   'coverage-too-large': 'pdf.errors.coverage-too-large',
 }

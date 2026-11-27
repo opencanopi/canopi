@@ -2264,5 +2264,8 @@
   },
   "editionCapability": {
     "needsDesktop": "需要 Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "无法以该文件名保存。请选择其他文件名或文件夹后重试。"
   }
 }

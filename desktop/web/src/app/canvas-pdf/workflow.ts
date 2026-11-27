@@ -215,6 +215,10 @@ export function createPdfWorkflow(deps: PdfWorkflowDependencies) {
     try {
       const outcome = await deps.delivery.deliverFile('pdf', source.input.name, { bytes: snapshot.result.bytes }, abort.signal)
       if (disposed || ticket !== generation || !source.isCurrent()) return
+      if (outcome === 'refused') {
+        state.value = { ...snapshot, status: 'error', error: 'delivery-refused' }
+        return
+      }
       state.value = { ...snapshot, status: outcome === 'cancelled' ? 'ready' : outcome, error: null }
     } catch {
       if (disposed || ticket !== generation || !source.isCurrent()) return

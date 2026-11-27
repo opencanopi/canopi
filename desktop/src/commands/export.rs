@@ -1,10 +1,16 @@
 use canopi_types::dialog::FileKind;
+use canopi_types::failure::{Failure, FailureCode, ops};
 use tauri::State;
 
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
+use crate::services::export::{MAX_EXPORT_BYTES, is_deliverable_kind};
 
 const DELIVERY_KIND_HEADER: &str = "x-canopi-delivery-kind";
 const DELIVERY_PATH_HEADER: &str = "x-canopi-delivery-path";
+
+fn invalid_delivery(detail: &str) -> Failure {
+    Failure::new(FailureCode::Invalid, ops::EXPORT_DELIVER_FILE).with_english(detail)
+}
 
 fn percent_decode_utf8(input: &str) -> Result<String, String> {
     let bytes = input.as_bytes();
@@ -12,7 +18,10 @@ fn percent_decode_utf8(input: &str) -> Result<String, String> {
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' {
-            if i + 2 >= bytes.len() {
+            if i + 2 >= bytes.len()
+                || !bytes[i + 1].is_ascii_hexdigit()
+                || !bytes[i + 2].is_ascii_hexdigit()
+            {
                 return Err("Invalid percent-encoding in delivery path header".to_string());
             }
             let hex = std::str::from_utf8(&bytes[i + 1..i + 3])
@@ -29,31 +38,44 @@ fn percent_decode_utf8(input: &str) -> Result<String, String> {
     String::from_utf8(out).map_err(|_| "Delivery path header is not valid UTF-8".to_string())
 }
 
+fn parse_deliver_file_request(
+    headers: &tauri::http::HeaderMap,
+    body: &tauri::ipc::InvokeBody,
+) -> Result<(FileKind, String, Vec<u8>), Failure> {
+    let kind_literal = headers
+        .get(DELIVERY_KIND_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| invalid_delivery("Missing delivery kind header"))?;
+    let kind = FileKind::from_literal(kind_literal)
+        .filter(|parsed| is_deliverable_kind(*parsed))
+        .ok_or_else(|| invalid_delivery("Unsupported delivery kind"))?;
+    let raw_path = headers
+        .get(DELIVERY_PATH_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| invalid_delivery("Missing delivery path header"))?;
+    let path = percent_decode_utf8(raw_path).map_err(|msg| invalid_delivery(&msg))?;
+    let data = match body {
+        tauri::ipc::InvokeBody::Raw(bytes) => {
+            if bytes.len() > MAX_EXPORT_BYTES {
+                return Err(invalid_delivery("Export exceeds the 64 MiB limit"));
+            }
+            bytes.clone()
+        }
+        tauri::ipc::InvokeBody::Json(_) => {
+            return Err(invalid_delivery("ipc_body_not_raw"));
+        }
+    };
+    Ok((kind, path, data))
+}
+
 /// Deliver a binary or UTF-8 payload to a Save-dialog destination over a raw binary IPC body
 /// (contracts §16, 2.1-M154, 2.1-M155, 2.1-M522).
 #[tauri::command]
 pub async fn deliver_file(
     request: tauri::ipc::Request<'_>,
     executor: State<'_, NativeOperationExecutor>,
-) -> Result<String, String> {
-    let headers = request.headers();
-    let kind_literal = headers
-        .get(DELIVERY_KIND_HEADER)
-        .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| "Missing delivery kind header".to_string())?;
-    let kind = FileKind::from_literal(kind_literal)
-        .ok_or_else(|| format!("Unknown delivery kind: {kind_literal}"))?;
-    let raw_path = headers
-        .get(DELIVERY_PATH_HEADER)
-        .and_then(|value| value.to_str().ok())
-        .ok_or_else(|| "Missing delivery path header".to_string())?;
-    let path = percent_decode_utf8(raw_path)?;
-    let data = match request.body() {
-        tauri::ipc::InvokeBody::Raw(bytes) => bytes.clone(),
-        tauri::ipc::InvokeBody::Json(_) => {
-            return Err("deliver_file requires a raw binary IPC body".to_string());
-        }
-    };
+) -> Result<String, Failure> {
+    let (kind, path, data) = parse_deliver_file_request(request.headers(), request.body())?;
     deliver_file_with_executor(executor.inner(), kind, data, path).await
 }
 
@@ -62,11 +84,13 @@ async fn deliver_file_with_executor(
     kind: FileKind,
     data: Vec<u8>,
     path: String,
-) -> Result<String, String> {
+) -> Result<String, Failure> {
     executor
-        .run(NativeOperationClass::Local, "file delivery", move || {
-            crate::services::export::deliver_file(kind, data, path)
-        })
+        .run_typed(
+            NativeOperationClass::Local,
+            ops::EXPORT_DELIVER_FILE,
+            move || crate::services::export::deliver_file(kind, data, path),
+        )
         .await
 }
 
@@ -112,17 +136,24 @@ pub async fn pick_geojson_file(
 
 #[cfg(test)]
 mod tests {
-    use super::{deliver_file_with_executor, percent_decode_utf8};
+    use super::{
+        DELIVERY_KIND_HEADER, DELIVERY_PATH_HEADER, deliver_file_with_executor,
+        parse_deliver_file_request, percent_decode_utf8,
+    };
     use crate::native_operation::{
         NativeOperationClass, NativeOperationClassLimits, NativeOperationExecutor,
         NativeOperationLimits,
     };
+    use crate::services::export::MAX_EXPORT_BYTES;
     use crate::test_scratch::TestScratch;
     use canopi_types::dialog::FileKind;
+    use canopi_types::failure::{FailureCode, Lane};
     use std::sync::mpsc;
     use std::task::{Context, Poll, Waker};
     use std::time::Duration;
     use std::{future::Future, path::PathBuf};
+    use tauri::http::{HeaderMap, HeaderValue};
+    use tauri::ipc::InvokeBody;
 
     const WAIT_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -158,6 +189,70 @@ mod tests {
         );
         assert!(percent_decode_utf8("/tmp/bad%2").is_err());
         assert!(percent_decode_utf8("/tmp/bad%ZZ").is_err());
+        assert!(percent_decode_utf8("/tmp/bad%+A").is_err());
+    }
+
+    #[test]
+    fn parse_deliver_file_request_validates_headers_kinds_and_raw_body() {
+        let raw = InvokeBody::Raw(b"a,b".to_vec());
+        let empty = HeaderMap::new();
+        assert_eq!(
+            parse_deliver_file_request(&empty, &raw).unwrap_err().code,
+            FailureCode::Invalid
+        );
+
+        let headers_with = |kind: Option<&str>, path: Option<&str>| {
+            let mut map = HeaderMap::new();
+            if let Some(k) = kind {
+                map.insert(DELIVERY_KIND_HEADER, HeaderValue::from_str(k).unwrap());
+            }
+            if let Some(p) = path {
+                map.insert(DELIVERY_PATH_HEADER, HeaderValue::from_str(p).unwrap());
+            }
+            map
+        };
+
+        for bad_kind in ["unknown", "canopi", "geotiff", "zip"] {
+            let h = headers_with(Some(bad_kind), Some("%2Ftmp%2Fout.csv"));
+            assert_eq!(
+                parse_deliver_file_request(&h, &raw).unwrap_err().code,
+                FailureCode::Invalid,
+                "{bad_kind}"
+            );
+        }
+
+        let missing_path = headers_with(Some("csv"), None);
+        assert_eq!(
+            parse_deliver_file_request(&missing_path, &raw)
+                .unwrap_err()
+                .code,
+            FailureCode::Invalid
+        );
+
+        let valid_headers = headers_with(Some("csv"), Some("%2Ftmp%2Fout.csv"));
+        let json_err = parse_deliver_file_request(
+            &valid_headers,
+            &InvokeBody::Json(serde_json::json!([1, 2, 3])),
+        )
+        .unwrap_err();
+        assert_eq!(json_err.code, FailureCode::Invalid);
+        assert_eq!(
+            json_err.detail.as_ref().map(|d| d.as_str()),
+            Some("ipc_body_not_raw")
+        );
+
+        let oversized = InvokeBody::Raw(vec![0u8; MAX_EXPORT_BYTES + 1]);
+        assert_eq!(
+            parse_deliver_file_request(&valid_headers, &oversized)
+                .unwrap_err()
+                .code,
+            FailureCode::Invalid
+        );
+
+        let (kind, path, bytes) = parse_deliver_file_request(&valid_headers, &raw).unwrap();
+        assert_eq!(kind, FileKind::Csv);
+        assert_eq!(path, "/tmp/out.csv");
+        assert_eq!(bytes, b"a,b");
     }
 
     #[test]
@@ -236,7 +331,7 @@ mod tests {
             .await
             .unwrap_err();
 
-            assert_eq!(error, "Native local operations are busy; try again");
+            assert_eq!(error.code, FailureCode::Busy { lane: Lane::Local });
             assert!(!text_path.exists());
 
             release_tx.send(()).unwrap();

@@ -305,7 +305,18 @@ pub async fn pick_save(
     let Some(path) = picked.and_then(|paths| paths.into_iter().next()) else {
         return Ok(PickSaveOutcome::Cancelled);
     };
-    let resolved = with_extension(kind, path);
+    let resolved = with_extension(kind, path.clone());
+    if resolved != path {
+        let check_path = resolved.clone();
+        let already_exists = executor
+            .run_typed(NativeOperationClass::Local, OP, move || {
+                Ok::<bool, Failure>(check_path.exists())
+            })
+            .await?;
+        if already_exists {
+            return Err(Failure::new(FailureCode::Invalid, OP).with_english("exists"));
+        }
+    }
     let file_home = if kind == DialogKind::DesignSave {
         let registry = Arc::clone(grants);
         let target = resolved.clone();
@@ -503,3 +514,43 @@ impl Picker for AnswerFolderPicker {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod save_exists_tests {
+    use super::*;
+    use crate::native_operation::{NativeOperationClassLimits, NativeOperationLimits};
+
+    struct FixedPicker(PathBuf);
+
+    impl Picker for FixedPicker {
+        fn show(&self, _request: DialogRequest, answer: Answer) {
+            answer(Some(vec![self.0.clone()]));
+        }
+    }
+
+    #[test]
+    fn pick_save_refuses_when_appended_extension_already_exists() {
+        let scratch = crate::test_scratch::TestScratch::new("pick-save-exists");
+        let existing = scratch.join("plan.pdf");
+        std::fs::write(&existing, b"%PDF-1.7\n%%EOF\n").unwrap();
+        let limits = NativeOperationClassLimits::new(2, 1);
+        let executor = NativeOperationExecutor::new(NativeOperationLimits::new(
+            limits, limits, limits, limits, limits,
+        ))
+        .unwrap();
+        let dialogs = HostDialogs::new(Arc::new(FixedPicker(scratch.join("plan"))));
+        let grants = Arc::new(FileGrantRegistry::default());
+        let refused = tauri::async_runtime::block_on(pick_save(
+            &executor,
+            &dialogs,
+            &grants,
+            "main",
+            DialogKind::PdfExport,
+            "plan",
+        ))
+        .expect_err("appending .pdf over existing plan.pdf must refuse");
+        assert_eq!(refused.code, FailureCode::Invalid);
+        assert_eq!(refused.op, ops::DIALOG_PICK_SAVE);
+        assert_eq!(std::fs::read(&existing).unwrap(), b"%PDF-1.7\n%%EOF\n");
+    }
+}

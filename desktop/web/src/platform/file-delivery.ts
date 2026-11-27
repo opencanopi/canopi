@@ -5,7 +5,6 @@
  * FILE_KINDS, `{ kind: 'cancelled' }` is returned only on user cancel or AbortSignal, and every download
  * filename passes through `buildDeliveryFileName`.
  */
-import { reportFailure } from '../failures/report'
 import type { DialogKind, FileKind } from '../generated/contracts'
 import { FILE_KINDS as GENERATED_FILE_KINDS } from '../generated/file-kinds'
 
@@ -54,10 +53,14 @@ export interface FileDeliveryRow {
   readonly fileKind: FileKind
   readonly dialogKind: SaveFileDialogKind | null
   readonly stemSuffix?: string
-  readonly fallbackStem?: string
 }
 
-/** Nine delivery rows as data (contracts §16, 2.1-M422, 2.1-M522). */
+/**
+ * Nine delivery rows as data (contracts §16, 2.1-M422, 2.1-M522).
+ * Six rows are wired in 2a-4 (`canopi-copy`, `canopi-draft`, `geojson`, `pdf`, `budget-csv`,
+ * `problem-report`); `stamp`, `geotiff`, and `analysis-geotiff` are declared here and cut over
+ * with host file grants in `canopi-f47t.52.74`.
+ */
 export type FileDeliveryKind =
   | 'canopi-copy'
   | 'canopi-draft'
@@ -121,9 +124,8 @@ export const FILE_DELIVERY_ROWS: Readonly<Record<FileDeliveryKind, FileDeliveryR
 export type FileDeliveryContent =
   | { readonly bytes: Uint8Array }
   | { readonly text: string }
-  | { readonly native: string }
 
-export type FileDeliveryOutcome = 'saved' | 'downloaded' | 'cancelled'
+export type FileDeliveryOutcome = 'saved' | 'downloaded' | 'cancelled' | 'refused'
 
 export interface FileDeliveryPort {
   deliverFile(
@@ -136,18 +138,25 @@ export interface FileDeliveryPort {
 }
 
 const utf8Encoder = new TextEncoder()
+const MAX_STEM_LENGTH = 200
+const WINDOWS_RESERVED_STEM = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
 
 /**
  * Sanitise an exported file stem (2.1-Q359): each forbidden character becomes a space,
- * runs of whitespace collapse to one space, and an empty stem falls back to the caller's
- * localised Untitled label (defaulting to `'Untitled'`).
+ * runs of whitespace collapse to one space, trailing dots/spaces are stripped, Windows
+ * reserved device names and empty stems fall back to the caller's localised Untitled label,
+ * and overly long stems are capped.
  */
 function sanitizeFileStem(stem: string, fallback = 'Untitled'): string {
   const cleaned = stem
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
-  if (cleaned.length > 0) return cleaned
+    .replace(/[. ]+$/, '')
+    .slice(0, MAX_STEM_LENGTH)
+    .trim()
+    .replace(/[. ]+$/, '')
+  if (cleaned.length > 0 && !WINDOWS_RESERVED_STEM.test(cleaned)) return cleaned
   return fallback
 }
 
@@ -162,29 +171,31 @@ export function buildDeliveryFileName(
   const primaryExt = spec.extensions[0] ?? ''
   const dotExt = primaryExt ? `.${primaryExt}` : ''
   let base = stem.trim()
-  if (dotExt && base.toLowerCase().endsWith(dotExt.toLowerCase())) {
-    base = base.slice(0, -dotExt.length)
+  for (const ext of spec.extensions) {
+    const candidate = `.${ext}`
+    if (base.toLowerCase().endsWith(candidate.toLowerCase())) {
+      base = base.slice(0, -candidate.length)
+      break
+    }
   }
   const suffix = row.stemSuffix ?? ''
   if (suffix && base.toLowerCase().endsWith(suffix.toLowerCase())) {
     base = base.slice(0, -suffix.length)
   }
-  const sanitized = sanitizeFileStem(base, row.fallbackStem ?? untitledFallback)
+  const sanitized = sanitizeFileStem(base, untitledFallback)
   return `${sanitized}${suffix}${dotExt}`
 }
 
-/** Encode `{ bytes }` or `{ text }` content to a `Uint8Array`, or return null for `{ native }`. */
-export function deliveryContentBytes(content: FileDeliveryContent): Uint8Array | null {
-  if ('bytes' in content) return content.bytes
-  if ('text' in content) return utf8Encoder.encode(content.text)
-  return null
+/** Encode `{ bytes }` or `{ text }` content to a `Uint8Array`. */
+export function deliveryContentBytes(content: FileDeliveryContent): Uint8Array {
+  return 'bytes' in content ? content.bytes : utf8Encoder.encode(content.text)
 }
 
 const DEFAULT_REVOKE_AFTER_MS = 60_000
 
 /**
- * Web FileDelivery adapter: delivers `{ bytes }` or `{ text }` as a Blob download and refuses
- * `{ native }` rows. Object URLs are revoked after `revokeAfterMs` (or immediately on `dispose()`).
+ * Web FileDelivery adapter: delivers `{ bytes }` or `{ text }` as a Blob download.
+ * Object URLs are revoked after `revokeAfterMs` (or immediately on `dispose()`).
  */
 export function createBrowserFileDelivery(options: {
   readonly revokeAfterMs?: number
@@ -209,11 +220,6 @@ export function createBrowserFileDelivery(options: {
     ): Promise<FileDeliveryOutcome> {
       if (signal?.aborted) return 'cancelled'
       const bytes = deliveryContentBytes(content)
-      if (bytes === null) {
-        const error = new Error(`Web edition cannot deliver native-only file row "${kind}"`)
-        reportFailure(error, { shown: 'none' })
-        throw error
-      }
       const row = FILE_DELIVERY_ROWS[kind]
       const spec = FILE_KINDS[row.fileKind]
       const fileName = buildDeliveryFileName(kind, stem, options.untitled?.())

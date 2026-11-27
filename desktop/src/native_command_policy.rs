@@ -1692,14 +1692,23 @@ const TEXT: &str = r#"#[tauri::command] pub fn literal() { spawn_blocking(); }"#
             r#"
                 invoke('single', { a }) invokeCommand('routed', { a })
                 await invoke<string>("double", { path }) await invokeCommand<T>("typed")
-                invoke(
-                  `template`,
-                )
+                await invokeBinaryCommand<string>('deliver_file', bytes, headers, op)
+                invoke(`template`)
                 reinvoke('not_a_call') reinvokeCommand('not_a_call') invokeCommands('not_a_call')
                 invoke(dynamicName) invokeCommand(dynamicName)
             "#,
         );
-        assert_eq!(names, ["single", "routed", "double", "typed", "template"]);
+        assert_eq!(
+            names,
+            [
+                "single",
+                "routed",
+                "double",
+                "typed",
+                "deliver_file",
+                "template"
+            ]
+        );
     }
 
     #[test]
