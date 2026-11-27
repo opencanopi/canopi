@@ -30,7 +30,7 @@ type Kind = 'name' | 'badge' | 'guide'
 function kindOf(text: string): Kind | null {
   if (/Apple|Malus/.test(text)) return 'name'
   if (text === '2') return 'badge'
-  if (/^\d[\d.,]*\s?m$/.test(text)) return 'guide'
+  if (/^\d[\d.,]*\s?(?:m|ft)$/.test(text)) return 'guide'
   return null
 }
 

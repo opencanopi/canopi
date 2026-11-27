@@ -27,6 +27,8 @@ import { createMapLibreCameraDriver } from '../../src/maplibre/camera-driver'
 import { createMapLibreEmptyStyle } from '../../src/maplibre/config'
 import { createSessionPlane } from '../../src/geo/session-plane'
 import { createNavigationPolicy } from '../../src/geo/view/navigation-policy'
+import { DEFAULT_PLANT_DISPLAY } from '../../src/canvas/runtime/plant-display'
+import { getMapBackdropInk, readCanvasPaintTokens } from '../../src/canvas/runtime/scene-visuals'
 
 function minimalSnapshot() {
   return {
@@ -64,10 +66,17 @@ function minimalSnapshot() {
     selectedMeasurementGuideIds: new Set(),
     highlightedPlantIds: new Set(),
     highlightedZoneIds: new Set(),
+    highlightedAnnotationIds: new Set(),
+    highlightedMeasurementGuideIds: new Set(),
     speciesCache: new Map(),
     localizedCommonNames: new Map(),
     hoveredCanonicalName: null,
     hoverTarget: null,
+    plantDisplay: DEFAULT_PLANT_DISPLAY,
+    mapBackdrop: 'basemap',
+    backdropInk: getMapBackdropInk('basemap'),
+    paintTokens: readCanvasPaintTokens(),
+    annotationFontEpoch: 0,
   }
 }
 
