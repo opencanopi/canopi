@@ -53,3 +53,67 @@ A guide changes only when a rule or boundary changes, and is rewritten, never ap
 3. Affected guide, pattern, ADR or release notes updated, or the handoff says none needed it.
 4. Committed, rebased, pushed (once per step); `git status --short --branch` clean and up to date.
 5. Final message: each queue item's outcome, bead id, commit, branch, gates run or skipped, user-owned files left untouched, and what to try in `cargo tauri dev`.
+
+<!-- okf:begin -->
+<!-- Managed by `okf agents install` (okfkit 0.1.0). Edits inside this block are overwritten. -->
+## Project knowledge (OKF)
+
+This repository keeps its durable knowledge (architecture, modules, decisions,
+conventions, runbooks) as an [Open Knowledge Format](https://github.com/GoogleCloudPlatform/open-knowledge-format)
+v0.2 bundle in `knowledge/`. It is shared memory for every agent and human
+working here: read it before you work, and keep it true after you change code.
+
+Use the `okf` tool, either as a CLI (`python3 .okf/okf.pyz <command>`, from any shell) or as
+MCP tools named `okf_*`. Both expose the same operations. Add `--json` to any
+CLI command for machine-readable output.
+
+**Identify yourself** before writing: `export OKF_ACTOR=<agent>/<model>` (for
+example `codex/gpt-5` or `claude-code/claude-opus-4`). Never write as `human:...`.
+That prefix marks content as human-reviewed, and only a person may use it.
+
+### Before changing code
+1. Run `python3 .okf/okf.pyz context --path <file-or-dir-you-will-touch>` (or `--query "<topic>"`)
+   to get the map, the relevant concepts, and the maintenance queue.
+2. Run `python3 .okf/okf.pyz show <id>` to read a concept, then weigh its signals.
+   `human-reviewed` beats `machine-confirmed`, which beats `unverified`.
+   `DRIFT` or `STALE` means the concept may be out of date, so check it against
+   the code first. Do not follow `deprecated` concepts; read their `superseded_by` instead.
+3. The code is the source of truth. If a concept disagrees with the code, trust
+   the code and fix the concept.
+
+### After changing code
+4. Run `python3 .okf/okf.pyz impact`. It lists the concepts grounded in the files you changed. For
+   each one, either update it (`python3 .okf/okf.pyz update <id> ...`) or, if you re-read it and it
+   is still accurate, run `python3 .okf/okf.pyz verify <id>`.
+5. Record any new durable knowledge: a module, a decision and its reasons, a
+   convention, a non-obvious fix, a runbook:
+   `python3 .okf/okf.pyz new <dir>/<slug> --type <Type> --title "..." --description "<one sentence>" --source <path> --body-file -`
+   Pass `--source` for every file or URL the content comes from. The tool records a
+   digest, which is how drift is detected later.
+6. If you edit concept files directly instead of using the tool, run `python3 .okf/okf.pyz sync`
+   afterwards. It stamps provenance, refreshes digests, and regenerates `index.md`.
+7. `python3 .okf/okf.pyz check` must report 0 errors before you finish.
+
+### Rules
+- Keep one topic per concept, one file per concept. Link related concepts with
+  bundle-absolute links, for example `[Auth](/modules/auth.md)`.
+- `description` is one sentence. In bodies, prefer headings, lists, tables, and code fences.
+- Never hand-edit `index.md` (it is generated). This bundle keeps no change
+  log (git history records changes), so do not add entries to `log.md`.
+- Do not delete concepts. Deprecate them: `python3 .okf/okf.pyz deprecate <id> --replaced-by <id> --reason "..."`.
+- Never store secrets, credentials, or personal data. Say where they live instead.
+- Do not invent sources. Cite only files and URLs you actually read.
+- Bootstrapped drafts carry `<!-- okf:todo -->` markers. `python3 .okf/okf.pyz todo` lists the work queue.
+- When a test, policy script, or lint config enforces a rule a concept states
+  (typically a Convention), list it: `--enforced-by <repo-path>[::<test-name>]`
+  (repeatable). `python3 .okf/okf.pyz check` reports an error if a listed path disappears.
+- Suggested types: Project (`project/`), Architecture (`architecture/`), Module (`modules/`), API (`apis/`), Data Model (`data/`), Architecture Decision (`decisions/`), Convention (`conventions/`), Runbook (`runbooks/`), Dependency (`dependencies/`), Integration (`integrations/`), Glossary Term (`glossary/`), Reference (`references/`). Any other `type` is also valid.
+
+### Without the tool
+If `okf` cannot run, edit the markdown directly following OKF v0.2 (`.okf/SPEC.md`):
+- Every `.md` file except `index.md` and `log.md` needs YAML frontmatter with a
+  non-empty `type`.
+- Set `generated: { by: <agent>/<model>, at: <UTC ISO 8601, e.g. 2026-01-31T12:00:00Z> }`.
+- List what you read under `sources` (each entry has `id`, `resource`, and `title`).
+- Mention in your final message that `okf sync` should be run.
+<!-- okf:end -->

@@ -1,0 +1,3 @@
+# okf: local state only; config.json, SPEC.md and okf.pyz are committed
+.lock
+*.tmp
