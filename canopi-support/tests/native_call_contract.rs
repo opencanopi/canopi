@@ -86,8 +86,7 @@ async fn interactive_work_queued_behind_background_starts_first() {
                 .await
         }
     });
-    tokio::task::yield_now().await;
-    while executor.in_flight().len() < 2 {
+    while executor.queued_count(ExecutorLane::Catalog) < 1 {
         tokio::task::yield_now().await;
     }
 
@@ -108,7 +107,7 @@ async fn interactive_work_queued_behind_background_starts_first() {
                 .await
         }
     });
-    while executor.in_flight().len() < 3 {
+    while executor.queued_count(ExecutorLane::Catalog) < 2 {
         tokio::task::yield_now().await;
     }
 
@@ -282,7 +281,7 @@ async fn full_queue_waits_then_settles_busy_with_queue_full_at_deadline() {
 }
 
 #[tokio::test(flavor = "current_thread")]
-async fn cancel_before_start_and_supersede_hook_and_drop_guard() {
+async fn cancel_before_start_and_supersede_hook() {
     let executor = Executor::with_lanes(Handle::current(), single_worker_lanes(4), None).unwrap();
 
     // 1. Pre-cancelled token never runs.
@@ -305,7 +304,8 @@ async fn cancel_before_start_and_supersede_hook_and_drop_guard() {
     assert_eq!(err.code, FailureCode::Cancelled);
     assert!(!ran.load(Ordering::SeqCst));
 
-    // 2. Supersede key fires on_cancel hook with CancelReason::Superseded.
+    // 2. Supersede key fires on_cancel hook with CancelReason::Superseded;
+    //    a pre-cancelled token must NOT supersede an active sibling.
     let hook_fired = Arc::new(AtomicBool::new(false));
     let hook_flag = Arc::clone(&hook_fired);
     let (started_tx, started_rx) = oneshot::channel::<()>();
@@ -339,6 +339,24 @@ async fn cancel_before_start_and_supersede_hook_and_drop_guard() {
     });
     started_rx.await.unwrap();
 
+    let dead_sibling = CancelToken::new();
+    dead_sibling.cancel(CancelReason::User);
+    let dead_err = executor
+        .run(
+            OpSpec::interactive("species.search", ExecutorLane::Catalog)
+                .with_supersede_key("species_search"),
+            None,
+            dead_sibling,
+            |_| Ok(()),
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(dead_err.code, FailureCode::Cancelled);
+    assert!(
+        !first_token.is_cancelled(),
+        "pre-cancelled token must not supersede an active sibling"
+    );
+
     let second = executor
         .run(
             OpSpec::interactive("species.search", ExecutorLane::Catalog)
@@ -355,9 +373,16 @@ async fn cancel_before_start_and_supersede_hook_and_drop_guard() {
         first.await.unwrap().unwrap_err().code,
         FailureCode::Cancelled
     );
+}
 
-    // 3. Dropped future cancels token as backstop.
+#[tokio::test(flavor = "current_thread")]
+async fn dropped_running_future_cancels_keeps_in_flight_and_emits_settlement() {
+    let (observer, events) = recording_observer();
+    let executor =
+        Executor::with_lanes(Handle::current(), single_worker_lanes(4), Some(observer)).unwrap();
+
     let (drop_started_tx, drop_started_rx) = oneshot::channel::<()>();
+    let (drop_release_tx, drop_release_rx) = std::sync::mpsc::channel::<()>();
     let (drop_done_tx, drop_done_rx) = oneshot::channel::<bool>();
     let drop_token = CancelToken::new();
     let seen_cancel = Arc::new(Notify::new());
@@ -375,11 +400,9 @@ async fn cancel_before_start_and_supersede_hook_and_drop_guard() {
                     token,
                     move |tok| {
                         let _ = drop_started_tx.send(());
-                        while !tok.is_cancelled() {
-                            std::thread::yield_now();
-                        }
+                        let _ = drop_release_rx.recv();
                         let _ = drop_done_tx.send(tok.is_cancelled());
-                        Ok(())
+                        Err::<(), Failure>(Failure::new(FailureCode::Cancelled, "test.drop"))
                     },
                 )
                 .await;
@@ -389,7 +412,24 @@ async fn cancel_before_start_and_supersede_hook_and_drop_guard() {
     dropped_task.abort();
     seen_cancel.notified().await;
     assert!(drop_token.is_cancelled());
+    assert!(
+        executor.in_flight().iter().any(|e| e.op == "test.drop"),
+        "running op must remain in in_flight() until its blocking closure finishes"
+    );
+
+    let _ = drop_release_tx.send(());
     assert!(drop_done_rx.await.unwrap());
+    // Wait briefly for the blocking thread's on_settle closure to finish unregistering & logging.
+    while executor.in_flight().iter().any(|e| e.op == "test.drop") {
+        tokio::task::yield_now().await;
+    }
+    let recorded = events.lock().unwrap();
+    assert!(
+        recorded
+            .iter()
+            .any(|e| e.op == "test.drop" && e.settlement == SettlementKind::Cancelled),
+        "dropped running op must still emit its settlement event"
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]

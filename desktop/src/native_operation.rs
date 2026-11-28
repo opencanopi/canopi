@@ -299,10 +299,6 @@ impl NativeOperationExecutor {
                     Err(settled(class, ExecutorError::Panicked { op }).into()),
                     "panic",
                 ),
-                BlockingOutcome::JoinFailed => (
-                    Err(settled(class, ExecutorError::JoinFailed { op }).into()),
-                    "join_failed",
-                ),
             };
             tracing::debug!(
                 native_operation_class = class.as_str(),

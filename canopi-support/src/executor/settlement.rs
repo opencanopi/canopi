@@ -1,6 +1,7 @@
 //! Structured settlement records and logging for the native executor (ADR 0025 Logs).
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use canopi_types::failure::{Failure, FailureCode, OperationId};
 use tokio::time::Instant;
@@ -20,7 +21,7 @@ pub enum SettlementKind {
     Busy,
     /// Request was cancelled before or during execution.
     Cancelled,
-    /// Work panicked (contained by `blocking::run`).
+    /// Work panicked (contained by `blocking::spawn_with_settle`).
     Panicked,
     /// Blocking task could not be joined.
     JoinFailed,
@@ -59,9 +60,9 @@ pub struct SettlementEvent {
     pub code: Option<&'static str>,
     /// Milliseconds spent waiting in queue before start (or until pre-start settlement).
     pub queued_ms: u64,
-    /// Milliseconds spent running in `blocking::run` (`0` if settled before start).
+    /// Milliseconds spent running on the blocking pool (`0` if settled before start).
     pub running_ms: u64,
-    /// `true` when `running_ms` exceeded `OpSpec::slow_budget`.
+    /// `true` when `running` exceeded `OpSpec::slow_budget`.
     pub slow: bool,
     /// `true` when a `Busy` settlement occurred while waiting on a full queue.
     pub queue_full: bool,
@@ -73,7 +74,7 @@ pub type SettlementObserver = Arc<dyn Fn(&SettlementEvent) + Send + Sync>;
 #[derive(Clone, Copy)]
 pub(super) struct SettlementTiming {
     pub(super) queued_ms: u64,
-    pub(super) running_ms: u64,
+    pub(super) running: Duration,
     pub(super) queue_full: bool,
 }
 
@@ -116,14 +117,6 @@ pub(super) fn finish_outcome<T>(
             FailureCode::Panicked,
             timing,
         )),
-        BlockingOutcome::JoinFailed => Err(settle_error(
-            observer,
-            spec,
-            operation,
-            SettlementKind::JoinFailed,
-            FailureCode::JoinFailed,
-            timing,
-        )),
     }
 }
 
@@ -138,7 +131,7 @@ pub(super) fn settle_pre_start(
 ) -> Failure {
     let timing = SettlementTiming {
         queued_ms: duration_millis(enqueued_at.elapsed()),
-        running_ms: 0,
+        running: Duration::ZERO,
         queue_full,
     };
     settle_error(observer, spec, operation, settlement, code, timing)
@@ -176,7 +169,7 @@ fn emit_settlement(
     code: Option<&'static str>,
     timing: SettlementTiming,
 ) {
-    let slow = timing.running_ms > duration_millis(spec.slow_budget);
+    let slow = timing.running > spec.slow_budget;
     let event = SettlementEvent {
         op: spec.op,
         operation,
@@ -184,7 +177,7 @@ fn emit_settlement(
         settlement,
         code,
         queued_ms: timing.queued_ms,
-        running_ms: timing.running_ms,
+        running_ms: duration_millis(timing.running),
         slow,
         queue_full: timing.queue_full,
     };
@@ -203,6 +196,8 @@ fn emit_settlement(
                 "Native operation settled",
             );
         }
+        // `tracing-warn-only-in-failure-logger` (2.1-M415) restricts `tracing::warn!` to
+        // `desktop/src/logging.rs` until the logging stream moves the failure logger here.
         _ => {
             tracing::info!(
                 op = event.op,

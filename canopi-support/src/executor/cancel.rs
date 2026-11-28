@@ -124,10 +124,10 @@ impl CancelToken {
             self.state.cancelled.store(true, Ordering::Release);
             std::mem::take(&mut guard.hooks)
         };
+        self.state.notify.notify_waiters();
         for hook in hooks {
             hook();
         }
-        self.state.notify.notify_waiters();
         true
     }
 

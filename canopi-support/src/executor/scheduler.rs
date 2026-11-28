@@ -37,13 +37,6 @@ struct QueuedWaiter {
     grant_tx: oneshot::Sender<Grant>,
 }
 
-struct OverflowWaiter {
-    id: u64,
-    priority: Priority,
-    token: CancelToken,
-    grant_tx: oneshot::Sender<Grant>,
-}
-
 struct LaneInner {
     lane: ExecutorLane,
     workers: usize,
@@ -52,7 +45,8 @@ struct LaneInner {
     closed: bool,
     interactive: VecDeque<QueuedWaiter>,
     background: VecDeque<QueuedWaiter>,
-    overflow: VecDeque<OverflowWaiter>,
+    overflow_interactive: VecDeque<QueuedWaiter>,
+    overflow_background: VecDeque<QueuedWaiter>,
 }
 
 impl LaneInner {
@@ -60,40 +54,39 @@ impl LaneInner {
         self.interactive.len() + self.background.len()
     }
 
+    fn total_waiting_len(&self) -> usize {
+        self.queued_len() + self.overflow_interactive.len() + self.overflow_background.len()
+    }
+
     fn promote_overflow_into_queue(&mut self) {
         while self.queued_len() < self.queue_bound {
-            let Some(waiter) = self.overflow.pop_front() else {
-                break;
-            };
-            if waiter.token.is_cancelled() || waiter.grant_tx.is_closed() {
+            if let Some(waiter) = self.overflow_interactive.pop_front() {
+                if !waiter.token.is_cancelled() && !waiter.grant_tx.is_closed() {
+                    self.interactive.push_back(waiter);
+                }
                 continue;
             }
-            let queued = QueuedWaiter {
-                id: waiter.id,
-                token: waiter.token,
-                grant_tx: waiter.grant_tx,
-            };
-            match waiter.priority {
-                Priority::Interactive => self.interactive.push_back(queued),
-                Priority::Background => self.background.push_back(queued),
+            if let Some(waiter) = self.overflow_background.pop_front() {
+                if !waiter.token.is_cancelled() && !waiter.grant_tx.is_closed() {
+                    self.background.push_back(waiter);
+                }
+                continue;
             }
+            break;
         }
     }
 
     fn pop_next_live_waiter(&mut self) -> Option<oneshot::Sender<Grant>> {
-        while let Some(w) = self.interactive.pop_front() {
-            if !w.token.is_cancelled() && !w.grant_tx.is_closed() {
-                return Some(w.grant_tx);
-            }
-        }
-        while let Some(w) = self.background.pop_front() {
-            if !w.token.is_cancelled() && !w.grant_tx.is_closed() {
-                return Some(w.grant_tx);
-            }
-        }
-        while let Some(w) = self.overflow.pop_front() {
-            if !w.token.is_cancelled() && !w.grant_tx.is_closed() {
-                return Some(w.grant_tx);
+        for queue in [
+            &mut self.interactive,
+            &mut self.background,
+            &mut self.overflow_interactive,
+            &mut self.overflow_background,
+        ] {
+            while let Some(w) = queue.pop_front() {
+                if !w.token.is_cancelled() && !w.grant_tx.is_closed() {
+                    return Some(w.grant_tx);
+                }
             }
         }
         None
@@ -131,9 +124,18 @@ impl LaneScheduler {
                 closed: false,
                 interactive: VecDeque::new(),
                 background: VecDeque::new(),
-                overflow: VecDeque::new(),
+                overflow_interactive: VecDeque::new(),
+                overflow_background: VecDeque::new(),
             })),
         }
+    }
+
+    pub(crate) fn waiting_len(&self) -> usize {
+        let guard = self
+            .inner
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        guard.total_waiting_len()
     }
 
     pub(crate) fn admit(&self, id: u64, priority: Priority, token: &CancelToken) -> AdmitOutcome {
@@ -172,12 +174,15 @@ impl LaneScheduler {
             return AdmitOutcome::JobOversubscribed;
         }
         let (grant_tx, grant_rx) = oneshot::channel();
-        guard.overflow.push_back(OverflowWaiter {
+        let waiter = QueuedWaiter {
             id,
-            priority,
             token: token.clone(),
             grant_tx,
-        });
+        };
+        match priority {
+            Priority::Interactive => guard.overflow_interactive.push_back(waiter),
+            Priority::Background => guard.overflow_background.push_back(waiter),
+        }
         AdmitOutcome::Overflow(grant_rx)
     }
 
@@ -188,7 +193,8 @@ impl LaneScheduler {
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         guard.interactive.retain(|w| w.id != id);
         guard.background.retain(|w| w.id != id);
-        guard.overflow.retain(|w| w.id != id);
+        guard.overflow_interactive.retain(|w| w.id != id);
+        guard.overflow_background.retain(|w| w.id != id);
         guard.promote_overflow_into_queue();
     }
 
@@ -206,19 +212,19 @@ impl LaneScheduler {
                 .inner
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            guard.closed = true;
+            let inner = &mut *guard;
+            inner.closed = true;
             let mut tokens = Vec::new();
-            for w in guard.interactive.drain(..) {
-                let _ = w.grant_tx.send(Grant::Closed);
-                tokens.push(w.token);
-            }
-            for w in guard.background.drain(..) {
-                let _ = w.grant_tx.send(Grant::Closed);
-                tokens.push(w.token);
-            }
-            for w in guard.overflow.drain(..) {
-                let _ = w.grant_tx.send(Grant::Closed);
-                tokens.push(w.token);
+            for queue in [
+                &mut inner.interactive,
+                &mut inner.background,
+                &mut inner.overflow_interactive,
+                &mut inner.overflow_background,
+            ] {
+                for w in queue.drain(..) {
+                    let _ = w.grant_tx.send(Grant::Closed);
+                    tokens.push(w.token);
+                }
             }
             tokens
         };

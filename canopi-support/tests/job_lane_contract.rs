@@ -115,15 +115,18 @@ async fn two_slot_job_lane_keeps_display_unstarved_while_heavy_waits_fifo() {
     });
     heavy1_started_rx.await.unwrap();
 
-    // Heavy #2 waits FIFO on Slot::Heavy without stealing Slot::Display.
+    // Heavy #2 and Heavy #3 wait FIFO on Slot::Heavy without stealing Slot::Display.
     let heavy2_started = Arc::new(AtomicUsize::new(0));
     let heavy2_flag = Arc::clone(&heavy2_started);
+    let (heavy2_queued_tx, heavy2_queued_rx) = oneshot::channel::<()>();
     let heavy2 = tokio::spawn({
         let executor = executor.clone();
         let heavy_slot = Arc::clone(&heavy_slot);
         let heavy_order = Arc::clone(&heavy_order);
         async move {
-            let _permit = heavy_slot.acquire_owned().await.unwrap();
+            let permit_fut = heavy_slot.acquire_owned();
+            let _ = heavy2_queued_tx.send(());
+            let _permit = permit_fut.await.unwrap();
             executor
                 .run(
                     OpSpec::system("job.heavy_2", ExecutorLane::Job),
@@ -132,6 +135,28 @@ async fn two_slot_job_lane_keeps_display_unstarved_while_heavy_waits_fifo() {
                     move |_| {
                         heavy2_flag.fetch_add(1, Ordering::SeqCst);
                         heavy_order.lock().unwrap().push(2);
+                        Ok(())
+                    },
+                )
+                .await
+        }
+    });
+    heavy2_queued_rx.await.unwrap();
+    tokio::task::yield_now().await;
+
+    let heavy3 = tokio::spawn({
+        let executor = executor.clone();
+        let heavy_slot = Arc::clone(&heavy_slot);
+        let heavy_order = Arc::clone(&heavy_order);
+        async move {
+            let _permit = heavy_slot.acquire_owned().await.unwrap();
+            executor
+                .run(
+                    OpSpec::system("job.heavy_3", ExecutorLane::Job),
+                    None,
+                    CancelToken::new(),
+                    move |_| {
+                        heavy_order.lock().unwrap().push(3);
                         Ok(())
                     },
                 )
@@ -158,9 +183,10 @@ async fn two_slot_job_lane_keeps_display_unstarved_while_heavy_waits_fifo() {
         "Heavy #2 must wait for Slot::Heavy instead of stealing Slot::Display"
     );
 
-    // Release Heavy #1 -> Heavy #2 now runs and completes FIFO.
+    // Release Heavy #1 -> Heavy #2 then Heavy #3 run and complete FIFO.
     let _ = heavy1_release_tx.send(());
     assert!(heavy1.await.unwrap().is_ok());
     assert!(heavy2.await.unwrap().is_ok());
-    assert_eq!(*heavy_order.lock().unwrap(), vec![1, 2]);
+    assert!(heavy3.await.unwrap().is_ok());
+    assert_eq!(*heavy_order.lock().unwrap(), vec![1, 2, 3]);
 }
