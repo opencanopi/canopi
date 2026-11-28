@@ -66,7 +66,7 @@ Schema change (exports at `~/projects/canopi-data/data/exports/`): `schema-contr
 | --- | --- | --- |
 | Contract | `scripts/schema-contract.json`, `scripts/species_catalog_contract.py` | `scripts/test_species_catalog_contract.py` |
 | Preparation | `scripts/prepare-db.py` | `scripts/test_prepare_db.py` |
-| Normalization | `canopi-types/species-search-normalization.json` | `test_species_search_normalization.py`, `species_search_normalization.rs`, `species-search-normalization.test.ts` |
+| Normalization | `canopi-types/species-search-normalization.json`, `canopi-search-text` | `canopi-search-text/tests/search_text.rs`, `test_species_search_normalization.py`, `species_search_normalization.rs`, `species-search-normalization.test.ts` |
 | Admission | `desktop/src/db/plant_catalog_connection.rs`, `db/mod.rs` | `db/mod.rs` tests |
 | Query builder | `desktop/src/db/query_builder/` | `db/query_builder.rs` tests |
 | Read projections | `desktop/src/services/species_catalog_read/` | module tests, latency harness |

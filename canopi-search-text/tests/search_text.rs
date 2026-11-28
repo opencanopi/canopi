@@ -78,7 +78,7 @@ fn q51_kana_folding_unifies_hiragana_katakana_halfwidth_and_voiced_forms() {
     assert_eq!(normalize("が").text, "カ");
     assert_eq!(normalize("ガ").text, "カ");
 
-    // Iteration marks fold too.
+    // Voiced and plain kana iteration marks fold together after combining-mark strip.
     assert_eq!(fold_kana_char('ゝ'), 'ヽ');
     assert_eq!(fold_kana_char('ゞ'), 'ヾ');
     assert_eq!(fold_kana_char('栗'), '栗');
@@ -90,6 +90,25 @@ fn q51_kana_folding_unifies_hiragana_katakana_halfwidth_and_voiced_forms() {
     assert_eq!(admission("か"), SearchAdmission::ActiveText);
     assert_eq!(admission("ｶ"), SearchAdmission::ActiveText);
     assert_eq!(admission("栗"), SearchAdmission::ActiveText);
+}
+
+#[test]
+fn q51_kana_iteration_marks_and_options_match_contract() {
+    assert_eq!(normalize("ゞ"), normalize("ヾ"));
+    assert_eq!(normalize("ゞ"), normalize("ヽ"));
+    assert_eq!(normalize("ゞ"), normalize("ゝ"));
+    assert_eq!(normalize("ゔ"), normalize("ヴ"));
+    assert_eq!(normalize("ゔ"), normalize("ｳﾞ"));
+
+    // DEFAULT (2.1-Q51) folds hiragana to katakana; V2_COMPAT preserves hiragana for the v2 catalog.
+    assert_eq!(
+        normalize_with_options("りんご", NormalizeOptions::DEFAULT).text,
+        "リンコ"
+    );
+    assert_eq!(
+        normalize_with_options("りんご", NormalizeOptions::V2_COMPAT).text,
+        "りんこ"
+    );
 }
 
 #[test]

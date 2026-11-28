@@ -91,7 +91,7 @@ const ACTIONLINT_VERSION = '1.7.12'
  * desktop, of the format worker's module (canopi-format-wasm, cargo-about's second run) and of the workspace members they
  * depend on (the crates cargo-about lists), cargo-about's config and template,
  * the generator and its hand rows, and the file itself. */
-const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-support|canopi-format|canopi-format-wasm)/Cargo\.toml$`,
+const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-support|canopi-format|canopi-format-wasm|canopi-search-text)/Cargo\.toml$`,
   String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
   String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
 
