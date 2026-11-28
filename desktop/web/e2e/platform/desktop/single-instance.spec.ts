@@ -66,9 +66,10 @@ function spawnWindowsFocusHolder(): ChildProcess {
       + '[DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId(); '
       + '[DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach); '
       + '[DllImport("user32.dll")] public static extern bool BringWindowToTop(System.IntPtr h); '
-      + "[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(System.IntPtr h);'",
+      + '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(System.IntPtr h); '
+      + "[DllImport(\"user32.dll\")] public static extern bool AllowSetForegroundWindow(uint dwProcessId);'",
     '$f = New-Object System.Windows.Forms.Form',
-    "$f.Text = 'CanopiFocusHolder'; $f.Width = 200; $f.Height = 100",
+    "$f.Text = 'CanopiFocusHolder'; $f.Width = 200; $f.Height = 100; $f.TopMost = $false",
     "$f.StartPosition = 'Manual'; $f.Left = 0; $f.Top = 0",
     '$f.Show()',
     '$fg = [Canopi.Focus]::GetForegroundWindow()',
@@ -78,6 +79,7 @@ function spawnWindowsFocusHolder(): ChildProcess {
     '[void][Canopi.Focus]::BringWindowToTop($f.Handle)',
     '[void][Canopi.Focus]::SetForegroundWindow($f.Handle)',
     'if ($fgTid -ne 0 -and $fgTid -ne $myTid) { [void][Canopi.Focus]::AttachThreadInput($myTid, $fgTid, $false) }',
+    '[void][Canopi.Focus]::AllowSetForegroundWindow([uint32]::MaxValue)',
     '[System.Windows.Forms.Application]::Run($f)',
   ].join('; ')
   const encoded = Buffer.from(script, 'utf16le').toString('base64')
@@ -155,16 +157,19 @@ describe('a second launch while Canopi runs', () => {
       // outside (it follows its controller, F5 probe 3), so on Windows the check falls back to the native foreground
       // window: the minimised window must not be in front, and must come back to the front.
       const pageBlurred = await browser.waitUntil(async () => !(await documentHasFocus()), { timeout: 10_000 }).catch(() => false)
-      let tookFocus: () => Promise<boolean> = documentHasFocus
+      const nativeTookFocus = (winHandle: number): boolean => {
+        const window = nativeWindow('', winHandle)
+        return window.foreground && !window.iconic
+      }
+      let tookFocus: () => Promise<boolean> = handle === undefined
+        ? documentHasFocus
+        : async () => (await documentHasFocus()) || nativeTookFocus(handle)
       if (!pageBlurred) {
         if (handle === undefined) throw new Error('the minimised window still has focus, so the focus check would prove nothing')
         if (nativeWindow('', handle).foreground) {
           throw new Error('the minimised window is still the foreground window, so the focus check would prove nothing')
         }
-        tookFocus = async () => {
-          const window = nativeWindow('', handle)
-          return window.foreground && !window.iconic
-        }
+        tookFocus = async () => nativeTookFocus(handle)
       }
 
       const second = await launchSecondProcess([basename(garden)], dirname(garden))
