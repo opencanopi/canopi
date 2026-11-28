@@ -4,6 +4,8 @@ title: Canopi
 description: Geolocated permaculture and landscape design studio shipping Desktop (Tauri + Rust + Preact) and Web editions from one codebase.
 tags: [project]
 generated: { by: antigravity/gemini, at: 2026-11-28T03:43:33Z }
+verified:
+  - { by: antigravity/gemini, at: 2026-11-28T08:12:53Z }
 sources:
   - id: readme
     resource: ../../README.md
@@ -13,8 +15,8 @@ sources:
   - id: cargo-toml
     resource: ../../Cargo.toml
     title: Cargo.toml
-    digest: sha256:08aca1a4adb130c3
-    last_modified: 2026-11-28T02:09:52Z
+    digest: sha256:7a9f66d36924b859
+    last_modified: 2026-11-28T07:59:38Z
   - id: readme-md
     resource: ../../docs/architecture/README.md
     title: docs/architecture/README.md
