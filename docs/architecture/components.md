@@ -251,11 +251,13 @@ flowchart LR
   canopi_redact["canopi-redact: Redactor, RedactedText (skeleton)"]
   canopi_support["canopi-support: durable files, executor, time"]
   canopi_format
+  canopi_search_text["canopi-search-text: search normalisation"]
   bindings_gen["bindings-gen: emitter"]
   canopi_desktop --> canopi_types
   canopi_desktop --> canopi_redact
   canopi_desktop --> canopi_support
   canopi_desktop --> canopi_format
+  canopi_desktop --> canopi_search_text
   canopi_format --> canopi_types
   canopi_support --> canopi_types
   canopi_types --> canopi_redact
@@ -277,7 +279,7 @@ flowchart BT
   classDef target stroke-dasharray: 4 3
   types["canopi-types: shapes, DESIGN_FILE_FIELDS; failure, settings and quantity tables (2.1)"]:::target
   fmt["canopi-format: stored user work"]
-  st["canopi-search-text (2.1): search normalisation"]:::target
+  st["canopi-search-text: search normalisation"]
   sup["canopi-support: durable files, hash, fs_space"]
   veg["canopi-vegetation (2.1): crown algorithms, roadmap"]:::target
   lib["canopi-library (2.1): Data library, owner library repository"]:::target

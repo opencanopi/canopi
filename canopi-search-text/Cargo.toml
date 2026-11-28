@@ -1,0 +1,15 @@
+[package]
+name = "canopi-search-text"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+# Pure-Rust, wasm32-clean search text normaliser with Unicode and kana folding (ADR 0023, ADR 0027, 2.1-Q51).
+# Built from the authored contract `canopi-types/species-search-normalization.json` and pinned Unicode facts.
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints]
+workspace = true

@@ -1,4 +1,8 @@
 use super::*;
+use canopi_search_text::{
+    CONTRACT_SOURCE, UNICODE_FACTS_SOURCE, normalization_version, validate_contract,
+};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
 #[derive(Deserialize)]
@@ -18,6 +22,12 @@ struct CorpusCase {
 
 #[test]
 fn authored_corpus_matches_rust_normalization_and_admission() {
+    assert_eq!(
+        normalization_version(),
+        crate::db::schema_contract::SPECIES_SEARCH_NORMALIZATION_VERSION,
+        "storage and Species Search normalization versions must match"
+    );
+
     let corpus: CorpusContract = serde_json::from_str(CONTRACT_SOURCE).unwrap();
 
     for case in corpus.corpus {
@@ -74,7 +84,7 @@ fn runtime_authority_parser_rejects_unknown_semantic_fields() {
     raw["algorithm"]["accidental_new_rule"] = serde_json::json!(true);
 
     let error =
-        parse_contract(&serde_json::to_string(&raw).unwrap(), UNICODE_FACTS_SOURCE).unwrap_err();
+        validate_contract(&serde_json::to_string(&raw).unwrap(), UNICODE_FACTS_SOURCE).unwrap_err();
 
     assert!(
         error.contains("unknown field `accidental_new_rule`"),
@@ -87,7 +97,7 @@ fn runtime_authority_parser_rejects_nonstandard_hangul_facts() {
     let mut raw_facts: serde_json::Value = serde_json::from_str(UNICODE_FACTS_SOURCE).unwrap();
     raw_facts["hangul_decomposition"]["l_base"] = serde_json::json!(1);
 
-    let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
+    let error = validate_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
 
     assert!(error.contains("standard Hangul"), "{error}");
 }
@@ -97,7 +107,7 @@ fn runtime_authority_parser_rejects_property_ranges_outside_known_scalars() {
     let mut raw_facts: serde_json::Value = serde_json::from_str(UNICODE_FACTS_SOURCE).unwrap();
     raw_facts["mark_scalar_ranges"] = serde_json::json!([[0x10FFFF, 0x10FFFF]]);
 
-    let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
+    let error = validate_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
 
     assert!(error.contains("known scalars"), "{error}");
 }
@@ -108,7 +118,7 @@ fn runtime_authority_parser_rejects_single_scalar_ranges_outside_token_scalars()
     // U+3000 is the ideographic space, not a token scalar.
     raw_facts["single_scalar_admitted_scalar_ranges"] = serde_json::json!([[0x3000, 0x3000]]);
 
-    let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
+    let error = validate_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
 
     assert!(error.contains("only token scalars"), "{error}");
 }
@@ -140,7 +150,7 @@ fn runtime_authority_parser_rejects_property_range_spanning_unknown_gap() {
     let mut raw_facts: serde_json::Value = serde_json::from_str(UNICODE_FACTS_SOURCE).unwrap();
     raw_facts["mark_scalar_ranges"] = serde_json::json!([[887, 890]]);
 
-    let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
+    let error = validate_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
 
     assert!(error.contains("known scalars"), "{error}");
 }
@@ -159,7 +169,7 @@ fn runtime_authority_parser_requires_known_hangul_syllable_range() {
             });
     }
 
-    let error = parse_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
+    let error = validate_contract(CONTRACT_SOURCE, &raw_facts.to_string()).unwrap_err();
 
     assert!(
         error.contains("Hangul") && error.contains("known"),

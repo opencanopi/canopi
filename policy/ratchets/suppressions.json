@@ -13,7 +13,6 @@
     "desktop/build.rs: clippy:expect_used": { "count": 1, "bead": "canopi-f47t.52.190" },
     "desktop/build.rs: clippy:unwrap_used": { "count": 1, "bead": "canopi-f47t.52.190" },
     "desktop/src/db/query_builder/builder.rs: clippy:expect_used": { "count": 2 },
-    "desktop/src/db/species_search_normalization.rs: clippy:expect_used": { "count": 2 },
     "desktop/src/lib.rs: clippy:disallowed_methods": { "count": 1, "bead": "canopi-f47t.52.58" },
     "desktop/src/native_operation.rs: clippy:expect_used": { "count": 1 },
     "desktop/src/services/lidar/gdal_engine.rs: rustc:non_snake_case": { "count": 3, "bead": "canopi-f47t.52.61" },

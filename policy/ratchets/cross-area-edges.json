@@ -826,6 +826,10 @@
     "canopi-desktop -> canopi-redact": {
       "count": 1
     },
+    "canopi-desktop -> canopi-search-text": {
+      "count": 1,
+      "bead": "canopi-f47t.52.68"
+    },
     "canopi-desktop -> canopi-support": {
       "count": 1
     },
