@@ -149,4 +149,53 @@ describe('the runtime query surface', () => {
       runtime.destroy()
     }
   })
+
+  it('getSettledDesignOutline emits plant canopy spread in WGS84 (2.1-Q45)', () => {
+    const centre = { lon: 2.35, lat: 48.85 }
+    const file: CanopiFile = {
+      version: CURRENT_CANOPI_FILE_VERSION,
+      name: 'Canopy extent',
+      description: null,
+      plant_species_colors: {},
+      layers: [{ name: 'plants', visible: true, locked: false, opacity: 1 }],
+      plants: [{
+        id: 'walnut-1',
+        canonical_name: 'Juglans regia',
+        common_name: 'Walnut',
+        color: null,
+        canopy_spread_m: 20,
+        position: centre,
+        rotation: null,
+        notes: null,
+        planted_date: null,
+        quantity: null,
+        locked: false,
+      }],
+      zones: [],
+      annotations: [],
+      measurement_guides: [],
+      consortiums: [],
+      groups: [],
+      timeline: [],
+      budget: [],
+      budget_currency: 'EUR',
+      created_at: '2026-10-01T00:00:00.000Z',
+      updated_at: '2026-10-01T00:00:00.000Z',
+    }
+    const runtime = createTestSceneCanvasRuntime()
+    try {
+      runtime.documentSurface.loadDocument(file)
+      const outline = runtime.querySurface.getSettledDesignOutline()
+      expect(outline).toHaveLength(32)
+      const plane = createSessionPlane(centre)
+      const xs = outline!.map((p) => plane.toPlane(p).x)
+      const ys = outline!.map((p) => plane.toPlane(p).y)
+      expect(Math.max(...xs)).toBeGreaterThanOrEqual(9.9)
+      expect(Math.min(...xs)).toBeLessThanOrEqual(-9.9)
+      expect(Math.max(...ys)).toBeGreaterThanOrEqual(9.9)
+      expect(Math.min(...ys)).toBeLessThanOrEqual(-9.9)
+    } finally {
+      runtime.destroy()
+    }
+  })
 })

@@ -126,10 +126,16 @@ function zoneOutline(zone: SceneZoneEntity): readonly WorldPoint[] {
   return getZoneExtentPoints(zone)
 }
 
-/** Outline points of every placed object in the Scene (plants, zone outlines, notes, measurement guides), in plane metres. */
+/** Outline points of every placed object in the Scene (plant crowns at canopy spread, zone outlines, notes, measurement guides), in plane metres. */
 export function designOutlinePoints(scene: ScenePersistedState): WorldPoint[] {
   const points: WorldPoint[] = []
-  for (const plant of scene.plants) points.push(plant.position)
+  for (const plant of scene.plants) {
+    if (plant.canopySpreadM !== null && Number.isFinite(plant.canopySpreadM) && plant.canopySpreadM > 0) {
+      points.push(...outlineAround(plant.position, plant.canopySpreadM / 2))
+    } else {
+      points.push(plant.position)
+    }
+  }
   for (const zone of scene.zones) points.push(...zoneOutline(zone))
   for (const annotation of scene.annotations) points.push(annotation.position)
   for (const guide of scene.measurementGuides) points.push(guide.start, guide.end)

@@ -8,7 +8,7 @@
 // it. None of it is stored, printed or captured.
 
 import { batch, computed, effect, signal, type ReadonlySignal } from '@preact/signals'
-import { currentCanvasQuerySurface } from '../../canvas/session'
+import { currentCanvasEditingAidsHidden, currentCanvasQuerySurface } from '../../canvas/session'
 import { designSessionStore } from '../document-session/store'
 import { ESCAPE_PRIORITY, registerEscapeLayer } from '../keyboard/escape-chain'
 import type { GeoPoint } from '../../types/design'
@@ -61,11 +61,19 @@ export function endSiteDataTransients(): void {
 }
 
 // The panel and Design triggers: a transient belongs to one Design session's open Site data panel.
+// While presenting a story, an overview-mode step hides the overlays without wiping the saved pin/profile so
+// leaving presentation restores them intact (2.1-Q106).
 let owner = designSessionStore.sessionIdentity.peek()
 effect(() => {
   const identity = designSessionStore.sessionIdentity.value
-  if (siteDataOpen.value && identity === owner) return
-  owner = identity
+  const open = siteDataOpen.value
+  const presenting = currentCanvasEditingAidsHidden.value
+  if (identity !== owner) {
+    owner = identity
+    endSiteDataTransients()
+    return
+  }
+  if (open || presenting) return
   endSiteDataTransients()
 })
 

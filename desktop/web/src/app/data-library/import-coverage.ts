@@ -1,5 +1,4 @@
 import { currentCanvasQuerySurface, getCurrentCanvasSession } from '../../canvas/session'
-import type { CanvasDesignObjects } from '../../canvas/runtime/runtime'
 import { createSessionPlane } from '../../geo/session-plane'
 import { editionPorts } from '../../platform/edition-ports'
 import type { GeoPoint } from '../../types/design'
@@ -27,16 +26,6 @@ function groundBoxOfPoints(points: readonly GeoPoint[]): GroundBox | null {
     north = Math.max(north, point.lat)
   }
   return [west, south, east, north]
-}
-
-/** The box around the Design's plants, zones, notes and measurement guides; null while it has none. */
-export function designGroundBox(objects: CanvasDesignObjects): GroundBox | null {
-  return groundBoxOfPoints([
-    ...objects.plants.map((plant) => plant.position),
-    ...objects.zones.flatMap((zone) => zone.points),
-    ...objects.annotations.map((annotation) => annotation.position),
-    ...objects.measurementGuides.flatMap((guide) => [guide.start, guide.end]),
-  ])
 }
 
 /** How the files' box lies against the Design's box. */

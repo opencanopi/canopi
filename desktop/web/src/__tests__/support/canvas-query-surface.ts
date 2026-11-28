@@ -181,7 +181,33 @@ export function createTestCanvasQuerySurface({
       void admissionRevision.value
       if (!settled) return null
       const plane = sessionPlaneSignal.peek()
-      const points: GeoPoint[] = currentPlants.map((plant) => plant.position)
+      const points: GeoPoint[] = []
+      for (const plant of currentPlants) {
+        const spread = plant.canopy_spread_m
+        if (typeof spread === 'number' && Number.isFinite(spread) && spread > 0) {
+          const localPlane = plane ?? createSessionPlane(plant.position)
+          const synthetic = {
+            ...createDefaultScenePersistedState(),
+            plants: [{
+              kind: 'plant' as const,
+              id: plant.id,
+              locked: false,
+              canonicalName: plant.canonical_name,
+              commonName: null,
+              color: null,
+              canopySpreadM: spread,
+              position: localPlane.toPlane(plant.position),
+              rotationDeg: null,
+              notes: null,
+              plantedDate: null,
+              quantity: null,
+            }],
+          }
+          for (const point of designOutlinePoints(synthetic)) points.push(localPlane.toGeo(point))
+        } else {
+          points.push(plant.position)
+        }
+      }
       if (plane) {
         for (const point of designOutlinePoints(scene)) points.push(plane.toGeo(point))
       }

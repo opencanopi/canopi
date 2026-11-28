@@ -1,13 +1,19 @@
+// @vitest-environment jsdom
+
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { setCurrentCanvasSession } from '../../canvas/session'
 import type { CanvasRuntimeSurfaces } from '../../canvas/runtime/runtime'
-import type { CanopiFile } from '../../types/design'
+import type { CanopiFile, SavedView } from '../../types/design'
 import { openTestDesign, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { runEscape } from '../keyboard/escape-chain'
 import type { KeyboardEventLike } from '../keyboard/key-chord'
 import type { FocusClass } from '../keyboard/target-class'
 import { selectPanel, sidePanel } from '../shell/state'
+import { leaveStoryPresentation, presentStory } from '../story-presentation'
+import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
+import { createTestCanvasRuntimeSurfaces } from '../../__tests__/support/canvas-runtime-surfaces'
+import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import {
   clearProfile,
   endSiteDataTransients,
@@ -53,6 +59,7 @@ describe('the Site data transients (canopi-f47t.42, U49)', () => {
   })
 
   afterEach(() => {
+    leaveStoryPresentation()
     endSiteDataTransients()
     setCurrentCanvasSession(null)
     sidePanel.value = null
@@ -167,5 +174,71 @@ describe('the Site data transients (canopi-f47t.42, U49)', () => {
     mode.value = 'site'
     setPin(PARIS)
     expect(pin.value).toEqual(PARIS)
+  })
+
+  it('preserves the pin and profile when a presented story step zooms to overview and restores them on exit (2.1-Q106)', () => {
+    const queries = createTestCanvasQuerySurface({ placement: { x: 0, y: 0, scale: 1 } })
+    const surfaces = createTestCanvasRuntimeSurfaces({ queries })
+    // Simulate showCamera switching between overview (low scale) and site (saved scale).
+    surfaces.commands.viewport.showCamera = (camera) => {
+      queries.setPlacement({ x: 0, y: 0, scale: camera.zoom < 12 ? 0.01 : 1 })
+    }
+    setCurrentCanvasSession(surfaces)
+    const overviewView: SavedView = {
+      id: 'v-overview',
+      name: 'Overview',
+      camera: { lon: 2.35, lat: 48.85, zoom: 8, bearing: 0, ground_size_m: { width: 50_000, height: 30_000 } },
+      visible_layers: {
+        background: { kind: 'basemap', style: 'liberty' },
+        terrain: { contours: false, hillshade: false },
+        scene_layers: [],
+        site_data: [],
+      },
+      highlighted: { species: [], objects: [] },
+      title: null,
+      text: [],
+      labels: null,
+    }
+    replaceCurrentDesignState({
+      version: CURRENT_CANOPI_FILE_VERSION,
+      name: 'Overview story',
+      description: null,
+      plant_species_colors: {},
+      layers: [],
+      plants: [],
+      zones: [],
+      annotations: [],
+      measurement_guides: [],
+      consortiums: [],
+      groups: [],
+      timeline: [],
+      budget: [],
+      budget_currency: 'EUR',
+      views: [overviewView],
+      stories: [{
+        id: 'tour',
+        name: 'Tour',
+        steps: [{ id: 's1', view_id: overviewView.id, title: 'Overview step', text: [], images: [] }],
+      }],
+      created_at: '2026-10-01T00:00:00.000Z',
+      updated_at: '2026-10-01T00:00:00.000Z',
+    }, null, 'Overview story')
+    selectPanel('site-data')
+
+    setPin(PARIS)
+    setProfileLine(LINE)
+    expect(queries.view.mode.value).toBe('site')
+    expect(pin.value).toEqual(PARIS)
+    expect(profileLine.value).toEqual(LINE)
+
+    expect(presentStory('tour', 0)).toBe(true)
+    expect(queries.view.mode.value).toBe('overview')
+    expect(pin.value).toEqual(PARIS)
+    expect(profileLine.value).toEqual(LINE)
+
+    leaveStoryPresentation()
+    expect(queries.view.mode.value).toBe('site')
+    expect(pin.value).toEqual(PARIS)
+    expect(profileLine.value).toEqual(LINE)
   })
 })

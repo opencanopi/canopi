@@ -27,7 +27,6 @@
     "desktop/web/src/app/data-library/camera-request.ts: knip:exports/lidarBoundsToLocalWorld": { "count": 1 },
     "desktop/web/src/app/data-library/display.ts: knip:exports/displayKey": { "count": 1 },
     "desktop/web/src/app/data-library/import-coverage.ts: knip:exports/compareCoverage": { "count": 1 },
-    "desktop/web/src/app/data-library/import-coverage.ts: knip:exports/designGroundBox": { "count": 1 },
     "desktop/web/src/app/data-library/import-coverage.ts: knip:types/GroundBox": { "count": 1 },
     "desktop/web/src/app/data-library/library-store.ts: knip:exports/hasActiveLibraryWork": { "count": 1 },
     "desktop/web/src/app/data-library/library-store.ts: knip:exports/readLidarPresentation": { "count": 1 },

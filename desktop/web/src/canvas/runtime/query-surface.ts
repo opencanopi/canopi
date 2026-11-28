@@ -220,6 +220,7 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
     }, null)
   }
   getSettledDesignOutline(): GeoPoint[] | null {
+    void this.options.settledReader.revision.value
     return this.options.settledReader.readWhenSettled(() => {
       const plane = this.options.sceneStore.sessionPlane
       return designOutlinePoints(this.options.sceneStore.persisted).map((point) => plane.toGeo(point))
