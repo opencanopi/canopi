@@ -3,7 +3,7 @@ type: Project
 title: Canopi
 description: Geolocated permaculture and landscape design studio shipping Desktop (Tauri + Rust + Preact) and Web editions from one codebase.
 tags: [project]
-generated: { by: antigravity/gemini, at: 2026-11-28T03:43:33Z }
+generated: { by: antigravity/gemini, at: 2026-11-28T10:40:53Z }
 verified:
   - { by: antigravity/gemini, at: 2026-11-28T08:12:53Z }
 sources:
@@ -15,8 +15,8 @@ sources:
   - id: cargo-toml
     resource: ../../Cargo.toml
     title: Cargo.toml
-    digest: sha256:7a9f66d36924b859
-    last_modified: 2026-11-28T07:59:38Z
+    digest: sha256:5e708f333ba6ce7b
+    last_modified: 2026-11-28T10:40:19Z
   - id: readme-md
     resource: ../../docs/architecture/README.md
     title: docs/architecture/README.md
@@ -31,7 +31,7 @@ Canopi combines a species catalog with a geolocated design canvas that is the ma
 # Stack and editions
 
 - **Frontend (`desktop/web/`):** Preact, `@preact/signals`, CSS Modules, MapLibre GL, PixiJS canvas renderer, Vite + TypeScript.
-- **Native host & core (`Cargo.toml`):** Rust 2024 workspace (`desktop`, `canopi-types`, `canopi-redact`, `canopi-support`, `canopi-format`, `canopi-format-wasm`, `bindings-gen`) with Tauri 2 on Desktop and WebAssembly (`canopi-format-wasm`) on Web.
+- **Native host & core (`Cargo.toml`):** Rust 2024 workspace (`desktop`, `canopi-types`, `canopi-redact`, `canopi-support`, `canopi-format`, `canopi-format-wasm`, `canopi-search-text`, `bindings-gen`) with Tauri 2 on Desktop and WebAssembly (`canopi-format-wasm`) on Web.
 - **Edition parity (ADR 0030):** Feature code imports `EditionPorts` (`desktop/web/src/platform/edition-ports.ts`), never edition checks; Desktop and Web wire concrete adapters in their edition roots (`desktop/web/src/editions/`).
 
 # Key authorities

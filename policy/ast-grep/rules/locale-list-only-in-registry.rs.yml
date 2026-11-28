@@ -6,8 +6,8 @@ language: rs
 severity: error
 message: "locale-list-only-in-registry (§18 R19): locale lists and sys_locale belong only in canopi-types/src/locale.rs (and desktop/src/services/settings.rs for sys_locale). Owner canopi-types/src/locale.rs; example canopi-types/src/locale.rs"
 files:
-  - "{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,canopi-search-text,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,canopi-search-text,bindings-gen}/src/**/*.rs"
 ignores:
   - "canopi-types/src/locale.rs"
   - "desktop/src/services/settings.rs"

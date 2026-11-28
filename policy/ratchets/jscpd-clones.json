@@ -17,7 +17,6 @@
   "lane": "commit",
   "keys": "name",
   "entries": {
-    "bindings-gen/src/species_search_normalization.rs <-> desktop/src/db/species_search_normalization.rs": { "count": 2 },
     "desktop/src/commands/export.rs <-> desktop/src/commands/export.rs": { "count": 1 },
     "desktop/src/commands/favorites.rs <-> desktop/src/commands/species.rs": { "count": 1 },
     "desktop/src/commands/settings.rs <-> desktop/src/commands/settings.rs": { "count": 1 },

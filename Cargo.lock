@@ -461,6 +461,7 @@ dependencies = [
  "base64 0.22.1",
  "canopi-format",
  "canopi-redact",
+ "canopi-search-text",
  "canopi-support",
  "canopi-types",
  "ed25519-dalek",
@@ -520,6 +521,14 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
+]
+
+[[package]]
+name = "canopi-search-text"
+version = "2.1.0-beta.4"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

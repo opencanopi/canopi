@@ -6,8 +6,8 @@ language: rs
 severity: error
 message: "Rust code outside the settings store boundary (desktop/src/services/settings.rs) must not parse or read settings fields (Stage 2 E1, ADR 0024); pass facts from TypeScript (owner desktop/web/src/app/settings/state.ts)"
 files:
-  - "{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
-  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,bindings-gen}/src/**/*.rs"
+  - "{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,canopi-search-text,bindings-gen}/src/**/*.rs"
+  - "policy/fixtures/rules/*/{desktop,canopi-types,canopi-redact,canopi-support,canopi-format,canopi-format-wasm,canopi-search-text,bindings-gen}/src/**/*.rs"
 ignores:
   - "desktop/src/services/settings.rs"
   - "desktop/src/services/settings_reader_release_tests.rs"

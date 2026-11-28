@@ -48,15 +48,12 @@ class SpeciesSearchNormalizationTests(unittest.TestCase):
         self.assertEqual(decompositions[0x1E030], "а")
 
     def test_runtimes_do_not_delegate_compatibility_decomposition_to_the_host(self):
+        root = SCRIPT_DIR.parent
         sources = {
             "Python": Path(normalization.__file__).read_text(encoding="utf-8"),
-            "Rust": (
-                SCRIPT_DIR.parent / "desktop/src/db/species_search_normalization.rs"
-            ).read_text(encoding="utf-8"),
-            "TypeScript": (
-                SCRIPT_DIR.parent
-                / "desktop/web/src/utils/species-search-normalization.ts"
-            ).read_text(encoding="utf-8"),
+            "Rust": (root / "canopi-search-text/src/lib.rs").read_text(encoding="utf-8")
+            + (root / "desktop/src/db/species_search_normalization.rs").read_text(encoding="utf-8"),
+            "TypeScript": (root / "desktop/web/src/utils/species-search-normalization.ts").read_text(encoding="utf-8"),
         }
 
         self.assertNotIn("unicodedata.normalize", sources["Python"])

@@ -61,6 +61,8 @@ canopi-redact = { path = "../canopi-redact" }
 canopi-support = { path = "../canopi-support" }
 # The `.canopi` format crate: its schema walker admits the v9 decode, its read admission a newer file (Step 2.0.4).
 canopi-format = { path = "../canopi-format" }
+# Pure-Rust search text normaliser with Unicode and kana folding (ADR 0023, 2.1-Q51).
+canopi-search-text = { path = "../canopi-search-text" }
 sha2 = "0.10"
 ureq = "3"
 sys-locale = "0.3"
