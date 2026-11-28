@@ -509,3 +509,66 @@ fn case_sensitivity_detection_probes_empty_dir_and_defaults_to_folding_when_unwr
         sensitive.lock_key(Path::new("/tmp/garden.canopi"))
     );
 }
+
+#[test]
+fn a_source_meta_written_during_a_crash_leaves_the_previous_meta_readable() {
+    let fs = FaultFs::new();
+    let locks = TargetLocks::new();
+    let dir = Path::new("/library/item-1");
+    fs.seed_dir(dir);
+    let target = dir.join("meta.json");
+    let v1 = br#"{"version":1,"name":"North ridge DEM"}"#;
+    let v2 = br#"{"version":1,"name":"North ridge DEM (updated)"}"#;
+
+    assert!(
+        publish_durably(
+            &fs,
+            &locks,
+            PublishSource::Bytes(v1),
+            &target,
+            "source-meta",
+            Precondition::Any,
+        )
+        .is_ok()
+    );
+
+    // Crash mid-write of the replacement temp file: previous meta.json remains intact.
+    fs.inject(
+        FaultOp::StageBytes,
+        FaultAction::IoError(io::ErrorKind::Interrupted),
+    );
+    assert!(
+        publish_durably(
+            &fs,
+            &locks,
+            PublishSource::Bytes(v2),
+            &target,
+            "source-meta",
+            Precondition::Any,
+        )
+        .is_err()
+    );
+    fs.crash(CrashMode::DropUnsynced);
+    assert_eq!(fs.read_bytes(&target).ok().as_deref(), Some(v1.as_slice()));
+    assert_eq!(fs.durable_bytes(&target).as_deref(), Some(v1.as_slice()));
+
+    // Crash during rename: previous meta.json remains intact and readable.
+    fs.inject(
+        FaultOp::RenameReplace,
+        FaultAction::IoError(io::ErrorKind::Interrupted),
+    );
+    assert!(
+        publish_durably(
+            &fs,
+            &locks,
+            PublishSource::Bytes(v2),
+            &target,
+            "source-meta",
+            Precondition::Any,
+        )
+        .is_err()
+    );
+    fs.crash(CrashMode::DropUnsynced);
+    assert_eq!(fs.read_bytes(&target).ok().as_deref(), Some(v1.as_slice()));
+    assert_eq!(fs.durable_bytes(&target).as_deref(), Some(v1.as_slice()));
+}

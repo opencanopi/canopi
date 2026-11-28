@@ -2,7 +2,6 @@
   "$schema": "./ratchet.schema.json",
   "family": "tauri-only-in-shell",
   "entries": {
-    "desktop/src/native_operation.rs": { "count": 1, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/external_links.rs": { "count": 1, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/lidar/display_cog.rs": { "count": 1, "bead": "canopi-f47t.52.190" },
     "desktop/src/services/lidar/mod.rs": { "count": 3, "bead": "canopi-f47t.52.190" }

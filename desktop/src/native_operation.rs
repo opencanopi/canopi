@@ -4,9 +4,10 @@
 //! `Failure`, a String command onto the text it has always rejected with (contracts §2;
 //! until N0's lanes replace the classes, 2.1-M41).
 
+use canopi_support::executor::{BlockingOutcome, run_legacy_blocking};
+use canopi_support::time::duration_millis;
 use canopi_types::failure::{Failure, FailureCode, Lane};
 use std::{
-    panic::{AssertUnwindSafe, catch_unwind},
     sync::Arc,
     time::{Duration, Instant},
 };
@@ -278,56 +279,43 @@ impl NativeOperationExecutor {
             return Err(unavailable(class, op).into());
         };
         let queued_ms = duration_millis(queued_at.elapsed());
-        // The work logs to the caller's subscriber, whichever thread runs it.
-        let dispatch = tracing::dispatcher::get_default(Clone::clone);
+        let started_at = Instant::now();
+        tracing::debug!(
+            native_operation_class = class.as_str(),
+            native_operation = op,
+            queued_ms,
+            "Native operation started",
+        );
 
-        // The closure sits outside the reviewed statement so clippy still checks it.
-        let run = move || {
-            tracing::dispatcher::with_default(&dispatch, || {
-                tracing::debug!(
-                    native_operation_class = class.as_str(),
-                    native_operation = op,
-                    queued_ms,
-                    "Native operation started",
-                );
-                let started_at = Instant::now();
-                #[expect(
-                    clippy::disallowed_methods,
-                    reason = "the executor settlement turns a native operation's panic into its error"
-                )]
-                let settlement = catch_unwind(AssertUnwindSafe(work));
-                // A panic was logged once by the panic hook; it settles here and is not resumed.
-                let (result, settled) = match settlement {
-                    Ok(result) => {
-                        let settled = if result.is_ok() { "success" } else { "error" };
-                        (result, settled)
-                    }
-                    Err(_panic) => (
-                        Err(settled(class, ExecutorError::Panicked { op }).into()),
-                        "panic",
-                    ),
-                };
-                tracing::debug!(
-                    native_operation_class = class.as_str(),
-                    native_operation = op,
-                    settlement = settled,
-                    running_ms = duration_millis(started_at.elapsed()),
-                    "Native operation finished",
-                );
-                drop(running_permit);
-                drop(admission_permit);
-                result
-            })
-        };
-        #[expect(
-            clippy::disallowed_methods,
-            reason = "the executor owns the blocking pool; every native operation reaches it here"
-        )]
-        let task = tauri::async_runtime::spawn_blocking(run);
+        let handle = tokio::runtime::Handle::current();
+        let settled_result = run_legacy_blocking(&handle, work, move |outcome| {
+            // A panic was logged once by the panic hook; it settles here and is not resumed.
+            let (result, settled_label) = match outcome {
+                BlockingOutcome::Completed(result) => {
+                    let label = if result.is_ok() { "success" } else { "error" };
+                    (result, label)
+                }
+                BlockingOutcome::Panicked => (
+                    Err(settled(class, ExecutorError::Panicked { op }).into()),
+                    "panic",
+                ),
+            };
+            tracing::debug!(
+                native_operation_class = class.as_str(),
+                native_operation = op,
+                settlement = settled_label,
+                running_ms = duration_millis(started_at.elapsed()),
+                "Native operation finished",
+            );
+            drop(running_permit);
+            drop(admission_permit);
+            result
+        })
+        .await;
 
-        match task.await {
-            Ok(result) => result,
-            Err(_) => Err(settled(class, ExecutorError::JoinFailed { op }).into()),
+        match settled_result {
+            Some(result) => result,
+            None => Err(settled(class, ExecutorError::JoinFailed { op }).into()),
         }
     }
 
@@ -455,10 +443,6 @@ fn unavailable(class: NativeOperationClass, op: &'static str) -> ExecutorError {
 fn settled(class: NativeOperationClass, error: ExecutorError) -> ExecutorError {
     crate::logging::log_failure(&Failure::from(error), Some(class.lane()));
     error
-}
-
-fn duration_millis(duration: Duration) -> u64 {
-    duration.as_millis().min(u128::from(u64::MAX)) as u64
 }
 
 #[cfg(test)]

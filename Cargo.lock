@@ -526,10 +526,12 @@ dependencies = [
 name = "canopi-support"
 version = "2.1.0-beta.4"
 dependencies = [
+ "canopi-types",
  "fs4",
  "proptest",
  "sha2",
  "tempfile",
+ "tokio",
  "tracing",
 ]
 

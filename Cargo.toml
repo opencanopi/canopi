@@ -8,6 +8,11 @@ edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/opencanopi/canopi"
 
+[workspace.dependencies]
+# Shared SQLite binding (2.1-M152, upgraded to 0.41 in canopi-f47t.52.36 past RUSTSEC-2026-0459;
+# enables sqlite-wasm-rs 0.6.3 on wasm32-unknown-unknown by default).
+rusqlite = "0.41"
+
 # Every member inherits these (`[lints] workspace = true`; 2.1-Q216, 2.1-M188). A
 # ratcheted lint's existing sites are item-level `#[expect(<lint>, reason = "...")]`
 # counted by its policy/ratchets/rust-*.json family; `unfulfilled_lint_expectations`

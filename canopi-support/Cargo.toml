@@ -5,18 +5,21 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
-# Narrow support crate for Phase 2b (2.1-M542): durable files behind `DurableFs`,
-# `TargetLocks`, `FaultFs` crash model, content hashing, and `fs4` disk free-space.
-# No `tokio` until Phase 3 N1 (2.1-M542).
+# Native support primitives (ADR 0023, ADR 0025; 2.1-M28, 2.1-M157, 2.1-M542):
+# durable files (`DurableFs`, `TargetLocks`, `FaultFs`), content hashing, `fs4`
+# disk free-space, time helpers, store-chain runner, and the lane-based executor.
 [dependencies]
+canopi-types = { path = "../canopi-types", features = ["system-ids"] }
 fs4 = { version = "1.1", default-features = false, features = ["sync"] }
 sha2 = "0.10"
 tempfile = "3"
+tokio = { version = "1", features = ["rt", "sync", "time"] }
 tracing = "0.1"
 
 [dev-dependencies]
 # Fixed-seed property tests for interleaved publish and ALICE/lazyfs crash recovery (ADR 0028).
 proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "test-util"] }
 
 [lints]
 workspace = true
