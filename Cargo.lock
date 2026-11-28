@@ -266,7 +266,7 @@ checksum = "23f756521115a60a84bc45722261eaf03aa6a59d886c9c3b41d08ac1c39e3e24"
 
 [[package]]
 name = "bindings-gen"
-version = "2.1.0-beta.3"
+version = "2.1.0-beta.4"
 dependencies = [
  "canopi-format",
  "canopi-types",
@@ -456,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "canopi-desktop"
-version = "2.1.0-beta.3"
+version = "2.1.0-beta.4"
 dependencies = [
  "base64 0.22.1",
  "canopi-format",
@@ -493,7 +493,7 @@ dependencies = [
 
 [[package]]
 name = "canopi-format"
-version = "2.1.0-beta.3"
+version = "2.1.0-beta.4"
 dependencies = [
  "canopi-types",
  "proptest",
@@ -503,7 +503,7 @@ dependencies = [
 
 [[package]]
 name = "canopi-format-wasm"
-version = "2.1.0-beta.3"
+version = "2.1.0-beta.4"
 dependencies = [
  "canopi-format",
  "canopi-types",
@@ -514,7 +514,7 @@ dependencies = [
 
 [[package]]
 name = "canopi-redact"
-version = "2.1.0-beta.3"
+version = "2.1.0-beta.4"
 dependencies = [
  "proptest",
  "serde",
@@ -524,7 +524,7 @@ dependencies = [
 
 [[package]]
 name = "canopi-support"
-version = "2.1.0-beta.3"
+version = "2.1.0-beta.4"
 dependencies = [
  "fs4",
  "proptest",
@@ -535,7 +535,7 @@ dependencies = [
 
 [[package]]
 name = "canopi-types"
-version = "2.1.0-beta.3"
+version = "2.1.0-beta.4"
 dependencies = [
  "canopi-redact",
  "schemars 1.2.1",
