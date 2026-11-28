@@ -342,8 +342,8 @@ function worldPx(at: { lon: number, lat: number }, zoom: number): { x: number, y
 /** The view the Web Edition remembers (settings `last_view`, written once the view settles). */
 async function lastView(page: Page): Promise<{ lon: number, lat: number, zoom: number } | null> {
   return page.evaluate(() => {
-    const raw = localStorage.getItem('canopi:web-app-data:v3:settings')
-    const view = raw ? (JSON.parse(raw) as { settings?: { last_view?: { lon: number, lat: number, zoom: number } } }).settings?.last_view : null
+    const raw = localStorage.getItem('canopi:web-app-data:v4:settings')
+    const view = raw ? (JSON.parse(raw) as { last_view?: { lon: number, lat: number, zoom: number } }).last_view : null
     return view ?? null
   })
 }

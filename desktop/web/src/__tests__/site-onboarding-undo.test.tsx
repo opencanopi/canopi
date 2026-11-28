@@ -3,20 +3,22 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, describe, expect, it } from 'vitest'
+import { installCanvasHostRuntime } from '../app/canvas-map-surface/use-canvas-host'
+import { createBrowserCanvasHostRuntime } from '../editions/web/browser-workspace-runtime'
+import { createMapLifetimeSlot } from '../maplibre/map-lifetime'
 import type { WorkspaceRuntimeComposition } from '../app/canvas-map-surface/workspace-runtime-composition'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
-import { createDesignSessionStoreTestFixture, designSessionStore } from '../app/document-session/store'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../app/contracts/document'
+import { designSessionStore } from '../app/document-session/store'
 import { currentCanvasSession } from '../canvas/session'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
-import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
-import { createBrowserCanvasRuntimeAppAdapter } from '../web/browser-canvas-runtime'
-import { createBrowserDesignSessionController } from '../web/browser-design-session'
+import { createBrowserCanvasRuntimeAppAdapter } from '../editions/web/browser-canvas-runtime'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
-import { installWebKeyRouter } from '../web/browser-shell-commands'
-import { WebCanvasWorkspace } from '../web/WebCanvasWorkspace'
+import { installWebKeyRouter } from '../editions/web/browser-shell-commands'
+import { WebCanvasWorkspace } from '../editions/web/WebCanvasWorkspace'
 import { geoAt } from './support/geo-design'
 import { createLiveTestCanvasRuntimeHost } from './support/live-canvas-runtime'
+import { createTestSessionCore, type TestSessionCoreHandle } from './support/session-core-fixture'
 
 /**
  * canopi-28w8 on the Web Edition: the Web workspace with its real floating
@@ -26,6 +28,7 @@ import { createLiveTestCanvasRuntimeHost } from './support/live-canvas-runtime'
 describe('Where is your site? and Undo on the Web Edition', () => {
   let container: HTMLDivElement
   let keys: KeyRouterHandle | null = null
+  let session: TestSessionCoreHandle | null = null
 
   afterEach(async () => {
     // Unmounting the workspace releases the runtime through the composition.
@@ -36,42 +39,53 @@ describe('Where is your site? and Undo on the Web Edition', () => {
     container.remove()
     keys?.dispose()
     keys = null
-    createDesignSessionStoreTestFixture(designSessionStore).reset()
+    session?.dispose()
+    session = null
   })
 
   it('select all, delete, Ctrl+Z restores every object on the Web edition', async () => {
     container = document.createElement('div')
     document.body.appendChild(container)
+    session = createTestSessionCore({ file: null })
     const host = createLiveTestCanvasRuntimeHost({ appAdapter: createBrowserCanvasRuntimeAppAdapter() })
+    const mapSlot = createMapLifetimeSlot(
+      { restart: () => false, retryLayer: () => {}, release: () => {} },
+      { kind: 'ready', attempt: 1, layers: new Map() },
+    )
     const composition: WorkspaceRuntimeComposition = {
       surfaces: host.surfaces,
+      mapLifetime: mapSlot.handle,
       start: async () => 'shared-ready',
-      retryMap: () => undefined,
       dispose: () => host.destroy(),
     }
-    const controller = createBrowserDesignSessionController({
-      appDataStore: createBrowserAppDataStore({ storage: memoryStorage() }),
-      fileAdapter: {
-        openCanopiFile: async () => ({ fileName: 'orchard.canopi', text: JSON.stringify(encodeCanopiDesign(orchard())) }),
-        downloadCanopiFile: async () => undefined,
-      },
-      now: () => new Date('2026-09-29T12:00:00.000Z'),
-    })
+    const uninstallCanvasHost = installCanvasHostRuntime(() => ({
+      core: createBrowserCanvasHostRuntime().core,
+      createComposition: () => composition,
+    }))
     keys = installWebKeyRouter({
       catalog: [],
-      readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),
+      readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: null }),
     })
 
-    await act(async () => {
-      render(<WebCanvasWorkspace controller={controller} createRuntimeComposition={() => composition} />, container)
-      await flushMicrotasks()
-    })
+    try {
+      await act(async () => {
+        render(<WebCanvasWorkspace />, container)
+        await flushMicrotasks()
+      })
+    } finally {
+      uninstallCanvasHost()
+    }
     await flushMicrotasks()
     expect(currentCanvasSession.value).toBe(host.surfaces)
 
     // Open Design… from the start screen: the orchard opens as a Draft.
     await act(async () => {
-      await controller.openCanopi()
+      await session!.core.openFrom({
+        kind: 'bytes',
+        name: 'orchard.canopi',
+        bytes: new TextEncoder().encode(JSON.stringify(encodeCanopiDesign(orchard()))),
+      })
+      await flushMicrotasks()
     })
     const { queries } = host.surfaces
     const opened = queries.getSceneSnapshot()
@@ -116,19 +130,10 @@ async function flushMicrotasks(): Promise<void> {
   for (let index = 0; index < 20; index += 1) await Promise.resolve()
 }
 
-function memoryStorage(): BrowserStorageAdapter {
-  const values = new Map<string, string>()
-  return {
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => { values.set(key, value) },
-    removeItem: (key) => { values.delete(key) },
-  }
-}
-
 function orchard(): CanopiFile {
   const plant = (id: string, x: number, y: number): CanopiFile['plants'][number] => ({
     id, locked: false, canonical_name: 'Malus domestica', common_name: 'Apple', color: null,
-    position: geoAt(x, y), rotation: null, scale: null, notes: null, planted_date: null, quantity: 1,
+    position: geoAt(x, y), rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: 1,
   })
   return {
     version: CURRENT_CANOPI_FILE_VERSION,

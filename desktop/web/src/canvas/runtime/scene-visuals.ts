@@ -1,7 +1,14 @@
 import { CANVAS_CHROME_FONT_FAMILY } from '../chrome-fonts'
-import { getCanvasColor, isThemeManagedZoneFill, markCanvasPaintChanged } from '../theme-refresh'
+import {
+  isThemeManagedZoneFill,
+  readCanvasPaintTokens,
+  type CanvasBackdropInk,
+  type CanvasMapBackdrop,
+  type CanvasPaintTokens,
+} from '../theme-refresh'
+export { readCanvasPaintTokens, type CanvasBackdropInk, type CanvasMapBackdrop, type CanvasPaintTokens }
 import { contrastRatio } from '../plant-colors'
-import { getCanvasPlantDisplay } from './plant-display'
+import { DEFAULT_PLANT_DISPLAY, type PlantDisplay } from './plant-display'
 import type {
   ScenePersistedState,
   SceneZoneEntity,
@@ -19,6 +26,8 @@ export interface SceneZoneVisual {
   stroke: string
   /** Drawn under the stroke so the zone edge reads on bright or dark imagery. */
   casing: string
+  /** Unified zone opacity [0, 1] applying to fill and stroke together (2.1-Q355). */
+  opacity: number
 }
 
 export type CanvasInteractionVisualState =
@@ -62,21 +71,33 @@ export function isPlantLayerShown(scene: ScenePersistedState): boolean {
   return layer.visible && layer.opacity > 0
 }
 
-export function resolveZoneVisual(zone: SceneZoneEntity): SceneZoneVisual {
+export function resolveZoneVisual(
+  zone: SceneZoneEntity,
+  paintTokens: CanvasPaintTokens = readCanvasPaintTokens(),
+): SceneZoneVisual {
   const fill = zone.fillColor && !isThemeManagedZoneFill(zone.fillColor)
     ? zone.fillColor
-    : getCanvasColor('zone-fill')
+    : paintTokens['zone-fill']
+  const stroke = zone.strokeColor && zone.strokeColor.trim().length > 0
+    ? zone.strokeColor
+    : paintTokens['zone-stroke']
+  const opacity = typeof zone.opacity === 'number' && Number.isFinite(zone.opacity)
+    ? Math.min(1, Math.max(0, zone.opacity))
+    : 1
 
   return {
     fill,
-    stroke: getCanvasColor('zone-stroke'),
-    casing: getCanvasColor('overlay-casing'),
+    stroke,
+    casing: paintTokens['overlay-casing'],
+    opacity,
   }
 }
 
 /** Guides and drawing previews over the map: a light stroke on a dark casing. */
-export function getGuideLineVisual(): { color: string; casing: string } {
-  return { color: getCanvasColor('guide-line'), casing: getCanvasColor('overlay-casing') }
+export function getGuideLineVisual(
+  paintTokens: CanvasPaintTokens = readCanvasPaintTokens(),
+): { color: string; casing: string } {
+  return { color: paintTokens['guide-line'], casing: paintTokens['overlay-casing'] }
 }
 
 /** A draft stroke's colour over a casing `OVERLAY_CASING_EXTRA_PX` wider. */
@@ -94,18 +115,21 @@ export interface DraftFillVisual {
  * light draft on the dark overlay casing, the ochre band on the interaction
  * casing and its translucent fill.
  */
-export function getDraftVisual(token: DraftStroke['token']): DraftStrokeVisual
-export function getDraftVisual(token: DraftFill['token']): DraftFillVisual
-export function getDraftVisual(token: DraftStroke['token'] | DraftFill['token']): DraftStrokeVisual | DraftFillVisual {
+export function getDraftVisual(token: DraftStroke['token'], paintTokens?: CanvasPaintTokens): DraftStrokeVisual
+export function getDraftVisual(token: DraftFill['token'], paintTokens?: CanvasPaintTokens): DraftFillVisual
+export function getDraftVisual(
+  token: DraftStroke['token'] | DraftFill['token'],
+  paintTokens: CanvasPaintTokens = readCanvasPaintTokens(),
+): DraftStrokeVisual | DraftFillVisual {
   switch (token) {
     case 'selection':
-      return { color: getCanvasColor('selection-stroke'), casing: getCanvasColor('interaction-casing') }
+      return { color: paintTokens['selection-stroke'], casing: paintTokens['interaction-casing'] }
     case 'draft':
-      return getGuideLineVisual()
+      return getGuideLineVisual(paintTokens)
     case 'selection-fill':
-      return { color: getCanvasColor('selection-fill') }
+      return { color: paintTokens['selection-fill'] }
     case 'draft-fill':
-      return { color: getCanvasColor('zone-fill') }
+      return { color: paintTokens['zone-fill'] }
   }
 }
 
@@ -161,15 +185,18 @@ function draftLabelFontSizePx(): number {
  * (today's (a4c86d39) plant-placement-preview.ts), Plant a row's length in the
  * primary colour (today's (a4c86d39) plant-spacing-overlay.ts).
  */
-export function getDraftLabelVisual(tone: DraftLabelTone): DraftLabelVisual {
+export function getDraftLabelVisual(
+  tone: DraftLabelTone,
+  paintTokens: CanvasPaintTokens = readCanvasPaintTokens(),
+): DraftLabelVisual {
   const fontSizePx = draftLabelFontSizePx()
   const chip = {
     gapPx: DRAFT_LABEL_GAP_PX,
     fontSizePx,
-    border: getCanvasColor('chip-border'),
+    border: paintTokens['chip-border'],
     borderWidthPx: 1,
     radiusPx: DRAFT_LABEL_RADIUS_PX,
-    shadow: parseCanvasShadow(getCanvasColor('chip-shadow')),
+    shadow: parseCanvasShadow(paintTokens['chip-shadow']),
   }
   if (tone === 'measure' || tone === 'measure-quiet') {
     return {
@@ -179,8 +206,8 @@ export function getDraftLabelVisual(tone: DraftLabelTone): DraftLabelVisual {
       fontWeight: tone === 'measure' ? '600' : '400',
       lineHeightPx: fontSizePx * 1.2,
       paddingPx: { x: 5, y: 2 },
-      color: getCanvasColor('chip-text'),
-      background: getCanvasColor('chip-surface-muted'),
+      color: paintTokens['chip-text'],
+      background: paintTokens['chip-surface-muted'],
     }
   }
   return {
@@ -190,8 +217,8 @@ export function getDraftLabelVisual(tone: DraftLabelTone): DraftLabelVisual {
     fontWeight: '600',
     lineHeightPx: DRAFT_LABEL_HINT_LINE_HEIGHT_PX,
     paddingPx: tone === 'hint-primary' ? { x: 8, y: 4 } : { x: 6, y: 2 },
-    color: getCanvasColor(tone === 'hint-primary' ? 'chip-primary' : 'chip-text'),
-    background: getCanvasColor('chip-surface'),
+    color: paintTokens[tone === 'hint-primary' ? 'chip-primary' : 'chip-text'],
+    background: paintTokens['chip-surface'],
   }
 }
 
@@ -208,13 +235,6 @@ function parseCanvasShadow(value: string): CanvasShadowVisual | null {
 }
 
 /**
- * What shows under the Design on the map. The UI theme never decides label
- * ink: the basemap stays light in a dark UI and satellite imagery stays dark
- * in a light one, so text, halos, badges and the grid follow the backdrop.
- */
-export type CanvasMapBackdrop = 'basemap' | 'dark-basemap' | 'satellite' | 'paper'
-
-/**
  * A representative colour for each backdrop. `paper` equals the background
  * layer of the map's empty style (`maplibre/config.ts`), which does not
  * follow the UI theme.
@@ -224,16 +244,6 @@ export const CANVAS_MAP_BACKDROP_COLORS: { readonly [K in CanvasMapBackdrop]: st
   'dark-basemap': '#1A1A1A',
   satellite: '#3B4232',
   paper: '#F3EFE4',
-}
-
-export interface CanvasBackdropInk {
-  readonly text: string
-  /** Drawn under text and markers so they read on busy imagery. */
-  readonly halo: string
-  readonly badgeBackground: string
-  readonly badgeText: string
-  readonly grid: string
-  readonly gridMajor: string
 }
 
 // Dark ink on a cream halo for light backdrops; cream ink on a dark halo
@@ -277,17 +287,6 @@ const INK_FOR_DARK_BACKDROP: CanvasBackdropInk = {
   gridMajor: 'rgba(239, 232, 218, 0.12)',
 }
 
-// The workspace map's backdrop, set by the runtime from its app adapter.
-let mapBackdrop: CanvasMapBackdrop = 'basemap'
-
-/** Returns true when the backdrop changed and the canvas must redraw. */
-export function setCanvasMapBackdrop(backdrop: CanvasMapBackdrop): boolean {
-  if (backdrop === mapBackdrop) return false
-  mapBackdrop = backdrop
-  markCanvasPaintChanged()
-  return true
-}
-
 /** The ink that contrasts more with `background` (a #RRGGBB colour). */
 export function resolveBackdropInk(background: string): CanvasBackdropInk {
   return contrastRatio(INK_FOR_LIGHT_BACKDROP.text, background) >= contrastRatio(INK_FOR_DARK_BACKDROP.text, background)
@@ -295,36 +294,36 @@ export function resolveBackdropInk(background: string): CanvasBackdropInk {
     : INK_FOR_DARK_BACKDROP
 }
 
-function mapBackdropColor(): string {
-  return CANVAS_MAP_BACKDROP_COLORS[mapBackdrop]
+/** The ink for text and chrome drawn over a map backdrop. */
+export function getMapBackdropInk(backdrop: CanvasMapBackdrop = 'basemap'): CanvasBackdropInk {
+  return resolveBackdropInk(CANVAS_MAP_BACKDROP_COLORS[backdrop])
 }
 
-/** The ink for text and chrome drawn over the workspace map. */
-export function getMapBackdropInk(): CanvasBackdropInk {
-  return resolveBackdropInk(mapBackdropColor())
-}
-
-/** The one ink of map text (plant names, notes, measurement labels), from the map backdrop. */
-export function getMapTextColor(): string {
-  return getMapBackdropInk().text
+/** The one ink of map text (plant names, notes, measurement labels), from the map backdrop ink. */
+export function getMapTextColor(backdropInk: CanvasBackdropInk = getMapBackdropInk()): string {
+  return backdropInk.text
 }
 
 /** The halo stroked under map text of this size; the stroke is centred on the glyph edge. */
-export function getLabelHalo(fontSizePx: number): { color: string; widthPx: number } {
-  return { color: getMapBackdropInk().halo, widthPx: Math.max(3, Math.round(fontSizePx / 4)) }
+export function getLabelHalo(
+  fontSizePx: number,
+  backdropInk: CanvasBackdropInk = getMapBackdropInk(),
+): { color: string; widthPx: number } {
+  return { color: backdropInk.halo, widthPx: Math.max(3, Math.round(fontSizePx / 4)) }
 }
 
 export function getCanvasInteractionStrokeVisual(
   state: CanvasInteractionVisualState,
+  paintTokens: CanvasPaintTokens = readCanvasPaintTokens(),
 ): CanvasInteractionStrokeVisual {
   // Selected: 2.5 px ochre over a 5.5 px casing; every state keeps its casing
   // so rings and outlines read on satellite imagery and plain basemaps alike.
-  if (state === 'selected') return interactionStroke('selection-stroke', 2.5, 1, 5.5)
+  if (state === 'selected') return interactionStroke('selection-stroke', 2.5, 1, 5.5, paintTokens)
   // Highlight rings must read at any zoom and on any backdrop: solid ochre on a full halo.
-  if (state === 'highlight') return interactionStroke('selection-stroke', 2, 1, 5)
-  if (state === 'locked-design-object') return interactionStroke('locked-object-stroke', 2.25, 0.86, 4.25)
-  if (state === 'locked-layer') return interactionStroke('locked-layer-stroke', 2.25, 0.9, 4.25)
-  return interactionStroke('hover-stroke', 2, 0.72, 4)
+  if (state === 'highlight') return interactionStroke('selection-stroke', 2, 1, 5, paintTokens)
+  if (state === 'locked-design-object') return interactionStroke('locked-object-stroke', 2.25, 0.86, 4.25, paintTokens)
+  if (state === 'locked-layer') return interactionStroke('locked-layer-stroke', 2.25, 0.9, 4.25, paintTokens)
+  return interactionStroke('hover-stroke', 2, 0.72, 4, paintTokens)
 }
 
 function interactionStroke(
@@ -332,21 +331,22 @@ function interactionStroke(
   widthPx: number,
   alpha: number,
   casingWidthPx: number,
+  paintTokens: CanvasPaintTokens,
 ): CanvasInteractionStrokeVisual {
   return {
-    color: getCanvasColor(token),
+    color: paintTokens[token],
     widthPx,
     alpha,
-    casingColor: getCanvasColor('interaction-casing'),
+    casingColor: paintTokens['interaction-casing'],
     casingWidthPx,
   }
 }
 
-export function getStackBadgeBackgroundColor(background = mapBackdropColor()): string {
+export function getStackBadgeBackgroundColor(background = CANVAS_MAP_BACKDROP_COLORS.basemap): string {
   return resolveBackdropInk(background).badgeBackground
 }
 
-export function getStackBadgeTextColor(background = mapBackdropColor()): string {
+export function getStackBadgeTextColor(background = CANVAS_MAP_BACKDROP_COLORS.basemap): string {
   return resolveBackdropInk(background).badgeText
 }
 
@@ -354,13 +354,16 @@ export function getStackBadgeTextColor(background = mapBackdropColor()): string 
  * The halo and cut-out colour of a plant symbol: the backdrop it sits on, or
  * the backdrop's ink when the plant colour is too close to the backdrop.
  */
-export function getPlantSymbolEdgeColor(color: string, background = mapBackdropColor()): string {
+export function getPlantSymbolEdgeColor(color: string, background = CANVAS_MAP_BACKDROP_COLORS.basemap): string {
   return contrastRatio(color, background) < 3 ? resolveBackdropInk(background).text : background
 }
 
 /** The halo width around a plant symbol; 0 when Display › Outline is off. */
-export function getPlantSymbolEdgeWidth(diameterPx: number): number {
-  if (!getCanvasPlantDisplay().outline) return 0
+export function getPlantSymbolEdgeWidth(
+  diameterPx: number,
+  plantDisplay: Pick<PlantDisplay, 'outline'> = DEFAULT_PLANT_DISPLAY,
+): number {
+  if (!plantDisplay.outline) return 0
   return diameterPx < 10 ? .5 : .7
 }
 

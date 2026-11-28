@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { siteDataLines } from '../app/lidar/analysis-groups'
-import { referenceDrawOrder, referenceRows, siblingMoveOrders, siblingNeighbour } from '../app/lidar/reference-tree'
+import { siteDataLines } from '../app/data-library/analysis-groups'
+import { referenceDrawOrder, referenceRows, siblingMoveOrders, siblingNeighbour } from '../app/data-library/reference-tree'
 
 interface Node {
   readonly id: string

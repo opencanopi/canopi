@@ -1,6 +1,4 @@
-import { encodeCanopiDesign } from "../app/contracts/canopi-design-wire";
-import { decodeCanopiDesign } from "../app/contracts/design-ingestion";
-import type { CanopiFile } from "../types/design";
+import { isCurrentCanopiDocument } from "../app/contracts/document";
 import { keepUnreadableRecord, StoreRefusedError, StoreUnreadableError } from "../failures/store-read";
 import { writeStoreHealth } from "../failures/health";
 import type { StoreId } from "../generated/contracts";
@@ -15,45 +13,27 @@ import type { RecordRead, SpeciesListEntry, SpeciesListRecord } from "../platfor
 // newer Canopi and refuses writes. platform/ passes the reader in (openSpeciesLists), so web/ imports no platform/ code.
 const RECORD_VERSION = 3 as const;
 const EARLIER_KEYS: readonly string[] = [
-  "canopi:web-app-data:v1",
-  "canopi:web-app-data:v2:drafts",
-  "canopi:web-app-data:v2:settings",
-  "canopi:web-app-data:v2:species",
-  "canopi:web-app-data:v2:saved-object-stamps",
-  "canopi:web-app-data:v2:authority",
-  "canopi:web-app-data:v2:migration-progress",
-  "canopi:web-app-data:v2:authority-reservation",
+  "canopi:web-app-data:v1", "canopi:web-app-data:v2:drafts", "canopi:web-app-data:v2:settings", "canopi:web-app-data:v2:species",
+  "canopi:web-app-data:v2:saved-object-stamps", "canopi:web-app-data:v2:authority", "canopi:web-app-data:v2:migration-progress", "canopi:web-app-data:v2:authority-reservation",
 ];
-/** Set once the user has been told that the 1.x data was left in place. */
 const KEPT_IN_PLACE_NOTICE_KEY = "canopi:web-app-data:before-2.0-kept-in-place-notice";
-const STORAGE_KEYS = {
-  drafts: "canopi:web-app-data:v3:drafts",
-  settings: "canopi:web-app-data:v3:settings",
-  species: "canopi:web-app-data:v3:species",
-  stamps: "canopi:web-app-data:v3:saved-object-stamps",
-} as const;
-/**
- * The Draft this tab had open when it reloaded for a new release (2.1-Q189): per-tab session state in sessionStorage,
- * read once by the next launch. It holds only a Draft id and is no user-work store, so it has no record version.
- */
+const STORAGE_KEYS = { drafts: "canopi:web-app-data:v3:drafts", settings: "canopi:web-app-data:v3:settings", species: "canopi:web-app-data:v3:species", stamps: "canopi:web-app-data:v3:saved-object-stamps" } as const;
+export const SETTINGS_STORAGE_KEY = STORAGE_KEYS.settings;
+export const DRAFTS_STORAGE_KEY = STORAGE_KEYS.drafts;
+const SETTINGS_BEFORE_RESET_KEY = "canopi:web-app-data:settings.before-reset";
 const RELOAD_HOME_KEY = "canopi:web-session:reload-home";
 
-/** What a tab had open at its release reload: its Draft's id, or null for none (the start screen). */
-interface BrowserReloadHome {
-  readonly draft: string | null;
-}
+interface BrowserReloadHome { readonly draft: string | null; }
 
 export interface BrowserStorageAdapter {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
+  getItem(key: string): string | null; setItem(key: string, value: string): void; removeItem(key: string): void;
 }
 
 /** Reads 2.1's species-list record (platform/browser-record.ts `readSpeciesListRecord`). */
 type SpeciesListReader = (storage: BrowserStorageAdapter) => RecordRead<SpeciesListRecord>;
 interface NewerRecordReaders { species?: SpeciesListReader }
 
-export type BrowserAppDataWriteResult<T> =
+type BrowserAppDataWriteResult<T> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: unknown };
 
@@ -72,7 +52,7 @@ interface BrowserSavedObjectStampRecord {
 interface BrowserDraftsRecord {
   readonly version: typeof RECORD_VERSION;
   readonly drafts: readonly BrowserDraftSummary[];
-  readonly draftFiles: Record<string, CanopiFile>;
+  readonly draftFiles: Record<string, Record<string, unknown>>;
   /**
    * Drafts this Canopi refuses to open (a damaged, newer or older Design), kept as their stored values so a write of another
    * Draft never erases them.
@@ -119,9 +99,6 @@ const PARTITIONS = {
     store: "web_drafts",
     accepts: isSupportedDraftsRecord,
     normalize: normalizeDraftsRecord,
-    // Draft files are stored in the .canopi wire form, like every other
-    // persisted Design, so they decode through the same admission.
-    encode: encodeDraftsRecord,
   },
   settings: {
     key: STORAGE_KEYS.settings,
@@ -142,27 +119,6 @@ const PARTITIONS = {
   },
 } as const;
 
-interface SaveDraftOptions {
-  readonly id?: string;
-  readonly file: CanopiFile;
-  readonly now: string;
-  /**
-   * The `updatedAt` this writer last read or wrote for the Draft (null: it
-   * never saw one). When another browser tab has since written the Draft, the
-   * save is refused with `BrowserDraftChangedError` instead of replacing it.
-   * Omitted: overwrite unconditionally.
-   */
-  readonly expectedUpdatedAt?: string | null;
-}
-
-/** Another browser tab wrote the Draft after this writer last read or wrote it. */
-export class BrowserDraftChangedError extends Error {
-  constructor(readonly draftId: string) {
-    super("The Draft was changed in another browser tab");
-    this.name = "BrowserDraftChangedError";
-  }
-}
-
 /** A stored record's value, or undefined when it is not JSON. */
 function parseRecord(raw: string): unknown {
   try {
@@ -182,12 +138,16 @@ interface BrowserAppDataStoreOptions {
 }
 
 export interface BrowserAppDataStore {
-  saveDraft(options: SaveDraftOptions): BrowserAppDataWriteResult<BrowserDraftSummary>;
   listDrafts(): readonly BrowserDraftSummary[];
-  loadDraft(id: string): CanopiFile | null;
-  deleteDraft(id: string): BrowserAppDataWriteResult<null>;
-  saveSettings(settings: Record<string, unknown>): BrowserAppDataWriteResult<Record<string, unknown>>;
+  /** Returns the stored `.canopi` wire JSON object untouched for DesignCore decode. */
+  loadRawDraft(id: string): Record<string, unknown> | null;
+  saveSettings(
+    settings: Record<string, unknown>,
+    patch?: Readonly<Record<string, unknown>>,
+  ): BrowserAppDataWriteResult<Record<string, unknown>>;
   loadSettings(): Record<string, unknown> | null;
+  /** Keeps the raw settings record once as `settings.before-reset` before per-field reset (E2, 2.1-Q54). */
+  saveSettingsBeforeReset(raw: Readonly<Record<string, unknown>>): void;
   setFavoriteSpecies(canonicalNames: readonly string[]): BrowserAppDataWriteResult<readonly string[]>;
   listFavoriteSpecies(): readonly string[];
   recordRecentlyViewedSpecies(canonicalName: string, limit?: number): BrowserAppDataWriteResult<readonly string[]>;
@@ -206,6 +166,10 @@ export interface BrowserAppDataStore {
   noteReloadHome(draftId: string | null): void;
   /** What this tab had open before its release reload, once; null when nothing was noted or it cannot be read. */
   takeReloadHome(): BrowserReloadHome | null;
+  /** Notes this page load's tab id in sessionStorage right before unload so a reload recovers its pending markers without colliding on Duplicate Tab. */
+  noteReloadTabId(tabId: string): void;
+  /** Takes the previous page load's reload tab id once from sessionStorage; null when this is a fresh or duplicated tab. */
+  takeReloadTabId(): string | null;
   /**
    * Reads the species lists at launch, 2.1's key through `read` from now on, so lists a newer Canopi saved, or damaged
    * ones, say so once, then (2.1-Q319).
@@ -213,6 +177,8 @@ export interface BrowserAppDataStore {
   openSpeciesLists(read: SpeciesListReader): void;
   /** Runs a browser-record read over this store's storage (platform/browser-record.ts); it throws as the storage does. */
   readRecord<T>(read: (storage: BrowserStorageAdapter) => T): T;
+  /** Runs a browser-record write over this store's storage (platform/browser-record.ts). */
+  writeRecord(write: (storage: BrowserStorageAdapter) => void): BrowserAppDataWriteResult<void>;
 }
 
 export function createBrowserAppDataStore({
@@ -270,41 +236,23 @@ export function createBrowserAppDataStore({
   }
 
   return {
-    saveDraft({ id: requestedId, file, now, expectedUpdatedAt }) {
-      return writePartition(PARTITIONS.drafts, (current) => {
-        const id = normalizeDraftId(requestedId, file.name);
-        if (expectedUpdatedAt !== undefined) {
-          // A Draft deleted meanwhile is written again rather than lost.
-          const stored = current.drafts.find((draft) => draft.id === id);
-          if (stored && stored.updatedAt !== expectedUpdatedAt) throw new BrowserDraftChangedError(id);
-        }
-        const summary = { id, name: file.name || "Untitled", updatedAt: now };
-        const drafts = [summary, ...current.drafts.filter((draft) => draft.id !== summary.id)];
-        const draftFiles = { ...current.draftFiles, [summary.id]: file };
-        const refused = withoutRefusedDraft(current.refused, summary.id);
-        return { next: { version: RECORD_VERSION, drafts, draftFiles, refused }, value: summary };
-      });
-    },
-
-    listDrafts() {
-      return readPartition(PARTITIONS.drafts).drafts;
-    },
-
-    loadDraft(id) {
+    listDrafts() { return readPartition(PARTITIONS.drafts).drafts; },
+    loadRawDraft(id) {
       const draftFiles = readPartition(PARTITIONS.drafts).draftFiles;
       return Object.prototype.hasOwnProperty.call(draftFiles, id) ? draftFiles[id] ?? null : null;
     },
 
-    deleteDraft(id) {
-      return writePartition(PARTITIONS.drafts, (current) => {
-        const { [id]: _removed, ...draftFiles } = current.draftFiles;
-        const drafts = current.drafts.filter((draft) => draft.id !== id);
-        return { next: { version: RECORD_VERSION, drafts, draftFiles, refused: withoutRefusedDraft(current.refused, id) }, value: null };
+    saveSettings(settings, patch) {
+      return writePartition(PARTITIONS.settings, (current) => {
+        // Patch writes preserve unknown keys already stored on disk (ADR 0026).
+        const merged = { ...(current.settings ?? {}), ...(patch ?? settings) };
+        return { next: { version: RECORD_VERSION, settings: merged }, value: merged };
       });
     },
 
-    saveSettings(settings) {
-      return writePartition(PARTITIONS.settings, () => ({ next: { version: RECORD_VERSION, settings: { ...settings } }, value: { ...settings } }));
+    saveSettingsBeforeReset(raw) {
+      // Write-once best-effort backup (ADR 0026): a second reset never overwrites the original copy, and quota errors never block open.
+      try { if (storage.getItem(SETTINGS_BEFORE_RESET_KEY) === null) storage.setItem(SETTINGS_BEFORE_RESET_KEY, JSON.stringify({ ...raw })); } catch { /* best-effort */ }
     },
 
     loadSettings() {
@@ -373,9 +321,24 @@ export function createBrowserAppDataStore({
         text = session.getItem(RELOAD_HOME_KEY);
         if (text !== null) session.removeItem(RELOAD_HOME_KEY);
       } catch {
+        // Unreadable session storage means no reload home was recorded.
         return null;
       }
       return text === null ? null : parseReloadHome(text);
+    },
+
+    noteReloadTabId(tabId) {
+      try { session.setItem("canopi:web-drafts:reload-tab-id", tabId); } catch { /* Best-effort reload tab id; stale timeout still recovers markers. */ }
+    },
+    takeReloadTabId() {
+      try {
+        const existing = session.getItem("canopi:web-drafts:reload-tab-id");
+        if (existing !== null) session.removeItem("canopi:web-drafts:reload-tab-id");
+        return existing && existing.length > 0 ? existing : null;
+      } catch {
+        // Session storage unavailable: fall back to stale-peer marker recovery.
+        return null;
+      }
     },
 
     openSpeciesLists(read) {
@@ -383,8 +346,9 @@ export function createBrowserAppDataStore({
       readPartition(PARTITIONS.species);
     },
 
-    readRecord(read) {
-      return read(storage);
+    readRecord(read) { return read(storage); },
+    writeRecord(write) {
+      try { write(storage); return { ok: true, value: undefined }; } catch (error) { return { ok: false, error }; }
     },
   };
 }
@@ -532,70 +496,30 @@ function isCurrentRecord(value: unknown): value is Record<string, unknown> & { v
   return isRecord(value) && value.version === RECORD_VERSION;
 }
 
-function encodeDraftsRecord(record: BrowserDraftsRecord): unknown {
-  const draftFiles: Record<string, unknown> = {};
-  for (const [id, file] of Object.entries(record.refused.files)) {
-    defineOwn(draftFiles, id, file);
-  }
-  for (const [id, file] of Object.entries(record.draftFiles)) {
-    defineOwn(draftFiles, id, encodeCanopiDesign(file));
-  }
-  return {
-    version: record.version,
-    drafts: [...record.drafts, ...record.refused.summaries],
-    draftFiles,
-  };
-}
-
-function withoutRefusedDraft(refused: RefusedDrafts, id: string): RefusedDrafts {
-  if (!Object.prototype.hasOwnProperty.call(refused.files, id)) return refused;
-  const { [id]: _removed, ...files } = refused.files;
-  return {
-    summaries: refused.summaries.filter((draft) => !isRecord(draft) || draft.id !== id),
-    files,
-  };
-}
-
 function decodeDraftFiles(value: unknown): {
-  decoded: Record<string, CanopiFile>;
+  decoded: Record<string, Record<string, unknown>>;
   refused: Record<string, unknown>;
 } {
-  const decoded: Record<string, CanopiFile> = {};
+  const decoded: Record<string, Record<string, unknown>> = {};
   const refused: Record<string, unknown> = {};
   if (!isRecord(value)) return { decoded, refused };
   for (const [id, rawFile] of Object.entries(value)) {
-    try {
-      defineOwn(decoded, id, decodeCanopiDesign(rawFile));
-    } catch {
-      // A Draft that does not open is not listed, but its stored value is
-      // kept: it is the user's Design, not ours to erase.
-      defineOwn(refused, id, rawFile);
-    }
+    if (isCurrentCanopiDocument(rawFile)) defineOwn(decoded, id, rawFile);
+    else defineOwn(refused, id, rawFile);
   }
   return { decoded, refused };
 }
 
 function defineOwn(target: Record<string, unknown>, key: string, value: unknown): void {
-  Object.defineProperty(target, key, {
-    configurable: true,
-    enumerable: true,
-    value,
-    writable: true,
-  });
+  Object.defineProperty(target, key, { configurable: true, enumerable: true, value, writable: true });
 }
 
 function isDraftSummary(value: unknown): value is BrowserDraftSummary {
-  return isRecord(value)
-    && typeof value.id === "string"
-    && typeof value.name === "string"
-    && typeof value.updatedAt === "string";
+  return isRecord(value) && typeof value.id === "string" && typeof value.name === "string" && typeof value.updatedAt === "string";
 }
 
 function isSavedObjectStampRecord(value: unknown): value is BrowserSavedObjectStampRecord {
-  return isRecord(value)
-    && typeof value.id === "string"
-    && typeof value.name === "string"
-    && Object.prototype.hasOwnProperty.call(value, "payload");
+  return isRecord(value) && typeof value.id === "string" && typeof value.name === "string" && Object.prototype.hasOwnProperty.call(value, "payload");
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -613,16 +537,4 @@ function uniqueStrings(values: readonly unknown[]): readonly string[] {
     output.push(normalized);
   }
   return output;
-}
-
-function draftIdFor(name: string): string {
-  const slug = name.toLowerCase().trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return `draft-${slug || "untitled"}`;
-}
-
-function normalizeDraftId(id: string | undefined, name: string): string {
-  const normalized = id?.trim();
-  return normalized && normalized.length > 0 ? normalized : draftIdFor(name);
 }

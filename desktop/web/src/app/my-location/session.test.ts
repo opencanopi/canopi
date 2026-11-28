@@ -2,11 +2,10 @@
 // Moved away, Blocked, and stale, over a stubbed browser geolocation and Permissions API and a fake view.
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { GeoPoint } from '../../generated/contracts'
-import type { ViewCamera } from '../../canvas/runtime/view/types'
+import type { GeoPoint, CanopiFile } from '../../types/design'
+import type { ViewCamera } from '../../geo/view/types'
 import type { FollowView } from './follow'
-import type { CanopiFile } from '../../types/design'
-import { designSessionStore } from '../document-session/store'
+import { clearCurrentDesignState, replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
 import { MyLocationSession, myLocation } from './session'
 
 const FIX = { coords: { longitude: 12.3456789, latitude: 45.6789012, accuracy: 25 }, timestamp: 1_760_000_000_000 }
@@ -290,18 +289,18 @@ describe('the location session', () => {
 describe('the app\'s location session', () => {
   it('turns off when the Design session store closes the Design (File › Close)', () => {
     const design = { version: 9, name: 'Here', layers: [], plants: [], zones: [], annotations: [] } as unknown as CanopiFile
-    designSessionStore.replaceCurrentDesignState(design, null, 'Here')
+    replaceCurrentDesignState(design, null, 'Here')
     try {
       myLocation.press()
       geolocation.fix(FIX)
       expect(myLocation.mode.value).toBe('following')
-      designSessionStore.clearCurrentDesign()
+      clearCurrentDesignState()
       expect(myLocation.mode.value).toBe('off')
       expect(myLocation.reading.value).toBeNull()
       expect(geolocation.clearWatch).toHaveBeenCalledOnce()
     } finally {
       if (myLocation.mode.peek() !== 'off') myLocation.press()
-      designSessionStore.clearCurrentDesign()
+      clearCurrentDesignState()
     }
   })
 })

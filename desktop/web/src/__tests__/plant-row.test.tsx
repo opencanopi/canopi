@@ -20,7 +20,7 @@ vi.mock('../canvas/session', async (importOriginal) => ({
   currentCanvasToolCommandSurface: signal(null),
 }))
 
-import { locale } from '../app/settings/state'
+import { locale, unitSystem } from '../app/settings/state'
 import { PlantRow } from '../components/plant-db/PlantRow'
 import { resetStoreHealthForTests, writeStoreHealth } from '../failures/health'
 import type { StoreId, StoreOpenStatus } from '../generated/contracts'
@@ -35,6 +35,7 @@ describe('PlantRow', () => {
     document.body.innerHTML = ''
     document.body.appendChild(container)
     locale.value = 'en'
+    unitSystem.value = 'metric'
     plantBrowserMock.intent.value = { text: '' }
     plantBrowserMock.isActiveSearchText.mockClear()
   })
@@ -58,6 +59,17 @@ describe('PlantRow', () => {
     expect(container.textContent).toContain("Clochette d'Irlande")
     expect(container.textContent).toContain('Mélisse des Moluques')
     expect(container.textContent).not.toContain('Moluque verte')
+  })
+
+  it('formats species height in the active unit system', () => {
+    const plant = { ...makeSpeciesListItem('Malus domestica'), height_max_m: 3 }
+    render(<PlantRow plant={plant} />, container)
+    expect(container.textContent).toContain('3 m')
+
+    unitSystem.value = 'us_customary'
+    render(<PlantRow plant={plant} />, container)
+    expect(container.textContent).toContain('10 ft')
+    expect(container.textContent).not.toContain('3 m')
   })
 
   // Q320 with Q111: the star is off with the same edition-neutral reason on Desktop under a newer user database as on

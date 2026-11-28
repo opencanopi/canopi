@@ -1,33 +1,49 @@
 // @vitest-environment jsdom
 
-import { useEffect } from 'preact/hooks'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createDefaultMapLayers, mapLayers, type MapLayersState } from '../app/map-layers/state'
+import { signal, type Signal } from '@preact/signals'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  type MapLayersState,
+  locale,
+} from '../app/settings/state'
 import { setStoryPresentationOverrides } from '../app/story-presentation/overrides'
 import { storyPresentationActive } from '../app/story-presentation'
 import { t } from '../i18n'
 import { CanvasPanel } from '../components/panels/CanvasPanel'
 import { PresentedMapNotice } from '../components/canvas/MapNotice'
-import { WebCanvasWorkspace } from '../web/WebCanvasWorkspace'
-import { profileLineMenu } from '../app/lidar/profile'
-import {
-  IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-  type MapLibreCanvasSurfaceState,
-} from '../maplibre/canvas-surface-state'
+import { WebCanvasWorkspace } from '../editions/web/WebCanvasWorkspace'
+import { profileLineMenu } from '../app/data-library/profile'
+import { IDLE_CANVAS_SURFACE_STATE, type CanvasSurfaceState } from '../app/canvas-map-surface/canvas-host'
+import { installCanvasHostRuntime } from '../app/canvas-map-surface/use-canvas-host'
+import type * as UseCanvasHostModule from '../app/canvas-map-surface/use-canvas-host'
 import type { WorkspaceRuntimeComposition } from '../app/canvas-map-surface/workspace-runtime-composition'
+import { createMapLifetimeSlot, type LayerSlotId, type LayerStatus } from '../maplibre/map-lifetime'
 import { designSessionFixture } from './support/design-session-state'
 import type { CanopiFile } from '../types/design'
-import { locale } from '../app/settings/state'
-import { signal, type Signal } from '@preact/signals'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasDocumentSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import type * as StoryPresentationModule from '../app/story-presentation'
 
-let mockBasemapState: MapLibreCanvasSurfaceState = IDLE_MAPLIBRE_CANVAS_SURFACE_STATE
-let publishMapState: ((state: MapLibreCanvasSurfaceState) => void) | null = null
-const retryMap = vi.fn()
+const mockSurface = signal<CanvasSurfaceState>(IDLE_CANVAS_SURFACE_STATE)
+const mockReady = signal(false)
+const retryMap = vi.fn(() => false)
+const retryLayer = vi.fn()
+
+function readySurface(layers: ReadonlyArray<readonly [LayerSlotId, LayerStatus]> = []): CanvasSurfaceState {
+  return { kind: 'map', map: { kind: 'ready', attempt: 1, layers: new Map(layers) }, retry: 'withheld' }
+}
+
+function loadingSurface(): CanvasSurfaceState {
+  return { kind: 'map', map: { kind: 'creating', attempt: 1 }, retry: 'withheld' }
+}
+
+function failedSurface(retry: 'offered' | 'never'): CanvasSurfaceState {
+  return { kind: 'map', map: { kind: 'failed', attempt: 1, cause: retry === 'never' ? 'no-webgl2' : 'context-lost' }, retry }
+}
 
 const chromeProps = vi.hoisted(() => [] as Array<Readonly<Record<string, unknown>>>)
 
@@ -45,32 +61,28 @@ vi.mock('../app/story-presentation', async (importOriginal) => {
   return { ...await importOriginal<typeof StoryPresentationModule>(), storyPresentationActive: presentationSignal(false) }
 })
 
-vi.mock('../components/canvas/LayerPanel', () => ({
-  LayerPanel: () => <div data-testid="layer-panel" />,
-}))
+vi.mock('../components/canvas/LayerPanel', () => ({ LayerPanel: () => <div data-testid="layer-panel" /> }))
 
-vi.mock('../components/shared/WelcomeScreen', () => ({
-  WelcomeScreen: () => <div data-testid="welcome-screen" />,
-}))
+vi.mock('../components/shared/WelcomeScreen', () => ({ WelcomeScreen: () => <div data-testid="welcome-screen" /> }))
 
-vi.mock('../app/document-session/use-canvas-document-session', () => ({
-  useCanvasDocumentSession: vi.fn(({
-    onMapStateChange,
-  }: {
-    onMapStateChange?: (state: MapLibreCanvasSurfaceState) => void
-  }) => {
-    useEffect(() => {
-      publishMapState = onMapStateChange ?? null
-      onMapStateChange?.(mockBasemapState)
-    }, [onMapStateChange])
-    return { retryMap }
-  }),
-}))
+vi.mock('../app/canvas-map-surface/use-canvas-host', async (importOriginal) => {
+  const actual = await importOriginal<typeof UseCanvasHostModule>()
+  return {
+    ...actual,
+    useCanvasHost: vi.fn((containerRef) => {
+      if (useRealCanvasHost) return actual.useCanvasHost(containerRef)
+      return { surface: mockSurface, ready: mockReady, retryMap, retryLayer }
+    }),
+  }
+})
+
+let useRealCanvasHost = false
 
 describe('CanvasPanel basemap feedback', () => {
   let container: HTMLDivElement
 
   beforeEach(() => {
+    useRealCanvasHost = false
     ;(globalThis as Record<string, unknown>).ResizeObserver = class {
       observe() {}
       unobserve() {}
@@ -82,8 +94,10 @@ describe('CanvasPanel basemap feedback', () => {
     locale.value = 'en'
     mapLayers.value = createDefaultMapLayers()
     designSessionFixture.file = null
-    mockBasemapState = IDLE_MAPLIBRE_CANVAS_SURFACE_STATE
-    retryMap.mockClear()
+    mockSurface.value = IDLE_CANVAS_SURFACE_STATE
+    mockReady.value = false
+    retryMap.mockReset().mockReturnValue(false)
+    retryLayer.mockReset()
   })
 
   afterEach(() => {
@@ -96,14 +110,14 @@ describe('CanvasPanel basemap feedback', () => {
     designSessionFixture.file = demoDesign()
     mapLayers.value = mapLayersShowing('none')
     presentStepShowing('basemap')
-    mockBasemapState = { ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'ready', basemapStatus: 'failed' }
+    mockSurface.value = readySurface([['background', { kind: 'failed', reason: 'basemap' }]])
 
     await act(async () => {
       render(<><CanvasPanel />{presenterLayer()}</>, container)
     })
 
     expect(canvasNotices(container), 'the canvas draws no notice under the presenter').toEqual([])
-    await expectPresentedFailureRetries(container, retryMap)
+    await expectPresentedFailureRetries(container, retryLayer)
     expect(container.querySelector('[data-map-active="true"]')).not.toBeNull()
 
     // Leaving the presentation shows the user's None again: no notice anywhere.
@@ -115,7 +129,7 @@ describe('CanvasPanel basemap feedback', () => {
     designSessionFixture.file = demoDesign()
     mapLayers.value = mapLayersShowing('basemap')
     presentStepShowing('none')
-    mockBasemapState = { ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'ready', basemapStatus: 'failed' }
+    mockSurface.value = readySurface([['background', { kind: 'failed', reason: 'basemap' }]])
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -127,7 +141,7 @@ describe('CanvasPanel basemap feedback', () => {
 
   it('does not show a Map Notice or activate the map surface without an open Design', async () => {
     designSessionFixture.file = null
-    mockBasemapState = { ...mockBasemapState, status: 'loading' }
+    mockSurface.value = loadingSurface()
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -139,11 +153,7 @@ describe('CanvasPanel basemap feedback', () => {
 
   it('shows loading feedback as one quiet status chip over the map with the floating chrome', async () => {
     designSessionFixture.file = demoDesign()
-    mockBasemapState = {
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: 'loading',
-      terrainStatus: 'idle',
-    }
+    mockSurface.value = loadingSurface()
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -167,11 +177,7 @@ describe('CanvasPanel basemap feedback', () => {
 
   it('shows a loading basemap notice until the map becomes active', async () => {
     designSessionFixture.file = demoDesign()
-    mockBasemapState = {
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: 'loading',
-      terrainStatus: 'idle',
-    }
+    mockSurface.value = loadingSurface()
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -184,11 +190,7 @@ describe('CanvasPanel basemap feedback', () => {
 
   it('hides the clean ready Map Notice once the basemap becomes active', async () => {
     designSessionFixture.file = demoDesign()
-    mockBasemapState = {
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: 'ready',
-      terrainStatus: 'idle',
-    }
+    mockSurface.value = readySurface()
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -207,11 +209,7 @@ describe('CanvasPanel basemap feedback', () => {
       satellite: { ...defaults.satellite, visible: false },
       hillshade: { ...defaults.hillshade, visible: true },
     }
-    mockBasemapState = {
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: 'ready',
-      terrainStatus: 'ready',
-    }
+    mockSurface.value = readySurface([['terrain', { kind: 'ready' }]])
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -229,11 +227,7 @@ describe('CanvasPanel basemap feedback', () => {
       basemap: { ...defaults.basemap, visible: false },
       satellite: { ...defaults.satellite, visible: true },
     }
-    mockBasemapState = {
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: 'ready',
-      terrainStatus: 'idle',
-    }
+    mockSurface.value = readySurface()
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -242,29 +236,23 @@ describe('CanvasPanel basemap feedback', () => {
     expect(container.querySelector('[data-map-active="true"]')).toBeTruthy()
   })
 
-  it('shows a map failure with a fixed message and never the engine text', async () => {
+  it('shows a WebGL2-unavailable map failure with a fixed message and no Retry', async () => {
     designSessionFixture.file = demoDesign()
-    mockBasemapState = {
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: 'error',
-    }
+    mockSurface.value = failedSurface('never')
 
     await act(async () => {
       render(<CanvasPanel />, container)
     })
 
     const status = container.querySelector('[role="status"]')
-    expect(status?.textContent).toBe('Map unavailable')
+    expect(status?.textContent).toBe('WebGL2 is unavailable on this device. Canopi needs WebGL2 to draw the map.')
     expect(container.querySelector('button')).toBeNull()
   })
 
   it('offers Retry when the map stopped drawing and hands it to the Design session', async () => {
     designSessionFixture.file = demoDesign()
-    mockBasemapState = {
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: 'error',
-      retryable: true,
-    }
+    mockSurface.value = failedSurface('offered')
+    retryMap.mockReturnValue(true)
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -278,7 +266,8 @@ describe('CanvasPanel basemap feedback', () => {
 
   it('hands keyboard focus to the map container once a Retried map is back, before its session returns', async () => {
     designSessionFixture.file = demoDesign()
-    mockBasemapState = { ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'error', retryable: true }
+    mockSurface.value = failedSurface('offered')
+    retryMap.mockReturnValue(true)
     await act(async () => {
       render(<CanvasPanel />, container)
     })
@@ -290,33 +279,28 @@ describe('CanvasPanel basemap feedback', () => {
     // Retry rebuilds the map: the notice shows loading, then goes once the map draws, while the rebuilt interaction
     // session has not made the host a keyboard stop again yet.
     await act(async () => { retry.click() })
-    await act(async () => { publishMapState!({ ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'loading' }) })
-    await act(async () => { publishMapState!({ ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'ready' }) })
+    await act(async () => { mockSurface.value = loadingSurface() })
+    await act(async () => { mockSurface.value = readySurface() })
 
     expect(container.querySelector('[data-map-notice]')).toBeNull()
     expect(document.activeElement).toBe(map)
   })
 
-  it('surfaces terrain degradation as a skipped layer while keeping the basemap ready', async () => {
+  it('keeps the map notice hidden when terrain fails (shown on its Layers row instead; 2.1-Q351)', async () => {
     designSessionFixture.file = demoDesign()
-    mockBasemapState = {
-      ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-      status: 'ready',
-      terrainStatus: 'error',
-    }
+    mockSurface.value = readySurface([['terrain', { kind: 'failed', reason: 'terrain' }]])
 
     await act(async () => {
       render(<CanvasPanel />, container)
     })
 
-    const status = container.querySelector('[role="status"]')
-    expect(status?.textContent).toBe('A map layer couldn’t be shown')
+    expect(container.querySelector('[data-map-notice]')).toBeNull()
     expect(container.querySelector('[data-map-active="true"]')).toBeTruthy()
   })
 
   it('offers Retry on a basemap that couldn’t load and hands it to the Design session', async () => {
     designSessionFixture.file = demoDesign()
-    mockBasemapState = { ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'ready', basemapStatus: 'failed' }
+    mockSurface.value = readySurface([['background', { kind: 'failed', reason: 'basemap' }]])
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -327,7 +311,7 @@ describe('CanvasPanel basemap feedback', () => {
     expect(notice.querySelector('[role="status"]')!.textContent).toBe('Basemap couldn’t load. Check your connection.')
     const retry = [...notice.querySelectorAll('button')].find((button) => button.textContent === 'Retry')!
     await act(async () => { retry.click() })
-    expect(retryMap).toHaveBeenCalledOnce()
+    expect(retryLayer).toHaveBeenCalledWith('background')
   })
 })
 
@@ -335,13 +319,14 @@ describe('CanvasPanel opening a Design', () => {
   let container: HTMLDivElement
 
   beforeEach(() => {
+    useRealCanvasHost = false
     container = document.createElement('div')
     document.body.innerHTML = ''
     document.body.appendChild(container)
     locale.value = 'en'
     mapLayers.value = createDefaultMapLayers()
     designSessionFixture.file = null
-    mockBasemapState = { ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'ready' }
+    mockSurface.value = readySurface()
   })
 
   afterEach(() => {
@@ -365,8 +350,6 @@ describe('CanvasPanel opening a Design', () => {
     expect(area, 'the canvas area hides everything but the start screen').not.toBeNull()
     expect(container.querySelector('[data-testid="welcome-screen"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="canvas-chrome"]'), 'mounted, so it registers what it covers').not.toBeNull()
-    // Transparent, not visibility: hidden, which would refuse the focus a field gives itself on mount; the real browser checks
-    // focus and that no part of it takes pointer input (e2e/canvas/design-reveal.spec.ts).
 
     await act(async () => { presented.value = true })
 
@@ -418,7 +401,7 @@ describe('CanvasPanel opening a Design', () => {
   it('shows the Design at once on a map that failed: nothing will draw its scene', async () => {
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ documents: createTestCanvasDocumentSurface({ presented: signal(false) }) }))
     designSessionFixture.file = demoDesign()
-    mockBasemapState = { ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'error', retryable: true }
+    mockSurface.value = failedSurface('offered')
 
     await act(async () => {
       render(<CanvasPanel />, container)
@@ -431,45 +414,64 @@ describe('CanvasPanel opening a Design', () => {
 
 describe('WebCanvasWorkspace map notice', () => {
   let container: HTMLDivElement
+  let uninstallRuntime: (() => void) | null = null
 
   beforeEach(() => {
+    useRealCanvasHost = true
+    ;(globalThis as Record<string, unknown>).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    }
     container = document.createElement('div')
     document.body.innerHTML = ''
     document.body.appendChild(container)
     locale.value = 'en'
     mapLayers.value = createDefaultMapLayers()
     designSessionFixture.file = demoDesign()
+    uninstallRuntime = null
   })
 
   afterEach(async () => {
     await act(async () => { render(null, container) })
+    uninstallRuntime?.()
+    uninstallRuntime = null
+    useRealCanvasHost = false
     container.remove()
     designSessionFixture.file = null
     leavePresentation()
   })
 
-  function failingBasemapComposition(retry: () => void) {
-    return vi.fn((options: { onMapStateChange?: (state: MapLibreCanvasSurfaceState) => void }) => {
-      options.onMapStateChange?.({ ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'ready', basemapStatus: 'failed' })
+  function installFailingBasemapRuntime(retry: () => void) {
+    const createComposition = vi.fn(() => {
+      const slot = createMapLifetimeSlot(
+        { restart: () => false, retryLayer: () => retry(), release: () => {} },
+        { kind: 'ready', attempt: 1, layers: new Map([['background', { kind: 'failed', reason: 'basemap' }]]) },
+      )
       return {
-        surfaces: {} as never,
+        surfaces: createTestCanvasRuntimeSurfaces({ documents: createTestCanvasDocumentSurface() }),
+        mapLifetime: slot.handle,
         start: () => new Promise<never>(() => {}),
         dispose: async () => {},
-        retryMap: retry,
       } satisfies WorkspaceRuntimeComposition
     })
+    uninstallRuntime = installCanvasHostRuntime(() => ({
+      core: { attachScene: async () => 'attached' as const, detachScene: () => {} },
+      createComposition,
+    }))
+    return createComposition
   }
 
   it('shows the basemap failure with a Retry that reaches its composition in the presenter while a story step shows Street map over the user\'s None', async () => {
     mapLayers.value = mapLayersShowing('none')
     presentStepShowing('basemap')
     const retry = vi.fn()
-    const createRuntimeComposition = failingBasemapComposition(retry)
+    const createComposition = installFailingBasemapRuntime(retry)
 
     await act(async () => {
-      render(<><WebCanvasWorkspace createRuntimeComposition={createRuntimeComposition} />{presenterLayer()}</>, container)
+      render(<><WebCanvasWorkspace />{presenterLayer()}</>, container)
     })
-    await act(async () => { await vi.waitFor(() => expect(createRuntimeComposition).toHaveBeenCalledOnce()) })
+    await act(async () => { await vi.waitFor(() => expect(createComposition).toHaveBeenCalledOnce()) })
 
     expect(canvasNotices(container), 'the canvas draws no notice under the presenter').toEqual([])
     await expectPresentedFailureRetries(container, retry)
@@ -481,32 +483,24 @@ describe('WebCanvasWorkspace map notice', () => {
   it('shows no basemap notice while a story step shows None over the user\'s visible basemap', async () => {
     mapLayers.value = mapLayersShowing('basemap')
     presentStepShowing('none')
-    const createRuntimeComposition = failingBasemapComposition(() => {})
+    const createComposition = installFailingBasemapRuntime(() => {})
 
     await act(async () => {
-      render(<WebCanvasWorkspace createRuntimeComposition={createRuntimeComposition} />, container)
+      render(<WebCanvasWorkspace />, container)
     })
-    await act(async () => { await vi.waitFor(() => expect(createRuntimeComposition).toHaveBeenCalledOnce()) })
+    await act(async () => { await vi.waitFor(() => expect(createComposition).toHaveBeenCalledOnce()) })
 
     expect(container.querySelector('[data-map-notice]')).toBeNull()
   })
 
   it('shows the same basemap notice as the desktop and Retry reaches its composition', async () => {
     const retry = vi.fn()
-    const createRuntimeComposition = vi.fn((options: { onMapStateChange?: (state: MapLibreCanvasSurfaceState) => void }) => {
-      options.onMapStateChange?.({ ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'ready', basemapStatus: 'failed' })
-      return {
-        surfaces: {} as never,
-        start: () => new Promise<never>(() => {}),
-        dispose: async () => {},
-        retryMap: retry,
-      } satisfies WorkspaceRuntimeComposition
-    })
+    const createComposition = installFailingBasemapRuntime(retry)
 
     await act(async () => {
-      render(<WebCanvasWorkspace createRuntimeComposition={createRuntimeComposition} />, container)
+      render(<WebCanvasWorkspace />, container)
     })
-    await act(async () => { await vi.waitFor(() => expect(createRuntimeComposition).toHaveBeenCalledOnce()) })
+    await act(async () => { await vi.waitFor(() => expect(createComposition).toHaveBeenCalledOnce()) })
 
     const notice = container.querySelector<HTMLElement>('[data-map-notice]')!
     expect(notice.querySelector('[role="status"]')!.textContent).toBe('Basemap couldn’t load. Check your connection.')
@@ -519,29 +513,42 @@ describe('WebCanvasWorkspace map notice', () => {
   })
 
   it('hands keyboard focus to the map container once a Retried map is back, before its session returns', async () => {
-    let publish!: (state: MapLibreCanvasSurfaceState) => void
-    const createRuntimeComposition = vi.fn((options: { onMapStateChange?: (state: MapLibreCanvasSurfaceState) => void }) => {
-      publish = (state) => options.onMapStateChange?.(state)
-      publish({ ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'error', retryable: true })
+    const slot = createMapLifetimeSlot(
+      { restart: () => true, retryLayer: () => {}, release: () => {} },
+      { kind: 'failed', attempt: 1, cause: 'context-lost' },
+    )
+    const createComposition = vi.fn((opts) => {
+      // Queue settling right after mount sets lease.map.
+      queueMicrotask(() => opts.onMapFailureStateChange('settled'))
       return {
-        surfaces: {} as never,
+        surfaces: createTestCanvasRuntimeSurfaces({ documents: createTestCanvasDocumentSurface() }),
+        mapLifetime: slot.handle,
         start: () => new Promise<never>(() => {}),
         dispose: async () => {},
-        retryMap: () => {},
       } satisfies WorkspaceRuntimeComposition
     })
+    uninstallRuntime = installCanvasHostRuntime(() => ({
+      core: { attachScene: async () => 'attached' as const, detachScene: () => {} },
+      createComposition,
+    }))
     await act(async () => {
-      render(<WebCanvasWorkspace createRuntimeComposition={createRuntimeComposition} />, container)
+      render(<WebCanvasWorkspace />, container)
     })
-    await act(async () => { await vi.waitFor(() => expect(createRuntimeComposition).toHaveBeenCalledOnce()) })
+    await act(async () => {
+      await vi.waitFor(() => {
+        const retryBtn = [...container.querySelectorAll<HTMLButtonElement>('[data-map-notice] button')]
+          .find((b) => b.textContent === 'Retry')
+        expect(retryBtn).toBeDefined()
+      })
+    })
     const map = container.querySelector<HTMLElement>('[data-testid="web-canvas-workspace-surface"]')!
     const retry = [...container.querySelectorAll<HTMLButtonElement>('[data-map-notice] button')]
       .find((button) => button.textContent === 'Retry')!
     retry.focus()
 
     await act(async () => { retry.click() })
-    await act(async () => { publish({ ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'loading' }) })
-    await act(async () => { publish({ ...IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, status: 'ready' }) })
+    await act(async () => { slot.setState({ kind: 'creating', attempt: 2 }) })
+    await act(async () => { slot.setState({ kind: 'ready', attempt: 2, layers: new Map() }) })
 
     expect(container.querySelector('[data-map-notice]')).toBeNull()
     expect(document.activeElement).toBe(map)
@@ -595,21 +602,9 @@ function leavePresentation(): void {
 
 function demoDesign(): CanopiFile {
   return {
-    version: 9,
-    name: 'Demo',
-    description: null,
-    plant_species_colors: {},
-    layers: [],
-    plants: [],
-    zones: [],
-    annotations: [],
-    consortiums: [],
-    groups: [],
-    timeline: [],
-    budget: [],
-    budget_currency: 'EUR',
-    created_at: '2026-04-12T00:00:00.000Z',
-    updated_at: '2026-04-12T00:00:00.000Z',
-    extra: {},
+    version: 9, name: 'Demo', description: null, plant_species_colors: {},
+    layers: [], plants: [], zones: [], annotations: [], consortiums: [], groups: [],
+    timeline: [], budget: [], budget_currency: 'EUR',
+    created_at: '2026-04-12T00:00:00.000Z', updated_at: '2026-04-12T00:00:00.000Z', extra: {},
   }
 }

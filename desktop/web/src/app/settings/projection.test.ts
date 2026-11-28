@@ -6,10 +6,9 @@ import { resetStoreHealthForTests, storeStatus } from '../../failures/health'
 import { installHealthNotices } from '../../failures/health-notices'
 import { notices, resetNoticesForTests } from '../../failures/notices'
 import { resetFrontendDiagnosticsForTests, ringEntries } from '../../failures/ring'
-import { createBrowserSettingsPlatformAdapter } from '../../platform/settings.browser'
+import { createBrowserSettingsPlatformAdapter } from '../../editions/web/settings'
 import type { Settings } from '../../types/settings'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../../web/browser-app-data'
-import { snapToGridEnabled } from '../canvas-settings/signals'
 import {
   flushSettingsProjection,
   installSettingsProjection,
@@ -18,7 +17,7 @@ import {
   retrySettingsLoad,
   type SettingsProjectionInstallation,
 } from './projection'
-import { scrollWheel, theme } from './state'
+import { scrollWheel, theme, snapToGridEnabled } from './state'
 
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 
@@ -235,7 +234,7 @@ describe('Web settings load failures', () => {
 
   it('R3 canopi-f47t.52.272: settings record 2 a newer Canopi saved loads and stays newer_read_only, never ready (2.1-Q320)', async () => {
     const storage = memoryStorage({
-      'canopi:web-app-data:v4:settings': JSON.stringify({ version: 2, theme: 'dark', snap_to_grid: true }),
+      'canopi:web-app-data:v4:settings': JSON.stringify({ version: 3, theme: 'dark', snap_to_grid: true }),
     })
     const adapter = createBrowserSettingsPlatformAdapter(createBrowserAppDataStore({ storage, session: memoryStorage() }))
     await install(adapter.load, adapter.save)

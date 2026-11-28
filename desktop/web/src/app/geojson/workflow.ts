@@ -12,8 +12,9 @@
 
 import type { CanvasCommandSurface, CanvasQuerySurface } from '../../canvas/runtime/runtime'
 import { getCurrentCanvasSession } from '../../canvas/session'
+import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
+import type { FileDeliveryPort } from '../../platform/file-delivery'
 import { designSessionStore } from '../document-session/store'
-import { t } from '../../i18n'
 import {
   GEOJSON_MAX_FEATURES,
   GeoJsonImportError,
@@ -29,14 +30,6 @@ export interface GeoJsonSourceFile {
   readonly text: string
 }
 
-export type GeoJsonWriteOutcome = 'written' | 'cancelled'
-
-/** Edition file I/O: a native dialog plus IPC on Desktop, picker and download on Web. */
-export interface GeoJsonFileAdapter {
-  pickGeoJsonFile(): Promise<GeoJsonSourceFile | null>
-  writeGeoJsonFile(text: string, fileName: string): Promise<GeoJsonWriteOutcome>
-}
-
 type NoticeParams = Readonly<Record<string, string | number>>
 
 /** An import or export outcome as locale keys, so each edition words it in the current locale. */
@@ -47,12 +40,6 @@ export interface GeoJsonNotice {
   readonly params?: NoticeParams
   /** A second sentence: the features the import skipped. */
   readonly detail?: { readonly message: LocaleKey; readonly params?: NoticeParams }
-}
-
-/** The notice's message and its second sentence in the current locale, for a native message box. */
-export function geoJsonNoticeText(notice: GeoJsonNotice, translate: (key: LocaleKey, params?: NoticeParams) => string = t): string {
-  const message = translate(notice.message, notice.params)
-  return notice.detail ? `${message} ${translate(notice.detail.message, notice.detail.params)}` : message
 }
 
 interface GeoJsonCanvas {
@@ -68,10 +55,11 @@ type GeoJsonImportOutcome =
 
 type GeoJsonExportOutcome =
   | { readonly status: 'written'; readonly featureCount: number }
-  | { readonly status: 'cancelled' | 'unavailable' | 'busy' | 'write-failed' }
+  | { readonly status: 'cancelled' | 'unavailable' | 'busy' | 'refused' | 'write-failed' }
 
 export interface GeoJsonWorkflowDeps {
-  readonly files: GeoJsonFileAdapter
+  readonly pickGeoJsonFile: () => Promise<GeoJsonSourceFile | null>
+  readonly fileDelivery?: () => FileDeliveryPort
   readonly notify: (notice: GeoJsonNotice) => void | Promise<void>
   readonly designName: () => string
   readonly canvas?: () => GeoJsonCanvas | null
@@ -85,18 +73,44 @@ export interface GeoJsonWorkflow {
   exportGeoJson(): Promise<GeoJsonExportOutcome>
 }
 
+const UNAVAILABLE_GEOJSON_WORKFLOW: GeoJsonWorkflow = {
+  isAvailable: () => false,
+  importGeoJson: async () => ({ status: 'unavailable' }),
+  exportGeoJson: async () => ({ status: 'unavailable' }),
+}
+
+const geoJsonWorkflowSlot: { current: GeoJsonWorkflow } = { current: UNAVAILABLE_GEOJSON_WORKFLOW }
+
+/** Installs the active edition's GeoJSON workflow (called by L5 edition roots). */
+export function installGeoJsonWorkflow(workflow: GeoJsonWorkflow): () => void {
+  const previous = geoJsonWorkflowSlot.current
+  geoJsonWorkflowSlot.current = workflow
+  return () => {
+    if (geoJsonWorkflowSlot.current === workflow) geoJsonWorkflowSlot.current = previous
+  }
+}
+
+/** Lazy facade over the installed GeoJSON workflow. */
+export const activeGeoJsonWorkflow: GeoJsonWorkflow = {
+  isAvailable: () => geoJsonWorkflowSlot.current.isAvailable(),
+  importGeoJson: () => geoJsonWorkflowSlot.current.importGeoJson(),
+  exportGeoJson: () => geoJsonWorkflowSlot.current.exportGeoJson(),
+}
+
 function readCurrentGeoJsonCanvas(): GeoJsonCanvas | null {
   const session = getCurrentCanvasSession()
   return session ? { commands: session.commands, queries: session.queries } : null
 }
 
 export function createGeoJsonWorkflow({
-  files,
+  pickGeoJsonFile,
+  fileDelivery: customFileDelivery,
   notify,
   designName,
   canvas = readCurrentGeoJsonCanvas,
   sessionIdentity = () => designSessionStore.sessionIdentity.peek(),
 }: GeoJsonWorkflowDeps): GeoJsonWorkflow {
+  const fileDelivery = customFileDelivery ?? (() => editionPorts().fileDelivery)
   const importTitle = 'geojson.importTitle'
   const exportTitle = 'geojson.exportTitle'
   const error = async (title: LocaleKey, message: LocaleKey, params?: NoticeParams) =>
@@ -107,7 +121,7 @@ export function createGeoJsonWorkflow({
     const session = sessionIdentity()
     let file: GeoJsonSourceFile | null
     try {
-      file = await files.pickGeoJsonFile()
+      file = await pickGeoJsonFile()
     } catch (cause) {
       console.error('GeoJSON import could not read the file:', cause)
       await error(importTitle, 'geojson.readFailed')
@@ -166,15 +180,20 @@ export function createGeoJsonWorkflow({
       return { status: 'busy' }
     }
     const text = serializeDesignGeoJson(objects)
-    let outcome: GeoJsonWriteOutcome
+    let outcome: 'saved' | 'downloaded' | 'cancelled' | 'refused'
     try {
-      outcome = await files.writeGeoJsonFile(text, `${safeFileStem(designName())}.geojson`)
+      const delivery = fileDelivery()
+      outcome = await delivery.deliverFile('geojson', designName(), { text })
     } catch (cause) {
       console.error('GeoJSON export could not write the file:', cause)
       await error(exportTitle, 'geojson.writeFailed')
       return { status: 'write-failed' }
     }
     if (outcome === 'cancelled') return { status: 'cancelled' }
+    if (outcome === 'refused') {
+      await error(exportTitle, 'fileDelivery.refused')
+      return { status: 'refused' }
+    }
     return {
       status: 'written',
       featureCount: objects.plants.length + objects.zones.length + objects.annotations.length
@@ -183,7 +202,7 @@ export function createGeoJsonWorkflow({
   }
 
   return {
-    isAvailable: () => canvas() !== null,
+    isAvailable: () => canvas() !== null && (hasEditionPorts() || customFileDelivery !== undefined),
     importGeoJson,
     exportGeoJson,
   }
@@ -191,8 +210,4 @@ export function createGeoJsonWorkflow({
 
 function skippedDetail(skipped: number): Pick<GeoJsonNotice, 'detail'> {
   return skipped > 0 ? { detail: { message: 'geojson.importSkipped', params: { count: skipped } } } : {}
-}
-
-function safeFileStem(name: string): string {
-  return name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').trim() || 'Canopi'
 }

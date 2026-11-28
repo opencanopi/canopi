@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "Sla dit ontwerp op voordat je het aan het notitieboek toevoegt.",
     "addCurrentDesign": "Het huidige ontwerp aan het notitieboek toevoegen",
     "addCurrentButton": "Huidig ontwerp toevoegen",
-    "openNow": "Nu geopend"
+    "openNow": "Nu geopend",
+    "renameSectionFailed": "Canopi kon deze sectie niet hernoemen. Probeer het opnieuw."
   },
   "plantDb": {
     "title": "Plantencatalogus",
@@ -73,7 +74,6 @@
     "addFavoriteNamed": "{{name}} toevoegen aan favorieten",
     "favoriteNeedsNewer": "Opgeslagen door een nieuwere Canopi. Werk Canopi bij om je favorieten te wijzigen.",
     "removeFavoriteNamed": "{{name}} verwijderen uit favorieten",
-    "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
     "factEdible": "Eetbaar {{rating}}/5",
     "quickEdible": "Eetbaar",
@@ -240,7 +240,6 @@
       "selectedCount_few": "{{count}} geselecteerd",
       "selectedCount_many": "{{count}} geselecteerd",
       "selectedCount_other": "{{count}} geselecteerd",
-      "suggested": "Voorgesteld op basis van bloemkleur",
       "moreColors": "Eigen kleur",
       "hue": "Tint",
       "saturationLightness": "Verzadiging en lichtheid",
@@ -312,7 +311,7 @@
       "placeholder": "Plaats of coördinaten",
       "searching": "Zoeken…",
       "noResults": "Geen plaatsen gevonden",
-      "error": "Plaats zoeken mislukt",
+      "error": "Plaats zoeken niet beschikbaar. Voer in plaats daarvan coördinaten in.",
       "results": "Plaatsen",
       "placeholderShort": "Plaats zoeken",
       "east": "O",
@@ -360,7 +359,9 @@
       "siteDataWeb_one": "{{count, number}} terrein- of hoogtelaag in dit ontwerp · Vereist Canopi Desktop",
       "siteDataWeb_few": "{{count, number}} terrein- of hoogtelagen in dit ontwerp · Vereist Canopi Desktop",
       "siteDataWeb_many": "{{count, number}} terrein- of hoogtelagen in dit ontwerp · Vereist Canopi Desktop",
-      "siteDataWeb_other": "{{count, number}} terrein- of hoogtelagen in dit ontwerp · Vereist Canopi Desktop"
+      "siteDataWeb_other": "{{count, number}} terrein- of hoogtelagen in dit ontwerp · Vereist Canopi Desktop",
+      "webgl2Unavailable": "WebGL2 is niet beschikbaar op dit apparaat. Canopi heeft WebGL2 nodig om de kaart te tekenen.",
+      "layerFailed": "Kon niet worden geladen"
     },
     "timeline": {
       "actionType": "Actietype",
@@ -724,11 +725,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Google Maps API-sleutel (optioneel)",
-      "saveKey": "Sleutel opslaan",
-      "clearKey": "Sleutel wissen",
-      "keySaved": "Sleutel op dit apparaat opgeslagen.",
-      "keyLocalOnly": "Alleen in de instellingen van dit apparaat. Wordt nooit in een ontwerp, export, logboek of rapport geschreven.",
       "style": "Stijl",
       "styles": {
         "liberty": "Liberty",
@@ -736,9 +732,6 @@
         "bright": "Licht",
         "dark": "Donker"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "Zonder sleutel gebruikt Canopi de openbare satelliettegels van Google. Voeg je Google Maps API-sleutel toe om de officiële Map Tiles API te gebruiken."
     },
     "zoom": {
       "scaleBar": "Schaalbalk: {{distance}}",
@@ -752,7 +745,7 @@
     },
     "myLocation": {
       "show": "Mijn locatie tonen",
-      "blocked": "Locatie is geblokkeerd. Sta deze toe voor deze site in de instellingen van je browser.",
+      "blocked": "Locatie is geblokkeerd. Sta dit toe in de browser- of systeeminstellingen.",
       "unavailable": "Je locatie is nu niet beschikbaar; we blijven het proberen."
     },
     "selectionChip": {
@@ -792,7 +785,9 @@
       "clear": "Selectie wissen",
       "rename": "Hernoemen…",
       "sameSpeciesShort": "Zelfde soort",
-      "clearShort": "Wissen"
+      "clearShort": "Wissen",
+      "dimensions": "Afmetingen",
+      "dimensionsShort": "Maat"
     },
     "viewChip": "Weergave",
     "map": {
@@ -871,7 +866,8 @@
       "pathKeys": "Alt plaatst een scherp punt · Shift houdt hoeken van 45° · {{mod}} zet uitlijnen uit",
       "pathTouchHint": "Sleep een punt om het te verplaatsen · sleep een stip om er een toe te voegen · houd een punt ingedrukt voor meer",
       "pathFinish": "Rij planten",
-      "options": "Opties"
+      "options": "Opties",
+      "constrain": "Beperken"
     },
     "placePreview": {
       "nearest": "{{distance}} tot {{name}}",
@@ -898,18 +894,6 @@
       "point": "Rijpunt {{index}}",
       "dot": "Punt toevoegen op rijsegment {{index}}"
     }
-  },
-  "worldMap": {
-    "title": "Wereldkaart",
-    "discover": "Ontwerpen ontdekken",
-    "featured": "Uitgelicht",
-    "downloading": "Sjabloon downloaden…",
-    "author": "Door {{author}}",
-    "noDesigns": "Nog geen ontwerpen in dit gebied",
-    "zoomToExplore": "Zoom in om ontwerpen te verkennen",
-    "filterByClimate": "Filter op klimaat",
-    "filterByStyle": "Filter op stijl",
-    "openTemplate": "Openen als nieuw ontwerp"
   },
   "theme": {
     "light": "Licht",
@@ -1060,7 +1044,6 @@
     "fireResistant": "Brandbestendig",
     "fireTolerance": "Brandtolerantie",
     "hedgeTolerance": "Snoeitolerantie",
-    "inchesUnit": "inch",
     "daysUnit": "d",
     "pollinators": "Bestuivers",
     "salinityTolerance": "Zouttolerantie",
@@ -1381,7 +1364,11 @@
     "reorderNamed": "{{name}} verplaatsen (Alt ↑ of ↓)",
     "placeNamed": "Stempel {{name}} plaatsen",
     "deleteNamed": "Stempel {{name}} verwijderen",
-    "actionsFor": "Meer acties voor {{name}}"
+    "actionsFor": "Meer acties voor {{name}}",
+    "renameFailed": "Canopi kon deze stempel niet hernoemen. Probeer het opnieuw.",
+    "deletedToast": "‘{{name}}’ verwijderd",
+    "placedToast": "Stempel geplaatst ({{summary}})",
+    "undo": "Ongedaan maken"
   },
   "boundary": {
     "panelFailed": "Dit paneel kon niet worden geladen",
@@ -1530,7 +1517,11 @@
     "mapOrientationAsOnScreen": "Zoals op het scherm",
     "northArrow": "Noordpijl en schaal",
     "pageOptions": "Geselecteerde pagina",
-    "findInKey": "Zoeken in de legenda"
+    "findInKey": "Zoeken in de legenda",
+    "scale": "Schaal",
+    "pageAngle": "Paginahoek",
+    "angleDegrees": "Hoek (°)",
+    "savedViewAngle": "Opgeslagen weergave"
   },
   "speciesKey": {
     "title": "Planten in dit ontwerp",
@@ -1598,7 +1589,8 @@
     "namesShown_one": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare plant",
     "namesShown_few": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare planten",
     "namesShown_many": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare planten",
-    "namesShown_other": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare planten"
+    "namesShown_other": "Namen getoond bij {{shown, number}} van {{count, number}} zichtbare planten",
+    "codeLabel": "Soortcode voor {{name}}"
   },
   "geojson": {
     "import": "GeoJSON importeren…",
@@ -1639,10 +1631,7 @@
     "conflictAnotherTab": "Gewijzigd in een ander tabblad"
   },
   "readOnlyDesign": {
-    "label": "Alleen-lezen",
-    "status": "Alleen-lezen: opgeslagen door een nieuwere Canopi",
-    "details": "Dit ontwerp is opgeslagen door een nieuwere Canopi. Je kunt het bekijken, maar niet wijzigen of opslaan. Werk Canopi bij om het te bewerken.",
-    "update": "Bijwerken"
+    "label": "Alleen-lezen"
   },
   "saveProblem": {
     "flushFailedTitle": "Je wijzigingen konden niet worden opgeslagen",
@@ -1745,7 +1734,6 @@
       "ValuesNotMetres": "Vereist waarden in meters; deze data is in {{units}}.",
       "GridNotProjectedMetres": "Vereist een geprojecteerd raster in meters op de grond, geen Web Mercator of lengte en breedte.",
       "EngineMissing": "Niet beschikbaar: de GeoLibre-engine ontbreekt.",
-      "NeedsDesktop": "Vereist Canopi Desktop.",
       "AlreadyInSiteData": "Staat al in Terreindata."
     },
     "stale": {
@@ -1867,7 +1855,6 @@
   "siteOnboarding": {
     "locateTitle": "Waar ligt je terrein?",
     "locateIntro": "Zoek een plaats of plak coördinaten. De kaart gaat erheen; er wordt nog niets geplaatst.",
-    "placeNamesCredit": "Plaatsnamen © OpenStreetMap-bijdragers",
     "skip": "Overslaan, ik zoek het op de kaart",
     "startTitle": "Begin je ontwerp",
     "closeStart": "Begin je ontwerp sluiten",
@@ -1981,7 +1968,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "Over Canopi…",
     "mapStyle": "Kaartstijl",
-    "googleKeyKept": "Je Google-sleutel blijft opgeslagen op dit apparaat, maar wordt niet gebruikt. Kies Mijn Google-sleutel om hem weer te gebruiken."
+    "googleKeyKept": "Je Google-sleutel blijft opgeslagen op dit apparaat, maar wordt niet gebruikt. Kies Mijn Google-sleutel om hem weer te gebruiken.",
+    "units": {
+      "label": "Eenheden",
+      "metric": "Metrisch",
+      "usCustomary": "Amerikaans"
+    }
   },
   "savedViews": {
     "defaultName": "Weergave {{number}}",
@@ -2078,9 +2070,9 @@
     "imageRemove": "Afbeelding {{number}} verwijderen",
     "imagePreview": "Afbeelding {{number}}: {{alt}}",
     "imageType": "Kies een PNG-, JPEG-, WebP- of GIF-afbeelding.",
-    "imageTooLarge": "Deze afbeelding is {{size}}. Een afbeelding mag hoogstens 1 MB zijn; kies een kleinere.",
-    "imageDesignFull": "Dit ontwerp bevat al {{used}} aan afbeeldingen, en een ontwerp kan 10 MB bevatten. Verwijder een afbeelding of kies een kleinere.",
-    "imagesDoNotFit": "Deze afbeeldingen passen niet: een ontwerp bevat maximaal 10 MB aan afbeeldingen. Verwijder een afbeelding en probeer het opnieuw.",
+    "imageTooLarge": "Deze afbeelding is {{size}}. Een afbeelding mag hoogstens {{limit}} zijn; kies een kleinere.",
+    "imageDesignFull": "Dit ontwerp bevat al {{used}} aan afbeeldingen, en een ontwerp kan {{limit}} bevatten. Verwijder een afbeelding of kies een kleinere.",
+    "imagesDoNotFit": "Deze afbeeldingen passen niet: een ontwerp bevat maximaal {{limit}} aan afbeeldingen. Verwijder een afbeelding en probeer het opnieuw.",
     "imageUnreadable": "Canopi kon deze afbeelding niet lezen. Probeer een ander bestand.",
     "imageResized": "Canopi heeft deze afbeelding verkleind zodat ze past: van {{from}} naar {{to}}.",
     "imageShrinking": "Afbeelding verkleinen…",
@@ -2199,7 +2191,13 @@
     "downloadFailedMessage": "Dit concept staat niet meer in deze browser of kon niet worden gelezen.",
     "uncheckedReadOnly": "Alleen-lezen geopend: Canopi kon de opslag van deze browser niet controleren, dus dit concept is mogelijk verouderd. Download een kopie om het te bewaren.",
     "keepDrafts": "Mijn concepten bewaren",
-    "keepDraftsMenu": "Mijn concepten bewaren…"
+    "keepDraftsMenu": "Mijn concepten bewaren…",
+    "storeBlockedTitle": "Concepten wachten op een ander tabblad",
+    "storeBlockedMessage": "Sluit andere Canopi-tabbladen om door te gaan.",
+    "pendingWriteTitle": "Laatste wijziging ontbreekt mogelijk",
+    "pendingWriteMessage": "Canopi werd gesloten voordat de laatste wijziging aan “{{name}}” was opgeslagen. Controleer je ontwerp voordat je verdergaat.",
+    "olderTabCopyTitle": "Gekopieerd uit een ouder tabblad",
+    "olderTabCopyMessage": "Wijzigingen aan “{{name}}” uit een ouder Canopi-tabblad zijn opgeslagen als een apart concept."
   },
   "webRelease": {
     "title": "Nieuwe versie",
@@ -2264,5 +2262,39 @@
     "title": "Canopi kon niet starten",
     "desktopHint": "Je systeem is mogelijk te oud voor deze versie van Canopi. Werk je besturingssysteem bij en open Canopi daarna opnieuw.",
     "webHint": "Laad de pagina opnieuw. Start Canopi dan nog steeds niet, dan is deze browser mogelijk te oud: werk hem bij of probeer een andere browser."
+  },
+  "editionCapability": {
+    "needsDesktop": "Vereist Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "Opslaan onder die bestandsnaam is niet gelukt. Kies een andere naam of map en probeer het opnieuw."
+  },
+  "geocoding": {
+    "credit": "Zoeken via {{service}} · © OpenStreetMap-bijdragers"
+  },
+  "inspector": {
+    "title": "Afmetingen bewerken",
+    "close": "Sluiten",
+    "empty": "Selecteer een bewerkbaar object om de afmetingen te bewerken.",
+    "dimensions": "Afmetingen",
+    "width": "Breedte",
+    "height": "Hoogte",
+    "length": "Lengte",
+    "rotation": "Rotatie",
+    "angle": "Hoek",
+    "centerLat": "Breedtegraad midden",
+    "centerLon": "Lengtegraad midden",
+    "side": "Zijde {{index}}",
+    "cornerAngle": "Hoek {{index}}",
+    "style": "Zonestijl",
+    "fillColor": "Vulkleur",
+    "strokeColor": "Lijnkleur",
+    "opacity": "Dekking",
+    "canopySpread": "Kroonbreedte",
+    "quantity": "Aantal",
+    "plantedDate": "Plantdatum",
+    "notes": "Notities",
+    "noteText": "Notitietekst",
+    "fontSize": "Tekstgrootte"
   }
 }

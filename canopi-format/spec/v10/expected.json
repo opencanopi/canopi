@@ -1,0 +1,355 @@
+{
+  "annotations": [
+    {
+      "annotation_type": "text",
+      "font_size": 14.0,
+      "id": "note-1",
+      "locked": false,
+      "position": {
+        "lat": 48.8583,
+        "lon": 2.2944
+      },
+      "rotation": 0.0,
+      "text": "North windbreak"
+    }
+  ],
+  "budget": [
+    {
+      "ext": {
+        "currency": "EUR"
+      },
+      "target": {
+        "canonical_name": "Malus domestica",
+        "kind": "species"
+      },
+      "unit_cost": 28.5
+    }
+  ],
+  "budget_currency": "EUR",
+  "budget_ext": {
+    "non_plant_lines": [
+      {
+        "category": "earthworks",
+        "description": "Swale excavation",
+        "target": {
+          "kind": "zone",
+          "zone_id": "zone-1"
+        },
+        "unit_cost": 450.0
+      }
+    ]
+  },
+  "consortiums": [
+    {
+      "end_phase": 3,
+      "start_phase": 1,
+      "stratum": "high",
+      "target": {
+        "canonical_name": "Malus domestica",
+        "kind": "species"
+      }
+    }
+  ],
+  "created_at": "2026-11-20T09:00:00.000Z",
+  "description": "Full v10 spec fixture covering every field, addition, and unknown root key.",
+  "future_unknown_root_key": {
+    "preserved": true
+  },
+  "groups": [
+    {
+      "id": "group-1",
+      "locked": false,
+      "members": [
+        {
+          "id": "plant-1",
+          "kind": "plant"
+        },
+        {
+          "id": "guide-1",
+          "kind": "measurement_guide"
+        }
+      ],
+      "name": "Apple Guild"
+    }
+  ],
+  "layers": [
+    {
+      "future_layer_flag": true,
+      "locked": false,
+      "name": "zones",
+      "opacity": 0.75,
+      "visible": true
+    },
+    {
+      "locked": false,
+      "name": "plants",
+      "opacity": 1.0,
+      "visible": true
+    }
+  ],
+  "map_view": {
+    "bearing": 0.0,
+    "ground_size_m": {
+      "height": 140.0,
+      "width": 200.0
+    },
+    "lat": 48.8584,
+    "lon": 2.2945,
+    "zoom": 18.0
+  },
+  "measurement_guides": [
+    {
+      "end": {
+        "lat": 48.8585,
+        "lon": 2.2947
+      },
+      "id": "guide-1",
+      "locked": false,
+      "start": {
+        "lat": 48.8582,
+        "lon": 2.2942
+      }
+    }
+  ],
+  "name": "Meadow Food Forest",
+  "plant_display": {
+    "color_by": "species",
+    "labels": "common",
+    "one_color": null,
+    "outline": true,
+    "stratum_colors": null,
+    "symbol_scale": 1.15
+  },
+  "plant_species_codes": {
+    "Malus domestica": "MD"
+  },
+  "plant_species_colors": {
+    "Malus domestica": "#5E8B7E"
+  },
+  "plant_species_symbols": {
+    "Malus domestica": "apple"
+  },
+  "plants": [
+    {
+      "canonical_name": "Malus domestica",
+      "canopy_spread_m": 4.5,
+      "color": "#5E8B7E",
+      "common_name": "Apple",
+      "id": "plant-1",
+      "locked": false,
+      "notes": "Grafted on MM106",
+      "pinned_name": true,
+      "planted_date": "2026-11-15",
+      "position": {
+        "future_point_crs_note": "wgs84",
+        "lat": 48.8584,
+        "lon": 2.2945
+      },
+      "quantity": 1,
+      "rotation": 15.0,
+      "symbol": "apple"
+    },
+    {
+      "canonical_name": "Corylus avellana",
+      "canopy_spread_m": 3.0,
+      "color": null,
+      "common_name": "Hazel",
+      "id": "plant-2",
+      "locked": true,
+      "notes": null,
+      "pinned_name": false,
+      "planted_date": null,
+      "position": {
+        "lat": 48.8586,
+        "lon": 2.2948
+      },
+      "quantity": 1,
+      "rotation": 0.0,
+      "symbol": null
+    }
+  ],
+  "print_setup": {
+    "pages": [
+      {
+        "area": {
+          "angle_deg": 0.0,
+          "kind": "whole_design"
+        },
+        "framing": {
+          "orientation": "landscape",
+          "paper": "A4"
+        },
+        "id": "page-1",
+        "name": "Overview",
+        "scale": {
+          "kind": "fit"
+        }
+      },
+      {
+        "area": {
+          "along_page": {
+            "down_m": 0.0,
+            "future_offset_meta": 1,
+            "right_m": 0.0
+          },
+          "kind": "split_sheet",
+          "size": {
+            "future_size_meta": "m",
+            "height_m": 35.0,
+            "width_m": 50.0
+          },
+          "split": "split-1"
+        },
+        "id": "page-2",
+        "name": "Detail A",
+        "scale": {
+          "denominator": 200,
+          "kind": "ratio"
+        }
+      }
+    ],
+    "splits": [
+      {
+        "angle_deg": 15.0,
+        "id": "split-1",
+        "pivot": {
+          "lat": 48.8584,
+          "lon": 2.2945
+        }
+      }
+    ]
+  },
+  "site_data": {
+    "entries": [
+      {
+        "id": "lyr-terrain",
+        "name": "Terrain",
+        "opacity": 0.8,
+        "order": 0,
+        "ramp": "Terrain",
+        "range": {
+          "max": 85.0,
+          "min": 10.0,
+          "mode": "Custom"
+        },
+        "reversed": false,
+        "visible": true
+      }
+    ],
+    "visible": true
+  },
+  "stories": [
+    {
+      "future_story_key": true,
+      "id": "story-1",
+      "name": "Site walk",
+      "steps": [
+        {
+          "future_step_key": "keep",
+          "id": "step-1",
+          "images": [],
+          "text": [],
+          "title": "Overview",
+          "view_id": "view-1"
+        }
+      ]
+    }
+  ],
+  "timeline": [
+    {
+      "action_type": "planting",
+      "completed": false,
+      "depends_on": null,
+      "description": "Mulch apple guild",
+      "end_date": "2026-11-25",
+      "id": "task-1",
+      "offset_days": 14,
+      "order": 0,
+      "recurrence": null,
+      "start_date": "2026-11-20",
+      "targets": [
+        {
+          "kind": "placed_plant",
+          "plant_id": "plant-1"
+        }
+      ]
+    }
+  ],
+  "updated_at": "2026-11-25T05:00:00.000Z",
+  "version": 10,
+  "views": [
+    {
+      "camera": {
+        "bearing": 15.0,
+        "future_camera_key": 42,
+        "ground_size_m": {
+          "height": 70.0,
+          "width": 100.0
+        },
+        "lat": 48.8584,
+        "lon": 2.2945,
+        "zoom": 19.0
+      },
+      "future_view_key": "keep",
+      "highlighted": {
+        "objects": [
+          {
+            "id": "zone-1",
+            "kind": "zone"
+          }
+        ],
+        "species": [
+          "Malus domestica"
+        ]
+      },
+      "id": "view-1",
+      "labels": null,
+      "name": "South slope",
+      "text": [],
+      "title": null,
+      "visible_layers": {
+        "background": {
+          "kind": "satellite"
+        },
+        "scene_layers": [
+          "zones",
+          "plants"
+        ],
+        "site_data": [
+          "lyr-terrain"
+        ],
+        "terrain": {
+          "contours": true,
+          "hillshade": false
+        }
+      }
+    }
+  ],
+  "zones": [
+    {
+      "fill_color": "#3A6EA5",
+      "id": "zone-1",
+      "locked": false,
+      "name": "Swale Bed",
+      "notes": "Contour swale",
+      "opacity": 0.65,
+      "points": [
+        {
+          "lat": 48.8581,
+          "lon": 2.2941
+        },
+        {
+          "lat": 48.8581,
+          "lon": 2.2946
+        },
+        {
+          "lat": 48.8585,
+          "lon": 2.2946
+        }
+      ],
+      "rotation": 0.0,
+      "stroke_color": "#1E3A5F",
+      "zone_type": "polygon"
+    }
+  ]
+}

@@ -6,7 +6,7 @@
 id: no-webmercator-literal.typescript
 language: typescript
 severity: error
-message: "no-webmercator-literal (§18 F19): Web Mercator constants come from canopi-types (bindings-gen) and its formulas live only in geo/web-mercator.ts and the Rust crs leaf. ADR 0001; owner none; target desktop/web/src/geo/web-mercator.ts (2a); example none yet"
+message: "no-webmercator-literal (§18 F19): Web Mercator constants come from canopi-types (bindings-gen) and its formulas live only in geo/web-mercator.ts and the Rust crs leaf. ADR 0001; owner desktop/web/src/geo/web-mercator.ts; target desktop/web/src/geo/web-mercator.ts (2a); example desktop/web/src/geo/web-mercator.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
@@ -15,6 +15,8 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/geo/web-mercator.ts"
 rule:
   any:
     - kind: number

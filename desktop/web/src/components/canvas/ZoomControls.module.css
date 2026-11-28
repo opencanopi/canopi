@@ -1,7 +1,7 @@
 .group {
   position: absolute;
   right: var(--chrome-inset);
-  bottom: var(--chrome-inset);
+  bottom: calc(var(--chrome-inset) + var(--notice-row-clearance, 0px));
   z-index: 30;
   display: flex;
   align-items: center;

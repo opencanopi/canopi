@@ -1,5 +1,6 @@
 pub mod app_folders;
 pub mod design;
+pub mod design_core;
 pub mod design_notebook;
 pub mod export;
 pub mod favorites;

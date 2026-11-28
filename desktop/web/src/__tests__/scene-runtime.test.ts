@@ -66,7 +66,7 @@ function createPlant(id: string, x: number, y: number, canonical = 'Quercus robu
     color: null,
     position: at(x, y),
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,
@@ -526,11 +526,7 @@ describe('Canvas runtime surfaces', () => {
           budget_currency: 'EUR',
           budget: [{
             target: speciesBudgetTarget('Quercus robur'),
-            category: 'plants',
-            description: 'Quercus robur',
-            quantity: 1,
             unit_cost: 12,
-            currency: 'EUR',
           }],
           consortiums: [{
             target: consortiumTarget('Quercus robur'),
@@ -562,7 +558,7 @@ describe('Canvas runtime surfaces', () => {
   })
 
   it('undo and redo keep document-owned metadata outside scene history', () => {
-    const host = createRuntimeHostWithAppComposition()
+    const host = createRuntimeHost()
     const { commands, documents } = host.surfaces
     const documentCopy: CanopiFile = {
       ...BASE_FILE,

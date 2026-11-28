@@ -1,5 +1,5 @@
 import { signal, type Signal } from '@preact/signals'
-import { getLocaleCommonNames, getSpeciesDetail, getSpeciesHabits } from '../../ipc/species'
+import { getLocaleCommonNames, getSpeciesHabits } from '../../ipc/species'
 import { speciesCatalogWorkbench, type SpeciesDisplayNameResolver } from '../plant-browser'
 import type { CommonNameEntry, SpeciesDetail } from '../../types/species'
 
@@ -20,17 +20,28 @@ export interface PlantDetailController {
 }
 
 interface CreatePlantDetailControllerOptions {
-  loadDetail?: typeof getSpeciesDetail
+  loadDetail?: (canonicalName: string, locale: string) => Promise<SpeciesDetail>
   loadLocaleCommonNames?: typeof getLocaleCommonNames
   /** The catalog's display-name projection; the title's "(en)" fallback comes from it. */
   resolveDisplayNames?: SpeciesDisplayNameResolver
   loadHabits?: typeof getSpeciesHabits
 }
 
+function isFullSpeciesDetail(detail: unknown): detail is SpeciesDetail {
+  return Boolean(detail && typeof detail === 'object' && 'canonical_name' in detail && !('common_names' in detail))
+}
+
 export function createPlantDetailController(
   options: CreatePlantDetailControllerOptions = {},
 ): PlantDetailController {
-  const loadDetail = options.loadDetail ?? getSpeciesDetail
+  const loadDetail = options.loadDetail
+    ?? (async (canonicalName, locale) => {
+      const fetched = await speciesCatalogWorkbench.fetchSpeciesDetail(canonicalName, locale)
+      if (!isFullSpeciesDetail(fetched)) {
+        throw new Error(`Desktop species detail unavailable for ${canonicalName}`)
+      }
+      return fetched
+    })
   const loadLocaleCommonNames = options.loadLocaleCommonNames ?? getLocaleCommonNames
   const resolveDisplayNames = options.resolveDisplayNames
     ?? ((names, locale) => speciesCatalogWorkbench.resolveDisplayNames(names, locale))

@@ -15,19 +15,18 @@ import { dismissStoryUndo, selectStep, selectStory, storyUndo } from '../app/sto
 import { leaveStoryPresentation, presentedStep, storyPresentationActive } from '../app/story-presentation'
 import { StoryPresenter } from '../components/stories/StoryPresenter'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
-import { installWebKeyRouter } from '../web/browser-shell-commands'
+import { installWebKeyRouter } from '../editions/web/browser-shell-commands'
 import { installDesktopKeys } from './support/desktop-key-router'
 import { pressKey } from './support/key-router'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
-import { mapZoomToStageScale } from '../canvas/projection'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { locale } from '../app/settings/state'
 import type { CanopiFile, SavedView, Story, StoryStep } from '../types/design'
-import type { ViewCamera } from '../canvas/runtime/view/types'
+import type { ViewCamera } from '../geo/view/types'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { replaceCurrentDesignState, resetDirtyBaselines } from './support/design-session-state'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
 import type * as SavedViewsThumbnailsModule from '../app/saved-views/thumbnails'
 
@@ -81,7 +80,7 @@ let container: HTMLDivElement
 let showCamera: ReturnType<typeof vi.fn<(camera: ViewCamera, options?: { readonly motion?: 'fly' | 'jump' }) => void>>
 
 function mountMap(): void {
-  const scale = mapZoomToStageScale(18, TEST_GEO_ORIGIN.lat)
+  const scale = createSessionPlane({ lon: 0, lat: TEST_GEO_ORIGIN.lat }).pixelsPerMetre(18).mean
   const queries = createTestCanvasQuerySurface({
     placement: { x: 200, y: 150, scale },
     sessionPlane: createSessionPlane(TEST_GEO_ORIGIN),
@@ -140,7 +139,7 @@ beforeEach(() => {
   container = document.createElement('div')
   document.body.append(container)
   replaceCurrentDesignState(design(), null, 'Stories')
-  designSessionStore.resetDirtyBaselines()
+  resetDirtyBaselines()
 })
 
 afterEach(() => {
@@ -349,7 +348,7 @@ describe('Stories panel', () => {
     await openMenuItem(button('More actions for this story'), 'delete-story')
     const web = installWebKeyRouter({
       catalog: [],
-      readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: 'stories' }),
+      readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: 'stories' }),
     })
     try {
       await act(async () => { pressKey({ key: 'z', code: 'KeyZ', ctrlKey: true }) })
@@ -371,7 +370,7 @@ describe('Stories panel', () => {
       field.value = 'Visit in June'
       field.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    await act(async () => { field.form!.requestSubmit() })
+    await act(async () => { field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) })
     expect(currentDesign.value!.stories![0]!.name).toBe('Visit in June')
 
     await openMenuItem(button('More actions for this story'), 'delete-story')
@@ -544,7 +543,7 @@ describe('step editor', () => {
       await act(async () => { input.dispatchEvent(new Event('change', { bubbles: true })) })
       await until(() => editor.querySelector('input[required]') !== null)
       expect(context.drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 2560, 1707)
-      expect(editor.textContent).toContain('Canopi made this image smaller to fit: 2.5 MB to 0.2 MB.')
+      expect(editor.textContent).toContain('Canopi made this image smaller to fit: 2.6 MB to 256 kB.')
       const alt = editor.querySelector<HTMLInputElement>('input[required]')!
       await act(async () => {
         alt.value = 'The orchard in May'

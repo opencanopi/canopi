@@ -5,23 +5,22 @@
 // sends pointerdown detail 0, as WebKitGTK does (and Chromium for touch), so the recogniser counts a double-click or a
 // finger's double tap itself. On Desktop the finished line becomes the Site data profile in lon/lat. Shared fakes,
 // helpers and fixture: support/canvas-interaction-setup.ts.
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../ipc/species', async (importOriginal) => ({
   ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 
 import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import type { SceneInteractionSession, SceneInteractionSessionDeps } from '../canvas/runtime/interaction-session'
 import { createDesktopCanvasRuntimeAppAdapter } from '../app/canvas-runtime/desktop-adapter'
-import { armProfile } from '../app/lidar/profile'
-import { endSiteDataTransients, pin, profileLine } from '../app/lidar/site-transients'
+import { armProfile } from '../app/data-library/profile'
+import { endSiteDataTransients, pin, profileLine } from '../app/data-library/site-transients'
 import { selectPanel, sidePanel } from '../app/shell/state'
-import { currentCanvasTool } from '../canvas/session-state'
-import { setCurrentCanvasSession } from '../canvas/session'
+import { snapToGridEnabled } from '../app/settings/state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import {
   createSceneInteractionEventHarness,
   type SceneInteractionEventHarness,
@@ -52,9 +51,14 @@ describe('SceneInteractionSession: the Profile tool', () => {
   } {
     const finishProfile = vi.fn()
     const pinAt = vi.fn()
-    const deps: SceneInteractionSessionDeps = { ...createInteractionDeps(container, store, testView), finishProfile, pinAt }
+    const deps: SceneInteractionSessionDeps = createInteractionDeps(container, store, testView)
     const session = fixture.createTestSession(deps)
-    session.setTool('profile')
+    session.subscribeEmptyGroundTap(pinAt)
+    session.arm<readonly ScenePoint[]>('profile', null, {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') finishProfile(outcome.value)
+      },
+    })
     return { session, finishProfile, pinAt }
   }
 
@@ -99,6 +103,7 @@ describe('SceneInteractionSession: the Profile tool', () => {
     expect(finishProfile).toHaveBeenCalledWith([world({ x: 20, y: 20 }), world({ x: 120, y: 20 })])
     expect(session.tool).toBe('select')
     expect(pinAt).not.toHaveBeenCalled()
+    expect(store.persisted.zones).toEqual([])
     session.dispose()
   })
 
@@ -113,6 +118,7 @@ describe('SceneInteractionSession: the Profile tool', () => {
 
     expect(finishProfile).toHaveBeenCalledWith([world({ x: 20, y: 20 }), world({ x: 120, y: 20 })])
     expect(session.tool).toBe('select')
+    expect(store.persisted.zones).toEqual([])
     session.dispose()
   })
 
@@ -143,6 +149,7 @@ describe('SceneInteractionSession: the Profile tool', () => {
 
     expect(finishProfile).toHaveBeenCalledWith([world({ x: 20, y: 20 }), world({ x: 120, y: 20 })])
     expect(session.tool).toBe('select')
+    expect(store.persisted.zones).toEqual([])
     session.dispose()
   })
 })
@@ -151,7 +158,12 @@ describe('Desktop: a drawn profile line becomes the Site data profile', () => {
   const harnesses: SceneInteractionEventHarness[] = []
   const hosts: CanvasRuntimeHost[] = []
 
+  beforeEach(() => {
+    snapToGridEnabled.value = false
+  })
+
   afterEach(async () => {
+    snapToGridEnabled.value = false
     endSiteDataTransients()
     setCurrentCanvasSession(null)
     sidePanel.value = null

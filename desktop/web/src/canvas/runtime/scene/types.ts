@@ -1,6 +1,5 @@
 import type { SpeciesFocus } from '../species-key'
 import type {
-  SceneConcreteDesignObjectTarget,
   SceneDesignObjectSelection,
   SceneDesignObjectTarget,
 } from './design-object-targets'
@@ -16,6 +15,7 @@ export interface SceneLayerEntity {
   visible: boolean
   locked: boolean
   opacity: number
+  unknownFields?: Record<string, unknown>
 }
 
 export interface ScenePlantEntity {
@@ -27,13 +27,14 @@ export interface ScenePlantEntity {
   color: string | null
   symbol?: string | null
   pinnedName?: boolean
-  /** The catalog width when the plant was placed (the file's `scale`); never filled in later. */
+  /** The catalog width when the plant was placed (the file's `canopy_spread_m`); never filled in later. */
   canopySpreadM: number | null
   position: ScenePoint
   rotationDeg: number | null
   notes: string | null
   plantedDate: string | null
   quantity: number | null
+  unknownFields?: Record<string, unknown>
 }
 
 export interface SceneZoneEntity {
@@ -47,7 +48,10 @@ export interface SceneZoneEntity {
   points: ScenePoint[]
   rotationDeg: number
   fillColor: string | null
+  strokeColor?: string | null
+  opacity?: number | null
   notes: string | null
+  unknownFields?: Record<string, unknown>
 }
 
 export interface SceneAnnotationEntity {
@@ -59,6 +63,7 @@ export interface SceneAnnotationEntity {
   text: string
   fontSize: number
   rotationDeg: number | null
+  unknownFields?: Record<string, unknown>
 }
 
 export interface SceneMeasurementGuideEntity {
@@ -67,9 +72,14 @@ export interface SceneMeasurementGuideEntity {
   locked: boolean
   start: ScenePoint
   end: ScenePoint
+  unknownFields?: Record<string, unknown>
 }
 
-export type SceneObjectGroupMember = SceneConcreteDesignObjectTarget
+export type SceneObjectGroupMember =
+  | { readonly kind: 'plant'; readonly id: string; readonly unknownFields?: Record<string, unknown> }
+  | { readonly kind: 'zone'; readonly id: string; readonly unknownFields?: Record<string, unknown> }
+  | { readonly kind: 'annotation'; readonly id: string; readonly unknownFields?: Record<string, unknown> }
+  | { readonly kind: 'measurement-guide'; readonly id: string; readonly unknownFields?: Record<string, unknown> }
 
 export interface SceneObjectGroupEntity {
   kind: 'group'
@@ -77,6 +87,7 @@ export interface SceneObjectGroupEntity {
   locked: boolean
   name: string | null
   members: SceneObjectGroupMember[]
+  unknownFields?: Record<string, unknown>
 }
 
 export interface ScenePersistedState {

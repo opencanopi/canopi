@@ -12,7 +12,7 @@ describe('Canvas print capture', () => {
       { ...common, id: 'zone-pond', name: 'Pond', zoneType: 'ellipse', rotationDeg: 90, points: [{ x: 10, y: 20 }, { x: 4, y: 2 }] },
       { ...common, id: 'zone-path', name: null, zoneType: 'line', rotationDeg: 0, points: [{ x: 0, y: 0 }, { x: 5, y: 5 }] },
     )
-    const result = buildCanvasPrintSnapshot(scene, { pixelsPerMetre: 1, speciesCache: new Map() })
+    const result = buildCanvasPrintSnapshot(scene)
     expect(result.zones[0]!.bounds).toEqual({ x: -1, y: expect.closeTo(1, 12), width: 4, height: 2 })
     expect(result.zones[0]!.path.match(/L/g)).toHaveLength(3)
     expect(result.zones[1]!.bounds).toEqual({ x: 8, y: 16, width: 4, height: 8 })
@@ -25,7 +25,7 @@ describe('Canvas print capture', () => {
     const scene = createDefaultScenePersistedState()
     scene.zones.push({ kind: 'zone', id: 'Pond', name: 'Pond', zoneType: 'ellipse', rotationDeg: 45, locked: false, fillColor: null, notes: null,
       points: [{ x: 10, y: 20 }, { x: 4, y: 2 }] })
-    const result = buildCanvasPrintSnapshot(scene, { pixelsPerMetre: 1, speciesCache: new Map() })
+    const result = buildCanvasPrintSnapshot(scene)
     expect(result.zones[0]!.geometry).toEqual({ kind: 'ellipse', center: { x: 10, y: 20 }, radii: { x: 4, y: 2 }, rotation: 45 })
     scene.zones[0]!.points[0]!.x = 99
     expect(result.zones[0]!.geometry).toMatchObject({ center: { x: 10, y: 20 } })
@@ -37,7 +37,7 @@ describe('Canvas print capture', () => {
       color: '#123456', pinnedName: true, locked: true, canopySpreadM: null,
       position: { x: 12, y: -4 }, rotationDeg: 90, notes: null, plantedDate: null, quantity: 1 })
     const before = structuredClone(scene)
-    const result = buildCanvasPrintSnapshot(scene, { pixelsPerMetre: 0.001, speciesCache: new Map() })
+    const result = buildCanvasPrintSnapshot(scene)
     expect(result.plants).toEqual([expect.objectContaining({ id: 'apple', canonicalName: 'Malus domestica',
       position: { x: 12, y: -4 }, color: '#123456', symbol: 'canopy', pinnedName: true })])
     expect(result.plants[0]!.mark.length).toBeGreaterThan(0)
@@ -49,7 +49,7 @@ describe('Canvas print capture', () => {
     PLANT_SYMBOL_IDS.forEach((symbol, index) => scene.plants.push({ kind: 'plant', id: symbol, canonicalName: `Species ${index}`, commonName: null,
       color: '#123456', symbol, locked: false, canopySpreadM: null,
       position: { x: index, y: 0 }, rotationDeg: null, notes: null, plantedDate: null, quantity: 1 }))
-    const result = buildCanvasPrintSnapshot(scene, { pixelsPerMetre: 1, speciesCache: new Map() })
+    const result = buildCanvasPrintSnapshot(scene)
     for (const plant of result.plants) {
       const symbol = plant.symbol as (typeof PLANT_SYMBOL_IDS)[number]
       for (const [marks, art] of [[plant.mark, getPlantSymbolArt(symbol, 24)], [plant.smallMark!, getPlantSymbolArt(symbol, 12)]] as const) {

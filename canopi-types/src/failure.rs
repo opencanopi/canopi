@@ -78,6 +78,10 @@ pub enum FailureCode {
     Invalid,
     /// A fault in Canopi itself.
     Internal,
+    /// The map engine could not start or stopped drawing (contracts §2, §6).
+    MapUnavailable,
+    /// WebGL2 is unavailable on this device; Retry is never offered (contracts §2, §6).
+    Webgl2Unavailable,
     /// The map style failed to load; silent until 2d's map status (2.1-Q300).
     StyleFailed,
     /// A map tile source failed; silent until 2d's map status (2.1-Q300).
@@ -224,6 +228,8 @@ catalogue! {
         NativeService, retry: true, silent: false, Warn;
     Invalid => "invalid", NativeService, retry: false, silent: false, Warn;
     Internal => "internal", NativeService, retry: false, silent: false, Error;
+    MapUnavailable => "map_unavailable", Map, retry: true, silent: false, Error;
+    Webgl2Unavailable => "webgl2_unavailable", Map, retry: false, silent: false, Error;
     StyleFailed => "style_failed", Map, retry: true, silent: true, Warn;
     TileSourceFailed { layer: "satellite".to_owned() } => "tile_source_failed",
         Map, retry: true, silent: true, Warn;
@@ -317,6 +323,14 @@ pub mod ops {
     pub const IMAGE_CACHE_OPEN: &str = "image_cache.open";
     /// System origin: the Tauri application's run loop.
     pub const APP_RUN: &str = "app.run";
+    /// User origin: reading the Desktop settings record 2 (`settings.json`, 2e-2, ADR 0024/0026).
+    pub const SETTINGS_GET_RECORD: &str = "settings.get_record";
+    /// User origin: patching the Desktop settings record 2 (`settings.json`, 2e-2, ADR 0024/0026).
+    pub const SETTINGS_PATCH_RECORD: &str = "settings.patch_record";
+    /// User origin: writing a Design home through `home_write` (contracts §4, ADR 0027).
+    pub const HOME_WRITE: &str = "home.write";
+    /// User origin: delivering an exported file through `deliver_file` (contracts §16, 2.1-M154).
+    pub const EXPORT_DELIVER_FILE: &str = "export.deliver_file";
 
     /// Every op constant.
     pub const ALL: &[&str] = &[
@@ -334,6 +348,10 @@ pub mod ops {
         PLANT_CATALOG_OPEN,
         IMAGE_CACHE_OPEN,
         APP_RUN,
+        SETTINGS_GET_RECORD,
+        SETTINGS_PATCH_RECORD,
+        HOME_WRITE,
+        EXPORT_DELIVER_FILE,
     ];
 }
 

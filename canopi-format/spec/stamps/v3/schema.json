@@ -1,0 +1,585 @@
+{
+  "$defs": {
+    "PanelTargetV10": {
+      "oneOf": [
+        {
+          "additionalProperties": true,
+          "properties": {
+            "kind": {
+              "const": "placed_plant",
+              "type": "string"
+            },
+            "plant_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "plant_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "canonical_name": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "species",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "canonical_name"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "kind": {
+              "const": "zone",
+              "type": "string"
+            },
+            "zone_id": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "zone_id"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "kind": {
+              "const": "manual",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        },
+        {
+          "additionalProperties": true,
+          "properties": {
+            "kind": {
+              "const": "none",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "StampAnnotation": {
+      "additionalProperties": true,
+      "properties": {
+        "annotation_type": {
+          "type": "string"
+        },
+        "font_size": {
+          "format": "double",
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "type": "boolean"
+        },
+        "position": {
+          "$ref": "#/$defs/StampPoint"
+        },
+        "rotation_deg": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "annotation_type",
+        "position",
+        "text",
+        "font_size"
+      ],
+      "type": "object"
+    },
+    "StampBudgetLine": {
+      "additionalProperties": true,
+      "properties": {
+        "canonical_name": {
+          "type": "string"
+        },
+        "unit_cost": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "canonical_name",
+        "unit_cost"
+      ],
+      "type": "object"
+    },
+    "StampCareAction": {
+      "additionalProperties": true,
+      "properties": {
+        "action_type": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "id": {
+          "type": "string"
+        },
+        "offset_days": {
+          "default": null,
+          "format": "int32",
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "recurrence": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targets": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/PanelTargetV10"
+          },
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "action_type",
+        "description"
+      ],
+      "type": "object"
+    },
+    "StampConsortium": {
+      "additionalProperties": true,
+      "properties": {
+        "canonical_name": {
+          "type": "string"
+        },
+        "end_phase": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "start_phase": {
+          "format": "int32",
+          "type": "integer"
+        },
+        "stratum": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "canonical_name",
+        "stratum",
+        "start_phase",
+        "end_phase"
+      ],
+      "type": "object"
+    },
+    "StampGroup": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "type": "boolean"
+        },
+        "members": {
+          "items": {
+            "$ref": "#/$defs/StampGroupMember"
+          },
+          "type": "array"
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "members"
+      ],
+      "type": "object"
+    },
+    "StampGroupMember": {
+      "oneOf": [
+        {
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "plant",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "zone",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "annotation",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        },
+        {
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "kind": {
+              "const": "measurement_guide",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "type": "object"
+        }
+      ]
+    },
+    "StampGuide": {
+      "additionalProperties": true,
+      "properties": {
+        "end": {
+          "$ref": "#/$defs/StampPoint"
+        },
+        "id": {
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "type": "boolean"
+        },
+        "start": {
+          "$ref": "#/$defs/StampPoint"
+        }
+      },
+      "required": [
+        "id",
+        "start",
+        "end"
+      ],
+      "type": "object"
+    },
+    "StampPlant": {
+      "additionalProperties": true,
+      "properties": {
+        "canonical_name": {
+          "type": "string"
+        },
+        "canopy_spread_m": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "color": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "common_name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "type": "boolean"
+        },
+        "notes": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pinned_name": {
+          "default": false,
+          "type": "boolean"
+        },
+        "position": {
+          "$ref": "#/$defs/StampPoint"
+        },
+        "rotation_deg": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "symbol": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "canonical_name",
+        "position"
+      ],
+      "type": "object"
+    },
+    "StampPoint": {
+      "properties": {
+        "x": {
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "StampZone": {
+      "additionalProperties": true,
+      "properties": {
+        "fill_color": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "locked": {
+          "default": false,
+          "type": "boolean"
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "notes": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "opacity": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/StampPoint"
+          },
+          "type": "array"
+        },
+        "rotation_deg": {
+          "default": 0.0,
+          "format": "double",
+          "type": "number"
+        },
+        "stroke_color": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "zone_type": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "zone_type",
+        "points"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": true,
+  "properties": {
+    "anchor": {
+      "$ref": "#/$defs/StampPoint"
+    },
+    "annotations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampAnnotation"
+      },
+      "type": "array"
+    },
+    "budget": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampBudgetLine"
+      },
+      "type": "array"
+    },
+    "consortiums": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampConsortium"
+      },
+      "type": "array"
+    },
+    "groups": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampGroup"
+      },
+      "type": "array"
+    },
+    "measurement_guides": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampGuide"
+      },
+      "type": "array"
+    },
+    "plant_species_codes": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "type": "object"
+    },
+    "plant_species_colors": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "type": "object"
+    },
+    "plant_species_symbols": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "type": "object"
+    },
+    "plants": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampPlant"
+      },
+      "type": "array"
+    },
+    "timeline": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampCareAction"
+      },
+      "type": "array"
+    },
+    "version": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "zones": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampZone"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "version",
+    "anchor"
+  ],
+  "title": "SavedObjectStampPayload",
+  "type": "object"
+}

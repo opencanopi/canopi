@@ -1,10 +1,11 @@
 import { useEffect, useId, useRef, useState } from 'preact/hooks'
 import { locale } from '../../app/settings/state'
-import { formatInstantInList } from '../../app/timeline/civil-date'
+import { formatInstantInList } from '../../planning/civil-date'
+import { normalizeSearchText } from '../../platform/page-rules'
 import { t } from '../../i18n'
 import { ActionMenu } from './ActionMenu'
 import { recentDesignLocations, type RecentDesignLocation } from '../../app/recent-files/locations'
-import type { DesignSketch, RecentDesignPreview, RecentDesignUnreadableReason } from '../../types/design'
+import type { DesignSketch, RecentDesignPreview, RecentDesignUnreadableReason } from '../../generated/contracts'
 import { ControlIcon, type ControlIconName } from './ControlIcon'
 import { DesignSketchThumbnail } from './DesignSketchThumbnail'
 import { visibleDesignName } from './DesignNameField'
@@ -30,7 +31,7 @@ interface StartScreenDesign {
   readonly updatedAt: string
   /** What the file says about the Design; absent until it has been read. */
   readonly preview?: RecentDesignPreview
-  /** Saved by a newer Canopi: labelled read-only, and opening it shows the read-only view (2.1-Q316). */
+  /** Read-only row (2.1-Q316, Q347). */
   readonly readOnly?: boolean
   open(): void
   /** More › Show in folder: the file's folder in the system file manager. */
@@ -44,8 +45,7 @@ export interface StartScreenDraft {
   readonly name: string
   readonly updatedAt: string
   /**
-   * Saved by a newer Canopi (a 2.1 Draft): labelled read-only instead of "never saved", and opening it shows the
-   * read-only view (2.1-Q316, 2.1-Q321). Such a row has no `delete`.
+   * Read-only Draft row (2.1-Q316, 2.1-Q321): labelled read-only instead of "never saved" and has no `delete`.
    */
   readonly readOnly?: boolean
   open(): void
@@ -346,9 +346,9 @@ function DraftRow({ draft }: { readonly draft: StartScreenDraft }) {
   )
 }
 
-/** The sketch a read Design shows, a read-only one included (2.1-Q316). */
+/** The sketch a read Design shows. */
 function sketchOf(preview: RecentDesignPreview | undefined): DesignSketch | null {
-  return preview?.kind === 'read' || preview?.kind === 'read_only' ? preview.sketch : null
+  return preview?.kind === 'read' ? preview.sketch : null
 }
 
 function draftStatusKey(draft: StartScreenDraft): LocaleKey {
@@ -357,5 +357,5 @@ function draftStatusKey(draft: StartScreenDraft): LocaleKey {
 }
 
 function fold(text: string): string {
-  return text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase()
+  return normalizeSearchText(text)
 }

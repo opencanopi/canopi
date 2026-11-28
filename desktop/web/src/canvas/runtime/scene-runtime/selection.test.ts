@@ -2,7 +2,7 @@
 
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { DEFAULT_PLANT_DISPLAY, getCanvasPlantDisplay, setCanvasPlantDisplay } from '../plant-display'
+import { DEFAULT_PLANT_DISPLAY, type PlantDisplay } from '../plant-display'
 
 import {
   createDefaultScenePersistedState,
@@ -89,13 +89,19 @@ function makeScene(): ScenePersistedState {
   }
 }
 
-function readModel(scene: ScenePersistedState, selectedTargets: readonly SceneDesignObjectTarget[], scale = 1) {
+function readModel(
+  scene: ScenePersistedState,
+  selectedTargets: readonly SceneDesignObjectTarget[],
+  scale = 1,
+  plantDisplay: PlantDisplay = DEFAULT_PLANT_DISPLAY,
+) {
   return getDesignObjectSelectionModel(scene, selectedTargets, {
     annotationViewportScale: scale,
     plantContext: {
       pixelsPerMetre: scale,
       speciesCache: new Map(),
       localizedCommonNames: new Map(),
+      plantDisplay,
     },
   })
 }
@@ -103,7 +109,6 @@ function readModel(scene: ScenePersistedState, selectedTargets: readonly SceneDe
 describe('scene design object selection model', () => {
   afterEach(() => {
     delete window.__CANOPI_SELECTION_MODEL_BUILDS__
-    setCanvasPlantDisplay(DEFAULT_PLANT_DISPLAY)
   })
 
   it('the same Scene, selection and scale build the model once; a zoom, an edit or a symbol-size change builds it again', () => {
@@ -121,8 +126,7 @@ describe('scene design object selection model', () => {
     const editedScene = { ...scene, plants: [...scene.plants] }
     const edited = readModel(editedScene, selection, 8)
     expect(edited).not.toBe(zoomed)
-    setCanvasPlantDisplay({ ...getCanvasPlantDisplay(), symbolScale: 2 })
-    const resized = readModel(editedScene, selection, 8)
+    const resized = readModel(editedScene, selection, 8, { ...DEFAULT_PLANT_DISPLAY, symbolScale: 2 })
     expect(window.__CANOPI_SELECTION_MODEL_BUILDS__).toBe(4)
     expect(resized).not.toBe(edited)
   })

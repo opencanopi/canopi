@@ -5,7 +5,7 @@ import {
   type SatelliteState,
   type SatelliteViewport,
 } from './satellite-provider-session'
-import { createBrowserSatelliteHttp } from './satellite-http.browser'
+import { createBrowserSatelliteHttp } from './satellite-http'
 import type { BasemapTileAuth } from './basemap-tile-auth'
 import {
   reconcileSatelliteContribution,

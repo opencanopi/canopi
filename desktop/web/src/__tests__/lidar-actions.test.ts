@@ -1,4 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 
 const importItemMock = vi.hoisted(() => vi.fn())
 const retryImportMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined))
@@ -54,7 +56,7 @@ vi.mock('../app/design-edit/lidar', async (importOriginal) => ({
   upsertLidarEntry: upsertMock,
 }))
 
-vi.mock('../app/lidar/library-store', async () => {
+vi.mock('../app/data-library/library-store', async () => {
   const { signal: makeSignal } = await import('@preact/signals')
   return {
     ensureLidarPolling: ensurePollingMock,
@@ -97,8 +99,8 @@ import {
   pendingAttachments,
   reconcileEntryNames,
   settleResultAttachments,
-} from '../app/lidar/actions'
-import { lidarStatusMessage } from '../app/lidar/library-store'
+} from '../app/data-library/actions'
+import { lidarStatusMessage } from '../app/data-library/library-store'
 import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
 import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import { locale } from '../app/settings/state'
@@ -120,10 +122,15 @@ const designEdits = () => [upsertMock, removeMock, moveMock, patchMock]
   .reduce((total, mock) => total + mock.mock.calls.length, 0)
 
 describe('Data Library actions', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(() => {
     vi.clearAllMocks()
+    disposePorts = installEditionPorts(createTestEditionPorts())
     sessionIdentity.value = 'design-a'
     lidarStatusMessage.value = null
+  })
+  afterEach(() => {
+    disposePorts()
   })
 
   it('creates nothing when the file chooser is cancelled', async () => {
@@ -448,8 +455,10 @@ function snapshotWith(...items: Array<Partial<LibraryItemSummary> & { id: string
 }
 
 describe('analysis runs', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(() => {
     vi.clearAllMocks()
+    disposePorts = installEditionPorts(createTestEditionPorts())
     sessionIdentity.value = 'design-a'
     // The Design shows the analysis input (layer-1), so its results join it (the one attach rule).
     presentation.value = [{ id: 'layer-1', order: 0, parentId: null }]
@@ -458,6 +467,9 @@ describe('analysis runs', () => {
       sequence += 1
       return { definition_id: `adef-${sequence}`, job_id: `job-${sequence}`, item_ids: [`item-${sequence}`] }
     })
+  })
+  afterEach(() => {
+    disposePorts()
   })
 
   it('creates a separate definition each time, saved to the library only when the Design does not show the input', async () => {

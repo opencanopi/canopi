@@ -7,12 +7,14 @@
 // sizes, in English and the longest locale, overlap none of their neighbours, and every neighbouring control takes a
 // click at its centre. DOM assertions only, no baselines.
 import { readFileSync } from 'node:fs'
+import { readCargoWorkspaceVersion } from '../../../../policy/release-version.mjs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { expectDownloadName } from '../support/download'
-import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
+import { boxOf, expectHitAtCentre, openFixtureFromStart, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { pageWithPersistence, type PersistenceAnswer } from '../support/storage-persistence'
+import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
@@ -50,7 +52,7 @@ async function closeDesign(page: Page, locale = 'en'): Promise<void> {
  * phone, where the warning is text and the status leaves its action to File (P3-6).
  */
 async function openDraftWarning(page: Page, locale = 'en'): Promise<void> {
-  if (await page.locator('[data-phone-layout]').count() === 0) {
+  if (await page.locator('[data-layout]').count() === 0) {
     await page.locator('[data-save-status] [data-draft-warning]').click()
     return
   }
@@ -63,12 +65,8 @@ async function openDraftWarning(page: Page, locale = 'en'): Promise<void> {
   await row.click()
 }
 
-async function openFixtureFromStart(page: Page): Promise<void> {
-  const open = startScreen(page).getByRole('button').filter({ hasText: /\.canopi/ }).first()
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
-  await chooser.setFiles(FIXTURE)
-  // The Design's title bar, not the map: Firefox in the pinned image has no WebGL, so its map never draws.
-  await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
+async function openDraftFixture(page: Page): Promise<void> {
+  await openFixtureFromStart(page, FIXTURE)
   await expect(startScreen(page)).toHaveCount(0)
 }
 
@@ -92,7 +90,7 @@ for (const answer of ['granted', 'refused'] as const satisfies readonly Persiste
 
         // A second Draft in the same launch asks nothing.
         await closeDesign(app)
-        await openFixtureFromStart(app)
+        await openDraftFixture(app)
         await closeDesign(app)
         expect((await persistCalls(app)).calls, 'asked once per launch').toBe(1)
         if (answer === 'granted') {
@@ -113,7 +111,7 @@ test('Q82: a refused request warns on the welcome screen and in the save status 
   try {
     const app = forced.page
     await app.goto('')
-    await openFixtureFromStart(app)
+    await openDraftFixture(app)
 
     // The save status: muted, an alert icon, and Download a copy beside it above 1100 px (2.1-Q246); the warning opens
     // what may happen and Download a copy, with no second ask (2.1-Q198).
@@ -294,7 +292,7 @@ test('Q193: Download a copy in the second Draft row downloads that Draft, not th
 // canopi-eon8.15 (S1): a release Reload from the start screen reopens no Draft (2.1-Q189), yet the Drafts are still
 // stored, so the reloaded launch is not a first visit: the amber warning and Keep my drafts are back (Q190, Q198).
 test('canopi-eon8.15: Reload from the start screen with an unkept Draft keeps the warning and Keep my drafts', async ({ page }) => {
-  const version = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
+  const version = readCargoWorkspaceVersion(fileURLToPath(new URL('../../../..', import.meta.url)))
   await page.route('**/canopi-web-edition-manifest.json', (route) => route.fulfill({
     status: 200,
     contentType: 'application/json',
@@ -389,13 +387,13 @@ for (const locale of LOCALES) {
           await expectHitAtCentre(button, `${(await button.getAttribute('aria-label')) || (await button.textContent())?.trim()} (${name})`)
         }
         // The phone top bar keeps its one row (52 px, 44 px buttons: controls-and-shell "Web on phones").
-        if (await page.locator('[data-phone-layout]').count()) expect(barBox.height, 'the phone bar keeps one row').toBeLessThanOrEqual(52.5)
+        if (await page.locator('[data-layout]').count()) expect(barBox.height, 'the phone bar keeps one row').toBeLessThanOrEqual(52.5)
       })
 
       test(`Q198 neighbours: the warning's popover opens on screen over the map, and its buttons take a click (${name})`, async ({ page }) => {
         await launchWithUnkeptDrafts(page, locale)
         const warning = page.locator('[data-save-status] [data-draft-warning]')
-        const phone = await page.locator('[data-phone-layout]').count() > 0
+        const phone = await page.locator('[data-layout]').count() > 0
         // P3-6: on a phone the warning is text, leaving no undersized target under the Design name; File opens it.
         if (phone) {
           expect(await warning.evaluate((element) => element.closest('button') === null && element.querySelector('button') === null), `the warning is text on a phone (${name})`).toBe(true)
@@ -505,28 +503,33 @@ for (const locale of LOCALES) {
   }
 }
 
-// WEB-03 (2.1-Q22, ADR 0025): the tab asks before it closes only while the Design's last Draft write failed; the close
-// first writes a pending edit synchronously, so an edit the browser can store closes with no prompt. iOS Safari fires no
-// beforeunload that can prompt (a known gap; its save status error is the protection).
+async function readIdbDraftNames(page: Page): Promise<string[]> {
+  const dump = await page.evaluate(draftStoreDump, DRAFT_DATABASE)
+  return Array.isArray(dump?.drafts) ? (dump.drafts as { name?: string }[]).map((row) => row.name ?? '') : []
+}
+
+// WEB-03 (2.1-Q22, ADR 0025, 2.1-M157): the tab asks before it closes while a Draft write is pending or failed
+// (IndexedDB writes are async so beforeunload kicks off a flush and guards unsaved work); once the edit is stored,
+// the tab closes with no prompt. iOS Safari fires no beforeunload that can prompt (save status error is the protection).
 test.describe('the leave prompt', () => {
   // The app's own line for the write the browser refused.
   test.use({ expectedConsoleErrors: ['Continuous save failed:'] })
 
   test('WEB-03: closing the tab after a failed Draft write prompts', async ({ page }) => {
-    await page.addInitScript((key) => {
-      // The browser's storage full for Drafts while `__failDrafts` is set (a quota refusal).
-      const setItem = Storage.prototype.setItem
-      Storage.prototype.setItem = function failingSetItem(this: Storage, name: string, value: string) {
-        if ((window as unknown as { __failDrafts?: boolean }).__failDrafts && name === key) {
-          throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+    await page.addInitScript(() => {
+      // Abort the IndexedDB transaction while `__failDrafts` is set, simulating a browser write refusal.
+      const origPut = IDBObjectStore.prototype.put
+      IDBObjectStore.prototype.put = function failingPut(this: IDBObjectStore, value: unknown, key?: IDBValidKey) {
+        if ((window as unknown as { __failDrafts?: boolean }).__failDrafts && this.name === 'drafts') {
+          this.transaction.abort()
+          return undefined as unknown as IDBRequest<IDBValidKey>
         }
-        setItem.call(this, name, value)
+        return key === undefined ? origPut.call(this, value) : origPut.call(this, value, key)
       }
-    }, DRAFTS_KEY)
+    })
     await page.goto('')
-    await openFixtureFromStart(page)
-    const draftNames = () => page.evaluate((key) => (JSON.parse(localStorage.getItem(key) || '{"drafts":[]}') as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)
-    await expect.poll(draftNames, 'the opened Design is a Draft').toHaveLength(1)
+    await openDraftFixture(page)
+    await expect.poll(() => readIdbDraftNames(page), 'the opened Design is a Draft').toHaveLength(1)
     const dialogs: string[] = []
     page.on('dialog', (dialog) => { dialogs.push(dialog.type()); void dialog.dismiss() })
 
@@ -536,33 +539,39 @@ test.describe('the leave prompt', () => {
     await page.close({ runBeforeUnload: true })
     await expect.poll(() => dialogs).toEqual(['beforeunload'])
     expect(page.isClosed()).toBe(false)
-    expect(await draftNames()).not.toContain('Orchard not yet written')
+    expect(await readIdbDraftNames(page)).not.toContain('Orchard not yet written')
 
-    // Room again: the close writes the edit first, and the tab closes without asking.
+    // Room again: beforeunload starts the async IndexedDB flush; once saved, the tab closes without asking.
     await page.evaluate(() => { (window as unknown as { __failDrafts: boolean }).__failDrafts = false })
+    await page.close({ runBeforeUnload: true })
+    await expect.poll(() => readIdbDraftNames(page)).toContain('Orchard not yet written')
+    await expect(page.locator('[data-workspace-title-bar] [data-save-status="draft"]')).toBeVisible()
+    const promptCountBeforeCleanClose = dialogs.length
     const context = page.context()
     await page.close({ runBeforeUnload: true })
     await expect.poll(() => page.isClosed()).toBe(true)
-    expect(dialogs).toEqual(['beforeunload'])
+    expect(dialogs).toHaveLength(promptCountBeforeCleanClose)
     const next = await context.newPage()
     await next.goto('')
-    expect(await next.evaluate((key) => (JSON.parse(localStorage.getItem(key)!) as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)).toContain('Orchard not yet written')
+    await expect.poll(() => readIdbDraftNames(next)).toContain('Orchard not yet written')
   })
 
   test('WEB-03: an edit the close writes closes the tab without asking', async ({ page }) => {
     const dialogs: string[] = []
     page.on('dialog', (dialog) => { dialogs.push(dialog.type()); void dialog.dismiss() })
     await page.goto('')
-    await openFixtureFromStart(page)
-    // Closed before the continuous save's delay: the close's synchronous write keeps the edit.
+    await openDraftFixture(page)
+    // Wait for the continuous save to land in IndexedDB, then the tab closes without prompting.
     await renameDesignInTitleBar(page, 'Orchard written at close')
+    await expect.poll(() => readIdbDraftNames(page)).toContain('Orchard written at close')
+    await expect(page.locator('[data-workspace-title-bar] [data-save-status="draft"]')).toBeVisible()
     const context = page.context()
     await page.close({ runBeforeUnload: true })
     await expect.poll(() => page.isClosed()).toBe(true)
     expect(dialogs).toEqual([])
     const next = await context.newPage()
     await next.goto('')
-    expect(await next.evaluate((key) => (JSON.parse(localStorage.getItem(key)!) as { drafts: { name: string }[] }).drafts.map((draft) => draft.name), DRAFTS_KEY)).toContain('Orchard written at close')
+    await expect.poll(() => readIdbDraftNames(next)).toContain('Orchard written at close')
   })
 })
 

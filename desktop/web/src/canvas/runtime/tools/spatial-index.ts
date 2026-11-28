@@ -13,7 +13,7 @@
 import type { ToolSceneSource } from '../interaction-ports'
 import { buildPlantPresentationEntries, type PlantPresentationContext } from '../plant-presentation'
 import type { ScenePersistedState, ScenePlantEntity } from '../scene/types'
-import type { WorldPoint, WorldQuad } from '../view/types'
+import type { WorldPoint, WorldQuad } from '../../../geo/view/types'
 import { hitTestTopLevel, hitTestVisibleTopLevel, hitZoneEdge, queryQuadTopLevel } from './hit-testing'
 import type { HitFilter, HitTarget, ToolScene } from './tool'
 
@@ -27,6 +27,9 @@ export function createToolScene(source: ToolSceneSource): ToolScene {
   return {
     get persisted() {
       return persisted()
+    },
+    get groundMeasure() {
+      return source.store.sessionPlane
     },
     hitAt(world: WorldPoint, filter: HitFilter): HitTarget | null {
       if (filter.zoneEdge) {
@@ -68,10 +71,12 @@ export function createToolScene(source: ToolSceneSource): ToolScene {
     },
     nearestPlant(world: WorldPoint) {
       const scene = persisted()
-      if (scene.layers.find((layer) => layer.name === 'plants')?.visible === false) return null
+      const plantsLayer = scene.layers.find((layer) => layer.name === 'plants')
+      if (plantsLayer?.visible === false || (plantsLayer?.opacity ?? 1) <= 0) return null
+      const plane = source.store.sessionPlane
       let best: { plant: ScenePlantEntity; distanceM: number } | null = null
       for (const plant of scene.plants) {
-        const distanceM = Math.hypot(plant.position.x - world.x, plant.position.y - world.y)
+        const distanceM = plane.groundLength(plant.position, world)
         if (!best || distanceM < best.distanceM) best = { plant, distanceM }
       }
       return best
@@ -84,6 +89,9 @@ export function createToolScene(source: ToolSceneSource): ToolScene {
         color: entry.color,
         radiusPx: entry.radiusScreenPx,
       }
+    },
+    get plantSymbolScale(): number {
+      return source.plantContext(source.pixelsPerMetre()).plantDisplay?.symbolScale ?? 1
     },
     isLayerOpenForCreation: (layer) => source.isLayerOpenForCreation(layer),
     selection: () => source.selection(),

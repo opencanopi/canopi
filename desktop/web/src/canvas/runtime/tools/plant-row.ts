@@ -28,6 +28,7 @@
 
 import { plantAlongPath, type PathPlanting, type PathSpacing } from '../../plant-path/spacing'
 import { flattenPath, pointAlong, tangentAlong, type PathPoints } from '../../plant-path/curve'
+import { screenBasisOf, worldDeltaToScreenCoords } from './screen-basis'
 import {
   addPoint,
   closePath,
@@ -56,7 +57,7 @@ import { isSceneObjectGroupMemberTarget } from '../scene/group-members'
 import { isSceneDesignObjectLocked } from '../scene/locks'
 import { resolvePlantSymbolForPlant } from '../scene/plant-symbols'
 import type { ScenePlantEntity } from '../scene/types'
-import type { ScreenPoint, WorldPoint } from '../view/types'
+import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
 import { formatMetricDistance } from '../zone-measurements'
 import type { DraftShape, DraftStroke, ToolHandle } from './draft'
 import { handleSizeFor } from './select/handle-size'
@@ -160,9 +161,11 @@ export function createPlantRowTool(): CanvasTool {
       mode,
       countText,
       countValid,
-      length: preview && path && path.points.length >= 2 ? formatMetricDistance(preview.planting.lengthM) : null,
+      length: preview && path && path.points.length >= 2
+        ? formatMetricDistance(preview.planting.lengthM, tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en')
+        : null,
       loopSpacing: preview?.path.closed && mode === 'interval' && preview.planting.count > 0
-        ? formatMetricDistance(preview.planting.effectiveSpacingM)
+        ? formatMetricDistance(preview.planting.effectiveSpacingM, tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en')
         : null,
       touch: tool.pointer() === 'touch',
     }
@@ -207,7 +210,7 @@ export function createPlantRowTool(): CanvasTool {
       shownCount = null
       return
     }
-    const planting = plantAlongPath(path, spacing() ?? { kind: 'interval', metres: 0 })
+    const planting = plantAlongPath(path, spacing() ?? { kind: 'interval', metres: 0 }, ctx?.scene.groundMeasure)
     preview = { path, planting, positions: planting.positions(PLANT_ROW_PREVIEW_POSITION_LIMIT) }
     setGeneratedCount(planting.count, {
       dense: planting.count > PLANT_ROW_DENSE_WARNING_THRESHOLD,
@@ -238,7 +241,7 @@ export function createPlantRowTool(): CanvasTool {
       kind: 'label',
       anchor,
       offsetPx: { x: 0, y: 0 },
-      text: formatMetricDistance(row.planting.lengthM),
+      text: formatMetricDistance(row.planting.lengthM, tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en'),
       tone: 'hint-primary',
       ...(beside ? { beside } : {}),
     })
@@ -252,9 +255,7 @@ export function createPlantRowTool(): CanvasTool {
     const size = handleSizeFor(tool.pointer())
     const dots = dotHandles(DRAFT_OWNER, draggedPath(path), (a, b) => tool.view.screenDistance(a, b), size, () => '')
     if (!dots.some((dot) => tool.view.screenDistance(dot.anchor, anchor) <= size.midpointRadiusPx)) return null
-    const { right, down } = tool.view.screenAxesInWorld()
-    const x = tangent.x * right.x + tangent.y * right.y
-    const y = tangent.x * down.x + tangent.y * down.y
+    const { x, y } = worldDeltaToScreenCoords(screenBasisOf(tool.view), tangent)
     const length = Math.hypot(x, y)
     if (!(length > 0)) return null
     // The normal on the screen's upper side, so the chip reads above a level curve.
@@ -330,7 +331,7 @@ export function createPlantRowTool(): CanvasTool {
       label: tool.scene.plantPresentation(plant).commonName,
     }
     draft = startDraft({ position: source.plant.position, sharp: false })
-    intervalText = formatPlantSpacingIntervalInput(tool.settings.plantSpacingIntervalM())
+    intervalText = formatPlantSpacingIntervalInput(tool.settings.plantSpacingIntervalM(), tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en')
     intervalValid = true
     missed = false
     shownCount = null
@@ -344,7 +345,7 @@ export function createPlantRowTool(): CanvasTool {
     const target = { kind: 'plant', id: candidate.sourceId } as const
     if (isSceneDesignObjectLocked(persisted, target)) return false
     const layer = persisted.layers.find((entry) => entry.name === 'plants')
-    if (layer?.visible === false || layer?.locked === true) return false
+    if (layer?.visible === false || (layer?.opacity ?? 1) <= 0 || layer?.locked === true) return false
     const plant = persisted.plants.find((entry) => entry.id === candidate.sourceId)
     const picked = candidate.plant.position
     if (!plant || plant.position.x !== picked.x || plant.position.y !== picked.y) return false
@@ -425,12 +426,8 @@ export function createPlantRowTool(): CanvasTool {
       isLastDraftPoint: role === 'point' && !path.closed && index === lastIndex,
     })
     switch (intent) {
-      case 'finish':
-        finish()
-        return
-      case 'delete':
-        deletePoint(index)
-        return
+      case 'finish': finish(); return
+      case 'delete': deletePoint(index); return
       case 'move':
         // The picked plant never moves while a new row is drawn: from 3 points a press on it closes the loop.
         if (index === 0) {
@@ -537,7 +534,7 @@ export function createPlantRowTool(): CanvasTool {
       countValid = parsed.valid && parsed.count <= PLANT_ROW_MAX_COUNT
       return parsed.valid && countValid ? { kind: 'count', count: parsed.count } : null
     }
-    const parsed = parsePlantSpacingIntervalInput(intervalText)
+    const parsed = parsePlantSpacingIntervalInput(intervalText, ctx?.settings.unitSystem?.() ?? 'metric', ctx?.settings.locale?.() ?? 'en')
     intervalValid = parsed.valid
     return parsed.valid ? { kind: 'interval', metres: parsed.meters } : null
   }
@@ -564,7 +561,7 @@ export function createPlantRowTool(): CanvasTool {
       focusIntervalInput()
       return
     }
-    const planting = plantAlongPath(path, chosen)
+    const planting = plantAlongPath(path, chosen, ctx?.scene.groundMeasure)
     // The preview already reads blocked above the limit.
     if (planting.count === 0 || planting.count > PLANT_ROW_MAX_ADDED_PLANTS) return
     commitPositions(source, planting.positions())
@@ -625,7 +622,7 @@ export function createPlantRowTool(): CanvasTool {
     // Only the interval is the device's; a count belongs to this row.
     if (chosen.kind === 'interval') {
       tool.settings.commitPlantSpacingIntervalM(chosen.metres)
-      intervalText = formatPlantSpacingIntervalInput(chosen.metres)
+      intervalText = formatPlantSpacingIntervalInput(chosen.metres, tool.settings.unitSystem?.() ?? 'metric', tool.settings.locale?.() ?? 'en')
     }
     if (c.via === 'enter') tool.effects.requestFocus('map')
   }
@@ -651,7 +648,7 @@ export function createPlantRowTool(): CanvasTool {
     },
     activate(next) {
       ctx = next
-      intervalText = formatPlantSpacingIntervalInput(next.settings.plantSpacingIntervalM())
+      intervalText = formatPlantSpacingIntervalInput(next.settings.plantSpacingIntervalM(), next.settings.unitSystem?.() ?? 'metric', next.settings.locale?.() ?? 'en')
       publish()
     },
     gesture(g) {
@@ -814,8 +811,7 @@ export function createPlantRowTool(): CanvasTool {
     canRedoTransient: () => source !== null,
     deactivate() {
       clear()
-      ctx?.effects.setDraft(null)
-      ctx?.effects.setHandles([])
+      ctx?.effects.setDraft(null); ctx?.effects.setHandles([])
       ctx = null
     },
   }

@@ -1,8 +1,11 @@
+import type { GroundMeasure } from '../../../geo/session-plane'
+import type { CanvasBackdropInk, CanvasMapBackdrop, CanvasPaintTokens } from '../../theme-refresh'
+import type { UnitSystem } from '../../../utils/format'
 import type { SpeciesFocus } from '../species-key'
 import type { ScenePersistedState } from '../scene'
 import type { DraftPresentation } from '../tools/draft'
-import type { SpeciesCacheEntry } from '../species-cache'
-import type { PlantLabelMode } from '../plant-display'
+import type { SpeciesCacheEntry } from '../presentation-data'
+import type { PlantDisplay, PlantLabelMode } from '../plant-display'
 
 export type SceneRendererHoverState =
   | 'hover'
@@ -35,14 +38,32 @@ export interface SceneRendererSnapshot {
   readonly selectedMeasurementGuideIds: ReadonlySet<string>
   readonly highlightedPlantIds: ReadonlySet<string>
   readonly highlightedZoneIds: ReadonlySet<string>
+  readonly highlightedAnnotationIds?: ReadonlySet<string>
+  readonly highlightedMeasurementGuideIds?: ReadonlySet<string>
   readonly speciesCache: ReadonlyMap<string, SpeciesCacheEntry>
   readonly localizedCommonNames: ReadonlyMap<string, string | null>
   readonly hoveredCanonicalName: string | null
   readonly hoverTarget: SceneRendererHoverTarget | null
-  /** Labels a saved view's snapshot draws; absent, the workspace's plant display decides. */
+  /** Labels a saved view's snapshot draws; absent, the snapshot's plantDisplay decides. */
   readonly plantLabels?: PlantLabelMode
+  /** Plant display rules captured for this surface (ADR 0024). */
+  readonly plantDisplay: PlantDisplay
+  /** Map backdrop captured for this surface (ADR 0024). */
+  readonly mapBackdrop: CanvasMapBackdrop
+  /** Backdrop ink resolved for `mapBackdrop` (ADR 0024). */
+  readonly backdropInk: CanvasBackdropInk
+  /** Immutable canvas paint tokens captured for this surface (ADR 0024). */
+  readonly paintTokens: CanvasPaintTokens
+  /** Annotation web-font epoch captured when this snapshot was built (ADR 0024). */
+  readonly annotationFontEpoch: number
   /** Set only for the workspace map; absent, nothing is drawn (thumbnails, the overview, a presented story, the lens). */
   readonly editingAids?: SceneEditingAids
+  /** True WGS84 ground measure for the session plane (contracts §20); used for measurement guide labels. */
+  readonly groundMeasure?: GroundMeasure
+  /** Active display unit system for measurement guide labels (defaults to `'metric'`). */
+  readonly unitSystem?: UnitSystem
+  /** Active interface locale for measurement guide labels (defaults to `'en'`). */
+  readonly locale?: string
 }
 
 /**

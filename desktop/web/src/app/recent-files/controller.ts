@@ -5,7 +5,7 @@ import {
   removeRecentDesign,
   showRecentDesignInFolder,
 } from '../../ipc/design'
-import type { DesignSummary, RecentDesignPreview } from '../../types/design'
+import type { DesignSummary, RecentDesignPreview } from '../../generated/contracts'
 
 export interface RecentFilesController {
   recentFiles: Signal<DesignSummary[]>

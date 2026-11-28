@@ -1,4 +1,5 @@
 import { getCanvasTextOpacity } from './text-visibility'
+import { DEFAULT_PLANT_DISPLAY } from './plant-display'
 import { getPlantWorldBounds } from './plant-presentation'
 import type { ScenePlantEntity, ScenePoint } from './scene'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
@@ -27,13 +28,16 @@ export interface PlantNameLabel extends AnchoredLabel {
 
 /** A single selection's label and the pinned names, at `pixelsPerMetre`. */
 export function projectScenePlantLabels(
-  snapshot: Pick<SceneRendererSnapshot, 'scene' | 'localizedCommonNames' | 'selectionLabelPlantIds'>,
+  snapshot: Pick<SceneRendererSnapshot, 'scene' | 'localizedCommonNames' | 'selectionLabelPlantIds' | 'plantLabels'>,
   pixelsPerMetre: number,
 ): { readonly pinnedPlantNameLabels: PlantNameLabel[]; readonly selectionLabels: SelectionLabel[] } {
   const { scene, localizedCommonNames, selectionLabelPlantIds } = snapshot
+  const codes = (snapshot.plantLabels ?? DEFAULT_PLANT_DISPLAY.labels) === 'codes'
+    ? scene.plantSpeciesCodes
+    : undefined
   return {
-    pinnedPlantNameLabels: computePinnedPlantNameLabels(scene.plants, pixelsPerMetre, localizedCommonNames, selectionLabelPlantIds),
-    selectionLabels: computeSelectionLabels(scene.plants, selectionLabelPlantIds, pixelsPerMetre, localizedCommonNames),
+    pinnedPlantNameLabels: computePinnedPlantNameLabels(scene.plants, pixelsPerMetre, localizedCommonNames, selectionLabelPlantIds, codes),
+    selectionLabels: computeSelectionLabels(scene.plants, selectionLabelPlantIds, pixelsPerMetre, localizedCommonNames, codes),
   }
 }
 
@@ -45,6 +49,7 @@ export function computeSelectionLabels(
   selectedIds: ReadonlySet<string>,
   pixelsPerMetre: number,
   localizedCommonNames: ReadonlyMap<string, string | null>,
+  plantSpeciesCodes?: Readonly<Record<string, string>>,
 ): SelectionLabel[] {
   if (selectedIds.size !== 1) return []
 
@@ -53,10 +58,7 @@ export function computeSelectionLabels(
   if (!plant || plant.pinnedName) return []
 
   const offsetYPx = plantLabelOffsetPx(plant, plants, pixelsPerMetre)
-
-  const localizedName = localizedCommonNames.get(plant.canonicalName) ?? plant.commonName
-  const text = localizedName || abbreviateCanonical(plant.canonicalName)
-  const fontStyle = localizedName ? 'normal' as const : 'italic' as const
+  const { text, fontStyle } = formatPlantNameLabel(plant, localizedCommonNames, plantSpeciesCodes)
 
   return [{ canonicalName: plant.canonicalName, text, fontStyle, ...below(plant.position, offsetYPx) }]
 }
@@ -66,6 +68,7 @@ export function computePinnedPlantNameLabels(
   pixelsPerMetre: number,
   localizedCommonNames: ReadonlyMap<string, string | null>,
   selectionLabelPlantIds: ReadonlySet<string>,
+  plantSpeciesCodes?: Readonly<Record<string, string>>,
 ): PlantNameLabel[] {
   const labels: PlantNameLabel[] = []
   const overviewOpacity = getCanvasTextOpacity(pixelsPerMetre)
@@ -76,13 +79,24 @@ export function computePinnedPlantNameLabels(
     if (opacity === 0) continue
     const offsetYPx = plantLabelOffsetPx(plant, plants, pixelsPerMetre)
 
-    const localizedName = localizedCommonNames.get(plant.canonicalName) ?? plant.commonName
-    const text = localizedName || abbreviateCanonical(plant.canonicalName)
-    const fontStyle = localizedName ? 'normal' as const : 'italic' as const
+    const { text, fontStyle } = formatPlantNameLabel(plant, localizedCommonNames, plantSpeciesCodes)
     labels.push({ plantId: plant.id, text, fontStyle, opacity, ...below(plant.position, offsetYPx) })
   }
 
   return labels
+}
+
+function formatPlantNameLabel(
+  plant: ScenePlantEntity,
+  localizedCommonNames: ReadonlyMap<string, string | null>,
+  plantSpeciesCodes?: Readonly<Record<string, string>>,
+): { text: string; fontStyle: 'normal' | 'italic' } {
+  const localizedName = localizedCommonNames.get(plant.canonicalName) || plant.commonName
+  const baseText = localizedName || plant.canonicalName
+  const code = plantSpeciesCodes?.[plant.canonicalName]
+  const text = code ? `${code} · ${baseText}` : baseText
+  const fontStyle = localizedName ? 'normal' as const : 'italic' as const
+  return { text, fontStyle }
 }
 
 /** A label `offsetYPx` below `anchor`. */
@@ -99,11 +113,4 @@ function plantLabelOffsetPx(
   const bounds = getPlantWorldBounds(plant, { plants, pixelsPerMetre })
   const radiusPx = (Math.max(bounds.width, bounds.height) * pixelsPerMetre) / 2
   return Math.max(radiusPx + PLANT_LABEL_GAP_PX, PLANT_LABEL_MIN_OFFSET_PX)
-}
-
-function abbreviateCanonical(name: string): string {
-  const parts = name.split(' ')
-  return parts.length >= 2
-    ? `${parts[0]![0]}. ${parts[1]!.slice(0, 3)}.`
-    : name.slice(0, 6)
 }

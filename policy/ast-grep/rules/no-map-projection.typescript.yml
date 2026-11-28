@@ -2,7 +2,7 @@
 id: no-map-projection.typescript
 language: typescript
 severity: error
-message: "P2 nobody projects through MapLibre; owner desktop/web/src/canvas/runtime/view; example desktop/web/src/app.tsx"
+message: "P2 nobody projects through MapLibre; owner desktop/web/src/geo/view; example desktop/web/src/app.tsx"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:

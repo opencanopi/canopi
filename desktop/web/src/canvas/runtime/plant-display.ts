@@ -154,19 +154,3 @@ export function normalizePlantDisplay(value: Partial<PlantDisplay>): PlantDispla
     strata: value.strata ?? DEFAULT_PLANT_DISPLAY.strata,
   })
 }
-
-// The workspace's plant display, set by the runtime from its app adapter
-// (`CanvasRuntimeAppAdapter.plantDisplay`), like the map backdrop. Drawing,
-// hit testing, bounds and labels all read it, so they never disagree.
-let plantDisplay: PlantDisplay = DEFAULT_PLANT_DISPLAY
-
-/** Returns true when the display changed and the scene must redraw. */
-export function setCanvasPlantDisplay(next: PlantDisplay): boolean {
-  if (plantDisplaysEqual(plantDisplay, next)) return false
-  plantDisplay = next
-  return true
-}
-
-export function getCanvasPlantDisplay(): PlantDisplay {
-  return plantDisplay
-}

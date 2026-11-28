@@ -571,3 +571,10 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+
+.savedStampRenameError {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--color-danger);
+  font-size: var(--text-xs);
+}

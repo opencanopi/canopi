@@ -1,0 +1,41 @@
+id: scale-only-through-plane.typescript
+valid:
+  - |
+    export const ppm = plane.pixelsPerMetre(zoom).mean
+  - |
+    export const dx = Math.cos(radians) * radius
+invalid:
+  - |
+    export const scale = Math.cos(lat * Math.PI / 180)
+  - |
+    export const scale = Math.cos((lat * Math.PI) / 180)
+  - |
+    export const scale = Math.cos(lat / 180 * Math.PI)
+  - |
+    export const scale = Math.cos(Math.PI / 180 * lat)
+  - |
+    export const scale = Math.cos(toRad(lat))
+  - |
+    export const scale = cos(lat * Math.PI / 180)
+  - |
+    export const r1 = 6371008.8
+  - |
+    export const r2 = 6_378_137
+  - |
+    export const r3 = 6378137
+  - |
+    export const c = 40_075_016.686
+  - |
+    export const mLat = 110_540
+  - |
+    export const mLon = 111_320
+  - |
+    export const px = 512 * 2 ** zoom
+  - |
+    export const px2 = 256 * Math.pow(2, zoom)
+  - |
+    export const z = stageScaleToMapZoom(10, lat)
+  - |
+    export const s = mapZoomToStageScale(16, lat)
+  - |
+    export const u = mercatorUnitsPerMeterAtLat(lat)

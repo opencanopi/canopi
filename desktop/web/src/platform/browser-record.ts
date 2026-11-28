@@ -1,21 +1,17 @@
-// platform/browser-record.ts: the browser records' owner (contracts §11 "Browser records"; Step 2.0.4 R3, finding F8;
-// canopi-f47t.52.272), F10's target owner of raw `localStorage` and `sessionStorage` (ast-grep
-// `web-storage-only-in-adapters`, 2b). It holds no raw Storage use yet: its reads take the `BrowserStorage` their
-// caller passes, and the page's Storage adapters stay in web/browser-app-data.ts, counted in
-// policy/ratchets/web-storage-only-in-adapters.json, until 2b moves them here with the records' write half. It holds
-// the read half of the 2.1 records the reader release reads and never writes: settings record 2 and the species-list
-// record 1, each under its own 2.1 key (2.1-M486, 2.1-Q320). The frozen keys and versions stay private until a consumer
-// imports them (2b, 2e, N2 export what they import); the record runner, the quota mapping and the `storage`-event
-// change come with the write half (2b).
+// platform/browser-record.ts: Owner of browser Web Storage records (`web-storage-only-in-adapters`, ADR 0028,
+// contracts §11 "Browser records", §18 F10; Step 2.0.4 R3, finding F8; canopi-f47t.52.272). Invariant: raw
+// `localStorage` and `sessionStorage` access belongs here (outside the named theme/pending-write exceptions); its reads
+// take the `BrowserStorage` their caller passes and hold the read half of the 2.1 records (settings record 2 and
+// species-list record 1, each under its own 2.1 key; 2.1-M486, 2.1-Q320). The frozen keys and versions stay private
+// until a consumer imports them; the record runner, quota mapping and `storage`-event change come with the write half.
+
+import { admitStoreVersion, type StoreFloor } from '../generated/store-chain'
+import { requireStoreFloor } from './store-chain'
 
 /** The 2.1 Web settings record's key; the 2.0 record stays under the v3 key for 2.0 tabs (ADR 0026 Rollback). */
-const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
-/** The settings record version 2.1 writes there (a 2.0 record has no version and reads as 1). */
-const SETTINGS_RECORD_VERSION = 2
+export const SETTINGS_RECORD_KEY = 'canopi:web-app-data:v4:settings'
 /** The 2.1 Web species-list record's key (favourites and recently viewed, contracts §19 ED-25). */
 const SPECIES_LIST_RECORD_KEY = 'canopi:web-app-data:v4:species'
-/** The species-list record version 2.1 writes there. */
-const SPECIES_LIST_RECORD_VERSION = 1
 /** At most this many entries in each species list. */
 const SPECIES_LIST_CAP = 50
 
@@ -57,12 +53,17 @@ export type SettingsRecord = Readonly<Record<string, unknown>> & { readonly vers
 
 /** Reads the 2.1 settings record; writes nothing. */
 export function readSettingsRecord(storage: BrowserStorage): RecordRead<SettingsRecord> {
-  return readVersioned(storage, SETTINGS_RECORD_KEY, SETTINGS_RECORD_VERSION, (value, version) => ({ ...value, version }))
+  return readVersioned(storage, requireStoreFloor('settings'), SETTINGS_RECORD_KEY, (value, version) => ({ ...value, version }))
+}
+
+/** Writes the 2.1 settings record (version 2) under its dedicated v4 key (ADR 0026, 2.1-Q83). */
+export function writeSettingsRecord(storage: BrowserStorage, record: Readonly<Record<string, unknown>>): void {
+  storage.setItem(SETTINGS_RECORD_KEY, JSON.stringify({ ...record, version: requireStoreFloor('settings').current }))
 }
 
 /** Reads the 2.1 species-list record; writes nothing. */
 export function readSpeciesListRecord(storage: BrowserStorage): RecordRead<SpeciesListRecord> {
-  return readVersioned(storage, SPECIES_LIST_RECORD_KEY, SPECIES_LIST_RECORD_VERSION, (value, version) => ({
+  return readVersioned(storage, requireStoreFloor('web_species_lists'), SPECIES_LIST_RECORD_KEY, (value, version) => ({
     version,
     favorites: speciesEntries(value.favorites),
     recently_viewed: speciesEntries(value.recently_viewed),
@@ -71,8 +72,8 @@ export function readSpeciesListRecord(storage: BrowserStorage): RecordRead<Speci
 
 function readVersioned<T>(
   storage: BrowserStorage,
+  floor: StoreFloor,
   key: string,
-  frozen: number,
   decode: (value: Record<string, unknown>, version: number) => T,
 ): RecordRead<T> {
   const raw = storage.getItem(key)
@@ -86,10 +87,16 @@ function readVersioned<T>(
   }
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return { state: 'unreadable', raw }
   const { version } = value as Record<string, unknown>
-  // A version below the frozen one was never written under this key.
-  if (typeof version !== 'number' || !Number.isInteger(version) || version < frozen) return { state: 'unreadable', raw }
+  // A version below the current frozen one was never written under this key.
+  if (typeof version !== 'number' || !Number.isInteger(version) || version < floor.current) {
+    return { state: 'unreadable', raw }
+  }
+  const outcome = admitStoreVersion(floor, version)
+  if (outcome.kind !== 'current' && outcome.kind !== 'newer_readable') {
+    return { state: 'unreadable', raw }
+  }
   const record = decode(value as Record<string, unknown>, version)
-  return version === frozen ? { state: 'current', record } : { state: 'newer', version, record }
+  return outcome.kind === 'current' ? { state: 'current', record } : { state: 'newer', version, record }
 }
 
 function speciesEntries(value: unknown): SpeciesListEntry[] {

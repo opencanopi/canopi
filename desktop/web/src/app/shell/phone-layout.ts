@@ -5,12 +5,11 @@
 import { signal } from '@preact/signals'
 
 /**
- * The Web Edition's phone layout (board WebPhone): a floating 44 px top bar, a
- * short tool strip on the left, the zoom buttons and scale on the right, and
- * the panels in a sheet (at the bottom in portrait, at the right in
- * landscape) instead of the floating dock and panel rail. Only the Web shell
- * installs it (`installPhoneLayout`), so on Desktop, on tablets and in wide
- * windows `phoneLayout` stays null and today's layout is untouched.
+ * Responsive phone layout classifier shared by both Desktop and Web editions
+ * (2.1-Q129, 2.1-Q344): a floating 44 px top bar, a short tool strip on the left,
+ * the zoom buttons and scale on the right, and panels in a sheet (bottom in
+ * portrait, right in landscape) below 640 px wide or under 480 px high and
+ * 960 px wide.
  */
 export type PhoneLayout = 'portrait' | 'landscape'
 
@@ -95,7 +94,7 @@ const FLICK_PX_PER_MS = 0.6
 
 /**
  * Follows the window's size into `phoneLayout` until the returned disposer
- * runs, which puts the desktop layout back. One owner at a time: the Web shell.
+ * runs, which puts the desktop layout back. Installed by both editions.
  */
 export function installPhoneLayout(target: Window = window): () => void {
   const update = () => {

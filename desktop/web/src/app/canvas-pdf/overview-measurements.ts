@@ -1,4 +1,5 @@
 import type { CanvasPrintSnapshot, PrintBounds } from '../../canvas/print'
+import { formatQuantity, type UnitSystem } from '../../utils/format'
 import type { PdfLabels, PdfOperation } from './types'
 import type { PdfTextEngine } from './text'
 import { insideZone, type ZoneMeasurements } from './zone-measurements'
@@ -17,10 +18,12 @@ export function groupedGuides(zones: readonly ZoneMeasurements[], guides: Canvas
 /** Zone rows and guide values paginate before they reach the printable footer. */
 export function overviewMeasurements(zones: readonly ZoneMeasurements[], guides: CanvasPrintSnapshot['measurements'],
   geometry: (index: number) => PrintBounds, text: PdfTextEngine, locale: string, labels: PdfLabels,
-  guideValues: readonly string[] = []): PdfOperation[][] {
+  guideValues: readonly string[] = [],
+  groundDistance: (a: CanvasPrintSnapshot['measurements'][number]['start'], b: CanvasPrintSnapshot['measurements'][number]['end']) => number,
+  unitSystem: UnitSystem = 'metric'): PdfOperation[][] {
   const pages: PdfOperation[][] = []
-  const number = new Intl.NumberFormat(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  const compact = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }), homes = groupedGuides(zones, guides)
+  const fmtLength = (n: number) => formatQuantity('length', n, unitSystem, locale, { trimTrailingZeros: true })
+  const homes = groupedGuides(zones, guides)
   let operations!: PdfOperation[], frame!: PrintBounds, columns!: number[], y = 0
   const emit = (value: string, x: number, baseline: number, size = 7.5, strong = false) => operations.push(textOp(text.line(value, size, strong), x, baseline, size))
   const start = () => {
@@ -42,10 +45,10 @@ export function overviewMeasurements(zones: readonly ZoneMeasurements[], guides:
   for (const item of [...zones].sort((a, b) => Number(a.diameter) - Number(b.diameter) || a.reference.localeCompare(b.reference, 'en', { numeric: true }))) {
     const counts = new Map<number, number>()
     for (const guide of guides.filter(g => homes.get(g.id) === item.reference)) {
-      const value = Math.round(Math.hypot(guide.end.x - guide.start.x, guide.end.y - guide.start.y) * 100) / 100
+      const value = Math.round(groundDistance(guide.start, guide.end) * 100) / 100
       counts.set(value, (counts.get(value) ?? 0) + 1)
     }
-    const values = [...counts].sort((a, b) => a[0] - b[0]).map(([n, count]) => compact.format(n) + (count > 1 ? ` ×${count}` : '')).join(' · ') || '—'
+    const values = [...counts].sort((a, b) => a[0] - b[0]).map(([n, count]) => fmtLength(n) + (count > 1 ? ` ×${count}` : '')).join(' · ') || '—'
     const lines = text.wrap(values, 7.2, frame!.width * .4)
     const name = item.zone.name !== null && item.zone.name !== item.reference ? item.zone.name : ''
     const names = name ? text.wrap(name, 7, frame!.width * .16) : []
@@ -55,9 +58,9 @@ export function overviewMeasurements(zones: readonly ZoneMeasurements[], guides:
       room(10)
       if (i === 0 || y === frame!.y + 56) emit(item.reference + (item.diameter ? ' Ø' : item.lengths.length > 1 ? '*' : ''), columns![0]!, y!, 7.5, true)
       if (i > 0 && names[i - 1]) operations!.push(textOp(names[i - 1]!, columns![0]!, y!, 7))
-      if (item.lengths[i] !== undefined) { const v = number.format(item.lengths[i]!); emit(v, columns![1]! - text.line(v, 7.5).width, y!) }
+      if (item.lengths[i] !== undefined) { const v = fmtLength(item.lengths[i]!); emit(v, columns![1]! - text.line(v, 7.5).width, y!) }
       if (i === 0) {
-        const widths = item.widths.map(n => number.format(n)).join('–') || '—'
+        const widths = item.widths.map(fmtLength).join('–') || '—'
         emit(widths, columns![2]! - text.line(widths, 7.2).width, y!, 7.2)
       }
       if (lines[i]) operations!.push(textOp(lines[i]!, columns![3]!, y!, 7.2))

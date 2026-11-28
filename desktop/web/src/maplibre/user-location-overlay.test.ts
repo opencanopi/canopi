@@ -4,17 +4,24 @@ import { USER_LOCATION_VISUAL } from '../canvas/runtime/scene-visuals'
 import { userLocationOverlayContract, userLocationOverlayIds, type UserLocationReading } from './user-location-overlay'
 
 const READING: UserLocationReading = { lon: 2.35, lat: 48.85, accuracy: 30, timestamp: 1_760_000_000_000, stale: false }
-const METRES_PER_DEGREE = Math.PI * 6_378_137 / 180
+// Independent WGS84 ellipsoid radii of curvature at a latitude (a = 6378137 m, e² = 2f - f²).
+const WGS84_A = 6_378_137
+const WGS84_E2 = 2 / 298.257223563 - (1 / 298.257223563) ** 2
 
 function paintOf(contract: ReturnType<typeof userLocationOverlayContract>, id: string) {
   return contract.layers.find((layer) => layer.id === id)!.paint
 }
 
-/** Ground metres from the reading to a polygon vertex. */
+/** Independent WGS84 local-ellipsoid ground metres from the reading to a polygon vertex. */
 function metresFrom(reading: UserLocationReading, [lon, lat]: readonly number[]): number {
-  const east = (lon! - reading.lon) * METRES_PER_DEGREE * Math.cos(reading.lat * Math.PI / 180)
-  const north = (lat! - reading.lat) * METRES_PER_DEGREE
-  return Math.hypot(east, north)
+  const phi = (reading.lat * Math.PI) / 180
+  const sinPhi = Math.sin(phi), cosPhi = Math.cos(phi)
+  const w = Math.sqrt(1 - WGS84_E2 * sinPhi * sinPhi)
+  const nu = WGS84_A / w
+  const rho = (WGS84_A * (1 - WGS84_E2)) / (w * w * w)
+  const eastM = (((lon! - reading.lon) * Math.PI) / 180) * nu * cosPhi
+  const northM = (((lat! - reading.lat) * Math.PI) / 180) * rho
+  return Math.hypot(eastM, northM)
 }
 
 describe('the user location map overlay', () => {

@@ -1,10 +1,8 @@
 export {
   MANUAL_TARGET,
-  isSpeciesTarget,
   speciesTarget,
   targetIdentity,
 } from './identity'
-export type { TargetSceneInput } from './identity'
 export {
   consortiumTarget,
   getBudgetHoverTarget,
@@ -12,9 +10,4 @@ export {
   getConsortiumCanonicalName,
   speciesBudgetTarget,
 } from './domain-adapters'
-export { projectTargetsToMapFeatures } from './map-projection'
-export type {
-  TargetMapFeature,
-  TargetMapProjectionScene,
-} from './map-projection'
 export { targetIdentity as targets } from './identity'

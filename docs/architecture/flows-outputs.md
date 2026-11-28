@@ -15,9 +15,9 @@ sequenceDiagram
   participant CORE as app/document-session/core/ (2.1)<br/>owner Session core
   participant DE as app/design-edit/<br/>owner Document
   participant QS as canvas/runtime/print-snapshot.ts<br/>owner Scene
-  participant GEO as geo/session-plane.ts (2.1)<br/>owner Earth model
+  participant GEO as geo/session-plane.ts<br/>owner Earth model
   participant JOB as app/canvas-pdf/worker.ts<br/>owner PDF workspace
-  participant FD as platform/file-delivery.ts (2.1)<br/>owner edition root
+  participant FD as platform/file-delivery.ts<br/>owner edition root
   U->>WF: open the PDF workspace
   WF->>CORE: read print_setup (none: derived default pages, unwritten)
   U->>ED: page angle: North up, As on screen, saved view bearing, Turn to edge, typed
@@ -41,7 +41,7 @@ sequenceDiagram
 
 - Owner: `print_setup` is a Document field written only by Design Edit through `core.document()`; export reads it and the Scene snapshot and never changes Design content, history, dirty state or settings (test: `a reopened Design restores its print setup, and the reader release opens it read-only`).
 - Invariant: a page angle is degrees clockwise from true north, read through `trueNorthAt`; only `page-frame.ts` turns, layout modules never take an angle (`page-frame.test.ts`; `a north-up overview and a detail page at 32° each print their north arrow to true north`).
-- Every export is one FileDelivery row `(content, stem, kind)` over the one file-kind table; the port alone sanitises the stem (policy `file-delivery-rows`, to be created by 2a).
+- Every export is one FileDelivery row `(content, stem, kind)` over the one file-kind table; the port alone sanitises the stem (policy `file-delivery-rows`, built in Phase 2a).
 
 ### Stamp capture and placement
 
@@ -94,7 +94,7 @@ Source: ADR 0027 One ranking contract; ADR 0029 Static Web serving; contracts §
 sequenceDiagram
   actor U as User
   participant WB as app/plant-browser/workbench.ts<br/>owner species catalog
-  participant NT as platform/page-rules.ts (2.1)<br/>owner page rules
+  participant NT as platform/page-rules.ts<br/>owner page rules
   participant RD as species reader browser adapter (2.1)<br/>owner species reader (E1 outcome A: also in the Desktop webview)
   participant DW as DuckDB worker, same origin (2.1)
   participant SW as service worker sw.js (2.1)
@@ -168,6 +168,6 @@ sequenceDiagram
 ```
 
 - Owner: `web_release.py` owns the merged set and its checks; the service worker owns every cache; the Session core owns the save before any reload (test: `Q83: Reload saves first, and a failed save offers Download a copy`).
-- Before W1 (Step 2.0.3, built): no service worker; `web/browser-release-watch.ts` reads the edition manifest on the same triggers, and the tab's Reload saves through `web/browser-design-session.ts` and reopens its Draft from a per-tab session record (2.1-Q189); a rollback tab gets the same notice (Q186).
+- Before W1 (Step 2.0.3, built): no service worker; `editions/web/browser-release-watch.ts` reads the edition manifest on the same triggers, and the tab's Reload saves through `editions/web/web-session.ts` (Session core) and reopens its Draft from a per-tab session record (2.1-Q189); a rollback tab gets the same notice (Q186).
 - Invariant: only `index.html` (revalidated), the edition manifest and `sw.js` are not immutable, besides 2.0.2's carried catalog and fonts while a release carries them; every file a release writes is immutable, so any kept cache answers any release's tab by URL (deploy-skew e2e: `Q83: a release N-1 tab loads a lazy chunk, reads the catalog and keeps saving after N deploys`; routed manifest: `Q83: another release named by the manifest shows one New version: Reload notice`).
 - Rollback destroys no work: D3 installs the latest 2.0.x over 2.1.0's stores and finds them read, and no 2.1 cache left once the last 2.1 tab reloads.

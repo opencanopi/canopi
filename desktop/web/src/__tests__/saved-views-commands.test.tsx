@@ -19,12 +19,12 @@ import {
 import { currentDesign } from '../app/document-session/store'
 import { workspaceCanvasCommandProjection } from '../app/workspace-commands/canvas-actions'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { SavedViewDialogs } from '../components/shared/SavedViewDialogs'
 import {
   createBrowserShellCatalog,
   createBrowserShellCommandProjection,
-} from '../web/browser-shell-commands'
+} from '../editions/web/browser-shell-commands'
 import type { CanopiFile, SavedView, Story } from '../types/design'
 import {
   createTestCanvasCommandSurface,
@@ -128,10 +128,10 @@ function webViewMenu(): readonly MenuEntry[] {
     exportBudgetCsv: () => undefined,
     closeDesign: () => undefined,
     navigate: () => undefined,
-  }, { templatesEnabled: false, canvasReady: () => true })
+  }, { canvasReady: () => true })
   const projection = createBrowserShellCommandProjection({
     catalog,
-    state: { hasDesign: currentDesign.value !== null, revertAvailable: false, activePanel: 'canvas', sidePanel: null },
+    state: { hasDesign: currentDesign.value !== null, revertAvailable: false, sidePanel: null },
     canvas: workspaceCanvasCommandProjection.value,
   })
   return viewMenuOf(projection.workspaceMenus)
@@ -296,7 +296,7 @@ describe('saved view dialogs', () => {
     const field = container.querySelector<HTMLInputElement>('input[aria-label="New name for Pond"]')!
     expect(document.activeElement).toBe(field)
     await type(field, 'Wildlife pond')
-    await act(async () => { field.form!.requestSubmit() })
+    await key(field, { key: 'Enter' })
     expect(currentDesign.value?.views?.map((view) => view.name)).toEqual(['Wildlife pond', 'Hedge'])
     expect(document.activeElement).toBe(button('Rename Wildlife pond'))
 

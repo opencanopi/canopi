@@ -1,4 +1,4 @@
-import type { PlantStampSource } from '../../plant-stamp-source'
+import type { PlantStampSource } from '../../stamp-drag-data'
 import {
   resolvePlantSymbolId,
   type ScenePersistedState,

@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn canopi_file_extra_is_flagged_flatten() {
-        let fields = fields_of(&manifest(), "CanopiFile");
+        let fields = fields_of(&manifest(), "CanopiFileV10");
         let extra = fields
             .iter()
             .find(|field| field["name"] == "extra")
@@ -102,7 +102,7 @@ mod tests {
 
     #[test]
     fn a_field_specta_skips_is_listed_with_skip() {
-        let fields = fields_of(&manifest(), "CanopiFile");
+        let fields = fields_of(&manifest(), "CanopiFileV10");
         let skipped: Vec<_> = fields
             .iter()
             .filter(|field| field["skip"] == true)
@@ -128,7 +128,7 @@ mod tests {
         let mut sorted = names.clone();
         sorted.sort();
         assert_eq!(names, sorted);
-        assert!(names.iter().any(|name| name == "TimelineAction"));
+        assert!(names.iter().any(|name| name == "TimelineActionV10"));
         assert!(
             !names.iter().any(|name| name == "Theme"),
             "Theme is an enum"

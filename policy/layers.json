@@ -36,14 +36,6 @@
    "note": "the start-up guard: a classic script vite.config.ts builds and loads before the entry module; the app imports only its types (2.1-M489)"
   },
   {
-   "path": "utils/theme.ts",
-   "layer": "L0",
-   "destination": "app/settings/theme.ts",
-   "phase": "2a",
-   "edition": "both",
-   "area": "utils"
-  },
-  {
    "path": "styles/",
    "layer": "L0",
    "edition": "both",
@@ -74,7 +66,6 @@
    "path": "geo/",
    "layer": "L0",
    "phase": "2a",
-   "status": "new",
    "edition": "both",
    "area": "geo"
   },
@@ -82,7 +73,6 @@
    "path": "planning/",
    "layer": "L0",
    "phase": "2a",
-   "status": "new",
    "edition": "both",
    "area": "planning"
   },
@@ -118,6 +108,14 @@
    "edition": "both",
    "area": "maplibre",
    "owner": "MapLibre (L7)"
+  },
+  {
+   "path": "maplibre/camera-driver.ts",
+   "layer": "L1",
+   "rank": 3,
+   "edition": "both",
+   "area": "maplibre",
+   "note": "stays in maplibre/: the one MapLibre camera writer (ADR 0016) behind geo/view/'s camera-driver interface; 2m owns it. The design check's \"camera-driver.ts moves to geo/\" is canvas/runtime/view/camera-driver.ts"
   },
   {
    "path": "maplibre/raster-display/worker.ts",
@@ -175,7 +173,6 @@
    "layer": "L2",
    "rank": 2,
    "phase": "2a",
-   "status": "new",
    "edition": "both",
    "area": "app/command-table"
   },
@@ -202,7 +199,6 @@
    "layer": "L2",
    "rank": 5,
    "phase": "2b",
-   "status": "new",
    "edition": "both",
    "area": "app/document-session/core",
    "owner": "Session core"
@@ -277,12 +273,6 @@
    "area": "app/canvas-settings"
   },
   {
-   "path": "app/community/",
-   "layer": "L3",
-   "edition": "web",
-   "area": "app/community"
-  },
-  {
    "path": "app/consortium/",
    "layer": "L3",
    "edition": "both",
@@ -322,12 +312,6 @@
    "area": "app/design-notebook"
   },
   {
-   "path": "app/design-template-import/",
-   "layer": "L3",
-   "edition": "web",
-   "area": "app/design-template-import"
-  },
-  {
    "path": "app/document-session/",
    "layer": "L3",
    "edition": "both",
@@ -358,12 +342,12 @@
    "area": "app/keyboard"
   },
   {
-   "path": "app/lidar/",
+   "path": "app/data-library/",
    "layer": "L3",
-   "destination": "app/data-library/",
    "phase": "2a",
    "edition": "desktop",
-   "area": "app/lidar"
+   "area": "app/data-library",
+   "note": "app/lidar/ renamed, path only (2.1-M43); the Data library behind the file-access port in 2a-4 (2.1-M4, 2.1-M12)"
   },
   {
    "path": "app/map-layers/",
@@ -517,7 +501,7 @@
    "edition": "desktop",
    "area": "app/updates",
    "owner": "UpdateState",
-   "note": "the Desktop updater's state and controller (contracts §3, 2.1-M208); it takes ipc/update.ts as a port from the Desktop root, so it imports no ipc/ module"
+   "note": "the Desktop updater's state and controller (contracts \u00a73, 2.1-M208); it takes ipc/update.ts as a port from the Desktop root, so it imports no ipc/ module"
   },
   {
    "path": "app/workspace-commands/",
@@ -526,35 +510,9 @@
    "area": "app/workspace-commands"
   },
   {
-   "path": "app/timeline/civil-date.ts",
-   "layer": "L3",
-   "destination": "planning/civil-date.ts",
-   "phase": "2a",
-   "edition": "both",
-   "area": "app/timeline"
-  },
-  {
    "path": "app/document-session/actions.ts",
    "layer": "L3",
-   "edition": "desktop",
-   "area": "app/document-session"
-  },
-  {
-   "path": "app/document-session/lifecycle.ts",
-   "layer": "L3",
-   "edition": "desktop",
-   "area": "app/document-session"
-  },
-  {
-   "path": "app/document-session/transition.ts",
-   "layer": "L3",
-   "edition": "desktop",
-   "area": "app/document-session"
-  },
-  {
-   "path": "app/document-session/state-machine.ts",
-   "layer": "L3",
-   "edition": "desktop",
+   "edition": "both",
    "area": "app/document-session"
   },
   {
@@ -566,7 +524,7 @@
   {
    "path": "app/shell/close-guard.ts",
    "layer": "L3",
-   "edition": "desktop",
+   "edition": "both",
    "area": "app/shell"
   },
   {
@@ -638,22 +596,6 @@
    "area": "app-shell"
   },
   {
-   "path": "main.tsx",
-   "layer": "L5",
-   "edition": "desktop",
-   "entry": true,
-   "area": "desktop-root",
-   "note": "the Desktop root until editions/desktop/ (2a)"
-  },
-  {
-   "path": "main.web.tsx",
-   "layer": "L5",
-   "edition": "web",
-   "entry": true,
-   "area": "web-root",
-   "note": "the Web root until editions/web/ (2a)"
-  },
-  {
    "path": "web/",
    "layer": "L5",
    "phase": "2a",
@@ -662,11 +604,11 @@
    "note": "splits in 2a into adapters beside their ports, editions/web/ and the Session core (ADR 0022:22); no single destination"
   },
   {
-   "path": "web/dev-entry.ts",
+   "path": "editions/web/dev-entry.ts",
    "layer": "L5",
    "edition": "web",
    "entry": true,
-   "area": "web-root"
+   "area": "editions/web"
   },
   {
    "path": "web/browser-design-sources.ts",
@@ -678,27 +620,56 @@
    "note": "the one Design source contract; moves with web/ when canopi-f47t.52.45 dissolves it; planned so scenario s09 names it (2.1-M310)"
   },
   {
+   "path": "editions/install-app-lifetime.ts",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "both",
+   "area": "editions",
+   "owner": "edition lifetime installers"
+  },
+  {
    "path": "editions/desktop/",
    "layer": "L5",
    "phase": "2a",
-   "status": "new",
    "edition": "desktop",
+   "area": "editions/desktop"
+  },
+  {
+   "path": "editions/desktop/main.tsx",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "desktop",
+   "entry": true,
    "area": "editions/desktop"
   },
   {
    "path": "editions/web/",
    "layer": "L5",
    "phase": "2a",
-   "status": "new",
    "edition": "web",
+   "area": "editions/web"
+  },
+  {
+   "path": "editions/web/main.tsx",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "web",
+   "entry": true,
    "area": "editions/web"
   },
   {
    "path": "editions/gallery/",
    "layer": "L5",
    "phase": "2a",
-   "status": "new",
    "edition": "gallery",
+   "area": "editions/gallery"
+  },
+  {
+   "path": "editions/gallery/main.tsx",
+   "layer": "L5",
+   "phase": "2a",
+   "edition": "gallery",
+   "entry": true,
    "area": "editions/gallery"
   },
   {
@@ -711,16 +682,10 @@
    "path": "maplibre/raster-display/fixtures/",
    "layer": "test",
    "edition": "both",
-   "note": "recorded raster test data; the gallery imports three of them, named entries of no-product-imports-a-test until 2a (canopi-f47t.52.71)"
+   "note": "recorded raster test data"
   }
  ],
  "outside": [
-  {
-   "path": "ui-gallery/",
-   "edition": "gallery",
-   "entry": true,
-   "role": "the gallery edition root until editions/gallery/ (2a); imports a Web root file and three test fixtures"
-  },
   {
    "path": "vite.config.ts",
    "edition": "both",
@@ -728,69 +693,21 @@
   }
  ],
  "policy": {
-  "cli": ["check.mjs", "generate.mjs", "gate/cli.mjs"],
+  "cli": [
+   "check.mjs",
+   "generate.mjs",
+   "gate/cli.mjs"
+  ],
   "role": "the policy tooling's command-line entries, relative to policy/: argv and main only, their library in policy/core (2.1-M348); policy-imports-no-cli forbids a policy module importing one, and a policy import cycle"
  },
  "packages": [
   {
-   "pattern": "maplibre-gl-raster",
+   "pattern": "cog-tiler-wasm",
    "lowest_layer": "L1",
-   "chunk": "raster-display",
    "editions": [
     "desktop"
    ],
    "note": "Desktop only: the Web build carries no raster display (check-web-build-boundaries.mjs)"
-  },
-  {
-   "pattern": "@deck.gl/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ],
-   "note": "maplibre-gl-raster's dependency"
-  },
-  {
-   "pattern": "@luma.gl/webgl",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ],
-   "reason": "a runtime dependency of @deck.gl/core, pinned and never imported by name; knip counts the other luma pins used as deck.gl peers (knip ignoreDependencies)"
-  },
-  {
-   "pattern": "@luma.gl/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ],
-   "note": "deck.gl's peer dependencies"
-  },
-  {
-   "pattern": "@developmentseed/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ]
-  },
-  {
-   "pattern": "@math.gl/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ]
-  },
-  {
-   "pattern": "@loaders.gl/",
-   "lowest_layer": "L1",
-   "chunk": "raster-display",
-   "editions": [
-    "desktop"
-   ]
   },
   {
    "pattern": "canopi-raster-display",
@@ -811,11 +728,20 @@
    "rule": "maplibre-gl-only-in-maplibre"
   },
   {
+   "pattern": "maplibre-contour",
+   "lowest_layer": "L1",
+   "chunk": "maplibre-contour",
+   "editions": [
+    "desktop",
+    "web"
+   ],
+   "note": "lazy contour DEM protocol chunk (2.1-Q25, 2.1-M554)"
+  },
+  {
    "pattern": "@tauri-apps/",
    "owner": [
     "ipc/",
-    "platform/*.desktop.ts",
-    "platform/desktop.ts"
+    "editions/desktop/"
    ],
    "chunk": "tauri",
    "editions": [

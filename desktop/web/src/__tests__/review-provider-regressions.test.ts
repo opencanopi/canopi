@@ -290,7 +290,7 @@ describe('provider lifecycle regressions after 26eca68a', () => {
     )
     expect(overlapping?.maxZoom).toBe(18)
 
-    // Uncovered viewport corners are unavailable, not an invented zoom.
+    // 2.1-Q350: partial coverage keeps Satellite ready using the covered partition's zoom.
     const partial = readViewportMetadata(
       {
         copyright: 'c',
@@ -298,7 +298,7 @@ describe('provider lifecycle regressions after 26eca68a', () => {
       },
       VIEWPORT_A,
     )
-    expect(partial).toBeNull()
+    expect(partial?.maxZoom).toBe(18)
   })
 
   it('R41: identical publications are no-ops and copyright-only updates attribution in place', () => {
@@ -383,8 +383,8 @@ describe('provider lifecycle regressions after 26eca68a', () => {
       .toBe('none')
   })
 
-  it('R47: uncovered strips in the viewport are unavailable', () => {
-    // Longitude 0-1, 4-6 and 9-10 leave uncovered strips inside 0-10.
+  it('R47: uncovered strips in the viewport keep covered zoom under 2.1-Q350', () => {
+    // Longitude 0-1, 4-6 and 9-10 leave uncovered strips inside 0-10; 2.1-Q350 keeps Satellite on.
     const gappy = readViewportMetadata(
       {
         copyright: 'c',
@@ -396,7 +396,7 @@ describe('provider lifecycle regressions after 26eca68a', () => {
       },
       { west: 0, south: 0, east: 10, north: 10, zoom: 12 },
     )
-    expect(gappy).toBeNull()
+    expect(gappy?.maxZoom).toBe(18)
   })
 
   it('R47: wrapped viewport coverage across the antimeridian is supported', () => {
@@ -453,12 +453,12 @@ describe('provider lifecycle regressions after 26eca68a', () => {
     expect(result?.maxZoom ?? null).toBeNull()
   })
 
-  it('R47: partial wrapped coverage is unavailable', () => {
+  it('R47: partial wrapped coverage keeps covered zoom under 2.1-Q350', () => {
     const result = readViewportMetadata(
       { copyright: 'credit', maxZoomRects: [{ west: 178, east: -178, south: 0, north: 10, maxZoom: 18 }] },
       { west: 175, east: -175, south: 1, north: 9, zoom: 12 },
     )
-    expect(result?.maxZoom ?? null).toBeNull()
+    expect(result?.maxZoom).toBe(18)
   })
 
   it('R47: full-world rectangle covers a wrapped viewport', () => {
@@ -608,11 +608,10 @@ describe('provider lifecycle regressions after 26eca68a', () => {
     expect(results[0]).toBe(18)
     expect(results[1]).toBe(18)
     expect(results[2]).toBe(18)
-    // Zoom-0 world view uses the same coverage rule: a local rect cannot
-    // support the whole world.
+    // 2.1-Q350: zoom-0 world view with partial coverage keeps the covered zoom.
     expect(
-      readViewportMetadata(json, { west: -180, south: -4, east: 180, north: 4, zoom: 0 }),
-    ).toBeNull()
+      readViewportMetadata(json, { west: -180, south: -4, east: 180, north: 4, zoom: 0 })?.maxZoom,
+    ).toBe(18)
   })
 
   it('E1: mountSatelliteLifecycle registers moveend and updates viewport metadata', async () => {

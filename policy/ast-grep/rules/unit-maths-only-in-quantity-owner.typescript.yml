@@ -1,0 +1,28 @@
+# unit-maths-only-in-quantity-owner (§18 F35): unit conversion constants (feet, inches, miles, acres,
+# gallons, mm-per-inch) and Celsius/Fahrenheit formulas live only in canopi-types/src/quantity.rs
+# (generated/quantity-table.ts) and desktop/web/src/utils/format.ts.
+# message and ignores: generated from policy/primitives.json.
+id: unit-maths-only-in-quantity-owner.typescript
+language: typescript
+severity: error
+message: "unit-maths-only-in-quantity-owner (§18 F35): unit conversion constants and maths only in the quantity table and utils/format.ts (counted at 2c's start). ADR 0028; owner desktop/web/src/utils/format.ts; target desktop/web/src/utils/format.ts (2c); example desktop/web/src/utils/format.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/utils/format.ts"
+rule:
+  any:
+    - kind: number
+      regex: ^(0\.0254|25\.4|0\.3048|3\.2808\d*|0\.9144|1_?609\.344|5_?280|4_?046\.85\d*|10\.7639\d*|0\.092903\d*|43_?560|3\.78541\d*|0\.26417\d*)$
+    - pattern: $C * 9 / 5 + 32
+    - pattern: ($C * 9) / 5 + 32
+    - pattern: $C * 1.8 + 32
+    - pattern: ($F - 32) * 5 / 9
+    - pattern: (($F - 32) * 5) / 9
+    - pattern: ($F - 32) / 1.8

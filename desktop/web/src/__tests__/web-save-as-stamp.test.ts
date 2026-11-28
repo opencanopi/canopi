@@ -8,14 +8,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 vi.mock('../ipc/species', async (importOriginal) => ({
   ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 
 import type { CanvasRuntimeAppAdapter } from '../canvas/runtime/app-adapter'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { createBrowserCanvasRuntimeAppAdapter } from '../web/browser-canvas-runtime'
+import { createBrowserCanvasRuntimeAppAdapter } from '../editions/web/browser-canvas-runtime'
 import { createDesktopCanvasRuntimeAppAdapter } from '../app/canvas-runtime/desktop-adapter'
 import { canvasContextMenuRequest } from '../app/canvas-context-menu/state'
 import { buildCanvasContextMenuEntries } from '../app/canvas-context-menu/entries'
@@ -41,7 +40,7 @@ function onePlantFile(): CanopiFile {
       color: null,
       position: geoAt(10, 10, { lon: 0, lat: 0 }),
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: 1,

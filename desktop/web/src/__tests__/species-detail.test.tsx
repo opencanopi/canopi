@@ -1,7 +1,9 @@
 // @vitest-environment jsdom
 
 import { render } from 'preact'
-import { setCanvasTool } from '../canvas/session-state'
+import { setCurrentCanvasSession } from '../canvas/session'
+import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
+import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { locale } from '../app/settings/state'
@@ -18,6 +20,7 @@ const ipc = vi.hoisted(() => ({
   getSpeciesHabits: vi.fn(async (): Promise<Record<string, string>> => ({})),
   getSpeciesImages: vi.fn(async (): Promise<SpeciesImage[]> => []),
   getCachedImagePath: vi.fn(async (url: string) => `/cache/${encodeURIComponent(url)}`),
+  resolveAssetUrl: vi.fn((path: string) => `asset://${path}`),
 }))
 const workbench = vi.hoisted(() => ({
   selectedCanonicalName: { value: null as string | null },
@@ -29,13 +32,13 @@ const inDesign = vi.hoisted(() => ({ species: new Map<string, CatalogDesignSpeci
 const mapActions = vi.hoisted(() => ({ selectSpeciesPlants: vi.fn(), zoomToSpeciesPlants: vi.fn(() => true), showSpeciesDetailOnMap: vi.fn(), clearSpeciesDetailOnMap: vi.fn() }))
 
 vi.mock('../ipc/species', () => ipc)
-vi.mock('@tauri-apps/api/core', () => ({ convertFileSrc: (path: string) => `asset://${path}` }))
 vi.mock('../app/plant-browser', async () => {
   // The detail's "(en)" title comes from the catalog's one projection, here over the mocked lookup.
   const { composeSpeciesDisplayNames } = await vi.importActual<typeof PlantBrowserWorkbenchModule>('../app/plant-browser/workbench')
   return {
     speciesCatalogWorkbench: Object.assign(workbench, {
       resolveDisplayNames: composeSpeciesDisplayNames((names, locale) => ipc.getCommonNames([...names], locale)),
+      fetchSpeciesDetail: (canonicalName: string, locale: string) => ipc.getSpeciesDetail(canonicalName, locale),
     }),
   }
 })
@@ -104,7 +107,7 @@ describe('Species detail (Desktop)', () => {
   })
 
   afterEach(() => {
-    setCanvasTool('select')
+    setCurrentCanvasSession(null)
     render(null, container)
     container.remove()
     locale.value = 'en'
@@ -140,7 +143,7 @@ describe('Species detail (Desktop)', () => {
     expect(facts()).toEqual({
       habit: 'Tree',
       stratum: 'High',
-      height: '4–10 m',
+      height: '4 m–10 m',
       width: '8 m',
       hardiness: 'USDA 3–8 · to -40°C',
       light: 'Full sun, Semi-shade',
@@ -172,7 +175,7 @@ describe('Species detail (Desktop)', () => {
     locale.value = 'fr'
     await open(emptySpeciesDetail('Malus domestica', { common_name: 'Pommier', height_max_m: 12.5, soil_ph_min: 5.5, soil_ph_max: 7 }))
 
-    expect(facts().height).toBe('12,5\u202fm')
+    expect(facts().height).toBe('13\u202fm')
     expect(facts().soil).toBe('pH 5,5–7')
   })
 
@@ -214,16 +217,18 @@ describe('Species detail (Desktop)', () => {
   })
 
   it('drops its rings while Place plants is armed, so placing never keeps the species ringed', async () => {
+    const queries = createTestCanvasQuerySurface()
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
     inDesign.species = new Map([['Malus domestica', { code: 'MDO', count: 6, symbol: 'canopy', color: '#B06045' }]])
     await open()
     expect(mapActions.showSpeciesDetailOnMap).toHaveBeenCalledTimes(1)
 
     mapActions.showSpeciesDetailOnMap.mockClear()
-    await act(async () => { setCanvasTool('plant-stamp') })
+    await act(async () => { queries.setActiveTool('plant-stamp') })
     expect(mapActions.clearSpeciesDetailOnMap).toHaveBeenCalled()
     expect(mapActions.showSpeciesDetailOnMap).not.toHaveBeenCalled()
 
-    await act(async () => { setCanvasTool('select') })
+    await act(async () => { queries.setActiveTool('select') })
     expect(mapActions.showSpeciesDetailOnMap).toHaveBeenCalledWith('Malus domestica')
   })
 

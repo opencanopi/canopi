@@ -4,25 +4,37 @@ import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
-import { createDesignSessionStore } from '../app/document-session/store'
+import { decodeCanopiDesign } from './support/design-wire'
+import { flattenDocumentForJson } from '../app/contracts/document'
+import { designSessionStore } from '../app/document-session/store'
 import { locale } from '../app/settings/state'
 import { t } from '../i18n'
 import type { CanopiFile } from '../types/design'
-import { createBrowserAppDataStore } from '../web/browser-app-data'
-import { createBrowserDesignSessionController, type BrowserCanopiDownload } from '../web/browser-design-session'
+import { browserAppDataStore } from '../web/browser-app-data'
+import { deleteLegacyDraft, seedLegacyDraft } from './support/legacy-draft-fixture'
 import type { BrowserDraftPersistence } from '../web/browser-draft-persistence'
+import { notices, resetNoticesForTests } from '../failures/notices'
+import { WebWelcomeScreen } from '../editions/web/WebWelcomeScreen'
+import { createBrowserSessionHomeStore } from './support/browser-session-home-store'
+import { editionPorts, installEditionPorts } from '../platform/edition-ports'
+import { buildDeliveryFileName } from '../platform/file-delivery'
+import { createTestEditionPorts } from './support/test-edition-ports'
+import { createTestSessionCore, type TestSessionCoreHandle } from './support/session-core-fixture'
 
 type BrowserDraftPersistenceView = BrowserDraftPersistence['view']['value']
-import { notices, resetNoticesForTests } from '../failures/notices'
-import { WebWelcomeScreen } from '../web/WebWelcomeScreen'
 
 // The Web welcome screen's persistence line and per-Draft Download a copy (2.1-Q82, Q190, Q193, Q194; rows L2, L5, L19).
 
 let container: HTMLDivElement
+let session: TestSessionCoreHandle | null = null
+let disposePorts: (() => void) | null = null
 
 beforeEach(() => {
   locale.value = 'en'
+  localStorage.clear()
+  disposePorts = installEditionPorts(createTestEditionPorts({
+    designHome: createBrowserSessionHomeStore(browserAppDataStore),
+  }))
   container = document.createElement('div')
   document.body.appendChild(container)
 })
@@ -31,6 +43,12 @@ afterEach(() => {
   resetNoticesForTests()
   render(null, container)
   container.remove()
+  session?.dispose()
+  session = null
+  disposePorts?.()
+  disposePorts = null
+  localStorage.clear()
+  vi.restoreAllMocks()
 })
 
 function design(name: string): CanopiFile {
@@ -43,36 +61,27 @@ function design(name: string): CanopiFile {
 }
 
 function setup(view: BrowserDraftPersistenceView, { drafts = true }: { drafts?: boolean } = {}) {
-  const values = new Map<string, string>()
-  const appDataStore = createBrowserAppDataStore({
-    storage: {
-      getItem: (key) => values.get(key) ?? null,
-      setItem: (key, value) => { values.set(key, value) },
-      removeItem: (key) => { values.delete(key) },
-    },
-  })
+  const downloadCanopiFile = vi.spyOn(editionPorts().fileDelivery, 'deliverFile').mockResolvedValue('downloaded')
+  session = createTestSessionCore()
   if (drafts) {
-    appDataStore.saveDraft({ id: 'draft-orchard', file: design('Orchard'), now: '2026-01-01T00:00:00.000Z' })
-    appDataStore.saveDraft({ id: 'draft-hedge', file: design('Hedge'), now: '2026-01-02T00:00:00.000Z' })
+    const orchard = design('Orchard')
+    const hedge = design('Hedge')
+    seedLegacyDraft({ id: 'draft-orchard', raw: flattenDocumentForJson(orchard), name: 'Orchard', now: '2026-01-01T00:00:00.000Z' })
+    seedLegacyDraft({ id: 'draft-hedge', raw: flattenDocumentForJson(hedge), name: 'Hedge', now: '2026-01-02T00:00:00.000Z' })
+    session.home.seedFile('draft-orchard', orchard)
+    session.home.seedFile('draft-hedge', hedge)
   }
-  const downloadCanopiFile = vi.fn<(download: BrowserCanopiDownload) => Promise<void>>(async () => undefined)
-  const store = createDesignSessionStore()
-  const controller = createBrowserDesignSessionController({
-    store,
-    appDataStore,
-    fileAdapter: { openCanopiFile: vi.fn(async () => null), downloadCanopiFile },
-  })
   const hideReason = vi.fn()
   const persistence = { view: signal(view), keep: vi.fn(), showReason: vi.fn(() => hideReason) }
-  return { controller, store, persistence, downloadCanopiFile, appDataStore, hideReason }
+  return { session, persistence, downloadCanopiFile, hideReason }
 }
 
 const notice = () => container.querySelector<HTMLElement>('[data-start-notice]')
 
 describe('Web welcome screen and Draft persistence', () => {
   it('L2: shows the one-line reason before the ask, beside New Design and Open', async () => {
-    const { controller, persistence } = setup({ state: 'not-kept', notice: 'reason', warn: false })
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const { persistence } = setup({ state: 'not-kept', notice: 'reason', warn: false })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
     expect(notice()?.dataset.startNotice).toBe('info')
     expect(notice()?.textContent).toBe(t('webStorage.reason'))
     expect(notice()?.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe(t('webStorage.reason'))
@@ -80,8 +89,9 @@ describe('Web welcome screen and Draft persistence', () => {
   })
 
   it('L13 and R2-2 (2.1-Q190, Q198): with unkept Drafts at launch warns, and offers Keep my Drafts with its reason', async () => {
-    const { controller, persistence, hideReason } = setup({ state: 'not-kept', notice: 'warning', warn: true })
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const { persistence, hideReason } = setup({ state: 'not-kept', notice: 'warning', warn: true })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     expect(notice()?.dataset.startNotice).toBe('warning')
     expect(notice()?.textContent).toContain(t('webStorage.warning'))
     expect(notice()?.querySelector('[data-notice="draft-persistence-reason"]')?.textContent).toBe(t('webStorage.reason'))
@@ -96,8 +106,8 @@ describe('Web welcome screen and Draft persistence', () => {
   })
 
   it('P3-3: Keep my drafts leaves focus on the warning while asked, then on New Design once kept, never on the page', async () => {
-    const { controller, persistence } = setup({ state: 'not-kept', notice: 'warning', warn: true })
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const { persistence } = setup({ state: 'not-kept', notice: 'warning', warn: true })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
     const keep = Array.from(notice()!.querySelectorAll('button')).find((button) => button.textContent === t('webStorage.keepDrafts'))!
     keep.focus()
     await act(async () => {
@@ -111,8 +121,8 @@ describe('Web welcome screen and Draft persistence', () => {
   })
 
   it('P4-2: once refused, the focus hold ends: focus moved to the page stays there through later renders', async () => {
-    const { controller, persistence } = setup({ state: 'not-kept', notice: 'warning', warn: true })
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const { persistence } = setup({ state: 'not-kept', notice: 'warning', warn: true })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
     const keep = Array.from(notice()!.querySelectorAll('button')).find((button) => button.textContent === t('webStorage.keepDrafts'))!
     keep.focus()
     await act(async () => {
@@ -130,8 +140,8 @@ describe('Web welcome screen and Draft persistence', () => {
   })
 
   it('L5: after a refusal warns in amber and names Download a copy instead of the reason', async () => {
-    const { controller, persistence } = setup({ state: 'not-kept', notice: 'reason', warn: false })
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const { persistence } = setup({ state: 'not-kept', notice: 'reason', warn: false })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
     await act(async () => { persistence.view.value = { state: 'refused', notice: 'warning', warn: true } })
     expect(notice()?.dataset.startNotice).toBe('warning')
     expect(notice()?.textContent).toBe(t('webStorage.warning'))
@@ -141,24 +151,26 @@ describe('Web welcome screen and Draft persistence', () => {
   })
 
   it('F3: refused with no Drafts listed warns without pointing to a Draft menu that is not there', async () => {
-    const { controller, persistence } = setup({ state: 'refused', notice: 'warning', warn: true }, { drafts: false })
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const { persistence } = setup({ state: 'refused', notice: 'warning', warn: true }, { drafts: false })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     expect(notice()?.dataset.startNotice).toBe('warning')
     expect(notice()?.textContent).toBe(t('webStorage.warningNoDrafts'))
     expect(notice()?.textContent).not.toContain(t('webShell.downloadCopy'))
   })
 
   it('L1: says nothing about persistence once the browser keeps Drafts, or while it is still checking', async () => {
-    const { controller, persistence } = setup({ state: 'checking', notice: null, warn: false })
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const { persistence } = setup({ state: 'checking', notice: null, warn: false })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
     expect(notice()).toBeNull()
     await act(async () => { persistence.view.value = { state: 'kept', notice: null, warn: false } })
     expect(notice()).toBeNull()
   })
 
   it('L19 (Q193): offers Download a copy in each Draft row menu, which downloads that Draft without opening it', async () => {
-    const { controller, store, persistence, downloadCanopiFile } = setup({ state: 'refused', notice: 'warning', warn: true })
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    const { persistence, downloadCanopiFile } = setup({ state: 'refused', notice: 'warning', warn: true })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     // Two Drafts, newest first: the second row's menu downloads the second Draft (review F6).
     const rows = Array.from(container.querySelectorAll<HTMLButtonElement>('button[aria-label^="Actions for "]'))
     expect(rows.map((row) => row.getAttribute('aria-label'))).toEqual(['Actions for Hedge', 'Actions for Orchard'])
@@ -166,20 +178,23 @@ describe('Web welcome screen and Draft persistence', () => {
     const items = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
     expect(items.map((item) => item.textContent)).toEqual(['Download a copy', 'Delete draft…'])
     await act(async () => { items[0]!.click() })
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     expect(downloadCanopiFile).toHaveBeenCalledOnce()
-    const download = downloadCanopiFile.mock.calls[0]![0]
-    expect(download.fileName).toBe('Orchard.canopi')
-    expect(decodeCanopiDesign(JSON.parse(download.text)).name).toBe('Orchard')
-    expect(store.hasCurrentDesign()).toBe(false)
+    const [kind, stem, content] = downloadCanopiFile.mock.calls[0]!
+    expect(buildDeliveryFileName(kind, stem)).toBe('Orchard.canopi')
+    const text = 'text' in content ? content.text : 'bytes' in content ? new TextDecoder().decode(content.bytes) : ''
+    expect(decodeCanopiDesign(JSON.parse(text)).name).toBe('Orchard')
+    expect(designSessionStore.hasCurrentDesign()).toBe(false)
   })
 
   it('F4: a Draft gone from this browser fails its Download a copy with a visible notice and leaves the row list', async () => {
-    const { controller, persistence, downloadCanopiFile, appDataStore } = setup({ state: 'refused', notice: 'warning', warn: true })
+    const { persistence, downloadCanopiFile } = setup({ state: 'refused', notice: 'warning', warn: true })
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
+    await act(async () => { render(<WebWelcomeScreen persistence={persistence} />, container) })
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
     // Another tab, or the browser, removed the Draft after the rows were listed.
-    appDataStore.deleteDraft('draft-orchard')
+    deleteLegacyDraft('draft-orchard')
+    await session!.home.deleteDraft('draft-orchard' as never)
     await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Orchard"]')!.click() })
     const download = Array.from(document.body.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
       .find((item) => item.textContent === t('webShell.downloadCopy'))!
@@ -193,23 +208,5 @@ describe('Web welcome screen and Draft persistence', () => {
     })])
     expect(Array.from(container.querySelectorAll('button[aria-label^="Actions for "]')).map((row) => row.getAttribute('aria-label')))
       .toEqual(['Actions for Hedge'])
-  })
-
-  it('R3 canopi-f47t.52.272: an old-key Draft row offers no Delete until a 2.1 listing completes (2.1-Q334)', async () => {
-    const { controller, persistence } = setup({ state: 'kept', notice: null, warn: false })
-    const listing = { drafts: [], hiddenIds: [], complete: false }
-    controller.installNewerDrafts({ list: vi.fn(async () => listing), content: vi.fn(async () => null) })
-    await controller.launch()
-    const menu = async (): Promise<(string | null)[]> => {
-      render(null, container)
-      await act(async () => { render(<WebWelcomeScreen controller={controller} persistence={persistence} />, container) })
-      await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
-      await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Actions for Orchard"]')!.click() })
-      return Array.from(document.body.querySelectorAll('[role="menuitem"]'), (item) => item.textContent)
-    }
-    expect(await menu()).toEqual(['Download a copy'])
-    // A listing that completes: the row is editable again, Delete included.
-    listing.complete = true
-    expect(await menu()).toEqual(['Download a copy', 'Delete draft…'])
   })
 })

@@ -1,0 +1,217 @@
+.palette {
+  display: grid;
+  grid-template-columns: repeat(6, var(--control-size-lg));
+  gap: var(--space-2);
+  justify-content: space-between;
+}
+
+.swatch {
+  width: var(--control-size-lg);
+  height: var(--control-size-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  padding: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.swatch:hover {
+  border-color: var(--color-text-muted);
+}
+
+.swatchActive {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-primary);
+}
+
+.swatch:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.moreColorsRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  margin-top: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.moreColorsRow .moreColorsButton {
+  justify-self: start;
+}
+
+.moreColorsButton {
+  min-height: auto;
+  padding: 0;
+  border-radius: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  transition: color var(--transition-fast);
+}
+
+.moreColorsButton:hover {
+  color: var(--color-primary);
+}
+
+.moreColorsButton:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.advancedSection {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+  margin-bottom: var(--space-2);
+}
+
+.advancedControls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-size-sm);
+  gap: var(--space-2);
+  align-items: stretch;
+}
+
+.colorSquare,
+.hueStrip {
+  position: relative;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  overflow: hidden;
+  cursor: crosshair;
+  touch-action: none;
+}
+
+.colorSquare {
+  min-height: var(--space-12);
+  aspect-ratio: 5 / 3;
+}
+
+.hueStrip {
+  min-height: var(--space-12);
+}
+
+.squareCursor,
+.hueCursor {
+  position: absolute;
+  pointer-events: none;
+}
+
+.squareCursor {
+  width: var(--slider-thumb-size);
+  height: var(--slider-thumb-size);
+  border-radius: var(--radius-full);
+  border: 2px solid var(--color-bg);
+  box-shadow: 0 0 0 1px var(--color-text);
+  transform: translate(-50%, -50%);
+}
+
+.hueCursor {
+  left: 0;
+  right: 0;
+  height: var(--slider-track-size);
+  background: var(--color-bg);
+  box-shadow: 0 0 0 1px var(--color-text);
+  transform: translateY(-50%);
+}
+
+.hexRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.previewSwatch {
+  width: var(--control-size-lg);
+  height: var(--control-size-lg);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  flex-shrink: 0;
+}
+
+.customInput {
+  flex: 1;
+  min-width: 0;
+  min-height: var(--control-size-sm);
+  padding: var(--space-1) var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  font-size: var(--text-xs);
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.customInput[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.customInput:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.colorSquare:focus-visible,
+.hueStrip:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.swatchTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--control-size-md);
+  height: var(--control-size-md);
+  padding: var(--space-0-5);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.swatchTriggerCompact {
+  width: var(--control-size-sm);
+  height: var(--control-size-sm);
+}
+
+.swatchTrigger:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.swatchTrigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.swatchFill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: var(--radius-sm);
+}
+
+.popover {
+  position: fixed;
+  width: 288px;
+  max-width: calc(100vw - var(--space-4));
+  max-height: calc(100dvh - var(--space-4));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  z-index: var(--z-popover);
+}

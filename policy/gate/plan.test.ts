@@ -14,15 +14,20 @@ afterEach(() => {
   repo = undefined as never
 })
 
-const POLICY_SELF_TEST = 'cd desktop/web && npm run test:policies:self-test'
+const POLICY_SELF_TEST = 'node policy/check.mjs --self-test'
 /** The policy tooling's commit-lane checks, in the table's order (POLICY_COMMIT). */
-const COMMIT_POLICIES = ['check', 'node', 'generate', 'generate:self-test', 'ast-grep']
-  .map((script) => `cd desktop/web && npm run test:policies:${script}`)
+const COMMIT_POLICIES = [
+  'node policy/check.mjs',
+  ...['node', 'generate', 'generate:self-test', 'ast-grep'].map((script) => `cd desktop/web && npm run test:policies:${script}`),
+]
 const POLICIES = [POLICY_SELF_TEST, ...COMMIT_POLICIES]
 /** Each lane's planted cases the policy-tooling area runs (design check AR8). */
-const PLANTED = ['self-test', 'push:self-test', 'bundle:self-test']
-  .map((script) => `cd desktop/web && ${script.startsWith('push') ? 'CANOPI_SKIP_BUNDLED_DB=1 ' : ''}npm run test:policies:${script}`)
-const PUSH_CHECK = 'cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push'
+const PLANTED = [
+  'node policy/check.mjs --self-test',
+  'CANOPI_SKIP_BUNDLED_DB=1 node policy/check.mjs --self-test --lane push',
+  'node policy/check.mjs --self-test --family bundle-size',
+]
+const PUSH_CHECK = 'CANOPI_SKIP_BUNDLED_DB=1 node policy/check.mjs --lane push'
 const TYPECHECK = 'cd desktop/web && npm run typecheck'
 const CHECK_UI = 'cd desktop/web && npm run check:ui'
 const ACTIONLINT = 'node policy/gate/cli.mjs actionlint'
@@ -49,7 +54,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     for (const path of ['desktop/src/lib.rs', 'desktop/web/src/app/x.ts', 'scripts/foo.py']) {
       repo.reset()
       const checks = repo.checks([path])
-      expect(checks.filter((check) => /test:policies:[a-z:]*self-test/.test(check) && !check.includes('generate')), path).toEqual([])
+      expect(checks.filter((check) => /check\.mjs .*--self-test/.test(check)), path).toEqual([])
     }
   })
 
@@ -152,7 +157,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     // C1 found a commit adding a *.py over the python-lines ratchet passing the commit lane: the one check list selects
     // file-size, test-location and python-lines by their ratchets' scopes wherever no whole policy check runs.
     repo.linkGlobEngine()
-    const cheap = (...families: string[]) => `cd desktop/web && npm run test:policies:family -- ${families.map((id) => `--family ${id}`).join(' ')}`
+    const cheap = (...families: string[]) => `node policy/check.mjs ${families.map((id) => `--family ${id}`).join(' ')}`
     expect(repo.checks(['scripts/new.py'], true)).toContain(cheap('file-size', 'python-lines'))
     repo.reset()
     expect(repo.checks(['desktop/web/src/__tests__/x.test.ts'], true)).toContain(cheap('file-size', 'test-location'))
@@ -198,14 +203,14 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   it('canopi-f47t.52.228.54: the axe pair is the web-browsers area, run only by the workflow whose browsers write its reports', () => {
     // The axe family reads the reports every engine's a11y spec wrote, and its self-test drives Chromium: a local lane
     // names them as CI only, and `full --area web-browsers` (the browsers workflow's call) runs them.
-    const pair = ['cd desktop/web && npm run test:policies:a11y:self-test', 'cd desktop/web && npm run test:policies:a11y']
+    const pair = ['node policy/check.mjs --self-test --family axe', 'node policy/check.mjs --family axe']
     repo.stage('desktop/web/src/app/x.ts')
     const printed = repo.printed(['affected', '--base', repo.base])
     expect(printed.selected).toContain('web-browsers')
-    expect(printed.checks.map((check) => check.command)).not.toEqual(expect.arrayContaining([expect.stringContaining('test:policies:a11y')]))
+    expect(printed.checks.map((check) => check.command)).not.toEqual(expect.arrayContaining([expect.stringContaining('axe')]))
     expect(printed.ci_only.map((check) => check.command)).toEqual(expect.arrayContaining(pair))
     const everything = repo.printed(['full'])
-    expect(everything.checks.map((check) => check.command).join(' ; ')).not.toContain('test:policies:a11y')
+    expect(everything.checks.map((check) => check.command).join(' ; ')).not.toContain('axe')
     expect(repo.printed(['full', '--area', 'web-browsers']).checks.map((check) => check.command)).toEqual(pair)
   })
 
@@ -223,9 +228,9 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
     const checks = repo.checks(['desktop/src/lib.rs'])
     expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings')
     expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 cargo test --workspace')
-    expect(checks).toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push')
+    expect(checks).toContain('CANOPI_SKIP_BUNDLED_DB=1 node policy/check.mjs --lane push')
     expect(checks, 'the policy-tooling area runs the planted cases (AR8)')
-      .not.toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test')
+      .not.toContain('CANOPI_SKIP_BUNDLED_DB=1 node policy/check.mjs --self-test --lane push')
     expect(checks).not.toContain('CANOPI_SKIP_BUNDLED_DB=1 node policy/gate/cli.mjs cov')
     expect(checks.filter((check) => check.includes('native_command_policy')), 'cargo test --workspace runs it').toEqual([])
   })
@@ -293,7 +298,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
   })
 
   it('canopi-f47t.52.228.10: the gallery runs the root typecheck and the gallery e2e', () => {
-    repo.stage('desktop/web/ui-gallery/main.tsx')
+    repo.stage('desktop/web/src/editions/gallery/main.tsx')
     const printed = repo.printed(['affected', '--base', repo.base])
     const checks = printed.checks.map((check) => check.command)
     expect(checks).toContain(TYPECHECK)
@@ -404,7 +409,7 @@ describe('affected selection (canopi-f47t.52.228.10)', () => {
 
   it('canopi-f47t.52.228.54: missing: an invoke-only-in-ipc ratchet missing at plan time makes areas refuse, never under-select', () => {
     const ratchet = 'policy/ratchets/invoke-only-in-ipc.json'
-    git(repo.repo, 'rm', '-q', ratchet)
+    git(repo.repo, 'rm', '-q', 'policy/primitives.json')
     repo.stage('desktop/web/src/app/x.ts')
     for (const args of [['areas', '--base', repo.base], ['affected', '--base', repo.base, '--print'], ['affected', '--staged', '--print']]) {
       const run = repo.gate(args)
@@ -556,45 +561,32 @@ describe('the per-worktree cargo target (2.1-M201)', () => {
     const linked = join(repo.root, 'linked')
     git(repo.repo, 'worktree', 'add', '-q', '-b', 'linked', linked)
     const refused = repo.gate(['full', '--area', 'rust', '--print'], { cwd: linked })
-    expect(refused.status, refused.stdout).toBe(1)
-    expect(refused.stderr).toContain('2.1-M201')
-    expect(repo.calls()).toEqual([])
-    const own = repo.gate(['full', '--area', 'rust', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: join(repo.root, 't') } })
-    expect(own.status, own.stderr).toBe(0)
+    expect([refused.status, refused.stderr, repo.calls()]).toEqual([1, expect.stringContaining('2.1-M201'), []])
+    expect(repo.gate(['full', '--area', 'rust', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: join(repo.root, 't') } }).status).toBe(0)
     expect(repo.gate(['full', '--area', 'docs', '--print'], { cwd: linked }).status).toBe(0)
   })
 
   it('canopi-f47t.52.228.11: the commit lane never refuses a linked worktree without a cargo target', () => {
-    // The pre-commit hook runs from any client (a GUI, an IDE) whose shell may lack CARGO_TARGET_DIR; the per-worktree
-    // target rule (2.1-M201) holds at the affected and full gates, and at commit only for check:types (2.1-Q330).
+    // The pre-commit hook runs from any client whose shell may lack CARGO_TARGET_DIR; 2.1-M201 holds at affected/full and check:types (2.1-Q330).
     const linked = join(repo.root, 'linked')
     git(repo.repo, 'worktree', 'add', '-q', '-b', 'linked', linked)
-    for (const path of ['desktop/src/lib.rs', 'policy/zz-probe.txt']) {
-      repo.write({ [path]: 'x\n' }, linked)
-      git(linked, 'add', path)
-    }
+    for (const path of ['desktop/src/lib.rs', 'policy/zz-probe.txt']) { repo.write({ [path]: 'x\n' }, linked); git(linked, 'add', path) }
     const run = repo.gate(['affected', '--staged', '--print'], { cwd: linked })
     expect(run.status, run.stderr).toBe(0)
-    expect((JSON.parse(run.stdout) as { checks: { command: string }[] }).checks.map((check) => check.command))
-      .toEqual(expect.arrayContaining(COMMIT_POLICIES))
+    expect((JSON.parse(run.stdout) as { checks: { command: string }[] }).checks.map((c) => c.command)).toEqual(expect.arrayContaining(COMMIT_POLICIES))
   })
 
   it('canopi-f47t.52.228.10: a shared cargo target is refused with the per-stream hint', () => {
-    // Two worktrees on one shared target wait on cargo's build lock, so the retired shared-build value is refused
-    // wherever it is set, and the hint names the fix.
     const linked = join(repo.root, 'linked')
     git(repo.repo, 'worktree', 'add', '-q', '-b', 'linked', linked)
     const shared = join(repo.root, '.rq-scratch/shared-build/target')
     for (const cwd of [linked, repo.repo]) {
       const run = repo.gate(['full', '--area', 'rust', '--print'], { cwd, env: { CARGO_TARGET_DIR: shared } })
-      expect(run.status, run.stdout).toBe(1)
-      expect(run.stderr).toContain('shared-build')
+      expect([run.status, run.stderr]).toEqual([1, expect.stringContaining('shared-build')])
       expect(run.stderr).toContain('.rq-scratch/targets/<stream>/target')
     }
     expect(repo.calls()).toEqual([])
-    const own = join(repo.root, '.rq-scratch/targets/linked/target')
-    expect(repo.gate(['full', '--area', 'rust', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: own } }).status).toBe(0)
-    expect(repo.gate(['full', '--area', 'docs', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: shared } }).status,
-      'a gate that builds nothing through cargo ignores the target').toBe(0)
+    expect(repo.gate(['full', '--area', 'rust', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: join(repo.root, '.rq-scratch/targets/linked/target') } }).status).toBe(0)
+    expect(repo.gate(['full', '--area', 'docs', '--print'], { cwd: linked, env: { CARGO_TARGET_DIR: shared } }).status).toBe(0)
   })
 })

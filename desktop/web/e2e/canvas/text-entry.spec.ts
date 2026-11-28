@@ -8,6 +8,7 @@
 import { fileURLToPath } from 'node:url'
 import type { Page, Route } from '@playwright/test'
 import { expectCanvasDrawn } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -22,11 +23,7 @@ function designMap(page: Page) {
 /** Opens the fixture; a page whose font file is held back waits for its DOM only, since the load event waits for fonts. */
 async function openBaseFixture(page: Page, selectTool: string, waitUntil: 'load' | 'domcontentloaded' = 'load'): Promise<void> {
   await page.goto('', { waitUntil })
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /\.canopi/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expect(tool(page, selectTool)).toHaveAttribute('aria-pressed', 'true')
   await page.mouse.move(NEUTRAL.x, NEUTRAL.y)

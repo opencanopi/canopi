@@ -10,15 +10,16 @@ import type {
   CanvasPlantLabelCoverage,
   CanvasQuerySurface,
 } from '../../canvas/runtime/runtime'
-import type { PointerWorld } from '../../canvas/runtime/interaction-ports'
+import type { PointerWorld, ToolHostState } from '../../canvas/runtime/interaction-ports'
+import type { ToolId, ToolSource } from '../../canvas/runtime/interaction-types'
 import type { PlacedPlant } from '../../types/design'
-import type { SpeciesCacheEntry } from '../../canvas/runtime/species-cache'
-import { createViewReadSurface } from '../../canvas/runtime/view/frame-source'
-import type { ViewReadSurface } from '../../canvas/runtime/view/read-surface'
-import type { ViewFrame, ViewFrameSource, ViewScreen } from '../../canvas/runtime/view/types'
-import { planarToViewCamera } from '../../canvas/runtime/view/camera-math'
-import { buildViewTransform } from '../../canvas/runtime/view/view-transform'
-import { createSessionPlane, type SessionPlane } from '../../canvas/session-plane'
+import type { SpeciesCacheEntry } from '../../canvas/runtime/presentation-data'
+import { createViewReadSurface } from '../../geo/view/frame-source'
+import type { ViewReadSurface } from '../../geo/view/read-surface'
+import type { ViewFrame, ViewFrameSource, ViewScreen, WorldPoint } from '../../geo/view/types'
+import { planarToViewCamera } from '../../geo/view/camera-math'
+import { buildViewTransform } from '../../geo/view/view-transform'
+import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
 import { TEST_GEO_ORIGIN } from './geo-design'
 
 /** A bearing-0 placement in today's terms: screen = world × scale + { x, y }. */
@@ -40,11 +41,19 @@ interface TestCanvasQuerySurfaceOptions {
   readonly plantLabelCoverage?: CanvasPlantLabelCoverage
   /** The catalog entries the runtime has loaded for the Design's species. */
   readonly speciesCache?: ReadonlyMap<string, SpeciesCacheEntry>
+  /** Initial active canvas tool; defaults to 'select'. */
+  readonly activeTool?: ToolId
 }
 
 export type TestCanvasQuerySurface = CanvasQuerySurface & {
   /** Writable: the fake's `view` reads its ground on this plane, so a test sets it instead of spreading another signal in. */
   readonly sessionPlane: Signal<SessionPlane | null>
+  /** Writable: the fake's tool state, mirroring ToolHost's single state signal. */
+  readonly toolState: Signal<ToolHostState>
+  /** Writable: the fake's active tool, mirroring ToolHost's single activeTool signal. */
+  readonly activeTool: Signal<ToolId>
+  setActiveTool(tool: ToolId, source?: ToolSource | null): void
+  emitEmptyGroundTap(world: WorldPoint): void
   /** Moves the fake's view to this placement, as a camera move would. */
   setPlacement(placement: TestPlacement): void
   bumpSceneRevision(): void
@@ -71,8 +80,11 @@ export function createTestCanvasQuerySurface({
   sessionPlane = createSessionPlane(TEST_GEO_ORIGIN),
   plantLabelCoverage = { labelled: 0, inView: 0 },
   speciesCache = new Map(),
+  activeTool = 'select',
 }: TestCanvasQuerySurfaceOptions = {}): TestCanvasQuerySurface {
   const sessionPlaneSignal = signal<SessionPlane | null>(sessionPlane)
+  const toolStateSignal = signal<ToolHostState>({ id: activeTool, source: null })
+  const activeToolSignal = signal<ToolId>(activeTool)
   const sceneRevision = signal(0)
   const plantNamesRevision = signal(0)
   const transientHistoryRevision = signal(0)
@@ -89,16 +101,25 @@ export function createTestCanvasQuerySurface({
   let currentSelection = selection.map((target) => ({ ...target }))
   let settled = true
   const pointerWorldListeners = new Set<(point: PointerWorld | null) => void>()
+  const emptyGroundTapListeners = new Set<(world: WorldPoint) => void>()
 
   return {
     revision,
+    toolState: toolStateSignal,
+    activeTool: activeToolSignal,
+    setActiveTool: (tool, source) => {
+      const prev = toolStateSignal.peek()
+      const nextSource = source !== undefined ? source : (prev.id === tool ? prev.source : null)
+      toolStateSignal.value = { id: tool, source: nextSource }
+      activeToolSignal.value = tool
+    },
     view: createFollowingTestView(placementSignal, { ...screen, devicePixelRatio: 1 }, sessionPlaneSignal),
     sessionPlane: sessionPlaneSignal,
     getSpeciesFocus: () => ({ canonicalName: null }),
     getPlantLabelCoverage: () => plantLabelCoverage,
     capturePrintSnapshot: () => {
       void admissionRevision.value
-      return settled ? buildCanvasPrintSnapshot(scene, { pixelsPerMetre: placement.scale, speciesCache: new Map() }) : null
+      return settled ? buildCanvasPrintSnapshot(scene) : null
     },
     captureViewScene: (request) => {
       void admissionRevision.value
@@ -132,7 +153,6 @@ export function createTestCanvasQuerySurface({
       singleSpeciesCanonicalName: null,
       singleSpeciesCommonName: null,
       sharedCurrentColor: null,
-      suggestedColor: null,
       singleSpeciesDefaultColor: null,
     }),
     getSelectedPlantSymbolContext: () => ({
@@ -196,6 +216,15 @@ export function createTestCanvasQuerySurface({
     },
     emitPointerWorld: (point) => {
       for (const listener of [...pointerWorldListeners]) listener(point)
+    },
+    subscribeEmptyGroundTap: (listener) => {
+      emptyGroundTapListeners.add(listener)
+      return () => {
+        emptyGroundTapListeners.delete(listener)
+      }
+    },
+    emitEmptyGroundTap: (world) => {
+      for (const listener of [...emptyGroundTapListeners]) listener(world)
     },
   }
 }

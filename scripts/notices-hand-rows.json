@@ -18,8 +18,8 @@
         "| Canopi file | GeoLibre source | Use |",
         "|---|---|---|",
         "| `desktop/web/src/maplibre/openfreemap-basemap.ts` (`OPENFREEMAP_BASEMAPS`) | `packages/core/src/types.ts` (`OPENFREEMAP_BASEMAPS`) | OpenFreeMap style presets |",
-        "| `desktop/web/src/app/geocoding/registry.ts` | `packages/core/src/geocoding.ts` (forward geocoding only) | Geocoding provider registry, Nominatim and Pelias providers, request pacing |",
-        "| `desktop/web/src/app/lidar/profile-chart.ts` | `packages/plugins/src/plugins/elevation-profile/chart/profileChart.ts` | The profile chart's scales, SVG paths and pointer-to-sample lookup (adapted: several curves on one axis, gaps for no data, a height plot from zero, round distance ticks) |",
+        "| `desktop/web/src/app/geocoding/registry.ts` | `packages/core/src/geocoding.ts` (forward geocoding only) | Nominatim forward-geocoding request builder, response normalizer, and request pacing |",
+        "| `desktop/web/src/app/data-library/profile-chart.ts` | `packages/plugins/src/plugins/elevation-profile/chart/profileChart.ts` | The profile chart's scales, SVG paths and pointer-to-sample lookup (adapted: several curves on one axis, gaps for no data, a height plot from zero, round distance ticks) |",
         "| `desktop/web/src/app/my-location/geolocation.ts` | `apps/geolibre-desktop/src/lib/geolocation.ts` (the `navigator.geolocation` branch of `watchPosition`) and the permission rule in `packages/map/src/map-controller.ts` | Show my location's one browser geolocation caller (adapted: watching only, no Tauri plugin branch or one-shot read; a missing Permissions API or a query that throws reads as unknown) |",
         "| `desktop/web/src/canvas/runtime/input/selection-drag-guard.ts` and its test | `packages/map/src/selection-drag-guard.ts` and `tests/selection-drag-guard.test.ts` at commit `b3d91de` | A map drag never selects or drags page text (adapted: `pointerdown`, `selectstart`, text fields kept) |",
         "",
@@ -223,32 +223,6 @@
           "SOFTWARE."
         ],
         "reason": "the package ships no licence file; the text is https://github.com/pixijs/colord/blob/master/LICENSE.md"
-      },
-      "@tauri-apps/plugin-dialog": {
-        "text": [
-          "MIT License",
-          "",
-          "Copyright (c) 2017 - Present Tauri Apps Contributors",
-          "",
-          "Permission is hereby granted, free of charge, to any person obtaining a copy",
-          "of this software and associated documentation files (the \"Software\"), to deal",
-          "in the Software without restriction, including without limitation the rights",
-          "to use, copy, modify, merge, publish, distribute, sublicense, and/or sell",
-          "copies of the Software, and to permit persons to whom the Software is",
-          "furnished to do so, subject to the following conditions:",
-          "",
-          "The above copyright notice and this permission notice shall be included in all",
-          "copies or substantial portions of the Software.",
-          "",
-          "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR",
-          "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,",
-          "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE",
-          "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER",
-          "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,",
-          "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE",
-          "SOFTWARE."
-        ],
-        "reason": "the package ships only LICENSE.spdx; of its MIT OR Apache-2.0 licences the notices carry the MIT one, https://github.com/tauri-apps/plugins-workspace/blob/v2/plugins/dialog/LICENSE_MIT"
       },
       "brotli": {
         "text": [

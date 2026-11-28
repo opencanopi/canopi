@@ -4,7 +4,9 @@
   "family": "python-lines",
   "ledger": "2.1-Q261",
   "tool": "python-lines",
-  "scope": ["**/*.py"],
+  "scope": [
+    "**/*.py"
+  ],
   "lane": "commit",
-  "count": 24274
+  "count": 24266
 }

@@ -6,22 +6,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { CANVAS_CHROME_FONT_FAMILY } from '../canvas/chrome-fonts'
 import { createTextEntryHost } from '../canvas/runtime/chrome/text-entry-host'
+import { parseCssDeclarations } from './support/architecture/css-facts'
 import { createTestView } from './support/test-view'
 
-const GLOBAL_CSS = readFileSync('src/styles/global.css', 'utf8')
-const LIGHT_TOKENS = readDeclarations(GLOBAL_CSS, '\n:root {')
-const DARK_TOKENS = readDeclarations(GLOBAL_CSS, '\n[data-theme="dark"] {')
+const GLOBAL_DECLS = parseCssDeclarations('src/styles/global.css', readFileSync('src/styles/global.css', 'utf8'))
+const LIGHT_TOKENS = readDeclarations(':root')
+const DARK_TOKENS = readDeclarations('[data-theme="dark"]')
 
-function readDeclarations(css: string, opener: string): Map<string, string> {
-  const start = css.indexOf(opener)
-  if (start < 0) throw new Error(`Missing block ${opener.trim()}`)
-  const end = css.indexOf('\n}', start)
-  const block = css.slice(start + opener.length, end)
-    .replace(/\/\*[\s\S]*?\*\//g, '')
+function readDeclarations(selector: string): Map<string, string> {
   const declarations = new Map<string, string>()
-  for (const match of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-    declarations.set(match[1]!, match[2]!.trim())
+  for (const decl of GLOBAL_DECLS) {
+    if (decl.rule === selector && decl.atRules.length === 0 && decl.property.startsWith('--')) {
+      declarations.set(decl.property, decl.value)
+    }
   }
+  if (declarations.size === 0) throw new Error(`Missing block ${selector}`)
   return declarations
 }
 
@@ -100,17 +99,18 @@ describe('canvas chrome fonts', () => {
 
 describe('canvas colour tokens', () => {
   it('uses the light --canvas-* tokens as theme-refresh fallbacks before the first refresh', async () => {
-    const { CANVAS_COLOR_CSS_VARS, getCanvasColor } = await loadFreshThemeRefresh()
+    const { CANVAS_COLOR_CSS_VARS, readCanvasPaintTokens } = await loadFreshThemeRefresh()
+    const colors = readCanvasPaintTokens()
     for (const [name, cssVar] of Object.entries(CANVAS_COLOR_CSS_VARS)) {
       const token = LIGHT_TOKENS.get(cssVar)
       expect(token, `${cssVar} is defined in :root`).toBeDefined()
-      expect(normalizeColor(getCanvasColor(name as keyof typeof CANVAS_COLOR_CSS_VARS)), cssVar)
+      expect(normalizeColor(colors[name as keyof typeof CANVAS_COLOR_CSS_VARS]), cssVar)
         .toBe(normalizeColor(token!))
     }
   })
 
   it('defines every refreshed canvas colour in the dark theme and adopts it on refresh', async () => {
-    const { CANVAS_COLOR_CSS_VARS, getCanvasColor, refreshCanvasColorCache } = await loadFreshThemeRefresh()
+    const { CANVAS_COLOR_CSS_VARS, readCanvasPaintTokens, refreshCanvasColorCache } = await loadFreshThemeRefresh()
     const container = document.createElement('div')
     for (const cssVar of Object.values(CANVAS_COLOR_CSS_VARS)) {
       const token = DARK_TOKENS.get(cssVar)
@@ -118,8 +118,9 @@ describe('canvas colour tokens', () => {
       container.style.setProperty(cssVar, token!)
     }
     refreshCanvasColorCache(container)
+    const colors = readCanvasPaintTokens()
     for (const [name, cssVar] of Object.entries(CANVAS_COLOR_CSS_VARS)) {
-      expect(normalizeColor(getCanvasColor(name as keyof typeof CANVAS_COLOR_CSS_VARS)), cssVar)
+      expect(normalizeColor(colors[name as keyof typeof CANVAS_COLOR_CSS_VARS]), cssVar)
         .toBe(normalizeColor(DARK_TOKENS.get(cssVar)!))
     }
   })

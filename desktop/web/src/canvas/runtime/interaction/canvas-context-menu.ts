@@ -6,7 +6,7 @@ import type {
 } from '../app-adapter'
 import type { CanvasDesignObjectSelectionModel } from '../runtime'
 import type { ScenePoint } from '../scene'
-import type { ViewTransform, WorldQuad } from '../view/types'
+import type { ViewTransform, WorldQuad } from '../../../geo/view/types'
 
 /** The optional entries the host carries onto a request; the keyboard menu never has Turn view to this edge. */
 type PointerMenuEntries = Pick<CanvasContextMenuRequest, 'finishShape' | 'turnViewToEdge' | 'holdsSelectionDeletes' | 'pointActions'>

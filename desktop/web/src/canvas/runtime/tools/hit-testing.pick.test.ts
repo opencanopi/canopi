@@ -9,7 +9,7 @@
 // needs the user's word.
 
 import { afterEach, describe, expect, it } from 'vitest'
-import { stageScaleToMapZoom } from '../../projection'
+import { createSessionPlane } from '../../../geo/session-plane'
 import {
   createToolHarness,
   createToolSceneSource,
@@ -22,7 +22,7 @@ import {
 import type { PointerKind } from '../interaction-types'
 import type { ScenePersistedState, ScenePoint, SceneZoneEntity } from '../scene'
 import { sceneTargetKey, type SceneDesignObjectTarget } from '../scene/design-object-targets'
-import type { ScreenPoint } from '../view/types'
+import type { ScreenPoint } from '../../../geo/view/types'
 import { PICK_TOLERANCE_PX } from './hit-testing'
 import { contextMenuTargetAt, createToolScene } from './tool-host'
 
@@ -109,8 +109,8 @@ const SHED_LEFT = { x: 150, y: 240 }
 const WEST_RIGHT = { x: -230, y: 240 }
 const EAST_LEFT = { x: -220, y: 240 }
 
-/** The picks whose zone has edges for "Turn view to this edge": every zone but the pond (an ellipse); g, by its plot. */
-const PICKS_WITH_EDGES: ReadonlySet<string | null> = new Set(['zone:bed', 'zone:field', 'zone:plot', 'zone:inner', 'zone:hedge', 'zone:shed', 'zone:west', 'zone:east', 'group:g'])
+/** The picks whose zone or guide has edges for "Turn view to this edge": every zone but the pond (an ellipse), g by its plot, and measurement guides (2.1-T10). */
+const PICKS_WITH_EDGES: ReadonlySet<string | null> = new Set(['zone:bed', 'zone:field', 'zone:plot', 'zone:inner', 'zone:hedge', 'zone:shed', 'zone:west', 'zone:east', 'group:g', 'measurement-guide:guide'])
 
 const both = (row: Omit<Row, 'pointer'>): Row[] => [{ ...row, pointer: 'mouse' }, { ...row, pointer: 'touch' }]
 
@@ -164,7 +164,7 @@ function setup(scale: number, bearingDeg: number) {
   const h = createToolHarness({
     scene: layout(scale),
     screen: { width: 1000, height: 1000 },
-    camera: { zoom: stageScaleToMapZoom(scale, 0), bearingDeg },
+    camera: { zoom: createSessionPlane({ lon: 0, lat: 0 }).zoomForPixelsPerMetre(scale), bearingDeg },
   })
   harnesses.push(h)
   const scene = createToolScene(createToolSceneSource(h.store, { pixelsPerMetre: () => h.view.view().pixelsPerMetre }))
@@ -261,7 +261,7 @@ describe('(canopi-qd2k) zones are picked by their outline only (user decision 20
     const h = createToolHarness({
       scene: { zones: [rectZone('pond', [centre, { x: radius, y: radius }], { zoneType: 'ellipse' })] },
       screen: { width: 1000, height: 1000 },
-      camera: { zoom: stageScaleToMapZoom(scale, 0), bearingDeg: 0 },
+      camera: { zoom: createSessionPlane({ lon: 0, lat: 0 }).zoomForPixelsPerMetre(scale), bearingDeg: 0 },
     })
     harnesses.push(h)
     expect(h.view.view().pixelsPerMetre).toBeCloseTo(scale, 6)
@@ -322,7 +322,7 @@ describe('(canopi-qd2k) zones are picked by their outline only (user decision 20
         ],
       },
       screen: { width: 1000, height: 1000 },
-      camera: { zoom: stageScaleToMapZoom(1, 0), bearingDeg: 0 },
+      camera: { zoom: createSessionPlane({ lon: 0, lat: 0 }).zoomForPixelsPerMetre(1), bearingDeg: 0 },
     })
     harnesses.push(h)
     const screen = h.view.view().worldToScreen({ x: -112, y: 0 })

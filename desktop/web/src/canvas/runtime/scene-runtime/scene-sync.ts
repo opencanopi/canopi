@@ -1,15 +1,13 @@
-import { plantColorMenuOpen } from '../../plant-color-menu-state'
-import { plantSymbolMenuOpen } from '../../plant-symbol-menu-state'
 import { setCanvasSelection } from '../../session-state'
 import type { ToolId } from '../interaction-types'
 import type { SceneStateReader } from '../scene'
 
 export function resetTransientRuntimeState(
   setTool: (id: ToolId) => void,
+  closePlantAppearance?: () => void,
 ): void {
   setTool('select')
-  plantColorMenuOpen.value = false
-  plantSymbolMenuOpen.value = false
+  closePlantAppearance?.()
 }
 
 /** The Scene's selection reaches the app's selection signal after each commit, undo and redo. */

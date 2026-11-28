@@ -11,7 +11,6 @@ import { createRecentFilesController } from '../../app/recent-files'
 import { openKeyboardShortcutsDialog, openSettingsDialog } from '../../app/shell/dialogs'
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { formatShortcut } from '../../app/shell-commands/shortcut-text'
-import type { RecentDesignPreview } from '../../types/design'
 import { StartScreen } from './StartScreen'
 import { SlotToast } from './ToastSlot'
 
@@ -56,10 +55,14 @@ export function WelcomeScreen() {
         path: file.path,
         updatedAt: file.updated_at,
         preview: recentFilesController.previews.value.get(file.path),
-        // A Recent Design a newer Canopi saved opens read-only, and its row says so, a file too
-        // large for a preview included (2.1-Q316).
-        readOnly: savedByNewer(recentFilesController.previews.value.get(file.path)),
-        open: () => { void openDesignFromPath(file.path).catch(logWelcomeError) },
+        open: () => {
+          if (!file.grant) return
+          void openDesignFromPath(file.grant, {
+            grant: file.grant,
+            displayName: file.name,
+            ...(file.recent_id ? { recentId: file.recent_id } : {}),
+          }).catch(logWelcomeError)
+        },
         showInFolder: () => { void recentFilesController.showInFolder(file.path) },
         remove: () => { void recentFilesController.remove(file.path).catch(logWelcomeError) },
       }))}
@@ -67,8 +70,7 @@ export function WelcomeScreen() {
         id: draft.id,
         name: draft.name,
         updatedAt: draft.updated_at,
-        // A newer Draft opens read-only, one the read refuses is listed unreadable; the store deletes neither (2.1-Q316, F7).
-        readOnly: draft.access === 'read_only',
+        // An unreadable Draft is listed unreadable and never deleted here (2.1-Q316, F7).
         unreadable: draft.access === 'unreadable',
         open: () => { void openDesignDraft(draft.id).catch(logWelcomeError) },
         ...((draft.access ?? 'editable') === 'editable'
@@ -88,10 +90,6 @@ export function WelcomeScreen() {
     )}
     </>
   )
-}
-
-function savedByNewer(preview: RecentDesignPreview | undefined): boolean {
-  return preview?.kind === 'read_only' || (preview?.kind === 'too_large' && preview.saved_by_newer)
 }
 
 function logWelcomeError(error: unknown): void {

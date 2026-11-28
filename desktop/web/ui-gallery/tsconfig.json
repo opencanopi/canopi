@@ -1,6 +1,0 @@
-{
-  "extends": "../tsconfig.json",
-  "compilerOptions": { "noEmit": true, "tsBuildInfoFile": "../node_modules/.cache/tsc/ui-gallery.tsbuildinfo", "lib": ["ES2022", "DOM", "DOM.Iterable"] },
-  "include": ["*.ts", "*.tsx", "../src/**/*.d.ts"],
-  "exclude": ["vite.config.ts"]
-}

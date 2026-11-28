@@ -17,6 +17,7 @@
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
 import { AlphaFilter, Container, Graphics, Rectangle, TextStyle, type Text } from 'pixi.js'
+import type { CanvasPaintTokens } from '../../theme-refresh'
 import { canvasFonts, distinctCharacters } from '../fonts/font-loading'
 import type { SceneAnnotationEntity, ScenePlantEntity, SceneZoneEntity } from '../scene'
 import {
@@ -27,8 +28,8 @@ import {
 } from '../scene-visuals'
 import type { DraftFill, DraftPresentation, DraftShape, DraftStroke } from '../tools/draft'
 import type { GhostEntity } from '../tools/tool'
-import type { ScreenPoint, ViewTransform, WorldPoint } from '../view/types'
-import { pixiPaint, screenPxToWorldPx, traceDashedPath, writeWorldAffine } from './scene-paint'
+import type { ScreenPoint, ViewTransform, WorldPoint } from '../../../geo/view/types'
+import { pixiPaint, screenPxToWorldPx, traceDashedPath, WorldRootContainer, writeWorldAffine } from './scene-paint'
 
 /** Where the scene draws the active tool's draft; mounted by pixi-scene.ts. */
 export interface DraftLayer {
@@ -68,6 +69,8 @@ export interface DraftLayerOptions {
   readonly createText: () => Text
   readonly viewSize: { readonly width: number; readonly height: number }
   readonly painters: DraftScenePainters
+  /** Paint tokens from the latest scene snapshot (ADR 0024). */
+  readonly getPaintTokens?: () => CanvasPaintTokens | undefined
   /** Asks for a frame after the layer redrew its draft on its own (a chip's font arrived). */
   readonly requestRepaint?: () => void
 }
@@ -101,7 +104,7 @@ const CHIP_SHADOW_HAIRLINE_PX = 0.25
 
 export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
   const { createText, painters } = options
-  const world = new Container()
+  const world = new WorldRootContainer()
   const screen = new Container()
   let viewWidth = options.viewSize.width
   let viewHeight = options.viewSize.height
@@ -149,12 +152,16 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
 
   function positionUpright(at: ViewTransform): void {
     at.projectAnchors(anchors, anchorsOnScreen, upright.length)
-    const bearingRad = (at.camera.bearingDeg * Math.PI) / 180
+    const [wa, wb, wc, wd] = at.planar.affine
     upright.forEach((part, index) => {
       const x = anchorsOnScreen[index * 2]! + part.offset.x
       const y = anchorsOnScreen[index * 2 + 1]! + part.offset.y
       part.node.position.set(part.snap ? Math.round(x) : x, part.snap ? Math.round(y) : y)
-      if (part.turn !== null) part.node.rotation = part.turn - bearingRad
+      if (part.turn !== null) {
+        const cosT = Math.cos(part.turn)
+        const sinT = Math.sin(part.turn)
+        part.node.rotation = Math.atan2(wb * cosT + wd * sinT, wa * cosT + wc * sinT)
+      }
     })
   }
 
@@ -221,7 +228,7 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
   ): void {
     if (fill && closed && points.length >= 3) {
       tracePath(graphics, points, true)
-      graphics.fill(pixiPaint(getDraftVisual(fill.token).color))
+      graphics.fill(pixiPaint(getDraftVisual(fill.token, options.getPaintTokens?.()).color))
     }
     if (points.length < 2) return
     strokeOutline(graphics, style, closed, units, (dash) => {
@@ -239,7 +246,7 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
     traceOutline: (dash: readonly number[] | null) => void,
   ): void {
     if (!(style.widthPx > 0)) return
-    const visual = getDraftVisual(style.token)
+    const visual = getDraftVisual(style.token, options.getPaintTokens?.())
     // A dash list is an even-length list of positive (dash, gap) CSS px lengths, frozen by the tool that draws it.
     const dash = style.dash ? style.dash.map(units) : null
     const ends = closed ? CLOSED_ENDS : OPEN_ENDS
@@ -267,7 +274,7 @@ export function createDraftLayer(options: DraftLayerOptions): DraftLayer {
   }
 
   function drawLabel(shape: Extract<DraftShape, { kind: 'label' }>): void {
-    const visual = getDraftLabelVisual(shape.tone)
+    const visual = getDraftLabelVisual(shape.tone, options.getPaintTokens?.())
     canvasFonts.request(`${visual.fontWeight} ${visual.fontSizePx}px ${visual.fontFamily}`, distinctCharacters([shape.text]))
     const text = createText()
     text.text = shape.text

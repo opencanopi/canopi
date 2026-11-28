@@ -14,6 +14,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
+import { holdBasemapStyle } from '../support/basemap'
 import { pressMod } from '../support/canvas'
 import { boxOf, chipFrame, expectHitAtCentre, mapHost, nextFrames, openFixture, overlap } from '../support/layout'
 import { expect, test } from '../support/offline'
@@ -148,8 +149,7 @@ for (const viewport of [{ width: 1024, height: 768 }, { width: 800, height: 700 
     test('a Design opened while the notice shows is framed as one opened with the basemap hidden', async ({ page, context }) => {
       // input-probe.spec.ts and touch.spec.ts tap fixed places of the opening camera at 1024x768.
       // The basemap's style request is held, so "Loading basemap" shows while the Design opens and frames.
-      const held: Array<{ fallback: () => Promise<void> }> = []
-      await page.route('https://tiles.openfreemap.org/styles/**', (route) => { held.push(route) })
+      const held = await holdBasemapStyle(page)
       await openBaseFixture(page)
       await expect(page.locator('[data-map-notice][data-tone="loading"]')).toBeVisible()
       await expect.poll(() => held.length, 'the style request is held').toBeGreaterThan(0)

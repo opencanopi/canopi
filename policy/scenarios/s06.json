@@ -3,7 +3,7 @@
   "title": "Upgrade Pixi one major version (renderer, text and event system changes)",
   "path": "maintenance: a third-party major upgrade (ADR 0028 Upstream)",
   "owners": [
-    "maplibre/shared-scene-layer.ts",
+    "canvas/runtime/renderers/pixi-scene-painter.ts",
     "canvas/runtime/renderers/scene-paint.ts",
     "desktop/web/package.json"
   ],
@@ -26,7 +26,7 @@
         "canvas/runtime/renderers/billboard-layer.ts",
         "canvas/runtime/renderers/draft-layer.ts",
         "canvas/runtime/annotation-layout.ts",
-        "maplibre/shared-scene-layer.ts",
+        "canvas/runtime/renderers/pixi-scene-painter.ts",
         "__tests__/pixi-scene.test.ts",
         "canvas/runtime/renderers/draft-layer.test.ts",
         "canvas/runtime/renderers/billboard-layer.test.ts",

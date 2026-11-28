@@ -4,15 +4,13 @@
 // tests that arm no tool and drive keys, and the keyboard access, Esc chain and
 // arrow-key nudge describes.
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
+import { effect } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { t } from '../i18n'
 import { modKeyName } from '../app/shell-commands/shortcut-text'
-import type { SceneStore } from '../canvas/runtime/scene'
+import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import { currentCanvasSelection } from '../canvas/session-state'
-import type {
-  SceneInteractionSession,
-  SceneInteractionSessionDeps,
-} from '../canvas/runtime/interaction-session'
+import type { SceneInteractionSession, SceneInteractionSessionDeps } from '../canvas/runtime/interaction-session'
 import { createRecordingRenderer } from './support/recording-renderer'
 import type { SceneInteractionEventHarness } from './support/canvas-interaction-events'
 import type { TestView } from './support/test-view'
@@ -46,6 +44,9 @@ describe('SceneInteractionSession', () => {
     () => ({ events }),
   )
 
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
+  const screen = (at: ScenePoint) => testView.view().worldToScreen(at)
+
   it('aborts an active Rotation Handle drag on Escape without creating history', () => {
     store.updatePersisted((draft) => {
       draft.zones = [makeRectZone('zone-1', [
@@ -65,17 +66,15 @@ describe('SceneInteractionSession', () => {
     session.refreshMeasurements()
 
     const handle = rotationHandle(container)!
-    const start = {
-      x: Number.parseFloat(handle.style.left) + 14,
-      y: Number.parseFloat(handle.style.top) + 14,
-    }
+    const start = { x: Number.parseFloat(handle.style.left) + 14, y: Number.parseFloat(handle.style.top) + 14 }
 
+    const east = screen({ x: 128, y: 110 })
     events.pointerDown(start, { button: 0, target: handle })
-    events.pointerMove({ x: 128, y: 110 }, { button: 0 })
+    events.pointerMove(east, { button: 0 })
     expect(store.persisted.zones[0]?.rotationDeg).toBeCloseTo(90)
 
     events.keyDown({ key: 'Escape', code: 'Escape' })
-    events.pointerUp({ x: 128, y: 110 }, { button: 0 })
+    events.pointerUp(east, { button: 0 })
 
     expect(store.persisted.zones[0]?.rotationDeg).toBe(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
@@ -93,13 +92,13 @@ describe('SceneInteractionSession', () => {
     const request = contextMenuHost.current!
     expect(request.selection).toBeNull()
     expect(request.anchor).toEqual({ left: 200, top: 150, right: 200, bottom: 150 })
-    expect(request.world).toEqual({ x: 200, y: 150 })
+    expect(request.world).toEqual(world({ x: 200, y: 150 }))
     session.dispose()
   })
 
   it('arms the Space pan from the map or with nothing focused, never from a widget outside the map', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const before = { ...testView.viewport() }
     // A focusable widget beside the map that is no control (the inspection lens preview, a plain list row).
     const widget = document.createElement('div')
@@ -209,7 +208,7 @@ describe('SceneInteractionSession', () => {
 
     it('keeps focusing the host on a pointer press', () => {
       const session = createTestSession(createInteractionDeps(container, store, testView))
-      session.setTool('select')
+      session.arm('select')
 
       events.pointerDown({ x: 40, y: 40 })
 
@@ -227,8 +226,13 @@ describe('SceneInteractionSession', () => {
       renderer?: SceneInteractionSessionDeps['renderer'],
     ): { session: SceneInteractionSession, deps: SceneInteractionSessionDeps, tools: string[] } {
       const tools: string[] = []
-      const deps = createInteractionDeps(container, store, testView, { setTool: (name: string) => { tools.push(name) } })
-      return { session: createTestSession(renderer ? { ...deps, renderer } : deps), deps, tools }
+      const deps = createInteractionDeps(container, store, testView)
+      const session = createTestSession(renderer ? { ...deps, renderer } : deps)
+      let ready = false
+      const stop = effect(() => { const id = session.toolState.value.id; if (ready) tools.push(id); else ready = true })
+      const origDispose = session.dispose.bind(session)
+      session.dispose = () => { stop(); origDispose() }
+      return { session, deps, tools }
     }
 
     it.each([
@@ -247,7 +251,7 @@ describe('SceneInteractionSession', () => {
         draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 200, y: 200 })]
       })
       const { session, deps, tools } = sessionWithToolLog()
-      session.setTool(tool)
+      session.arm(tool)
       deps.setSelection([plantTarget('plant-1')])
       container.focus()
 
@@ -270,7 +274,7 @@ describe('SceneInteractionSession', () => {
         draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 200, y: 200 })]
       })
       const { session, deps, tools } = sessionWithToolLog()
-      session.setTool('rectangle')
+      session.arm('rectangle')
       deps.setSelection([plantTarget('plant-1')])
       const field = document.createElement('input')
       const panelRow = document.createElement('div')
@@ -289,7 +293,7 @@ describe('SceneInteractionSession', () => {
 
     it('cancels a new text note, returns focus to the map, then returns to Select', () => {
       const { session, tools } = sessionWithToolLog()
-      session.setTool('text')
+      session.arm('text')
       events.pointerDown({ x: 24, y: 32 }, { button: 0 })
       events.pointerUp({ x: 24, y: 32 }, { button: 0 })
       const textarea = container.querySelector<HTMLTextAreaElement>('textarea')!
@@ -307,7 +311,7 @@ describe('SceneInteractionSession', () => {
 
     it('lets a click inside a new text note field move the caret instead of committing the note', () => {
       const { session } = sessionWithToolLog()
-      session.setTool('text')
+      session.arm('text')
       events.pointerDown({ x: 24, y: 32 }, { button: 0 })
       const textarea = container.querySelector<HTMLTextAreaElement>('textarea')!
       textarea.focus()
@@ -324,7 +328,7 @@ describe('SceneInteractionSession', () => {
 
     it('returns focus to the map after a text note is finished with Enter', () => {
       const { session } = sessionWithToolLog()
-      session.setTool('text')
+      session.arm('text')
       events.pointerDown({ x: 24, y: 32 }, { button: 0 })
       const textarea = container.querySelector<HTMLTextAreaElement>('textarea')!
       textarea.focus()
@@ -343,7 +347,7 @@ describe('SceneInteractionSession', () => {
       })
       const deps = createInteractionDeps(container, store, testView)
       const session = createTestSession(deps)
-      session.setTool('select')
+      session.arm('select')
       deps.setSelection([annotationTarget('note-1')])
       container.focus()
       events.keyDown({ key: 'Enter', target: container })
@@ -362,7 +366,7 @@ describe('SceneInteractionSession', () => {
         draft.zones = [makeRectZone('zone-1', [{ x: 20, y: 20 }, { x: 80, y: 20 }, { x: 80, y: 60 }, { x: 20, y: 60 }])]
       })
       const { session, deps, tools } = sessionWithToolLog()
-      session.setTool('rectangle')
+      session.arm('rectangle')
       enterOverview(testView)
       deps.setSelection([zoneTarget('zone-1')])
       container.focus()
@@ -375,7 +379,7 @@ describe('SceneInteractionSession', () => {
 
     it('cancels a zone drag first, then returns to Select', () => {
       const { session, tools } = sessionWithToolLog()
-      session.setTool('rectangle')
+      session.arm('rectangle')
       events.pointerDown({ x: 20, y: 20 })
       events.pointerMove({ x: 80, y: 60 })
 
@@ -396,7 +400,7 @@ describe('SceneInteractionSession', () => {
       // The row's source ring draws in the session's draft sink (plan §1, exception 2), not the DOM.
       const drafts = createRecordingRenderer()
       const { session, tools } = sessionWithToolLog(drafts)
-      session.setTool('plant-spacing')
+      session.arm('plant-spacing')
       events.pointerDown({ x: 20, y: 30 })
       events.pointerUp({ x: 20, y: 30 })
       expect(drafts.lastDraft()?.shapes.some((shape) => shape.kind === 'circle-px')).toBe(true)
@@ -418,7 +422,7 @@ describe('SceneInteractionSession', () => {
       })
       const drafts = createRecordingRenderer()
       const { session, tools } = sessionWithToolLog(drafts)
-      session.setTool('plant-spacing')
+      session.arm('plant-spacing')
       for (const x of [20, 120, 220]) {
         events.pointerDown({ x, y: 30 })
         events.pointerUp({ x, y: 30 })
@@ -460,7 +464,7 @@ describe('SceneInteractionSession', () => {
       })
       const deps = createInteractionDeps(container, store, testView)
       const session = createTestSession(deps)
-      session.setTool('polygon')
+      session.arm('polygon')
       container.focus()
       events.pointerDown({ x: 20, y: 20 })
       events.pointerUp({ x: 20, y: 20 })
@@ -489,7 +493,7 @@ describe('SceneInteractionSession', () => {
       store.updatePersisted((draft) => {
         draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 200, y: 200 })]
       })
-      const deps = createInteractionDeps(container, store, testView, { setTool: (name: string) => { session.setTool(name as 'plant-stamp') } })
+      const deps = createInteractionDeps(container, store, testView)
       const session: SceneInteractionSession = createTestSession(deps)
       deps.setSelection([plantTarget('plant-1')])
       openContextMenu({ x: 30, y: 30 })
@@ -539,9 +543,9 @@ describe('SceneInteractionSession', () => {
     it('pans with an empty selection under any tool and in overview, but not from a field or with Alt', () => {
       const { session, deps } = nudgeSession(false)
       const before = testView.viewport()
-      session.setTool('polygon')
+      session.arm('polygon')
       events.keyDown({ key: 'ArrowRight', target: container })
-      session.setTool('select')
+      session.arm('select')
       expect(testView.viewport().x).toBeCloseTo(before.x - 64, 6)
       const leaveOverview = enterOverview(testView)
       const overview = testView.viewport()
@@ -591,28 +595,21 @@ describe('SceneInteractionSession', () => {
         events.keyDown({ key: 'z', ctrlKey: true, target: container })
         expect(nudge.endNudge).toHaveBeenCalledTimes(1)
         expect(nudge.endNudge).toHaveBeenLastCalledWith()
-
         events.keyDown({ key: 'ArrowRight', target: container })
         events.pointerDown({ x: 200, y: 200 }, { button: 0 })
         expect(nudge.endNudge).toHaveBeenCalledTimes(2)
         events.pointerUp({ x: 200, y: 200 }, { button: 0 })
-        // The press on empty map cleared the selection; the series needs one.
         deps.setSelection([plantTarget('plant-1')])
-
         events.keyDown({ key: 'ArrowRight', target: container })
         vi.advanceTimersByTime(1000)
         expect(nudge.endNudge).toHaveBeenCalledTimes(3)
-
         events.keyDown({ key: 'ArrowRight', target: container })
         container.dispatchEvent(new FocusEvent('focusout', { relatedTarget: document.body }))
         expect(nudge.endNudge).toHaveBeenCalledTimes(4)
-
         events.keyDown({ key: 'ArrowRight', target: container })
-        session.setTool('polygon')
+        session.arm('polygon')
         expect(nudge.endNudge).toHaveBeenCalledTimes(5)
-      } finally {
-        vi.useRealTimers()
-      }
+      } finally { vi.useRealTimers() }
     })
 
     it('cancels the series with Esc instead of clearing the selection', () => {
@@ -634,7 +631,7 @@ describe('SceneInteractionSession', () => {
       try {
         events.keyDown({ key: 'ArrowRight', target: field })
         events.keyDown({ key: 'ArrowRight', altKey: true, target: container })
-        session.setTool('polygon')
+        session.arm('polygon')
         events.keyDown({ key: 'ArrowRight', target: container })
         expect(nudge.nudgeSelected).not.toHaveBeenCalled()
       } finally {

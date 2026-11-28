@@ -4,264 +4,17 @@
 //! each show one saved view with rich text and optional images. Positions are
 //! WGS84 lon/lat like every other persisted position.
 
-use serde::{Deserialize, Serialize};
-use specta::Type;
-
 use crate::design::WEB_MERCATOR_MAX_LATITUDE_DEG;
 use crate::design::field_path::{FieldPath, Refusal};
+use crate::design::v10::{
+    RichTextBlockV10, RichTextSpanV10, SavedViewCameraV10, SavedViewV10, StoryV10,
+};
 
 /// Highest MapLibre zoom a saved view may hold (the workspace map's maximum).
 pub const SAVED_VIEW_MAX_ZOOM: f64 = 27.0;
 
 /// Largest ground side a saved view may frame, in metres (far beyond one world).
 pub const SAVED_VIEW_MAX_GROUND_SIZE_M: f64 = 1e8;
-
-// A named map view of a Design.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct SavedView {
-    pub id: String,
-    pub name: String,
-    pub camera: SavedViewCamera,
-    pub visible_layers: SavedViewLayers,
-    pub highlighted: SavedViewHighlight,
-    #[cfg_attr(feature = "design-schema", schemars(default))]
-    pub title: Option<String>,
-    #[serde(default)]
-    pub text: Vec<RichTextBlock>,
-    // How the view shows plant labels, recorded at capture; null (or a missing
-    // key) shows the Design's labels.
-    #[serde(default)]
-    pub labels: Option<crate::settings::PlantLabels>,
-}
-
-// Camera of a saved view: centre, zoom and bearing (degrees clockwise from
-// north, written normalised to [0, 360)), and the ground the view framed.
-// Going to the view restores the centre and bearing, never snapped, and fits
-// the framed ground into the window, never zooming in past the saved zoom
-// (ADR 0011).
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct SavedViewCamera {
-    #[cfg_attr(
-        feature = "design-schema",
-        schemars(range(min = -180.0, max = 180.0))
-    )]
-    pub lon: f64,
-    #[cfg_attr(
-        feature = "design-schema",
-        schemars(range(min = -85.0511287798066, max = 85.0511287798066))
-    )]
-    pub lat: f64,
-    // MapLibre zoom level.
-    #[cfg_attr(feature = "design-schema", schemars(range(min = 0.0, max = 27.0)))]
-    pub zoom: f64,
-    // Degrees clockwise from true north.
-    #[cfg_attr(feature = "design-schema", schemars(range(min = 0.0, max = 360.0)))]
-    pub bearing: f64,
-    // The ground the map showed when the view was saved, in metres in the
-    // view's own turned frame, each side clamped to 1e8 m.
-    pub ground_size_m: SavedViewGroundSize,
-}
-
-// Width (along the view's screen x axis) and height of the ground a saved view
-// framed, in metres: positive, finite and at most `SAVED_VIEW_MAX_GROUND_SIZE_M`.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct SavedViewGroundSize {
-    #[cfg_attr(
-        feature = "design-schema",
-        schemars(range(min = 0.0, max = 100_000_000.0))
-    )]
-    pub width: f64,
-    #[cfg_attr(
-        feature = "design-schema",
-        schemars(range(min = 0.0, max = 100_000_000.0))
-    )]
-    pub height: f64,
-}
-
-impl SavedViewGroundSize {
-    #[expect(
-        missing_docs,
-        reason = "undocumented before 2.1-Q217; document when this file is next touched"
-    )]
-    pub fn is_valid(&self) -> bool {
-        [self.width, self.height]
-            .iter()
-            .all(|side| side.is_finite() && *side > 0.0 && *side <= SAVED_VIEW_MAX_GROUND_SIZE_M)
-    }
-}
-
-// What a saved view shows under and around the design.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct SavedViewLayers {
-    pub background: SavedViewBackground,
-    pub terrain: SavedViewTerrain,
-    // Names of the Design layers shown.
-    pub scene_layers: Vec<String>,
-    // Library ids of the Design's site-data (LiDAR) presentation entries shown.
-    pub site_data: Vec<String>,
-}
-
-// The map background band of a saved view.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub enum SavedViewBackground {
-    // An OpenFreeMap basemap; `style` is a settings basemap style id.
-    Basemap { style: String },
-    Satellite,
-    None,
-}
-
-// Terrain references shown over the background (Desktop draws them).
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct SavedViewTerrain {
-    pub contours: bool,
-    pub hillshade: bool,
-}
-
-// Species and design objects a saved view draws attention to.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct SavedViewHighlight {
-    // Canonical species names.
-    pub species: Vec<String>,
-    pub objects: Vec<SavedViewObject>,
-}
-
-// A typed design object reference; ids are unique only within a kind.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub enum SavedViewObject {
-    Plant { id: String },
-    // A zone, by name.
-    Zone { id: String },
-    Annotation { id: String },
-    MeasurementGuide { id: String },
-    Group { id: String },
-}
-
-// One block of portable rich text. There is no raw HTML.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[serde(tag = "kind", rename_all = "snake_case")]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub enum RichTextBlock {
-    Paragraph { spans: Vec<RichTextSpan> },
-    Bullets { items: Vec<RichTextListItem> },
-}
-
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct RichTextListItem {
-    pub spans: Vec<RichTextSpan>,
-}
-
-// A run of text with inline marks. Viewers open only `https:`, `http:` and
-// `mailto:` links.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct RichTextSpan {
-    pub text: String,
-    #[serde(default)]
-    pub bold: bool,
-    #[serde(default)]
-    pub italic: bool,
-    #[cfg_attr(feature = "design-schema", schemars(default))]
-    pub link: Option<String>,
-}
-
-// An ordered presentation of saved views.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct Story {
-    pub id: String,
-    pub name: String,
-    pub steps: Vec<StoryStep>,
-}
-
-// One step of a story: the saved view it shows, with its title and text.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct StoryStep {
-    pub id: String,
-    // The `SavedView::id` this step shows; it must exist in the same Design.
-    pub view_id: String,
-    pub title: String,
-    #[serde(default)]
-    pub text: Vec<RichTextBlock>,
-    #[serde(default)]
-    pub images: Vec<StoryImage>,
-}
-
-// An image shown with a story step: an `https:` URL or a `data:image/` URI.
-#[cfg_attr(feature = "design-schema", derive(schemars::JsonSchema))]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Type)]
-#[expect(
-    missing_docs,
-    reason = "undocumented before 2.1-Q217; document when this file is next touched"
-)]
-pub struct StoryImage {
-    pub src: String,
-    #[serde(default)]
-    pub alt: String,
-}
 
 /// Link schemes a viewer may open from rich text, compared without case.
 pub const RICH_TEXT_LINK_SCHEMES: &[&str] = &["https:", "http:", "mailto:"];
@@ -282,7 +35,10 @@ pub const STORY_IMAGES_MAX_TOTAL_BYTES: usize = 10 * STORY_IMAGE_MAX_BYTES;
 /// every story step names a saved view of the same Design, rich-text links use
 /// an allowed scheme, and images are `https:` links or embedded raster images
 /// within the per-image and per-Design caps. A refusal names its field, never a value.
-pub fn validate_views_and_stories(views: &[SavedView], stories: &[Story]) -> Result<(), Refusal> {
+pub fn validate_views_and_stories(
+    views: &[SavedViewV10],
+    stories: &[StoryV10],
+) -> Result<(), Refusal> {
     let root = FieldPath::root();
     let mut view_ids = std::collections::HashSet::new();
     for (index, view) in views.iter().enumerate() {
@@ -342,7 +98,7 @@ pub fn validate_views_and_stories(views: &[SavedView], stories: &[Story]) -> Res
 
 /// Check the view a Design was saved with (`$.map_view`) by the saved-view
 /// camera rules.
-pub fn validate_map_view(map_view: Option<&SavedViewCamera>) -> Result<(), Refusal> {
+pub fn validate_map_view(map_view: Option<&SavedViewCameraV10>) -> Result<(), Refusal> {
     map_view.map_or(Ok(()), |camera| {
         validate_camera(camera, &FieldPath::root().field("map_view"))
     })
@@ -350,7 +106,10 @@ pub fn validate_map_view(map_view: Option<&SavedViewCamera>) -> Result<(), Refus
 
 /// A camera's leaf at fault, in the schema's sorted field order; its ground size as a whole,
 /// as the Web names it.
-fn validate_camera(camera: &SavedViewCamera, path: &FieldPath) -> Result<(), Refusal> {
+pub(crate) fn validate_camera(
+    camera: &SavedViewCameraV10,
+    path: &FieldPath,
+) -> Result<(), Refusal> {
     let in_range =
         |value: f64, min: f64, max: f64| value.is_finite() && (min..=max).contains(&value);
     if !in_range(camera.bearing, 0.0, 360.0) {
@@ -384,12 +143,12 @@ fn validate_camera(camera: &SavedViewCamera, path: &FieldPath) -> Result<(), Ref
     Ok(())
 }
 
-fn validate_rich_text(blocks: &[RichTextBlock], path: &FieldPath) -> Result<(), Refusal> {
+fn validate_rich_text(blocks: &[RichTextBlockV10], path: &FieldPath) -> Result<(), Refusal> {
     for (block_index, block) in blocks.iter().enumerate() {
         let block_path = path.index(block_index);
         match block {
-            RichTextBlock::Paragraph { spans } => validate_spans(spans, &block_path)?,
-            RichTextBlock::Bullets { items } => {
+            RichTextBlockV10::Paragraph { spans, .. } => validate_spans(spans, &block_path)?,
+            RichTextBlockV10::Bullets { items, .. } => {
                 for (item_index, item) in items.iter().enumerate() {
                     validate_spans(&item.spans, &block_path.field("items").index(item_index))?;
                 }
@@ -399,7 +158,7 @@ fn validate_rich_text(blocks: &[RichTextBlock], path: &FieldPath) -> Result<(), 
     Ok(())
 }
 
-fn validate_spans(spans: &[RichTextSpan], path: &FieldPath) -> Result<(), Refusal> {
+fn validate_spans(spans: &[RichTextSpanV10], path: &FieldPath) -> Result<(), Refusal> {
     for (span_index, span) in spans.iter().enumerate() {
         let Some(link) = &span.link else { continue };
         let allowed = RICH_TEXT_LINK_SCHEMES

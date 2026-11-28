@@ -1,4 +1,5 @@
 import type { MenuDefinition } from '../../app/shell-commands/menus'
+export type { MenuDefinition }
 import { flattenMenuActions } from '../../app/shell-commands/menus'
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import {
@@ -65,26 +66,22 @@ export function KeyboardShortcutsDialog({ menus, platform, linuxPinchNote = fals
   const key = (shortcut: string) => formatShortcut(shortcut, t)
   const single = singleKeyShortcuts.value
   const rotationRows: ShortcutRow[] = [
-    { id: 'turn-view', label: t('shortcuts.turnView'), shortcut: [key('Shift+ArrowLeft'), key('Shift+ArrowRight')].join(' · ') },
-    {
-      id: 'reset-north',
-      label: t('shortcuts.resetNorth'),
-      shortcut: [...single ? [key('N')] : [], key('Shift+N'), key('Shift+ArrowUp')].join(' · '),
-    },
+    row('turn-view', t('shortcuts.turnView'), [key('Shift+ArrowLeft'), key('Shift+ArrowRight')].join(' · ')),
+    row('reset-north', t('shortcuts.resetNorth'), [...single ? [key('N')] : [], key('Shift+N'), key('Shift+ArrowUp')].join(' · ')),
   ]
   // + and − and Home act only with the map focused, so they stay with the switch off; Shift F follows it.
   const fitRows: ShortcutRow[] = [
-    { id: 'zoom-step', label: t('shortcuts.zoomStep'), shortcut: [key('Plus'), key('Minus')].join(' · ') },
-    { id: 'fit-home', label: t('shortcuts.fitHome'), shortcut: [key('Home'), ...single ? [key('Shift+F')] : [], key('Ctrl+0')].join(' · ') },
+    row('zoom-step', t('shortcuts.zoomStep'), [key('Plus'), key('Minus')].join(' · ')),
+    row('fit-home', t('shortcuts.fitHome'), [key('Home'), ...single ? [key('Shift+F')] : [], key('Ctrl+0')].join(' · ')),
   ]
   // A tool command View lists too (Pan) shows once, under Tools.
-  const toolIds = new Set(menus.filter((menu) => menu.id === 'tools').flatMap((menu) => menuRows(menu).map((row) => row.id)))
+  const toolIds = new Set(menus.filter((menu) => menu.id === 'tools').flatMap((menu) => menuRows(menu).map((r) => r.id)))
   const sections = menus
     .map((menu) => ({
       id: menu.id,
       label: menu.id === 'tools' ? t('shortcuts.toolsHeading', { menu: menu.label }) : menu.label,
       rows: menu.id === 'tools' ? menuRows(menu)
-        : menu.id === 'view' ? viewRows(menuRows(menu), rotationRows, fitRows).filter((row) => !toolIds.has(row.id))
+        : menu.id === 'view' ? viewRows(menuRows(menu), rotationRows, fitRows).filter((r) => !toolIds.has(r.id))
           : menuRows(menu),
     }))
     .filter((section) => section.rows.length > 0)
@@ -95,14 +92,14 @@ export function KeyboardShortcutsDialog({ menus, platform, linuxPinchNote = fals
   // The large step is mod: Ctrl, or Cmd on macOS.
   const modArrows = `${modKeyName(t)} ${arrows}`
   const workspaceRows = [
-    { id: 'next-region', label: t('shortcuts.nextRegion'), shortcut: formatShortcut('F6', t) },
-    { id: 'previous-region', label: t('shortcuts.previousRegion'), shortcut: formatShortcut('Shift+F6', t) },
-    { id: 'nudge', label: t('shortcuts.nudge'), shortcut: arrows },
-    { id: 'nudge-large', label: t('shortcuts.nudgeLarge'), shortcut: modArrows },
-    { id: 'pan', label: t('shortcuts.pan'), shortcut: arrows },
-    { id: 'pan-large', label: t('shortcuts.panLarge'), shortcut: modArrows },
+    row('next-region', t('shortcuts.nextRegion'), key('F6')),
+    row('previous-region', t('shortcuts.previousRegion'), key('Shift+F6')),
+    row('nudge', t('shortcuts.nudge'), arrows),
+    row('nudge-large', t('shortcuts.nudgeLarge'), modArrows),
+    row('pan', t('shortcuts.pan'), arrows),
+    row('pan-large', t('shortcuts.panLarge'), modArrows),
     // Place a stamp's [ and ]: while the map has focus even with single-key shortcuts off, like the arrows.
-    { id: 'rotate-stamp', label: t('shortcuts.rotateStamp'), shortcut: '[ ]' },
+    row('rotate-stamp', t('shortcuts.rotateStamp'), '[ ]'),
   ]
   const allSections = [...sections, gestures, touch, { id: 'workspace', label: t('shortcuts.workspaceHeading'), rows: workspaceRows }]
 
@@ -180,22 +177,24 @@ type GestureName = LocaleKey extends infer Key ? Key extends `shortcuts.gestures
  * Space-drag are not yet checked in real Mac browsers (canopi-pqxl), and it removes with Option-click. The pen row is
  * a note: its side button drags to pan and taps for the menu.
  */
+const row = (id: string, label: string, shortcut: string): ShortcutRow => ({ id, label, shortcut })
+
 function gestureRows(platform: Pick<InputPlatform, 'os' | 'gestureEvents'> | undefined): ShortcutRow[] {
   const g = (name: GestureName) => t(`shortcuts.gestures.${name}`)
   const mac = platform?.os === 'mac'
   // A Mac names only gestures checked in real Mac browsers (canopi-pqxl): no right- or middle-button drag, so it turns
   // the view by the trackpad twist where WebKit delivers it (which never steps) and otherwise by the compass row.
   const turnRows: ShortcutRow[] = !mac
-    ? [{ id: 'turn-view', label: t('shortcuts.gestures.turnView', { mod: modKeyName(t) }), shortcut: g('shiftDrag') }]
-    : platform?.gestureEvents ? [{ id: 'turn-view', label: g('turn'), shortcut: g('trackpadTwist') }] : []
+    ? [row('turn-view', t('shortcuts.gestures.turnView', { mod: modKeyName(t) }), g('shiftDrag'))]
+    : platform?.gestureEvents ? [row('turn-view', g('turn'), g('trackpadTwist'))] : []
   return [
-    { id: 'pan', label: g('pan'), shortcut: g(mac ? 'trackpadPan' : 'rightDrag') },
+    row('pan', g('pan'), g(mac ? 'trackpadPan' : 'rightDrag')),
     ...turnRows,
-    { id: 'compass', label: g('compassAction'), shortcut: g('compass') },
-    { id: 'menu', label: g('menu'), shortcut: [g('rightClick'), ...mac ? [g('macCtrlClick')] : []].join(' · ') },
-    { id: 'zoom', label: g('zoom'), shortcut: g('pinch') },
-    { id: 'remove', label: g('removeFromSelection'), shortcut: g(mac ? 'optionClick' : 'altClick') },
-    { id: 'pen', label: `${g('pan')} · ${g('menu')}`, shortcut: g('penButton') },
+    row('compass', g('compassAction'), g('compass')),
+    row('menu', g('menu'), [g('rightClick'), ...mac ? [g('macCtrlClick')] : []].join(' · ')),
+    row('zoom', g('zoom'), g('pinch')),
+    row('remove', g('removeFromSelection'), g(mac ? 'optionClick' : 'altClick')),
+    row('pen', `${g('pan')} · ${g('menu')}`, g('penButton')),
   ]
 }
 
@@ -203,8 +202,8 @@ function gestureRows(platform: Pick<InputPlatform, 'os' | 'gestureEvents'> | und
 function touchRows(): ShortcutRow[] {
   const g = (name: GestureName) => t(`shortcuts.gestures.${name}`)
   return [
-    { id: 'one-finger', label: g('oneFingerAction'), shortcut: g('oneFinger') },
-    { id: 'two-fingers', label: g('touchNavigate'), shortcut: g('twoFingers') },
-    { id: 'long-press', label: g('menu'), shortcut: g('longPress') },
+    row('one-finger', g('oneFingerAction'), g('oneFinger')),
+    row('two-fingers', g('touchNavigate'), g('twoFingers')),
+    row('long-press', g('menu'), g('longPress')),
   ]
 }

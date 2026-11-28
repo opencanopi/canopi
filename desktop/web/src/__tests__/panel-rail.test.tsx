@@ -7,7 +7,7 @@ import { PanelRail } from '../components/shared/PanelRail'
 import { railVisibleCount } from '../components/shared/rail-fit'
 import { panelRailRoom } from '../app/shell/visible-map-area'
 import { DesktopPanelRail } from '../components/panels/DesktopPanelRail'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import { appCommandGraphPanelProjection } from '../commands/registry'
 import { designSessionFixture } from './support/design-session-state'
@@ -27,7 +27,6 @@ describe('Panel rail', () => {
     document.body.innerHTML = ''
     document.body.appendChild(container)
     locale.value = 'en'
-    activePanel.value = 'canvas'
     sidePanel.value = null
     designSessionFixture.file = {
       version: 9,
@@ -93,10 +92,10 @@ describe('Panel rail', () => {
       'Stories',
     ])
     expect(container.querySelectorAll('[role="separator"]')).toHaveLength(1)
-    expect(panelButton('Layers').getAttribute('aria-keyshortcuts')).toBe('Control+1 Meta+1')
-    expect(panelButton('Site data').getAttribute('aria-keyshortcuts')).toBe('Control+2 Meta+2')
-    expect(panelButton('Plants in this Design').getAttribute('aria-keyshortcuts')).toBe('Control+3 Meta+3')
-    expect(hoveredTooltip(panelButton('Design notebook')!)?.textContent).toContain('Ctrl 9')
+    expect(panelButton('Layers').getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+1')
+    expect(panelButton('Site data').getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+2')
+    expect(panelButton('Plants in this Design').getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+3')
+    expect(hoveredTooltip(panelButton('Design notebook')!)?.textContent).toContain('Alt Shift 9')
     expect(panelButton('Stories').hasAttribute('aria-keyshortcuts')).toBe(false)
   })
 
@@ -109,12 +108,12 @@ describe('Panel rail', () => {
     expect(container.querySelector('button[data-panel="canvas"]')).toBeNull()
   })
 
-  it('hides the Desktop rail on the start screen', async () => {
+  it('keeps the Desktop rail mounted on the start screen so Catalog and Favorites open without a Design (2.1-Q130)', async () => {
     designSessionFixture.file = null
     await act(async () => {
       render(<DesktopPanelRail />, container)
     })
-    expect(container.querySelector('nav')).toBeNull()
+    expect(container.querySelector('nav')).not.toBeNull()
   })
 
   it('marks the Desktop rail as the open Design\'s chrome, which waits while the Design is hidden (global.css)', async () => {
@@ -138,12 +137,12 @@ describe('Panel rail', () => {
 
     expect(panelButton('Plants in this Design').disabled).toBe(true)
     expect(panelButton('Layers').disabled).toBe(true)
-    expect(panelButton('Plant catalog').disabled).toBe(true)
+    expect(panelButton('Plant catalog').disabled).toBe(false)
     expect(panelButton('Design notebook').disabled).toBe(false)
-    expect(panelButton('Favorites and stamps').disabled).toBe(true)
+    expect(panelButton('Favorites and stamps').disabled).toBe(false)
   })
 
-  it('keeps an active no-design Plant catalog panel button enabled so it can close the panel', async () => {
+  it('keeps no-design Plant catalog and Favorites panel buttons enabled so they can open and close without a Design (2.1-Q130)', async () => {
     designSessionFixture.file = null
     const panels = appCommandGraphPanelProjection.value
     const plantDb = [...panels.primary, ...panels.design, ...panels.planning]
@@ -154,20 +153,18 @@ describe('Panel rail', () => {
       render(<ProjectedRail />, container)
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(panelButton('Plant catalog').disabled).toBe(false)
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('true')
     expect(panelButton('Design notebook').disabled).toBe(false)
-    expect(panelButton('Favorites and stamps').disabled).toBe(true)
+    expect(panelButton('Favorites and stamps').disabled).toBe(false)
 
     await act(async () => {
       panelButton('Plant catalog').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
-    expect(panelButton('Plant catalog').disabled).toBe(true)
+    expect(panelButton('Plant catalog').disabled).toBe(false)
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('false')
   })
 
@@ -183,7 +180,6 @@ describe('Panel rail', () => {
       panelButton('Plant catalog').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('true')
 
@@ -191,7 +187,6 @@ describe('Panel rail', () => {
       panelButton('Plant catalog').dispatchEvent(new MouseEvent('click', { bubbles: true }))
     })
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
     expect(panelButton('Plant catalog').getAttribute('aria-expanded')).toBe('false')
   })
@@ -293,7 +288,7 @@ describe('Panel rail', () => {
         expect.stringContaining('Design notebook'),
         expect.stringContaining('Stories'),
       ])
-      expect(items[4]!.getAttribute('aria-keyshortcuts')).toBe('Control+9 Meta+9')
+      expect(items[4]!.getAttribute('aria-keyshortcuts')).toBe('Alt+Shift+9')
 
       await act(async () => {
         items[2]!.dispatchEvent(new MouseEvent('click', { bubbles: true }))

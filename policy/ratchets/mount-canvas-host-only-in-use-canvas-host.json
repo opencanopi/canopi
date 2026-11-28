@@ -1,0 +1,5 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "mount-canvas-host-only-in-use-canvas-host",
+  "entries": {}
+}

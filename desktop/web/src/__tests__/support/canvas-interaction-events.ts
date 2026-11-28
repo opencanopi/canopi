@@ -20,7 +20,6 @@ interface SceneInteractionPointerOptions extends MouseEventInit {
 
 export interface SceneInteractionEventHarnessOptions {
   readonly bounds?: SceneInteractionBounds
-  readonly trackListeners?: boolean
   readonly pointerCapture?: {
     readonly available?: boolean
     readonly setThrows?: Error
@@ -34,17 +33,7 @@ interface SceneInteractionKeyboardOptions extends KeyboardEventInit {
   readonly target?: EventTarget
 }
 
-interface SceneInteractionListenerLog {
-  containerAdds(eventName: string): unknown[]
-  containerRemoves(eventName: string): unknown[]
-  windowAdds(eventName: string): unknown[]
-  windowRemoves(eventName: string): unknown[]
-}
-
-type ListenerSpy = ReturnType<typeof vi.spyOn>
-
 export interface SceneInteractionEventHarness {
-  readonly listenerLog: SceneInteractionListenerLog | null
   readonly pointerCapture: {
     readonly setCalls: ReturnType<typeof vi.fn>
     readonly releaseCalls: ReturnType<typeof vi.fn>
@@ -97,7 +86,6 @@ export function createSceneInteractionEventHarness(
     },
   })
 
-  const listenerSpies = options.trackListeners ? createListenerSpies(container) : null
   const pointerCapture = installPointerCaptureHarness(container, options.pointerCapture)
 
   function setBounds(next: SceneInteractionBounds): void {
@@ -190,7 +178,6 @@ export function createSceneInteractionEventHarness(
   }
 
   return {
-    listenerLog: listenerSpies?.log ?? null,
     pointerCapture: pointerCapture.api,
     setBounds,
     boundsReads: () => boundsReadCount,
@@ -213,7 +200,6 @@ export function createSceneInteractionEventHarness(
     windowBlur,
     dispose: () => {
       if (appended) container.remove()
-      listenerSpies?.restore()
       pointerCapture.restore()
       Object.defineProperty(container, 'getBoundingClientRect', {
         configurable: true,
@@ -416,33 +402,4 @@ function createRect(bounds: SceneInteractionBounds): DOMRect {
       height: bounds.height,
     }),
   } as DOMRect
-}
-
-function createListenerSpies(container: HTMLElement): {
-  readonly log: SceneInteractionListenerLog
-  readonly restore: () => void
-} {
-  const addContainerListener = vi.spyOn(container, 'addEventListener')
-  const removeContainerListener = vi.spyOn(container, 'removeEventListener')
-  const addWindowListener = vi.spyOn(window, 'addEventListener')
-  const removeWindowListener = vi.spyOn(window, 'removeEventListener')
-  const log: SceneInteractionListenerLog = {
-    containerAdds: (eventName) => listenerCalls(addContainerListener, eventName),
-    containerRemoves: (eventName) => listenerCalls(removeContainerListener, eventName),
-    windowAdds: (eventName) => listenerCalls(addWindowListener, eventName),
-    windowRemoves: (eventName) => listenerCalls(removeWindowListener, eventName),
-  }
-  return {
-    log,
-    restore: () => {
-      addContainerListener.mockRestore()
-      removeContainerListener.mockRestore()
-      addWindowListener.mockRestore()
-      removeWindowListener.mockRestore()
-    },
-  }
-}
-
-function listenerCalls(spy: ListenerSpy, eventName: string): unknown[] {
-  return spy.mock.calls.filter((call: readonly unknown[]) => call[0] === eventName)
 }

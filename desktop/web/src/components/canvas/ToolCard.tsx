@@ -7,20 +7,24 @@ import { toolCardContent, type SavedStampSummary } from '../../app/tool-card/con
 import { modKeyName } from '../../app/shell-commands/shortcut-text'
 import { siteLocateOpen } from '../../app/site-onboarding/state'
 import { phoneLayout, phoneToolOptions } from '../../app/shell/phone-layout'
-import { readPlantStampSource, type PlantStampSource } from '../../canvas/plant-stamp-source'
+import type { PlantStampSource } from '../../canvas/stamp-drag-data'
 import { speciesPlacementAppearance } from '../../canvas/runtime/species-key'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
-import {
-  readSavedObjectStampName,
-  readSavedObjectStampSource,
-} from '../../canvas/saved-object-stamp-source'
+import type { ToolSource } from '../../canvas/runtime/interaction-types'
 import {
   currentCanvasQuerySurface,
   currentCanvasTool,
   currentCanvasToolCommandSurface,
   currentCanvasToolGuidance,
+  currentCanvasToolState,
 } from '../../canvas/session'
-import type { CanvasPlantRowGuidance, CanvasToolGuidance } from '../../canvas/session-state'
+import { TOOL_ROWS } from '../../app/command-table'
+import {
+  currentCanvasTouchConstrain,
+  toggleCanvasTouchConstrain,
+  type CanvasPlantRowGuidance,
+  type CanvasToolGuidance,
+} from '../../canvas/session-state'
 import { scrollWheel } from '../../app/settings/state'
 import { t } from '../../i18n'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
@@ -45,10 +49,11 @@ type ToolCardContent = NonNullable<ReturnType<typeof toolCardContent>>
 
 /** What the card or the phone's tool row shows of the armed tool; null content shows none. */
 function useToolCard(phone: boolean) {
+  const toolState = currentCanvasToolState.value
   const tool = currentCanvasTool.value
   const guidance = currentCanvasToolGuidance.value
-  const source = readPlantStampSource()
-  const savedStamp = readSavedStampSummary()
+  const source: PlantStampSource | null = toolState.source?.kind === 'species' ? toolState.source.species : null
+  const savedStamp = readSavedStampSummary(toolState.source)
   const overview = currentCanvasQuerySurface.value?.view.mode.value === 'overview'
   const species = usePlantStampSpeciesName(source)
   const coarsePointer = useCoarsePointer()
@@ -201,6 +206,21 @@ export function ToolCard({ stampChooser: StampChooser }: {
  * name or the status does too. The name and the status (the row's count aside, which moves with every pointer move)
  * are the one polite live region, which stays mounted, so choosing a tool is announced. Select and Pan show no row.
  */
+function TouchConstrainButton({ tool }: { readonly tool: keyof typeof TOOL_ROWS | undefined }) {
+  if (!tool || !TOOL_ROWS[tool]?.shiftConstrains) return null
+  return (
+    <button
+      type="button"
+      className={styles.barOptions}
+      aria-pressed={currentCanvasTouchConstrain.value}
+      data-touch-constrain-toggle
+      onClick={() => toggleCanvasTouchConstrain()}
+    >
+      {t('canvas.toolCard.constrain')}
+    </button>
+  )
+}
+
 export function PhoneToolRow() {
   const { source, guidance, species, content, row, rowPath } = useToolCard(true)
   const lead = content ? cardLead(content.tool, source, guidance) : null
@@ -235,6 +255,7 @@ export function PhoneToolRow() {
         )}
       </div>
       {rowPath && <FinishButton row={rowPath} />}
+      <TouchConstrainButton tool={content?.tool} />
       {content && (
         <button
           type="button"
@@ -342,7 +363,7 @@ function cardLead(tool: string, source: PlantStampSource | null, guidance: Canva
     const scene = currentCanvasQuerySurface.value?.getSceneSnapshot()
     const appearance = speciesPlacementAppearance(
       scene ?? { plantSpeciesSymbols: {}, plantSpeciesColors: {} },
-      { canonicalName: source.canonical_name, stratum: source.stratum },
+      source.canonical_name,
     )
     return { kind: 'species', ...appearance, color: displayedPlantColor(appearance.color, source.canonical_name) }
   }
@@ -530,11 +551,11 @@ function SpacingField({ row, kind, switched = false }: {
   )
 }
 
-function readSavedStampSummary(): SavedStampSummary | null {
-  const payload = readSavedObjectStampSource()
-  if (!payload) return null
+function readSavedStampSummary(source: ToolSource | null): SavedStampSummary | null {
+  if (source?.kind !== 'saved-stamp') return null
+  const payload = source.stamp
   return {
-    name: readSavedObjectStampName(),
+    name: source.name ?? null,
     plants: payload.plants.length,
     species: new Set(payload.plants.map((plant) => plant.canonicalName)).size,
   }

@@ -2,15 +2,12 @@
 
 import { afterEach, beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { signal } from '@preact/signals'
-import { currentCanvasSelection, currentCanvasTool } from '../canvas/session-state'
-import { activePanel, sidePanel } from '../app/shell/state'
-import {
-  gridVisible,
-  snapToGridEnabled,
-} from '../app/canvas-settings/signals'
-import { singleKeyShortcuts, theme } from '../app/settings/state'
-import { setCurrentCanvasSession } from '../canvas/session'
-import { designSessionFixture, resetDirtyBaselines } from './support/design-session-state'
+import { currentCanvasSelection } from '../canvas/session-state'
+import { sidePanel } from '../app/shell/state'
+import { gridVisible } from '../app/canvas-settings/signals'
+import { singleKeyShortcuts, theme, snapToGridEnabled } from '../app/settings/state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
+import { designSessionFixture, markTestDesignDirty, resetDirtyBaselines } from './support/design-session-state'
 import * as documentActions from '../app/document-session/actions'
 import { problemReportDialogOpen } from '../app/problem-report/state'
 import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
@@ -77,13 +74,9 @@ describe('command registry canvas tool switching', () => {
 
   beforeEach(() => {
     keys = installDesktopKeys()
-    currentCanvasTool.value = 'select'
-    activePanel.value = 'canvas'
     sidePanel.value = null
     setCurrentCanvasSession(null)
     designSessionFixture.file = null
-    designSessionFixture.nonCanvasRevision = 0
-    designSessionFixture.nonCanvasSavedRevision = 0
     gridVisible.value = true
     snapToGridEnabled.value = false
     settingsProjection.resetSettingsProjectionForTests()
@@ -95,7 +88,6 @@ describe('command registry canvas tool switching', () => {
     keys.dispose()
     vi.restoreAllMocks()
     setCurrentCanvasSession(null)
-    currentCanvasTool.value = 'select'
     designSessionFixture.file = null
     theme.value = 'light'
     gridVisible.value = true
@@ -104,84 +96,78 @@ describe('command registry canvas tool switching', () => {
     resetFrontendDiagnosticsForTests()
   })
 
+  const mockArm = () => vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
+
   it('routes tool commands through the live canvas session when mounted', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.hand').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 
   it('preserves side panels only when tool commands already start from the canvas', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     sidePanel.value = 'plant-db'
     getCommand('canvas.tool.ellipse').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
 
-    activePanel.value = 'templates'
     sidePanel.value = null
     getCommand('canvas.tool.hand').action()
 
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 
   it('exposes the ellipse tool through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.ellipse').action()
 
     expect(getCommand('canvas.tool.ellipse').shortcut).toBe('E')
-    expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
   })
 
   it('exposes the polygon tool through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.polygon').action()
 
     expect(getCommand('canvas.tool.polygon').shortcut).toBe('Z')
-    expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('polygon')
+    expect(arm).toHaveBeenCalledWith('polygon', undefined, undefined)
     expect(currentCanvasTool.value).toBe('polygon')
   })
 
   it('exposes the Line tool through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.line').action()
 
     expect(getCommand('canvas.tool.line').shortcut).toBe('L')
-    expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('line')
+    expect(arm).toHaveBeenCalledWith('line', undefined, undefined)
     expect(currentCanvasTool.value).toBe('line')
   })
 
   it('exposes the Measurement Guide tool through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.measurementGuide').action()
 
-    expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('measurement-guide')
+    expect(arm).toHaveBeenCalledWith('measurement-guide', undefined, undefined)
     expect(currentCanvasTool.value).toBe('measurement-guide')
     expect(appCommandGraphToolbarProjection.value.toolGroups.flatMap((group) => group.tools).some((tool) =>
       tool.tool === 'measurement-guide'
@@ -190,35 +176,33 @@ describe('command registry canvas tool switching', () => {
   })
 
   it('exposes Object Stamp through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.objectStamp').action()
 
-    expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('object-stamp')
+    expect(arm).toHaveBeenCalledWith('object-stamp', undefined, undefined)
     expect(currentCanvasTool.value).toBe('object-stamp')
   })
 
   it('exposes Plant Spacing through the shared command graph', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     getCommand('canvas.tool.plantSpacing').action()
 
     expect(getCommand('canvas.tool.plantSpacing').shortcut).toBe('W')
-    expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('plant-spacing')
+    expect(arm).toHaveBeenCalledWith('plant-spacing', undefined, undefined)
     expect(currentCanvasTool.value).toBe('plant-spacing')
   })
 
   it('H arms Pan', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
 
     expect(pressKey({ key: 'h' }, document.body).defaultPrevented).toBe(true)
 
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 
@@ -238,22 +222,21 @@ describe('command registry canvas tool switching', () => {
     }
   })
 
-  it('falls back to priming the mirror tool state when no session is mounted', () => {
+  it('drops a tool command without priming mirror state when no session is mounted (2.1-Q41)', () => {
     getCommand('canvas.tool.text').action()
 
-    expect(activePanel.value).toBe('canvas')
-    expect(currentCanvasTool.value).toBe('text')
+    expect(currentCanvasTool.value).toBe('select')
   })
 
   it('uses the shared shortcut definitions for panel navigation and tools', () => {
     expect(paletteCommands().some((command) => command.id === 'nav.canvas')).toBe(false)
-    expect(getCommand('nav.layers').shortcut).toBe('Ctrl 1')
-    expect(getCommand('nav.siteData').shortcut).toBe('Ctrl 2')
-    expect(getCommand('nav.speciesKey').shortcut).toBe('Ctrl 3')
-    expect(getCommand('nav.plantDb').shortcut).toBe('Ctrl 4')
-    expect(getCommand('nav.favorites').shortcut).toBe('Ctrl 5')
-    expect(getCommand('nav.calendar').shortcut).toBe('Ctrl 6')
-    expect(getCommand('nav.designNotebook').shortcut).toBe('Ctrl 9')
+    expect(getCommand('nav.layers').shortcut).toBe('Alt Shift 1')
+    expect(getCommand('nav.siteData').shortcut).toBe('Alt Shift 2')
+    expect(getCommand('nav.speciesKey').shortcut).toBe('Alt Shift 3')
+    expect(getCommand('nav.plantDb').shortcut).toBe('Alt Shift 4')
+    expect(getCommand('nav.favorites').shortcut).toBe('Alt Shift 5')
+    expect(getCommand('nav.calendar').shortcut).toBe('Alt Shift 6')
+    expect(getCommand('nav.designNotebook').shortcut).toBe('Alt Shift 9')
     expect(getCommand('nav.stories').shortcut).toBeUndefined()
     expect(getCommand('canvas.tool.select').shortcut).toBe('V')
     expect(getCommand('canvas.tool.line').shortcut).toBe('L')
@@ -280,8 +263,7 @@ describe('command registry canvas tool switching', () => {
       updated_at: '',
       extra: {},
     }
-    designSessionFixture.nonCanvasRevision = 1
-    designSessionFixture.nonCanvasSavedRevision = 0
+    markTestDesignDirty()
     const newSpy = vi.spyOn(documentActions, 'newDesignAction').mockResolvedValue(undefined)
     const openSpy = vi.spyOn(documentActions, 'openDesign').mockResolvedValue(undefined)
     const saveSpy = vi.spyOn(documentActions, 'saveCurrentDesign').mockResolvedValue(true)
@@ -381,8 +363,7 @@ describe('command registry canvas tool switching', () => {
       updated_at: '',
       extra: {},
     }
-    designSessionFixture.nonCanvasRevision = 1
-    designSessionFixture.nonCanvasSavedRevision = 0
+    markTestDesignDirty()
     mountCanvasCommandSurface({ history: { canUndo: signal(true) } })
 
     expect(fileSave()).toMatchObject({ disabled: false })
@@ -405,7 +386,7 @@ describe('command registry canvas tool switching', () => {
     expect(panelCommand('location')).toBeUndefined()
     expect(panelCommand('plant-db')).toMatchObject({
       commandId: 'nav.plantDb',
-      disabled: true,
+      disabled: false,
       active: false,
     })
     expect(panelCommand('design-notebook')).toMatchObject({
@@ -415,23 +396,19 @@ describe('command registry canvas tool switching', () => {
     })
     expect(panelCommand('favorites')).toMatchObject({
       commandId: 'nav.favorites',
-      disabled: true,
+      disabled: false,
       active: false,
     })
     runPanelCommand('nav.designNotebook')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('design-notebook')
     expect(panelCommand('design-notebook')).toMatchObject({ disabled: false, active: true })
     runPanelCommand('nav.designNotebook')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
 
     runPanelCommand('nav.plantDb')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(panelCommand('plant-db')).toMatchObject({ disabled: false, active: true })
     runPanelCommand('nav.plantDb')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
 
     designSessionFixture.file = {
@@ -455,17 +432,15 @@ describe('command registry canvas tool switching', () => {
 
     expect(panelCommand('plant-db')).toMatchObject({ disabled: false, active: false })
     runPanelCommand('nav.plantDb')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe('plant-db')
     expect(panelCommand('plant-db')).toMatchObject({ disabled: false, active: true })
 
     runPanelCommand('nav.plantDb')
-    expect(activePanel.value).toBe('canvas')
     expect(sidePanel.value).toBe(null)
   })
 
   it('exposes toolbar commands through the App Command Graph', () => {
-    const setTool = vi.fn()
+    const arm = mockArm()
     const undo = vi.fn()
     const toggleGrid = vi.fn()
     const toggleSnapToGrid = vi.fn()
@@ -522,7 +497,7 @@ describe('command registry canvas tool switching', () => {
     })
 
     mountCanvasCommandSurface({
-      tools: { setTool },
+      tools: { arm },
       history: {
         canUndo: signal(true),
         undo,
@@ -543,8 +518,7 @@ describe('command registry canvas tool switching', () => {
     settingToggle('grid').action()
     settingToggle('snap').action()
 
-    expect(activePanel.value).toBe('canvas')
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
     expect(undo).toHaveBeenCalledTimes(1)
     expect(toggleGrid).toHaveBeenCalledTimes(1)
@@ -603,7 +577,7 @@ describe('command registry canvas tool switching', () => {
     const resetNorth = vi.fn()
     mountCanvasCommandSurface({ viewport: { resetNorth } })
     const keyDown = (target: EventTarget) => pressKey({ key: 'L', shiftKey: true }, target).defaultPrevented
-    const labels = () => (currentDesign.value?.extra?.plant_display as { labels?: string } | undefined)?.labels ?? 'names'
+    const labels = () => currentDesign.value?.plant_display?.labels ?? 'names'
 
     expect(keyDown(document.body)).toBe(true)
     expect(labels()).toBe('none')
@@ -631,7 +605,7 @@ describe('command registry canvas tool switching', () => {
     const keyDown = (init: KeyboardEventInit) => pressKey(init).defaultPrevented
     const toolShortcut = () => flattenMenuActions(menus()).find((entry) => entry.id === 'canvas.tool.polygon')!.shortcut
     const fitShortcut = () => flattenMenuActions(menus()).find((entry) => entry.id === 'view.fitToDesign')!.shortcut
-    const labels = () => (currentDesign.value?.extra?.plant_display as { labels?: string } | undefined)?.labels ?? 'names'
+    const labels = () => currentDesign.value?.plant_display?.labels ?? 'names'
 
     try {
       expect(toolShortcut()).toBe('Z')
@@ -771,13 +745,13 @@ describe('command registry canvas tool switching', () => {
     expect(menuShortcut.get('view.searchPlace')).toBe('Ctrl K')
     expect(menuShortcut.get('help.shortcuts')).toBe('F1')
     // The palette is a Help command like F1, so its key is discoverable there and in the F1 list.
-    expect(menuShortcut.get('help.commandPalette')).toBe('Ctrl Shift P')
+    expect(menuShortcut.get('help.commandPalette')).toBe('Alt Shift P')
     expect(paletteCommands().some((command) => command.id === 'help.commandPalette')).toBe(false)
     expect(menuShortcut.get('file.exportCanvasPdf')).toBe('Ctrl P')
     expect(menuShortcut.get('edit.findPlants')).toBe('Ctrl F')
     expect(menuShortcut.get('view.cycleLabels')).toBe('Shift L')
     expect(menuShortcut.get('view.resetNorth')).toBe('N')
-    expect(menuShortcut.get('file.close')).toBe('Ctrl W')
+    expect(menuShortcut.get('file.close')).toBe('Alt Shift W')
     expect(menuShortcut.get('canvas.rotateSelected')).toBe('Ctrl Alt R')
     expect(menuShortcut.get('canvas.lockSelected')).toBe('Ctrl Shift L')
     // Esc belongs to the map's own chain; the menu names it without routing it.
@@ -899,12 +873,12 @@ describe('command registry canvas tool switching', () => {
   })
 
   it('arms Place plants without a species, for the tool card to offer its chooser', () => {
-    const setTool = vi.fn()
-    mountCanvasCommandSurface({ tools: { setTool } })
+    const arm = mockArm()
+    mountCanvasCommandSurface({ tools: { arm } })
     sidePanel.value = null
 
     getCommand('canvas.tool.plantStamp').action()
-    expect(setTool).toHaveBeenCalledWith('plant-stamp')
+    expect(arm).toHaveBeenCalledWith('plant-stamp', undefined, undefined)
     expect(sidePanel.value).toBeNull()
   })
 

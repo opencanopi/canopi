@@ -1,20 +1,21 @@
 // @vitest-environment jsdom
 /**
- * canopi-ana9 through the real implementations: the real `maplibre-gl-raster`
- * `LayerManager` (cog-tiler-wasm engine) on the real MapLibre `Style`, the real
+ * canopi-ana9 through the real implementations: the real `createRasterDisplay`
+ * MapLibre `addProtocol` adapter on the real MapLibre `Style`, the real
  * `RasterWorkerPool`, and one in-process lane running the real lane handler
  * (`__tests__/support/raster-lane.ts`). The Rust-written seam derivatives
  * (`fixtures/rust-display-seam-{a,b}.tif`) are served by byte range, as the
  * asset protocol does.
  *
- * A two-asset item is a mosaic. Its tile is rendered through the engine's own
- * protocol handler (`CogTilerEngine._handleTile`, the function MapLibre's
- * `addProtocol` calls), drawn, removed (hide, or a ramp change that switches
- * the variant), and drawn again; the same tile must still be drawn.
+ * A two-asset item is a mosaic. Its tile is rendered through the registered
+ * MapLibre `addProtocol` handler (`ArrayBuffer` return), drawn, removed (hide,
+ * or a ramp change that switches the variant), and drawn again; the same tile
+ * must still be drawn.
  */
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import type { AddProtocolAction } from 'maplibre-gl'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { RasterWorkerPool } from './pool'
 import { createRasterDisplay, type RasterDisplayLayer } from './adapter'
@@ -40,12 +41,6 @@ const files = Object.fromEntries(
   ]),
 )
 
-interface Engine {
-  _protocol: string
-  _handleTile(url: string): Promise<Uint8Array>
-  _assetSources: Map<string, unknown>
-}
-
 async function realMap() {
   // MapLibre's style needs workers only for messages this test never reads.
   vi.stubGlobal('Worker', class { postMessage() {} addEventListener() {} removeEventListener() {} terminate() {} })
@@ -66,7 +61,13 @@ async function realMap() {
       return { getWest: () => west, getSouth: () => south, getEast: () => east, getNorth: () => north }
     },
   })
-  const style = new Style(map, {}) as unknown as { _loaded: boolean; stylesheet: unknown; _order: string[] }
+  const style = new Style(map, {}) as unknown as {
+    _loaded: boolean
+    stylesheet: unknown
+    _order: string[]
+    getSource(id: string): { tiles?: string[]; serialize?(): { tiles?: string[] } } | undefined
+    getLayer(id: string): { source?: string } | undefined
+  }
   style._loaded = true
   style.stylesheet = { version: 8, sources: {}, layers: [] }
   map.style = style as never
@@ -77,35 +78,34 @@ async function setup() {
   const lane = inProcessLane()
   const { map, style } = await realMap()
   const pool = new RasterWorkerPool({ lanes: 1, budgetBytes: 64 * 1024 * 1024, maxInFlightPerLane: 4, createWorker: () => lane })
-  const engines: Engine[] = []
+  let protocolId = ''
+  let handler: AddProtocolAction | null = null
   const display = createRasterDisplay(map as never, {
     pool,
-    loadRasterModule: async () => {
-      const module = await import('maplibre-gl-raster')
-      class Spy extends module.LayerManager {
-        constructor(...args: ConstructorParameters<typeof module.LayerManager>) {
-          super(...args)
-          const manager = this as unknown as { _cogEngine: Engine | null }
-          engines.push(new Proxy({} as Engine, { get: (_, key) => (manager._cogEngine as unknown as Record<string | symbol, unknown>)[key] }))
-        }
-      }
-      return { ...module, LayerManager: Spy } as never
+    maplibre: {
+      addProtocol(id, action) { protocolId = id; handler = action },
+      removeProtocol(id) { if (protocolId === id) handler = null },
     },
   })
-  /** Waits until the layer is on the style, then renders tile z/x/y of it through the engine's protocol handler. */
-  const tile = async (id: string, z: number, x: number, y: number) => {
-    await vi.waitFor(() => {
-      expect(style._order.some((layerId) => layerId.includes(id))).toBe(true)
-      expect(engines[0]?._protocol).toBeTruthy()
-    }, { timeout: 10_000 })
-    const engine = engines[0]!
-    return engine._handleTile(`${engine._protocol}://${id}/${z}/${x}/${y}`)
+  /** Renders tile z/x/y of a layer on the style through the registered addProtocol handler. */
+  const tile = async (id: string, z: number, x: number, y: number): Promise<Uint8Array> => {
+    expect(style._order).toContain(id)
+    const sourceId = style.getLayer(id)?.source
+    expect(sourceId).toBeTruthy()
+    const source = style.getSource(sourceId!)
+    const template = source?.tiles?.[0] ?? source?.serialize?.().tiles?.[0]
+    expect(template).toBeTruthy()
+    const url = template!.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
+    const response = await handler!({ url }, new AbortController())
+    expect(response.data).toBeInstanceOf(ArrayBuffer)
+    return new Uint8Array(response.data as ArrayBuffer)
   }
-  const empty = async () => {
-    const engine = engines[0]!
-    return engine._handleTile(`${engine._protocol}://no-such-layer/0/0/0`)
+  const empty = async (): Promise<Uint8Array> => {
+    const response = await handler!({ url: `${protocolId}://no-such-layer/1/0/0/0` }, new AbortController())
+    expect(response.data).toBeInstanceOf(ArrayBuffer)
+    return new Uint8Array(response.data as ArrayBuffer)
   }
-  return { display, tile, empty, engines, requests: lane.requests }
+  return { display, tile, empty, requests: lane.requests }
 }
 
 /** URLs of the worker sources the lane holds open (opened, not yet closed), one entry per handle. */
@@ -168,7 +168,7 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
     display.sync([], undefined)
     display.sync([mosaic], undefined)
     const again = await tile(mosaic.id, Z, X, Y)
-    expect(again, 'the same tile after hide/show is not the engine\'s EMPTY_TILE').not.toEqual(blank)
+    expect(again, 'the same tile after hide/show is not the empty tile').not.toEqual(blank)
     expect(again.byteLength).toBe(first.byteLength)
     display.dispose()
   }, 60_000)
@@ -190,37 +190,11 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
 
     display.sync([heights], undefined)
     const again = await tile(heights.id, Z, X, Y)
-    expect(again, 'the mosaic tile after Relief and back is not EMPTY_TILE').not.toEqual(blank)
+    expect(again, 'the mosaic tile after Relief and back is not the empty tile').not.toEqual(blank)
     display.dispose()
   }, 60_000)
 
-  /**
-   * Pins maplibre-gl-raster 0.14.15's `CogTilerEngine._assetSources`: mosaic
-   * asset proxies cached by URL until `destroy()` and reused when a mosaic is
-   * added again (RasterControl chunk, `_openAsset`). If upstream starts
-   * evicting it, this fails, and the display's URL-bound proxies
-   * (`displaySources`) can hold one handle each again.
-   */
-  // upstream: W1
-  it('pin: the engine reuses a mosaic\'s cached asset proxy after the layer left, and that proxy still draws', async () => {
-    const { display, tile, engines } = await setup()
-    const mosaic = item('lidar-heights-gen1', fixture.top)
-    display.sync([mosaic], undefined)
-    await tile(mosaic.id, Z, X, Y)
-    const url = mosaic.assets[0]!.url
-    const before = engines[0]!._assetSources.get(url)
-    expect(before).toBeDefined()
-    display.sync([], undefined)
-    expect(engines[0]!._assetSources.get(url), 'upstream keeps the proxy after the layer left').toBe(before)
-    display.sync([mosaic], undefined)
-    await tile(mosaic.id, Z, X, Y)
-    expect(engines[0]!._assetSources.get(url), 'the re-added mosaic reads the same cached proxy').toBe(before)
-    const proxy = (await before) as { renderTileRGBA(z: number, x: number, y: number, render: unknown): Promise<Uint8ClampedArray | null> }
-    expect(opaquePixels((await proxy.renderTileRGBA(Z, X, Y, {}))!)).toBeGreaterThan(0)
-    display.dispose()
-  }, 60_000)
-
-  it('canopi-ana9: dispose closes every source the display opened, the kept mosaic assets included', async () => {
+  it('canopi-ana9: dispose closes every source the display opened, the mosaic assets included', async () => {
     const { display, tile, requests } = await setup()
     const mosaic = item('lidar-heights-gen1', fixture.top)
     const single = item('lidar-under-gen1', [fixture.under])
@@ -269,7 +243,7 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
     display.dispose()
   }, 60_000)
 
-  it('control: a single-asset item hidden and shown again draws its tile (the engine reopens per layer)', async () => {
+  it('control: a single-asset item hidden and shown again draws its tile', async () => {
     const { display, tile, empty } = await setup()
     const single = item('lidar-under-gen1', [fixture.under])
     display.sync([single], undefined)
@@ -278,7 +252,6 @@ describe('canopi-ana9: a Site data mosaic drawn again after it left the map', ()
     expect(first.byteLength).toBeGreaterThan(blank.byteLength)
     display.sync([], undefined)
     display.sync([single], undefined)
-    // The engine opens a fresh source for the re-added layer; wait for it.
     await vi.waitFor(async () => {
       expect((await tile(single.id, Z, X, Y)).byteLength).toBe(first.byteLength)
     }, { timeout: 10_000 })

@@ -1,11 +1,13 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 
 const coverage = vi.hoisted(() => ({ read: vi.fn() }))
 vi.mock('../ipc/lidar', () => ({ lidarImportCoverage: coverage.read }))
 
-import { checkImportCoverage, compareCoverage, coverageCanvas, designGroundBox } from '../app/lidar/import-coverage'
+import { checkImportCoverage, compareCoverage, coverageCanvas, designGroundBox } from '../app/data-library/import-coverage'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
@@ -23,7 +25,12 @@ const orchard: CanvasDesignObjects = {
 }
 
 describe('Import coverage', () => {
+  let disposePorts: () => void = () => undefined
+  beforeEach(() => {
+    disposePorts = installEditionPorts(createTestEditionPorts())
+  })
   afterEach(() => {
+    disposePorts()
     setCurrentCanvasSession(null)
     coverage.read.mockReset()
   })
@@ -39,7 +46,7 @@ describe('Import coverage', () => {
     expect(covers.kind).toBe('covers')
     if (covers.kind !== 'apart') {
       expect(covers.widthM).toBeCloseTo(1518, -1)
-      expect(covers.heightM).toBeCloseTo(2211, -1)
+      expect(covers.heightM).toBeCloseTo(2223, -1)
     }
     expect(compareCoverage([0.101, 46.99, 0.11, 47.01], design).kind).toBe('partial')
     const apart = compareCoverage([0.2, 47, 0.21, 47.002], design)

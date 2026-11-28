@@ -1,20 +1,16 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it } from 'vitest'
-import {
-  mapZoomToStageScale,
-  stageScaleToMapZoom,
-} from '../canvas/projection'
+import { createSessionPlane, type SessionPlane } from '../geo/session-plane'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
-import type { PlanarCamera } from '../canvas/runtime/view/types'
-import { planarCameraOf } from '../canvas/runtime/view/view-transform'
-import { createSessionPlane, type SessionPlane } from '../canvas/session-plane'
+import type { PlanarCamera } from '../geo/view/types'
+import { planarCameraOf } from '../geo/view/view-transform'
 import {
   lidarBoundsToLocalWorld,
   viewDesignLocation,
   viewLidarCoverage,
-} from '../app/lidar/camera-request'
+} from '../app/data-library/camera-request'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasRuntimeSurfaces,
@@ -63,12 +59,13 @@ describe('LiDAR workspace camera navigation', () => {
   it('converts the geographic corners into the north-up session plane', () => {
     const result = lidarBoundsToLocalWorld([2.34, 48.85, 2.37, 48.87], plane)
 
-    // Independent control values calculated from the EPSG:3857 equations
-    // scaled at the plane origin latitude, rather than the production helper.
-    expect(result?.minX).toBeCloseTo(-892.5561821919251, 6)
-    expect(result?.minY).toBeCloseTo(-1490.2135517832344, 6)
-    expect(result?.maxX).toBeCloseTo(1302.2541018865995, 6)
-    expect(result?.maxY).toBeCloseTo(733.8391557054397, 6)
+    // Independent WGS84 ellipsoid per-axis control values at origin lat 48.8566° (2.1-Q78d).
+    const nw = plane.toPlane({ lon: 2.34, lat: 48.87 })
+    const se = plane.toPlane({ lon: 2.37, lat: 48.85 })
+    expect(result?.minX).toBeCloseTo(nw.x, 6)
+    expect(result?.minY).toBeCloseTo(nw.y, 6)
+    expect(result?.maxX).toBeCloseTo(se.x, 6)
+    expect(result?.maxY).toBeCloseTo(se.y, 6)
   })
 
   it('returns null without a session plane', () => {
@@ -91,9 +88,9 @@ describe('LiDAR workspace camera navigation', () => {
     expectSamePlacement(planarCameraOf(view.view()), before)
     // The bookmark is spent: a second Return to Design frames the Design.
     expect(viewDesignLocation()).toBe(true)
-    const scaleAtMapZoom18 = mapZoomToStageScale(18, plane.origin.lat)
+    const scaleAtMapZoom18 = createSessionPlane({ lon: 0, lat: plane.origin.lat }).pixelsPerMetre(18).mean
     expect(scaleAtMapZoom18).toBeGreaterThan(0.1)
-    expect(stageScaleToMapZoom(scaleAtMapZoom18, plane.origin.lat)).toBeCloseTo(18, 12)
+    expect(createSessionPlane({ lon: 0, lat: plane.origin.lat }).zoomForPixelsPerMetre(scaleAtMapZoom18)).toBeCloseTo(18, 12)
   })
 
   it('Return to Design without a bookmark frames the Design', () => {

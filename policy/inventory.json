@@ -4,7 +4,7 @@
     {
       "id": "adr-0001-to-be-created-by-phase",
       "doc": "docs/adr/0001-geolocated-map-canvas.md",
-      "quote": "To be created by Phase 2 (2m):",
+      "quote": "Built in Phase 2 (2m):",
       "state": {
         "planned": {
           "phase": "2m",
@@ -94,16 +94,15 @@
       "doc": "docs/adr/0024-ownership-and-lifecycle.md",
       "quote": "A ToolHost owner test (created at Phase 2c's start, 2.1-M77);",
       "state": {
-        "planned": {
-          "phase": "2c",
-          "bead": "canopi-f47t.52.5"
+        "exists": {
+          "check": "desktop/web/src/canvas/runtime/tools/tool-host-owner.policy.test.ts"
         }
       }
     },
     {
       "id": "patch-settings-only-in-field-owners",
       "doc": "docs/adr/0024-ownership-and-lifecycle.md",
-      "quote": "dependency-cruiser `settings-no-upward` (Phase 2e) and ast-grep"
+      "quote": "ast-grep `patch-settings-only-in-field-owners` (ratchet from Phase 0, 0 at Phase 2e)"
     },
     {
       "id": "plant-highlight-only-in-canvas",
@@ -166,9 +165,8 @@
       "doc": "docs/adr/0025-failure-model-and-native-scheduling.md",
       "quote": "Format core failure e2e through the real worker in Chromium, WebKit, Firefox and the Desktop",
       "state": {
-        "planned": {
-          "phase": "2b",
-          "bead": "canopi-f47t.52.49"
+        "exists": {
+          "check": "desktop/web/src/platform/design-core.worker.test.ts"
         }
       }
     },
@@ -182,9 +180,8 @@
       "doc": "docs/adr/0026-stored-data-after-2-0.md",
       "quote": "A migration harness, `migration_steps_frozen`, the schema release check,",
       "state": {
-        "planned": {
-          "phase": "2b",
-          "bead": "canopi-f47t.52.49"
+        "exists": {
+          "check": "canopi-format/src/core_tests.rs"
         }
       }
     },
@@ -233,7 +230,7 @@
     {
       "id": "file-delivery-rows",
       "doc": "docs/adr/0027-extension-points-and-exports.md",
-      "quote": "`file-delivery-rows` (to be created by Phase 2a);"
+      "quote": "`file-delivery-rows` (built in Phase 2a);"
     },
     {
       "id": "adr-0027-the-ranking-corpus-on-the",
@@ -332,9 +329,8 @@
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
       "quote": "The fault-seam runs of the model-based suites, over `DurableFs` from Phase 2b's first native change",
       "state": {
-        "planned": {
-          "phase": "2b",
-          "bead": "canopi-f47t.52.72"
+        "exists": {
+          "check": "canopi-support/tests/interleaved_publish.rs"
         }
       }
     },
@@ -397,18 +393,17 @@
       "state": {
         "planned": {
           "phase": "2a",
-          "bead": "canopi-f47t.52.45"
+          "bead": "canopi-f47t.52.185"
         }
       }
     },
     {
       "id": "adr-0030-to-be-created-by-phase",
       "doc": "docs/adr/0030-edition-parity.md",
-      "quote": "`edition-root-parity` (to be created by Phase 2a):",
+      "quote": "`edition-root-parity` (built in Phase 2a):",
       "state": {
-        "planned": {
-          "phase": "2a",
-          "bead": "canopi-f47t.52.185"
+        "exists": {
+          "check": "edition-root-parity"
         }
       }
     },
@@ -475,7 +470,7 @@
     {
       "id": "guide-data-library-styles-and-dispatch-on-the",
       "doc": "docs/guides/data-library.md",
-      "quote": "Styles and `displayVariant` dispatch on the quantity in `app/lidar/item-types.ts`, the only module",
+      "quote": "Styles and `displayVariant` dispatch on the quantity in `app/data-library/item-types.ts`, the only module",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/item-types.test.ts"
@@ -575,7 +570,7 @@
     {
       "id": "guide-design-document-deleting-a-view-deletes-the",
       "doc": "docs/guides/design-document.md",
-      "quote": "Deleting a view deletes the steps that show it and returns a `SavedViewDeletion` that",
+      "quote": "Deleting a view or story records one `core.document(..., { isDelete: true })` entry",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/design-edit-views.test.ts"
@@ -598,7 +593,7 @@
       "quote": "A Design Edit command computes its update first, installs committed state, then publishes",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/design-edit-authority.test.ts"
+          "check": "desktop/web/src/app/document-session/design-edit-authority.test.ts"
         }
       }
     },
@@ -635,7 +630,7 @@
     {
       "id": "guide-design-document-every-replacement-first-flushes-the",
       "doc": "docs/guides/design-document.md",
-      "quote": "Every replacement first flushes the current Design to its home (`dirtyGuard:",
+      "quote": "Every open, new, or close flushes the current Design to its home through `flushOrAskBeforeTransition`",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/document-session-transition.test.ts"
@@ -645,7 +640,7 @@
     {
       "id": "guide-design-document-only-and-load-the-runtime",
       "doc": "docs/guides/design-document.md",
-      "quote": "Only `attach()` and `replace()` (`app/document-session/replacement.ts`) load the runtime document;",
+      "quote": "`ScenePort` (`attachScene` / `detachScene`) is the only seam loading or serializing the Scene half;",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/design-session-replacement.test.ts"
@@ -655,17 +650,17 @@
     {
       "id": "guide-design-document-continuous-save-restarts-a-1500",
       "doc": "docs/guides/design-document.md",
-      "quote": "Continuous save restarts a 1500 ms timer per committed change, coalesces writes and flushes on",
+      "quote": "Autosave restarts a 1500 ms timer per committed change, coalesces writes in `core/write-lane.ts`,",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+          "check": "desktop/web/src/app/document-session/core/session-core.test.ts"
         }
       }
     },
     {
       "id": "guide-design-document-dirty-means-not-yet-written",
       "doc": "docs/guides/design-document.md",
-      "quote": "Dirty means \"not yet written to the home\":",
+      "quote": "Dirty means `rev > ackRev` (`isDesignDirty`); `store.ts` is a read-only projection",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/dirty-state.test.ts"
@@ -675,20 +670,20 @@
     {
       "id": "guide-design-document-a-file-write-carries-the",
       "doc": "docs/guides/design-document.md",
-      "quote": "A file write carries the SHA-256 fingerprint it expects (`desktop/src/services/design_files.rs`);",
+      "quote": "A file write carries the SHA-256 `HomeVersion` it expects (`desktop/src/services/design_files.rs`),",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+          "check": "desktop/web/src/app/document-session/core/session-core.test.ts"
         }
       }
     },
     {
       "id": "guide-design-document-a-dialog-answer-applies-only",
       "doc": "docs/guides/design-document.md",
-      "quote": "A dialog answer applies only to the session that asked:",
+      "quote": "A dialog answer carries its `QuestionId` and applies only via `core.answer(id, choice)`;",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/continuous-save.test.ts"
+          "check": "desktop/web/src/app/document-session/core/session-core.test.ts"
         }
       }
     },
@@ -708,7 +703,7 @@
       "quote": "Settings mutate through `mutateSettingsProjection()`;",
       "state": {
         "exists": {
-          "check": "desktop/web/src/__tests__/settings-projection.test.ts"
+          "check": "desktop/web/src/app/settings/settings-projection.test.ts"
         }
       }
     },
@@ -826,20 +821,10 @@
     {
       "id": "guide-editions-phone-classification-and-the-sheet",
       "doc": "docs/guides/editions.md",
-      "quote": "Phone classification and the sheet's heights and keys are pure and tested (`phone-layout.test.tsx`).",
+      "quote": "Phone classification and the sheet's heights and keys are pure and tested (`phone-layout.test.tsx`, `desktop-phone-layout.test.tsx`).",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/phone-layout.test.tsx"
-        }
-      }
-    },
-    {
-      "id": "guide-editions-the-templates-entry-appears-only",
-      "doc": "docs/guides/editions.md",
-      "quote": "The Templates entry appears only when `web/static-design-templates.ts` configures one;",
-      "state": {
-        "exists": {
-          "check": "desktop/web/src/__tests__/web-static-design-template-catalog.test.ts"
         }
       }
     },
@@ -1062,7 +1047,7 @@
       "quote": "Exact camera sync:",
       "state": {
         "exists": {
-          "check": "desktop/web/src/canvas/runtime/view/view-transform.test.ts"
+          "check": "desktop/web/src/geo/view/view-transform.test.ts"
         }
       }
     },
@@ -1175,7 +1160,7 @@
     {
       "id": "guide-map-workspace-show-my-location-web-only",
       "doc": "docs/guides/map-workspace.md",
-      "quote": "Show my location (Web only in 2.0):",
+      "quote": "Show my location (Web, Desktop Linux and Windows; macOS per ADR 0030):",
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/my-location-trust.test.ts"
@@ -1681,1181 +1666,6 @@
       }
     },
     {
-      "id": "coverage",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M217 |",
-      "state": {
-        "exists": {
-          "check": "coverage"
-        }
-      }
-    },
-    {
-      "id": "suppressions",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M187 |",
-      "state": {
-        "exists": {
-          "check": "suppressions"
-        }
-      }
-    },
-    {
-      "id": "oxlint",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q206 |",
-      "state": {
-        "exists": {
-          "check": "oxlint"
-        }
-      }
-    },
-    {
-      "id": "l3-feature-scc",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "l3-feature-scc"
-        }
-      }
-    },
-    {
-      "id": "type-cycles",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M218 |",
-      "state": {
-        "exists": {
-          "check": "type-cycles"
-        }
-      }
-    },
-    {
-      "id": "no-runtime-cycle",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-runtime-cycle"
-        }
-      }
-    },
-    {
-      "id": "unit-scc",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M224 |",
-      "state": {
-        "exists": {
-          "check": "unit-scc"
-        }
-      }
-    },
-    {
-      "id": "deep-imports",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M224 |",
-      "state": {
-        "exists": {
-          "check": "deep-imports"
-        }
-      }
-    },
-    {
-      "id": "knip",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-E2 |",
-      "state": {
-        "exists": {
-          "check": "knip"
-        }
-      }
-    },
-    {
-      "id": "app-tests-import-no-scene-runtime",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "app-tests-import-no-scene-runtime"
-        }
-      }
-    },
-    {
-      "id": "browser-app-shell-imports-no-command-state",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "browser-app-shell-imports-no-command-state"
-        }
-      }
-    },
-    {
-      "id": "browser-canvas-runtime-imports-no-app-policy",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "browser-canvas-runtime-imports-no-app-policy"
-        }
-      }
-    },
-    {
-      "id": "browser-design-session-imports-no-shell",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "browser-design-session-imports-no-shell"
-        }
-      }
-    },
-    {
-      "id": "browser-workspace-imports-no-desktop",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "browser-workspace-imports-no-desktop"
-        }
-      }
-    },
-    {
-      "id": "budget-panel-imports-only-workbench",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "budget-panel-imports-only-workbench"
-        }
-      }
-    },
-    {
-      "id": "calendar-panel-imports-only-workbench",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "calendar-panel-imports-only-workbench"
-        }
-      }
-    },
-    {
-      "id": "canvas-app-adapter-imports-no-edition-capability",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "canvas-app-adapter-imports-no-edition-capability"
-        }
-      }
-    },
-    {
-      "id": "canvas-commands-reach-no-platform",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "canvas-commands-reach-no-platform"
-        }
-      }
-    },
-    {
-      "id": "canvas-menu-only-in-tool-host",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "canvas-menu-only-in-tool-host"
-        }
-      }
-    },
-    {
-      "id": "chrome-imports-no-canvas-settings-signals",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "chrome-imports-no-canvas-settings-signals"
-        }
-      }
-    },
-    {
-      "id": "command-palette-imports-no-key-router",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "command-palette-imports-no-key-router"
-        }
-      }
-    },
-    {
-      "id": "command-registry-imports-only-graph-interface",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "command-registry-imports-only-graph-interface"
-        }
-      }
-    },
-    {
-      "id": "consortium-panel-imports-no-design-edit",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "consortium-panel-imports-no-design-edit"
-        }
-      }
-    },
-    {
-      "id": "consortium-workflow-imports-no-orchestrators",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "consortium-workflow-imports-no-orchestrators"
-        }
-      }
-    },
-    {
-      "id": "design-lifecycle-imports-no-runtime-internals",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "design-lifecycle-imports-no-runtime-internals"
-        }
-      }
-    },
-    {
-      "id": "desktop-reaches-no-web-only-modules",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "desktop-reaches-no-web-only-modules"
-        }
-      }
-    },
-    {
-      "id": "document-hook-imports-no-runtime-internals",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "document-hook-imports-no-runtime-internals"
-        }
-      }
-    },
-    {
-      "id": "document-workflows-import-no-stores",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "document-workflows-import-no-stores"
-        }
-      }
-    },
-    {
-      "id": "generated-search-facts-only-in-normalizer",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "generated-search-facts-only-in-normalizer"
-        }
-      }
-    },
-    {
-      "id": "input-core-imports-no-camera-or-app",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "input-core-imports-no-camera-or-app"
-        }
-      }
-    },
-    {
-      "id": "keyboard-imports-no-edition-or-surface",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "keyboard-imports-no-edition-or-surface"
-        }
-      }
-    },
-    {
-      "id": "location-session-only-in-button",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "location-session-only-in-button"
-        }
-      }
-    },
-    {
-      "id": "map-presentation-imports-no-story-controller",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "map-presentation-imports-no-story-controller"
-        }
-      }
-    },
-    {
-      "id": "panel-rail-imports-no-shell-state",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "panel-rail-imports-no-shell-state"
-        }
-      }
-    },
-    {
-      "id": "panel-target-state-only-through-presentation",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "panel-target-state-only-through-presentation"
-        }
-      }
-    },
-    {
-      "id": "persistence-capability-imported-only-by-owners",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "persistence-capability-imported-only-by-owners"
-        }
-      }
-    },
-    {
-      "id": "persistence-imports-no-workflows",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "persistence-imports-no-workflows"
-        }
-      }
-    },
-    {
-      "id": "place-search-imports-no-geocoding-transport",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "place-search-imports-no-geocoding-transport"
-        }
-      }
-    },
-    {
-      "id": "plant-row-imports-no-canvas-session",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "plant-row-imports-no-canvas-session"
-        }
-      }
-    },
-    {
-      "id": "point-editor-imports-only-pure",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "point-editor-imports-only-pure"
-        }
-      }
-    },
-    {
-      "id": "problem-report-attachments-import-no-stores",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "problem-report-attachments-import-no-stores"
-        }
-      }
-    },
-    {
-      "id": "problem-report-dialog-imports-only-submission",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "problem-report-dialog-imports-only-submission"
-        }
-      }
-    },
-    {
-      "id": "projection-imports-nothing",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "projection-imports-nothing"
-        }
-      }
-    },
-    {
-      "id": "role-surfaces-import-no-scene-runtime",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "role-surfaces-import-no-scene-runtime"
-        }
-      }
-    },
-    {
-      "id": "scene-construction-imports-no-presentation-data",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "scene-construction-imports-no-presentation-data"
-        }
-      }
-    },
-    {
-      "id": "scene-runtime-only-in-workspace-composition",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "scene-runtime-only-in-workspace-composition"
-        }
-      }
-    },
-    {
-      "id": "session-imports-only-tool-host",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "session-imports-only-tool-host"
-        }
-      }
-    },
-    {
-      "id": "settings-projection-imports-no-platform",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "settings-projection-imports-no-platform"
-        }
-      }
-    },
-    {
-      "id": "shell-commands-import-no-platform",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "shell-commands-import-no-platform"
-        }
-      }
-    },
-    {
-      "id": "tools-import-no-maplibre-dom-or-pixi",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "tools-import-no-maplibre-dom-or-pixi"
-        }
-      }
-    },
-    {
-      "id": "tools-imported-only-by-session",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "tools-imported-only-by-session"
-        }
-      }
-    },
-    {
-      "id": "tools-reach-no-maplibre-or-pixi",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "tools-reach-no-maplibre-or-pixi"
-        }
-      }
-    },
-    {
-      "id": "view-imports-only-pure-modules",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "view-imports-only-pure-modules"
-        }
-      }
-    },
-    {
-      "id": "view-value-imports-only-in-runtime",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "view-value-imports-only-in-runtime"
-        }
-      }
-    },
-    {
-      "id": "web-imports-no-desktop-modules",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "web-imports-no-desktop-modules"
-        }
-      }
-    },
-    {
-      "id": "web-imports-no-settings-projection",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "web-imports-no-settings-projection"
-        }
-      }
-    },
-    {
-      "id": "web-templates-import-no-desktop-authority",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "web-templates-import-no-desktop-authority"
-        }
-      }
-    },
-    {
-      "id": "write-admission-only-in-persistence-adapters",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "write-admission-only-in-persistence-adapters"
-        }
-      }
-    },
-    {
-      "id": "scene-history-only-in-authority",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "scene-history-only-in-authority"
-        }
-      }
-    },
-    {
-      "id": "canvas-listeners-only-in-input-owners",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "canvas-listeners-only-in-input-owners"
-        }
-      }
-    },
-    {
-      "id": "design-edit-authority-disposal-only-in-owner",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "design-edit-authority-disposal-only-in-owner"
-        }
-      }
-    },
-    {
-      "id": "design-edit-authority-registration-only-in-store",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "design-edit-authority-registration-only-in-store"
-        }
-      }
-    },
-    {
-      "id": "test-only-exports-only-in-tests",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "test-only-exports-only-in-tests"
-        }
-      }
-    },
-    {
-      "id": "escape-layer-only-through-popover-hook",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "escape-layer-only-through-popover-hook"
-        }
-      }
-    },
-    {
-      "id": "google-key-urls-only-in-satellite-provider",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "google-key-urls-only-in-satellite-provider"
-        }
-      }
-    },
-    {
-      "id": "pixi-unsafe-eval-shim-first",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M236 |",
-      "state": {
-        "exists": {
-          "check": "pixi-unsafe-eval-shim-first"
-        }
-      }
-    },
-    {
-      "id": "google-tile-endpoint-only-in-tile-auth",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M236 |",
-      "state": {
-        "exists": {
-          "check": "google-tile-endpoint-only-in-tile-auth"
-        }
-      }
-    },
-    {
-      "id": "maplibre-listeners-only-on-abort-signals",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "maplibre-listeners-only-on-abort-signals"
-        }
-      }
-    },
-    {
-      "id": "no-browser-globals-in-input-core",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-browser-globals-in-input-core"
-        }
-      }
-    },
-    {
-      "id": "per-point-projection-only-in-billboards",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "per-point-projection-only-in-billboards"
-        }
-      }
-    },
-    {
-      "id": "persistence-capability-registration-only-in-store",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "persistence-capability-registration-only-in-store"
-        }
-      }
-    },
-    {
-      "id": "persistence-capture-only-in-persistence",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "persistence-capture-only-in-persistence"
-        }
-      }
-    },
-    {
-      "id": "persistence-state-capture-only-in-owner",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "persistence-state-capture-only-in-owner"
-        }
-      }
-    },
-    {
-      "id": "pointer-capture-only-in-dom-input",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "pointer-capture-only-in-dom-input"
-        }
-      }
-    },
-    {
-      "id": "story-overrides-only-in-controller",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "story-overrides-only-in-controller"
-        }
-      }
-    },
-    {
-      "id": "view-frame-signals-only-in-runtime",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "view-frame-signals-only-in-runtime"
-        }
-      }
-    },
-    {
-      "id": "view-transform-only-in-view-module",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "view-transform-only-in-view-module"
-        }
-      }
-    },
-    {
-      "id": "camera-moves-only-in-camera-driver",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "camera-moves-only-in-camera-driver"
-        }
-      }
-    },
-    {
-      "id": "geolocation-only-in-geolocation-module",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "geolocation-only-in-geolocation-module"
-        }
-      }
-    },
-    {
-      "id": "no-map-projection",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-map-projection"
-        }
-      }
-    },
-    {
-      "id": "no-map-style-reload",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-map-style-reload"
-        }
-      }
-    },
-    {
-      "id": "desktop-shortcuts-import-only-keymap-rows",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "desktop-shortcuts-import-only-keymap-rows"
-        }
-      }
-    },
-    {
-      "id": "favorites-imports-only-scene-edit-surface",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "favorites-imports-only-scene-edit-surface"
-        }
-      }
-    },
-    {
-      "id": "layer-presentation-imports-only-layer-surfaces",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "layer-presentation-imports-only-layer-surfaces"
-        }
-      }
-    },
-    {
-      "id": "plant-color-menu-imports-only-presentation-surfaces",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "plant-color-menu-imports-only-presentation-surfaces"
-        }
-      }
-    },
-    {
-      "id": "plant-popovers-import-only-query-surfaces",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "plant-popovers-import-only-query-surfaces"
-        }
-      }
-    },
-    {
-      "id": "shell-catalog-imports-only-composition",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "shell-catalog-imports-only-composition"
-        }
-      }
-    },
-    {
-      "id": "shell-projections-import-only-projection",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "shell-projections-import-only-projection"
-        }
-      }
-    },
-    {
-      "id": "web-shell-imports-only-neutral-commands",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "web-shell-imports-only-neutral-commands"
-        }
-      }
-    },
-    {
-      "id": "zoom-controls-import-only-viewport-surfaces",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "zoom-controls-import-only-viewport-surfaces"
-        }
-      }
-    },
-    {
-      "id": "no-document-surface-in-components",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-document-surface-in-components"
-        }
-      }
-    },
-    {
-      "id": "no-free-world-to-screen-export",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-free-world-to-screen-export"
-        }
-      }
-    },
-    {
-      "id": "no-nonliteral-dynamic-import",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-nonliteral-dynamic-import"
-        }
-      }
-    },
-    {
-      "id": "no-host-listener-in-chrome",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-host-listener-in-chrome"
-        }
-      }
-    },
-    {
-      "id": "no-hand-rolled-projection",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "no-hand-rolled-projection"
-        }
-      }
-    },
-    {
-      "id": "preload-error-only-in-release-watch",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "preload-error-only-in-release-watch"
-        }
-      }
-    },
-    {
-      "id": "raster-quantity-literal-only-in-item-types",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M186 |",
-      "state": {
-        "exists": {
-          "check": "raster-quantity-literal-only-in-item-types"
-        }
-      }
-    },
-    {
-      "id": "no-compat-event-alias",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M224 |",
-      "state": {
-        "exists": {
-          "check": "no-compat-event-alias"
-        }
-      }
-    },
-    {
-      "id": "signal-write-only-in-owner",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M233 |",
-      "state": {
-        "exists": {
-          "check": "signal-write-only-in-owner"
-        }
-      }
-    },
-    {
-      "id": "jscpd-clones",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q218 |",
-      "state": {
-        "exists": {
-          "check": "jscpd-clones"
-        }
-      }
-    },
-    {
-      "id": "file-size",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q243 |",
-      "state": {
-        "exists": {
-          "check": "file-size"
-        }
-      }
-    },
-    {
-      "id": "test-location",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-E3 |",
-      "state": {
-        "exists": {
-          "check": "test-location"
-        }
-      }
-    },
-    {
-      "id": "no-numeric-style-length",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |",
-      "state": {
-        "exists": {
-          "check": "no-numeric-style-length"
-        }
-      }
-    },
-    {
-      "id": "invoke-only-in-ipc",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "tool-arming-only-in-arm-canvas-tool",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "google-key-only-in-reviewed-readers",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "key-listener-only-in-key-router",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "tool-id-literal-only-in-rows",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "web-storage-only-in-adapters",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M190 |"
-    },
-    {
-      "id": "indexeddb-only-in-adapters",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M190 |"
-    },
-    {
-      "id": "serial-lane-only-in-owners",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M203 |"
-    },
-    {
-      "id": "maplibre-class-only-in-maplibre",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "number-format-only-in-utils",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-currency-symbol-table",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "date-only-in-civil-date",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "clipboard-only-in-adapter",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "fetch-only-in-owners",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "worker-only-in-owner",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "search-fold-only-in-search-text",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "ids-only-in-minters",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-webmercator-literal",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-hand-generation-guard",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "bare-catch-names-reason",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "credential-literal-only-in-redactors",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-shell-breakpoint-media-query",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-inline-dialog-filters",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-hard-coded-import-extension",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-canopifile-literal",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-lineage-field-read",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "zone-decoding-only-in-kernel",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "no-param-rule-in-ts",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
-      "id": "map-sources-only-in-contributions",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M189 |"
-    },
-    {
       "id": "flake-quarantine",
       "doc": "docs/adr/0028-architecture-fitness-and-verification.md",
       "quote": "quarantined flakes",
@@ -2892,196 +1702,6 @@
       "state": {
         "exists": {
           "check": "desktop/web/src/__tests__/support/test-determinism-config.test.ts"
-        }
-      }
-    },
-    {
-      "id": "hook-no-verify",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M196 |",
-      "state": {
-        "exists": {
-          "check": "hook-no-verify"
-        }
-      }
-    },
-    {
-      "id": "hook-hooks-path-override",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M196 |",
-      "state": {
-        "exists": {
-          "check": "hook-hooks-path-override"
-        }
-      }
-    },
-    {
-      "id": "hook-husky-skip",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M196 |",
-      "state": {
-        "exists": {
-          "check": "hook-husky-skip"
-        }
-      }
-    },
-    {
-      "id": "hook-bare-stash",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M196 |",
-      "state": {
-        "exists": {
-          "check": "hook-bare-stash"
-        }
-      }
-    },
-    {
-      "id": "hook-user-checkout-commit",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M196 |",
-      "state": {
-        "exists": {
-          "check": "hook-user-checkout-commit"
-        }
-      }
-    },
-    {
-      "id": "hook-reset-hard",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M339 |",
-      "state": {
-        "exists": {
-          "check": "hook-reset-hard"
-        }
-      }
-    },
-    {
-      "id": "hook-discard",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M339 |",
-      "state": {
-        "exists": {
-          "check": "hook-discard"
-        }
-      }
-    },
-    {
-      "id": "gate-loosening-authority",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M195 |",
-      "state": {
-        "exists": {
-          "check": "gate-loosening-authority"
-        }
-      }
-    },
-    {
-      "id": "gate-first-baseline",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M40 |",
-      "state": {
-        "exists": {
-          "check": "gate-first-baseline"
-        }
-      }
-    },
-    {
-      "id": "gate-guarded-file",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q225 |",
-      "state": {
-        "exists": {
-          "check": "gate-guarded-file"
-        }
-      }
-    },
-    {
-      "id": "gate-inventory-demotion",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M229 |",
-      "state": {
-        "exists": {
-          "check": "gate-inventory-demotion"
-        }
-      }
-    },
-    {
-      "id": "gate-test-deleted",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q224 |",
-      "state": {
-        "exists": {
-          "check": "gate-test-deleted"
-        }
-      }
-    },
-    {
-      "id": "gate-test-loosened",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M199 |",
-      "state": {
-        "exists": {
-          "check": "gate-test-loosened"
-        }
-      }
-    },
-    {
-      "id": "gate-test-reworded",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q224 |",
-      "state": {
-        "exists": {
-          "check": "gate-test-reworded"
-        }
-      }
-    },
-    {
-      "id": "gate-absent-bead",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M356 |",
-      "state": {
-        "exists": {
-          "check": "gate-absent-bead"
-        }
-      }
-    },
-    {
-      "id": "gate-no-attribution",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M230 |",
-      "state": {
-        "exists": {
-          "check": "gate-no-attribution"
-        }
-      }
-    },
-    {
-      "id": "gate-squash-subject",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M228 |",
-      "state": {
-        "exists": {
-          "check": "gate-squash-subject"
-        }
-      }
-    },
-    {
-      "id": "gate-python-added",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-M349 |",
-      "state": {
-        "exists": {
-          "check": "gate-python-added"
-        }
-      }
-    },
-    {
-      "id": "guarded-files",
-      "doc": "docs/decisions/2-1.md",
-      "quote": "| 2.1-Q225 |",
-      "state": {
-        "exists": {
-          "check": "guarded-files"
         }
       }
     },
@@ -3139,7 +1759,7 @@
     },
     {
       "id": "notice-module-browser-release-watch",
-      "doc": "desktop/web/src/web/browser-release-watch.ts",
+      "doc": "desktop/web/src/editions/web/browser-release-watch.ts",
       "quote": "const notice = signal<BrowserReleaseWaiting | null>(null);",
       "state": {
         "planned": {

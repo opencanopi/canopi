@@ -53,6 +53,8 @@ pub fn get_recent_files(
             path: row.get(0)?,
             name: row.get(1)?,
             updated_at: row.get(2)?,
+            grant: None,
+            recent_id: None,
         })
     })?;
 

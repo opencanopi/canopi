@@ -7,6 +7,7 @@
 // turns every area about its own centre, and the sheets of one split together about their split's centre (its pivot).
 
 import type { CanvasPrintSnapshot, PrintBounds, PrintPoint, PrintZone } from '../../canvas/print'
+import { turnPrintZoneGeometry } from '../../canvas/runtime/zone-geometry'
 import type { PdfInput, PdfSetup } from './types'
 
 export interface PageFrame {
@@ -73,6 +74,7 @@ export function turnSnapshot(snapshot: CanvasPrintSnapshot, frame: PageFrame): C
   if (!frame.angleDeg) return snapshot
   const turn = frame.toFrame
   return {
+    ...(snapshot.planeOrigin ? { planeOrigin: snapshot.planeOrigin } : {}),
     layers: snapshot.layers,
     plants: snapshot.plants.map(plant => ({ ...plant, position: turn(plant.position) })),
     zones: snapshot.zones.map(zone => turnZone(zone, frame)),
@@ -82,26 +84,8 @@ export function turnSnapshot(snapshot: CanvasPrintSnapshot, frame: PageFrame): C
 }
 
 function turnZone(zone: PrintZone, frame: PageFrame): PrintZone {
-  const geometry: PrintZone['geometry'] = zone.geometry.kind === 'ellipse'
-    ? { ...zone.geometry, center: frame.toFrame(zone.geometry.center), rotation: zone.geometry.rotation - frame.angleDeg }
-    : { ...zone.geometry, points: zone.geometry.points.map(frame.toFrame) }
-  return { ...zone, path: turnPath(zone.path, frame.toFrame), bounds: turnedBounds(geometry), geometry }
-}
-
-/** The print snapshot gives every zone its geometry, and a polygon or line at least one point. */
-function turnedBounds(geometry: PrintZone['geometry']): PrintBounds {
-  if (geometry.kind === 'ellipse') {
-    const a = geometry.rotation * Math.PI / 180, { x: rx, y: ry } = geometry.radii
-    const hx = Math.hypot(rx * Math.cos(a), ry * Math.sin(a)), hy = Math.hypot(rx * Math.sin(a), ry * Math.cos(a))
-    return { x: geometry.center.x - hx, y: geometry.center.y - hy, width: 2 * hx, height: 2 * hy }
-  }
-  return boxOf(geometry.points)
-}
-
-function boxOf(points: readonly PrintPoint[]): PrintBounds {
-  const xs = points.map(p => p.x), ys = points.map(p => p.y)
-  const x = Math.min(...xs), y = Math.min(...ys)
-  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y }
+  const { geometry, bounds } = turnPrintZoneGeometry(zone.geometry, frame.toFrame, frame.angleDeg)
+  return { ...zone, path: turnPath(zone.path, frame.toFrame), bounds, geometry }
 }
 
 /** Every coordinate pair of a print path, turned. The print snapshot writes only absolute M, L, C and Z. */

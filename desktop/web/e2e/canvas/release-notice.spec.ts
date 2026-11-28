@@ -5,23 +5,17 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page, Route } from '@playwright/test'
 import { expectDownloadName } from '../support/download'
-import { boxOf, expectHitAtCentre, overlap, type Box } from '../support/layout'
+import { boxOf, expectHitAtCentre, openFixtureFromStart, overlap, type Box } from '../support/layout'
 import { expect, test } from '../support/offline'
 import { draftsKeptStub } from '../support/storage-persistence'
+import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
+import { readCargoWorkspaceVersion } from '../../../../policy/release-version.mjs'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 /** The PDF preview's lazy `job` chunk (app/canvas-pdf/live.ts): never loaded before the export opens, and offline-safe. */
 const PDF_JOB_CHUNK = /\/assets\/job-[^/]+\.js$/
 
 const NOT_FOUND = 'Failed to load resource: the server responded with a status of 404 (Not Found)'
-
-async function openFixtureFromStart(page: Page): Promise<void> {
-  const open = page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first()
-  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
-  await chooser.setFiles(FIXTURE)
-  // The Design's title bar, not the map: Firefox in the pinned image has no WebGL, so its map never draws.
-  await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
-}
 
 async function openPdfExport(page: Page): Promise<void> {
   await page.getByRole('menubar', { name: 'Menus' }).getByRole('menuitem', { name: 'File' }).click()
@@ -32,8 +26,8 @@ async function openPdfExport(page: Page): Promise<void> {
 // The browser's line for a chunk a test answers 404.
 test.use({ expectedConsoleErrors: [NOT_FOUND] })
 
-/** This build's release (the manifest of a packaged build names desktop/web/package.json's, which release-candidate keeps equal). */
-const OWN_VERSION = (JSON.parse(readFileSync(fileURLToPath(new URL('../../../tauri.conf.json', import.meta.url)), 'utf8')) as { version: string }).version
+/** This build's release (Cargo.toml [workspace.package], held equal across manifests by release-version.mjs). */
+const OWN_VERSION = readCargoWorkspaceVersion(fileURLToPath(new URL('../../../..', import.meta.url)))
 const OTHER_VERSION = `${OWN_VERSION}-next`
 const MANIFEST = '**/canopi-web-edition-manifest.json'
 const SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
@@ -77,7 +71,7 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   const manifest = await routeManifest(page, () => version)
   await page.route(PDF_JOB_CHUNK, (route) => route.fulfill({ status: 404, contentType: 'text/plain', body: 'Not Found' }))
   await page.goto('')
-  await openFixtureFromStart(page)
+  await openFixtureFromStart(page, FIXTURE)
 
   // This tab's own release: no notice.
   await focusWindow(page)
@@ -115,29 +109,45 @@ test('Q83: another release named by the manifest shows one New version: Reload n
   await expect(page.locator('[data-notice-row]')).toHaveCount(1)
 })
 
+async function readIdbDraftNames(page: Page): Promise<string[]> {
+  const dump = await page.evaluate(draftStoreDump, DRAFT_DATABASE)
+  return Array.isArray(dump?.drafts) ? (dump.drafts as { name?: string }[]).map((row) => row.name ?? '') : []
+}
+
 test.describe('a Draft write that fails', () => {
   // The app's own line for the write the browser refused.
   test.use({ expectedConsoleErrors: [SAVE_FAILED] })
 
   test('Q83: Reload saves first, and a failed save offers Download a copy', async ({ page }) => {
     await page.addInitScript(() => {
-      // The browser's storage full for Drafts while `__failDrafts` is set (a quota refusal).
-      const setItem = Storage.prototype.setItem
-      // What the Drafts record holds when the page starts to unload: after Reload's own write, before the pagehide one.
+      // Abort the IndexedDB transaction while `__failDrafts` is set, simulating a browser write refusal.
+      const origPut = IDBObjectStore.prototype.put
+      const savedBeforeUnload: string[] = []
       window.addEventListener('beforeunload', () => {
-        sessionStorage.setItem('e2e:drafts-at-unload', localStorage.getItem('canopi:web-app-data:v3:drafts') ?? '')
+        ;(window as unknown as { __unloading?: boolean }).__unloading = true
+        sessionStorage.setItem('e2e:drafts-at-unload', JSON.stringify(savedBeforeUnload))
       })
-      Storage.prototype.setItem = function failingSetItem(this: Storage, key: string, value: string) {
-        if ((window as unknown as { __failDrafts?: boolean }).__failDrafts && key === 'canopi:web-app-data:v3:drafts') {
-          throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+      IDBObjectStore.prototype.put = function failingPut(this: IDBObjectStore, value: unknown, key?: IDBValidKey) {
+        if ((window as unknown as { __failDrafts?: boolean }).__failDrafts && this.name === 'drafts') {
+          this.transaction.abort()
+          return undefined as unknown as IDBRequest<IDBValidKey>
         }
-        setItem.call(this, key, value)
+        const req = key === undefined ? origPut.call(this, value) : origPut.call(this, value, key)
+        if (this.name === 'drafts' && value && typeof value === 'object' && 'name' in value) {
+          const name = (value as { name?: unknown }).name
+          if (typeof name === 'string') {
+            req.addEventListener('success', () => {
+              if (!(window as unknown as { __unloading?: boolean }).__unloading) savedBeforeUnload.push(name)
+            })
+          }
+        }
+        return req
       }
     })
     await routeManifest(page, () => OTHER_VERSION)
     await page.goto('')
-    await openFixtureFromStart(page)
-    await expect.poll(() => page.evaluate((key) => localStorage.getItem(key) !== null, DRAFTS_KEY), 'the opened Design is a Draft').toBe(true)
+    await openFixtureFromStart(page, FIXTURE)
+    await expect.poll(() => readIdbDraftNames(page), 'the opened Design is a Draft').toHaveLength(1)
 
     // An edit the browser cannot write.
     await page.evaluate(() => { (window as unknown as { __failDrafts: boolean }).__failDrafts = true })
@@ -165,22 +175,40 @@ test.describe('a Draft write that fails', () => {
 
     // Room again, and another tab wrote a newer Draft meanwhile: Reload writes this tab's edit and reopens its Design
     // (Q189), not the newest Draft.
-    await page.evaluate((key) => {
-      (window as unknown as { __failDrafts: boolean }).__failDrafts = false
-      const record = JSON.parse(localStorage.getItem(key)!) as { drafts: { id: string, name: string, updatedAt: string }[], draftFiles: Record<string, { name: string }> }
-      const [first] = record.drafts
-      record.drafts.unshift({ id: 'draft-other-tab', name: 'Other tab', updatedAt: '2099-01-01T00:00:00.000Z' })
-      record.draftFiles['draft-other-tab'] = { ...record.draftFiles[first!.id]!, name: 'Other tab' }
-      localStorage.setItem(key, JSON.stringify(record))
-    }, DRAFTS_KEY)
-    const draftNames = (text: string | null) => (JSON.parse(text || '{"drafts":[]}') as { drafts: { name: string }[] }).drafts.map((draft) => draft.name)
-    expect(draftNames(await page.evaluate((key) => localStorage.getItem(key), DRAFTS_KEY)), 'the edit is unwritten before Reload').not.toContain('Orchard before the deploy')
+    await page.evaluate(async () => {
+      ;(window as unknown as { __failDrafts: boolean }).__failDrafts = false
+      await new Promise<void>((resolve, reject) => {
+        const req = indexedDB.open('canopi-drafts')
+        req.onerror = () => reject(req.error ?? new Error('open canopi-drafts failed'))
+        req.onsuccess = () => {
+          const db = req.result
+          const tx = db.transaction('drafts', 'readwrite')
+          const store = tx.objectStore('drafts')
+          const getAll = store.getAll()
+          getAll.onsuccess = () => {
+            const first = (getAll.result as { id: string, canopi_version: string, content: string }[])[0]!
+            const parsed = JSON.parse(first.content) as Record<string, unknown>
+            store.put({
+              id: 'draft-other-tab',
+              canopi_version: first.canopi_version,
+              version: 1,
+              name: 'Other tab',
+              updated_at: '2099-01-01T00:00:00.000Z',
+              content: JSON.stringify({ ...parsed, name: 'Other tab', updated_at: '2099-01-01T00:00:00.000Z' }),
+            })
+          }
+          tx.oncomplete = () => { db.close(); resolve() }
+          tx.onerror = () => { db.close(); reject(tx.error ?? new Error('put failed')) }
+        }
+      })
+    })
+    expect(await readIdbDraftNames(page), 'the edit is unwritten before Reload').not.toContain('Orchard before the deploy')
     await Promise.all([
       page.waitForEvent('framenavigated'),
       notice.getByRole('button', { name: 'Reload' }).click(),
     ])
-    // Reload wrote the edit before the page unloaded: the pagehide write comes later.
-    expect(draftNames(await page.evaluate(() => sessionStorage.getItem('e2e:drafts-at-unload'))), 'saved before the reload').toContain('Orchard before the deploy')
+    // Reload wrote the edit before the page unloaded: the pagehide close comes later.
+    expect(JSON.parse(await page.evaluate(() => sessionStorage.getItem('e2e:drafts-at-unload') ?? '[]')) as string[], 'saved before the reload').toContain('Orchard before the deploy')
     await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
     await expect(page.locator('[data-workspace-title-bar]').getByRole('button', { name: /^Rename Design/ })).toHaveText('Orchard before the deploy')
     await expect(releaseNotice(page), 'the reloaded tab runs the served release').toHaveCount(0)
@@ -272,7 +300,7 @@ for (const locale of LOCALES) {
           for (const neighbour of await shellNeighbours(page, notice)) {
             expect(overlap(noticeBox, neighbour.box), `the notice overlaps ${neighbour.name} (${name})`).toBe(false)
           }
-          const phone = await page.locator('[data-phone-layout]').count() > 0
+          const phone = await page.locator('[data-layout]').count() > 0
           for (const label of [text.notice.reload!, text.notice.dismiss!]) {
             const button = notice.getByRole('button', { name: label, exact: true })
             await expect(async () => { await expectHitAtCentre(button, `${label} (${name})`) }).toPass({ timeout: 5000 })

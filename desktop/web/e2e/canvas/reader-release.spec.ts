@@ -12,11 +12,11 @@ import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 
-/** A Design as 2.1 writes it: `.canopi` v10, with the plant `scale` renamed `canopy_spread_m` (2.1-Q314). */
-function v10Design(name: string): Buffer {
+/** A Design from a future Canopi release (v11): refused unchanged on Canopi 2.1 (2.1-Q347). */
+function v11Design(name: string): Buffer {
   const design = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Record<string, unknown>
   const plants = (design.plants as Record<string, unknown>[]).map(({ scale, ...plant }) => ({ ...plant, canopy_spread_m: scale }))
-  return Buffer.from(JSON.stringify({ ...design, version: 10, name, plants }, null, 2))
+  return Buffer.from(JSON.stringify({ ...design, version: 11, name, plants }, null, 2))
 }
 
 /** Every localStorage entry and every IndexedDB database's records: what "writes no byte" compares on Web. */
@@ -48,7 +48,7 @@ async function storageDump(page: Page): Promise<unknown> {
   })
 }
 
-test('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and says a newer Canopi saved it (Web)', async ({ page }) => {
+test('R1 canopi-f47t.52.270: 2.1-Q347: a newer-version (v11) Design is refused unchanged and writes no byte (Web)', async ({ page }) => {
   await page.goto('')
   const start = page.locator('[data-start-screen]')
   await expect(start).toBeVisible()
@@ -56,24 +56,9 @@ test('R1 canopi-f47t.52.270: reader release: a v10 Design opens read-only and sa
 
   const open = start.getByRole('button').filter({ hasText: /\.canopi/ }).first()
   const [chooser] = await Promise.all([page.waitForEvent('filechooser'), open.click()])
-  await chooser.setFiles({ name: 'Orchard 2.1.canopi', mimeType: 'application/json', buffer: v10Design('Orchard 2.1') })
+  await chooser.setFiles({ name: 'Orchard 2.2.canopi', mimeType: 'application/json', buffer: v11Design('Orchard 2.2') })
 
-  const status = page.locator('[data-workspace-title-bar] [data-save-status]')
-  await expect(status, 'the Design opens').toBeVisible()
-  // The bar says "Read-only"; its popover says why and offers Update (2.1-Q336).
-  await status.getByRole('button', { name: 'Read-only', exact: true }).click()
-  const details = status.getByRole('dialog')
-  await expect(details).toContainText('Read-only: saved by a newer Canopi')
-  await expect(details.getByRole('button', { name: 'Update' }), 'the save status popover offers Update').toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(details).toBeHidden()
-  await expect(page.locator('[data-workspace-title-bar]')).toContainText('Orchard 2.1')
-
-  // A camera move settles a view (600 ms) and would queue the last view (160 ms more); wait past both (design check 5c).
-  const viewport = page.viewportSize() ?? { width: 1280, height: 720 }
-  await page.mouse.move(viewport.width / 2, viewport.height / 2)
-  await page.mouse.wheel(0, -300)
-  await page.waitForTimeout(1_500)
-
-  expect(await storageDump(page), 'a v10 Design writes no byte to browser storage, the device settings included').toEqual(before)
+  await expect(page.getByText(/newer version/i), 'a newer-version Design is refused with a visible notice (2.1-Q347)').toBeVisible()
+  await expect(start, 'nothing opened').toBeVisible()
+  expect(await storageDump(page), 'a refused v11 Design writes no byte to browser storage').toEqual(before)
 })

@@ -6,7 +6,7 @@ import {
   getContourLayerConfigs,
   getContourSourceConfig,
   getHillshadeLayerConfig,
-} from '../canvas/contours'
+} from './contours'
 
 export const TERRAIN_DEM_SOURCE_ID = 'terrain-dem'
 export const TERRAIN_CONTOUR_SOURCE_ID = 'terrain-contour-source'

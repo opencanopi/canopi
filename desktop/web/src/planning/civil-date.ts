@@ -1,0 +1,196 @@
+// app/timeline/civil-date.ts
+// Owner of civil dates (date-only-in-civil-date, ADR 0028; §18 F13). Invariant: dates are
+// parsed and displayed only here; other modules hand it CivilDate values.
+
+import { LOCALE_WEEK_START_FALLBACK } from '../generated/locale-registry'
+
+export interface CivilDate {
+  readonly year: number
+  readonly month: number
+  readonly day: number
+}
+
+const CIVIL_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/
+/**
+ * First weekday (0 Sunday … 6 Saturday) by tag or language, for engines
+ * without Intl week info (older WebKit). Generated from the L6 locale registry
+ * with regional overrides for `en-US` and `en-GB`.
+ */
+const WEEK_START_FALLBACK: Readonly<Record<string, number>> = {
+  ...LOCALE_WEEK_START_FALLBACK,
+  'en-US': 0,
+  'en-GB': 1,
+}
+
+export function parseCivilDate(value: string | null | undefined): CivilDate | null {
+  if (!value) return null
+  const match = CIVIL_DATE_PATTERN.exec(value)
+  if (!match) return null
+  const year = Number(match[1])
+  const month = Number(match[2])
+  const day = Number(match[3])
+  const local = new Date(year, month - 1, day)
+  if (
+    local.getFullYear() !== year
+    || local.getMonth() !== month - 1
+    || local.getDate() !== day
+  ) return null
+  return { year, month, day }
+}
+
+export function formatCivilDate(date: CivilDate): string {
+  return `${String(date.year).padStart(4, '0')}-${String(date.month).padStart(2, '0')}-${String(date.day).padStart(2, '0')}`
+}
+
+export function civilDateToLocalDate(date: CivilDate): Date {
+  return new Date(date.year, date.month - 1, date.day)
+}
+
+export function localToday(now = new Date()): CivilDate {
+  return {
+    year: now.getFullYear(),
+    month: now.getMonth() + 1,
+    day: now.getDate(),
+  }
+}
+
+export function addCivilDays(date: CivilDate, days: number): CivilDate {
+  const local = new Date(date.year, date.month - 1, date.day + days)
+  return {
+    year: local.getFullYear(),
+    month: local.getMonth() + 1,
+    day: local.getDate(),
+  }
+}
+
+export function addCivilMonths(date: CivilDate, months: number): CivilDate {
+  const local = new Date(date.year, date.month - 1 + months, 1)
+  const lastDay = new Date(local.getFullYear(), local.getMonth() + 1, 0).getDate()
+  return {
+    year: local.getFullYear(),
+    month: local.getMonth() + 1,
+    day: Math.min(date.day, lastDay),
+  }
+}
+
+export function compareCivilDates(left: CivilDate, right: CivilDate): number {
+  return formatCivilDate(left).localeCompare(formatCivilDate(right))
+}
+
+export function startOfCivilMonth(date: CivilDate): CivilDate {
+  return { year: date.year, month: date.month, day: 1 }
+}
+
+export function endOfCivilMonth(date: CivilDate): CivilDate {
+  return {
+    year: date.year,
+    month: date.month,
+    day: new Date(date.year, date.month, 0).getDate(),
+  }
+}
+
+type LocaleWeekInfo = { readonly firstDay?: number }
+
+/** The locale's first weekday as a `Date.getDay()` number (0 Sunday … 6 Saturday). */
+export function civilWeekStartDay(locale: string): number {
+  try {
+    const intlLocale = new Intl.Locale(locale) as Intl.Locale & {
+      getWeekInfo?: () => LocaleWeekInfo
+      weekInfo?: LocaleWeekInfo
+    }
+    const firstDay = (typeof intlLocale.getWeekInfo === 'function' ? intlLocale.getWeekInfo() : intlLocale.weekInfo)?.firstDay
+    // Intl numbers weekdays 1 Monday … 7 Sunday.
+    if (typeof firstDay === 'number' && firstDay >= 1 && firstDay <= 7) return firstDay % 7
+  } catch {
+    // An unknown tag falls through to the table.
+  }
+  return WEEK_START_FALLBACK[locale] ?? WEEK_START_FALLBACK[locale.split('-')[0] ?? locale] ?? 1
+}
+
+/** Days from the locale's week start to `date` (0 … 6). */
+export function civilWeekdayOffset(date: CivilDate, locale: string): number {
+  return (civilDateToLocalDate(date).getDay() - civilWeekStartDay(locale) + 7) % 7
+}
+
+export function startOfCivilWeek(date: CivilDate, locale: string): CivilDate {
+  return addCivilDays(date, -civilWeekdayOffset(date, locale))
+}
+
+export function buildCivilMonthGrid(month: CivilDate, locale: string): CivilDate[][] {
+  const start = startOfCivilWeek(startOfCivilMonth(month), locale)
+  const end = endOfCivilMonth(month)
+  const weeks: CivilDate[][] = []
+  let cursor = start
+  do {
+    const week = Array.from({ length: 7 }, (_, index) => addCivilDays(cursor, index))
+    weeks.push(week)
+    cursor = addCivilDays(cursor, 7)
+  } while (compareCivilDates(cursor, end) <= 0)
+  return weeks
+}
+
+export function civilDateInRange(
+  date: CivilDate,
+  start: CivilDate,
+  end: CivilDate,
+): boolean {
+  return compareCivilDates(date, start) >= 0 && compareCivilDates(date, end) <= 0
+}
+
+// Instants (2.1-Q103): a stamp is ISO text with its zone or unix milliseconds as text; it shows relative in lists and
+// as the full local date and time in detail panes. An unreadable stamp shows as nothing.
+const INSTANT_PATTERN = /^(\d{4}-\d{2}-\d{2})T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})$/
+const UNIX_MS_PATTERN = /^-?\d+$/
+
+function parseInstant(stamp: string): Date | null {
+  if (UNIX_MS_PATTERN.test(stamp)) return new Date(Number(stamp))
+  const match = INSTANT_PATTERN.exec(stamp)
+  if (!match || !parseCivilDate(match[1])) return null
+  const date = new Date(stamp)
+  return Number.isNaN(date.getTime()) ? null : date
+}
+
+/** "Today, 2:05 PM", "Yesterday, 6:20 PM", then "Sep 12" (with the year once it is not this year). */
+export function formatInstantInList(stamp: string, locale: string, now = new Date()): string {
+  const date = parseInstant(stamp)
+  if (!date) return ''
+  const dayDelta = Math.round((startOfLocalDay(now) - startOfLocalDay(date)) / (1000 * 60 * 60 * 24))
+  if (dayDelta === 0 || dayDelta === 1) {
+    const day = new Intl.RelativeTimeFormat(locale, { numeric: 'auto' }).format(-dayDelta, 'day')
+    const time = new Intl.DateTimeFormat(locale, { hour: 'numeric', minute: '2-digit' }).format(date)
+    return `${day.charAt(0).toLocaleUpperCase(locale)}${day.slice(1)}, ${time}`
+  }
+  const year = date.getFullYear() === now.getFullYear() ? {} : { year: 'numeric' as const }
+  return new Intl.DateTimeFormat(locale, { month: 'short', day: 'numeric', ...year }).format(date)
+}
+
+/** The full local date and time, for a detail pane. */
+export function formatInstantInDetail(stamp: string, locale: string): string {
+  const date = parseInstant(stamp)
+  return date ? new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(date) : ''
+}
+
+function startOfLocalDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
+}
+
+function dateTimeFormat(locale: string, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  return new Intl.DateTimeFormat(locale, options)
+}
+
+/** A civil date in a field: "Jul 4, 2026". */
+export function formatCivilDateLabel(date: CivilDate, locale: string): string {
+  return dateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric' }).format(civilDateToLocalDate(date))
+}
+
+/** A month heading: "July 2026". */
+export function formatCivilMonthLabel(month: CivilDate, locale: string): string {
+  return dateTimeFormat(locale, { month: 'long', year: 'numeric' }).format(civilDateToLocalDate(startOfCivilMonth(month)))
+}
+
+/** The short weekday names from the locale's week start, as a month grid's column headers. */
+export function civilWeekdayLabels(locale: string): string[] {
+  const format = dateTimeFormat(locale, { weekday: 'short' })
+  // 2024-01-07 is a Sunday, weekday 0.
+  return Array.from({ length: 7 }, (_, index) => format.format(new Date(2024, 0, 7 + civilWeekStartDay(locale) + index)))
+}

@@ -11,7 +11,7 @@ import {
 import { reportFailure, type ReportOrigin } from '../../failures/report'
 import { resetFrontendDiagnosticsForTests } from '../../failures/ring'
 import type { EditionSections, ProblemReport } from '../../platform/problem-report'
-import { desktopProblemReport } from '../../platform/problem-report.desktop'
+import { desktopProblemReport } from '../../editions/desktop/problem-report'
 import { createProblemReport } from '../../ipc/problem-report'
 import { buildProblemReport, type ProblemReportInput } from './builder'
 import { recentFrontendDiagnostics } from './diagnostics'
@@ -139,7 +139,7 @@ describe('problem report builder', () => {
     expect(text(plain, 'originating_failure')).toBe('empty\n')
     const ring = [{ level: 'error', source: 'map' }]
     expect((await nativeRequest(buildProblemReport(input({ ring, sections: DESKTOP })))).sections.map((section) => section.id))
-      .toEqual(['description', 'frontend_ring'])
+      .toEqual(['description', 'frontend_ring', 'settings_summary'])
   })
 
   it('canopi-f47t.52.36: an empty app-failures ring is marked empty on both editions, as an empty native-failures list is', async () => {
@@ -149,7 +149,7 @@ describe('problem report builder', () => {
     // Desktop sends no text for it, so the native writer marks it empty with the same marker.
     const desktop = buildProblemReport(input({ ring: [], sections: DESKTOP }))
     expect(desktop.entries.find((entry) => entry.section === 'frontend_ring')!.status).toBe('empty')
-    expect((await nativeRequest(desktop)).sections.map((section) => section.id)).toEqual(['description'])
+    expect((await nativeRequest(desktop)).sections.map((section) => section.id)).toEqual(['description', 'settings_summary'])
     // A ring holding a failure is included.
     const held = buildProblemReport(input({ ring: [{ level: 'error', source: 'map' }], sections: WEB }))
     expect(held.manifest!.entries.find((entry) => entry.section === 'frontend_ring')!.status).toBe('included')
@@ -180,7 +180,7 @@ describe('problem report builder', () => {
     const report = buildProblemReport(input({ sections: DESKTOP }))
     expect(report.manifest).toBeNull()
     expect(report.entries.filter((entry) => entry.status === 'native').map((entry) => entry.section).sort())
-      .toEqual(Object.keys(DESKTOP).sort())
+      .toEqual(Object.entries(DESKTOP).filter(([, reader]) => reader === 'native').map(([id]) => id).sort())
   })
 
   it('names the report canopi-report-YYYYMMDD-HHMMSS.zip in UTC on both editions (2.1-Q281)', () => {
@@ -232,5 +232,23 @@ describe('problem report builder', () => {
     }))
     expect(text(report, 'frontend_ring')).toContain('$.plants[0].position')
     expect(JSON.parse(text(report, 'originating_failure')).detail).toContain('$.plants[0].position')
+  })
+
+  it('MAP-03: map and layer failures reach the problem report frontend_ring with redacted detail', () => {
+    const report = buildProblemReport(input({
+      ring: [
+        { level: 'error', source: 'map', code: { kind: 'webgl2_unavailable' }, message: 'WebGL2 is unavailable', timestamp_ms: 1, count: 1 },
+        { level: 'error', source: 'map', code: { kind: 'map_unavailable' }, message: 'Context lost', timestamp_ms: 2, count: 1 },
+        { level: 'warn', source: 'map', code: { kind: 'tile_source_failed', layer: 'terrain-dem' }, message: 'Terrain tile failed', timestamp_ms: 3, count: 1 },
+        { level: 'warn', source: 'map', code: { kind: 'style_failed' }, message: 'Style failed', timestamp_ms: 4, count: 1 },
+      ],
+    }))
+    const ringJson = JSON.parse(text(report, 'frontend_ring')) as Array<{ code: { kind: string; layer?: string } }>
+    expect(ringJson.map((entry) => entry.code)).toEqual([
+      { kind: 'webgl2_unavailable' },
+      { kind: 'map_unavailable' },
+      { kind: 'tile_source_failed', layer: 'terrain-dem' },
+      { kind: 'style_failed' },
+    ])
   })
 })

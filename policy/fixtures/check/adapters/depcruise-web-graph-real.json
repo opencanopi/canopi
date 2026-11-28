@@ -5,13 +5,13 @@
   "paths": [
     "policy/fixtures/rules/edition-roots/src/app/about/planted.ts",
     "policy/fixtures/rules/edition-roots/src/ipc/planted.ts",
-    "policy/fixtures/rules/edition-roots/src/main.tsx",
-    "policy/fixtures/rules/edition-roots/src/main.web.tsx"
+    "policy/fixtures/rules/edition-roots/src/editions/desktop/main.tsx",
+    "policy/fixtures/rules/edition-roots/src/editions/web/main.tsx"
   ],
   "expect": [
-    "edition-roots @ policy/fixtures/rules/edition-roots/src/app/about/planted.ts [app/about/planted.ts -> main.tsx] -> nothing-imports-a-root x1",
-    "edition-roots @ policy/fixtures/rules/edition-roots/src/main.web.tsx [main.web.tsx -> ipc/planted.ts] -> web-root-reaches-no-desktop x1",
-    "ipc-only-in-desktop-adapters @ policy/fixtures/rules/edition-roots/src/main.web.tsx [main.web.tsx -> ipc/planted.ts] x1",
-    "layer-order @ policy/fixtures/rules/edition-roots/src/app/about/planted.ts [app/about/planted.ts -> main.tsx] -> app/about x1"
+    "edition-roots @ policy/fixtures/rules/edition-roots/src/app/about/planted.ts [app/about/planted.ts -> editions/desktop/main.tsx] -> nothing-imports-a-root x1",
+    "edition-roots @ policy/fixtures/rules/edition-roots/src/editions/web/main.tsx [editions/web/main.tsx -> ipc/planted.ts] -> web-root-reaches-no-desktop x1",
+    "ipc-only-in-desktop-adapters @ policy/fixtures/rules/edition-roots/src/editions/web/main.tsx [editions/web/main.tsx -> ipc/planted.ts] x1",
+    "layer-order @ policy/fixtures/rules/edition-roots/src/app/about/planted.ts [app/about/planted.ts -> editions/desktop/main.tsx] -> app/about x1"
   ]
 }

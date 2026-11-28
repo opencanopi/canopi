@@ -1,0 +1,9 @@
+id: mount-canvas-host-only-in-use-canvas-host.typescript
+valid:
+  - |
+    import { useCanvasHost } from './use-canvas-host'
+    export const view = useCanvasHost(ref)
+invalid:
+  - |
+    import { mountCanvasHost } from './canvas-host'
+    export const host = mountCanvasHost(deps)

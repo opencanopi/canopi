@@ -3,11 +3,6 @@
 use super::*;
 use serde_json::json;
 
-fn geo_file(plants: serde_json::Value) -> CanopiFile {
-    serde_json::from_value(design_with(json!({ "plants": plants })))
-        .expect("current design should deserialize")
-}
-
 fn plant_at(lon: f64, lat: f64) -> serde_json::Value {
     json!({
         "id": "plant-1",
@@ -20,13 +15,10 @@ fn plant_at(lon: f64, lat: f64) -> serde_json::Value {
 fn design_positions_are_lon_lat_and_round_trip_exactly() {
     let file = geo_file(json!([plant_at(2.294_481_234_5, 48.858_370_123_4)]));
     assert_eq!(
-        file.plants[0].position,
-        GeoPoint {
-            lon: 2.294_481_234_5,
-            lat: 48.858_370_123_4
-        }
+        (file.plants[0].position.lon, file.plants[0].position.lat),
+        (2.294_481_234_5, 48.858_370_123_4)
     );
-    validate_design_geometry(&file).expect("in-range positions are valid");
+    admit_design_v10(&file, V10AdmissionMode::Decode).expect("in-range positions are valid");
     let value = serde_json::to_value(&file).expect("design should serialize");
     assert_eq!(
         value["plants"][0]["position"],
@@ -44,14 +36,14 @@ fn design_geometry_rejects_out_of_range_positions() {
         (181.0, 86.0, "$.plants[0].position.lat"),
     ] {
         let file = geo_file(json!([plant_at(lon, lat)]));
-        let refusal = validate_design_geometry(&file).expect_err("out of range");
+        let refusal = admit_design_v10(&file, V10AdmissionMode::Decode).expect_err("out of range");
         assert_eq!(refusal.field_path.to_string(), leaf, "({lon}, {lat})");
     }
 }
 
 #[test]
 fn design_positions_reject_local_metre_points() {
-    let result = serde_json::from_value::<CanopiFile>(design_with(json!({
+    let result = serde_json::from_value::<v10::CanopiFileV10>(design_with(json!({
         "plants": [{
             "id": "plant-1",
             "canonical_name": "Malus domestica",
@@ -63,8 +55,8 @@ fn design_positions_reject_local_metre_points() {
 
 #[test]
 fn design_objects_missing_lock_state_load_unlocked_and_serialize_explicitly() {
-    let file: CanopiFile = serde_json::from_value(json!({
-        "version": 9,
+    let file: v10::CanopiFileV10 = serde_json::from_value(json!({
+        "version": 10,
         "name": "Implicit locks",
         "description": null,
         "plant_species_colors": {},
@@ -140,32 +132,28 @@ fn design_objects_missing_lock_state_load_unlocked_and_serialize_explicitly() {
     assert_eq!(value["groups"][0]["locked"], json!(false));
 }
 
-fn admitted(value: serde_json::Value) -> Result<CanopiFile, String> {
-    let file: CanopiFile = serde_json::from_value(value).map_err(|e| e.to_string())?;
-    admit_design_identities_and_ranges(&file).map_err(|refusal| refusal.to_string())?;
+fn admitted(value: serde_json::Value) -> Result<v10::CanopiFileV10, String> {
+    let file: v10::CanopiFileV10 = serde_json::from_value(value).map_err(|e| e.to_string())?;
+    admit_design_v10(&file, V10AdmissionMode::Decode).map_err(|refusal| refusal.to_string())?;
     Ok(file)
 }
 
 fn design_with(overrides: serde_json::Value) -> serde_json::Value {
     let mut value = json!({
-        "version": 9,
-        "name": "Admission",
-        "plant_species_colors": {},
-        "layers": [],
-        "plants": [],
-        "zones": [],
-        "annotations": [],
-        "consortiums": [],
-        "groups": [],
-        "timeline": [],
-        "budget": [],
-        "created_at": "2026-09-28T00:00:00.000Z",
-        "updated_at": "2026-09-28T00:00:00.000Z"
+        "version": 10, "name": "Admission", "plant_species_colors": {},
+        "layers": [], "plants": [], "zones": [], "annotations": [],
+        "consortiums": [], "groups": [], "timeline": [], "budget": [],
+        "created_at": "2026-09-28T00:00:00.000Z", "updated_at": "2026-09-28T00:00:00.000Z"
     });
     for (key, override_value) in overrides.as_object().expect("object overrides") {
         value[key] = override_value.clone();
     }
     value
+}
+
+fn geo_file(plants: serde_json::Value) -> v10::CanopiFileV10 {
+    serde_json::from_value(design_with(json!({ "plants": plants })))
+        .expect("v10 design should deserialize")
 }
 
 #[test]
@@ -231,18 +219,6 @@ fn plants_and_guides_need_an_id_and_unique_non_empty_ids() {
 }
 
 #[test]
-fn a_design_missing_a_list_canopi_always_writes_is_refused() {
-    let complete = design_with(json!({}));
-    admitted(complete.clone()).expect("a Design with every written list loads");
-    for key in ["annotations", "consortiums", "groups", "timeline", "budget"] {
-        let mut value = complete.clone();
-        value.as_object_mut().expect("object").remove(key);
-        let error = admitted(value).expect_err(key);
-        assert!(error.contains(&format!("missing field `{key}`")), "{error}");
-    }
-}
-
-#[test]
 fn zones_annotations_and_groups_need_unique_non_empty_ids() {
     let zone = |id: &str| json!({ "id": id, "zone_type": "rect", "points": [] });
     assert_eq!(
@@ -275,10 +251,10 @@ fn zones_annotations_and_groups_need_unique_non_empty_ids() {
 
 #[test]
 fn ranges_are_checked_after_deserialization() {
-    let plant = |scale: serde_json::Value| {
+    let plant = |canopy_spread_m: serde_json::Value| {
         json!({
             "id": "plant-1", "canonical_name": "Malus domestica",
-            "position": { "lon": 13.0, "lat": 23.0 }, "scale": scale
+            "position": { "lon": 13.0, "lat": 23.0 }, "canopy_spread_m": canopy_spread_m
         })
     };
     assert!(admitted(design_with(json!({ "plants": [plant(json!(0.0))] }))).is_err());
@@ -303,19 +279,19 @@ fn ranges_are_checked_after_deserialization() {
     // and an older dev file's `schema_version` is dropped like any unknown key.
     assert!(
         admitted(design_with(json!({
-            "lidar": { "visible": true, "entries": [] }
+            "site_data": { "visible": true, "entries": [] }
         })))
         .is_ok()
     );
     assert!(
         admitted(design_with(json!({
-            "lidar": { "schema_version": 2, "visible": true, "entries": [] }
+            "site_data": { "schema_version": 2, "visible": true, "entries": [] }
         })))
         .is_ok()
     );
-    let lidar = |entry: serde_json::Value| {
+    let site_data = |entry: serde_json::Value| {
         design_with(json!({
-            "lidar": { "visible": true, "entries": [entry] }
+            "site_data": { "visible": true, "entries": [entry] }
         }))
     };
     let entry = |opacity: f64, name: &str, range: serde_json::Value| {
@@ -325,43 +301,44 @@ fn ranges_are_checked_after_deserialization() {
             "range": range
         })
     };
-    assert!(admitted(lidar(entry(1.2, "Slope", serde_json::Value::Null))).is_err());
-    assert!(admitted(lidar(entry(0.4, "Slope", serde_json::Value::Null))).is_ok());
+    assert!(admitted(site_data(entry(1.2, "Slope", serde_json::Value::Null))).is_err());
+    assert!(admitted(site_data(entry(0.4, "Slope", serde_json::Value::Null))).is_ok());
     assert_eq!(
-        admitted(lidar(entry(0.4, " ", serde_json::Value::Null))).unwrap_err(),
-        "$.lidar.entries[0].name: expected a non-empty name"
+        admitted(site_data(entry(0.4, " ", serde_json::Value::Null))).unwrap_err(),
+        "$.site_data.entries[0].name: expected a non-empty name"
     );
     let custom = |min: f64, max: f64| json!({ "mode": "Custom", "min": min, "max": max });
-    assert!(admitted(lidar(entry(0.4, "Slope", custom(0.0, 30.0)))).is_ok());
+    assert!(admitted(site_data(entry(0.4, "Slope", custom(0.0, 30.0)))).is_ok());
     assert_eq!(
-        admitted(lidar(entry(0.4, "Slope", custom(30.0, 30.0)))).unwrap_err(),
-        "$.lidar.entries[0].range: expected finite min and max with min below max"
+        admitted(site_data(entry(0.4, "Slope", custom(30.0, 30.0)))).unwrap_err(),
+        "$.site_data.entries[0].range: expected finite min and max with min below max"
     );
-    assert!(admitted(lidar(entry(0.4, "Slope", custom(40.0, 30.0)))).is_err());
+    assert!(admitted(site_data(entry(0.4, "Slope", custom(40.0, 30.0)))).is_err());
 }
 
 #[test]
 fn a_custom_colour_range_must_be_finite_even_when_built_in_memory() {
     // JSON cannot carry a non-finite number, but a Design built in memory
     // can; admission refuses it before it is written.
-    let mut file: CanopiFile = serde_json::from_value(design_with(json!({
-        "lidar": { "visible": true, "entries": [{
+    let mut file: v10::CanopiFileV10 = serde_json::from_value(design_with(json!({
+        "site_data": { "visible": true, "entries": [{
             "kind": "Source", "id": "dem", "name": "Terrain model", "visible": true,
             "opacity": 1.0, "order": 0, "ramp": null, "reversed": false, "range": null
         }] }
     })))
-    .expect("a Design with one LiDAR entry loads");
-    file.lidar.as_mut().expect("lidar section").entries[0].range =
-        Some(crate::lidar::LidarColourRange::Custom {
+    .expect("a Design with one Site data entry loads");
+    file.site_data.as_mut().expect("site_data section").entries[0].range =
+        Some(v10::LidarColourRangeV10::Custom {
             min: f64::NAN,
             max: 30.0,
+            extra: Default::default(),
         });
-    assert!(admit_design_identities_and_ranges(&file).is_err());
+    assert!(admit_design_v10(&file, V10AdmissionMode::Decode).is_err());
 }
 
-fn zone_file(zone: serde_json::Value) -> Result<CanopiFile, serde_json::Error> {
+fn zone_file(zone: serde_json::Value) -> Result<v10::CanopiFileV10, serde_json::Error> {
     serde_json::from_value(json!({
-        "version": 9,
+        "version": 10,
         "name": "Zones",
         "plant_species_colors": {},
         "layers": [],
@@ -402,8 +379,8 @@ fn zones_keep_a_stable_id_beside_an_optional_display_name() {
 
 #[test]
 fn general_deserialization_rejects_obsolete_object_group_shape() {
-    let result = serde_json::from_value::<CanopiFile>(json!({
-        "version": 9,
+    let file = serde_json::from_value::<v10::CanopiFileV10>(json!({
+        "version": 10,
         "name": "Legacy groups require ingestion",
         "plant_species_colors": {},
         "layers": [],
@@ -427,19 +404,23 @@ fn general_deserialization_rejects_obsolete_object_group_shape() {
         }],
         "created_at": "2026-07-15T00:00:00.000Z",
         "updated_at": "2026-07-15T00:00:00.000Z"
-    }));
+    }))
+    .expect("v10 serde defaults missing members and preserves unknown keys in extra");
 
     assert!(
-        result.is_err(),
+        file.groups[0].members.is_empty(),
+        "obsolete member_ids must not populate typed group members",
+    );
+    assert!(
+        super::admission::admit_design_v10(&file, super::admission::V10AdmissionMode::Write)
+            .is_err(),
         "obsolete Object Groups must not enter the runtime",
     );
 }
 
-/// A Design through both admission checks, as a load runs them.
-fn admitted_whole(value: serde_json::Value) -> Result<CanopiFile, String> {
-    let file = admitted(value)?;
-    validate_design_geometry(&file).map_err(|refusal| refusal.to_string())?;
-    Ok(file)
+/// A Design through v10 admission, as a load runs it.
+fn admitted_whole(value: serde_json::Value) -> Result<v10::CanopiFileV10, String> {
+    admitted(value)
 }
 
 #[test]
@@ -447,7 +428,7 @@ fn admission_accepts_a_rotated_zone_a_scaled_plant_and_a_rotated_annotation_cano
     let file = admitted_whole(design_with(json!({
         "plants": [{
             "id": "plant-1", "canonical_name": "Malus domestica",
-            "position": { "lon": 13.0, "lat": 23.0 }, "scale": 1.5, "rotation": 45.0
+            "position": { "lon": 13.0, "lat": 23.0 }, "canopy_spread_m": 1.5, "rotation": 45.0
         }],
         "zones": [{
             "id": "bed", "zone_type": "rect", "rotation": 30.0,
@@ -461,7 +442,7 @@ fn admission_accepts_a_rotated_zone_a_scaled_plant_and_a_rotated_annotation_cano
     .expect("a rotated zone, a scaled and rotated plant and a rotated annotation are admitted");
     assert_eq!(file.zones[0].rotation, 30.0);
     assert_eq!(
-        (file.plants[0].scale, file.plants[0].rotation),
+        (file.plants[0].canopy_spread_m, file.plants[0].rotation),
         (Some(1.5), Some(45.0))
     );
     assert_eq!(file.annotations[0].rotation, Some(15.0));
@@ -489,11 +470,11 @@ fn admission_refuses_font_size_0_or_minus_1_and_scale_0_canopi_f47t_52_228() {
         admitted_whole(design_with(json!({
             "plants": [{
                 "id": "plant-1", "canonical_name": "Malus domestica",
-                "position": { "lon": 13.0, "lat": 23.0 }, "scale": 0.0
+                "position": { "lon": 13.0, "lat": 23.0 }, "canopy_spread_m": 0.0
             }]
         })))
         .unwrap_err(),
-        "$.plants[0].scale: expected a finite number above 0"
+        "$.plants[0].canopy_spread_m: expected a finite number above 0"
     );
 }
 
@@ -519,7 +500,7 @@ fn a_designs_integer_fields_read_9_and_9_0_and_refuse_9_5_minus_1_and_4294967296
             design_with(json!({ "consortiums": [consortium] }))
         }
     };
-    let read = |field: &str, file: &CanopiFile| match field {
+    let read = |field: &str, file: &v10::CanopiFileV10| match field {
         "version" => file.version,
         "quantity" => file.plants[0].quantity.expect("a quantity"),
         "start_phase" => file.consortiums[0].start_phase,
@@ -572,27 +553,22 @@ fn a_designs_integer_fields_read_9_and_9_0_and_refuse_9_5_minus_1_and_4294967296
     }
 }
 
-/// canopi-f47t.52.245 (2.1-M482): a v9 file written before a field existed reads it at its
-/// documented default: no `budget_currency` is EUR, a timeline action without `targets` is
-/// `[manual]`, and a budget line without `target` is Manual.
+/// canopi-f47t.52.245 (2.1-M481, 2.1-M482): a v10 file missing optional fields reads them at their
+/// documented defaults: no `budget_currency` is EUR, and a timeline action without `targets` is `[manual]`.
 #[test]
-fn canopi_f47t_52_245_a_v9_file_missing_later_fields_reads_their_defaults() {
-    let file = admitted(design_with(json!({
+fn canopi_f47t_52_245_a_v10_file_missing_later_fields_reads_their_defaults() {
+    let raw = design_with(json!({
+        "version": 10,
         "timeline": [{
             "id": "a", "action_type": "planting", "description": "Plant",
             "completed": false, "order": 0
-        }],
-        "budget": [{
-            "category": "plants", "description": "Apples", "quantity": 2.0,
-            "unit_cost": 12.0, "currency": "EUR"
         }]
-    })))
-    .expect("an older v9 file reads");
+    }));
+    let file: v10::CanopiFileV10 = serde_json::from_value(raw).expect("a v10 file reads");
     assert_eq!(file.budget_currency, DEFAULT_BUDGET_CURRENCY);
     assert_eq!(DEFAULT_BUDGET_CURRENCY, "EUR");
     assert!(matches!(
         file.timeline[0].targets.as_slice(),
-        [PanelTarget::Manual]
+        [v10::PanelTargetV10::Manual { .. }]
     ));
-    assert!(matches!(file.budget[0].target, PanelTarget::Manual));
 }

@@ -23,7 +23,7 @@ permissions:
 jobs:
   gate:
     name: Commit gate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
@@ -31,14 +31,18 @@ jobs:
           # Every commit of the range and the merge base; the PR's head, not GitHub's merge commit.
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
-      # Node 24 with its npm 11 (2.1-M220): the gate, its TypeScript reading of tests and vitest list.
-      - uses: actions/setup-node@v7
+      # Rust wasm32 target + wasm-bindgen CLI for Vitest's prepare-format-wasm globalSetup when `commit-gate pr --vitest` runs `vitest list`.
+      - uses: ./.github/actions/setup-rust
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web
+          targets: wasm32-unknown-unknown
+          cache: 'true'
+          cache-key: rust-check
+          cache-save: 'false'
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@0.2.130
+      # Node 24 with its npm 11 (2.1-M220): the gate, its TypeScript reading of tests and vitest list.
+      - uses: ./.github/actions/setup-frontend
       # Build & Test reads a .beads-only change as docs and runs no policy check, so closing a bead a ratchet entry or
       # policy row cites is refused here, on the PR and on main (canopi-f47t.52.228), through the gate's table check.
       - name: No policy entry cites a closed bead

@@ -1,6 +1,5 @@
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
 import { describe, expect, it } from 'vitest'
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
+import { decodeCanopiDesign, encodeCanopiDesign } from './support/design-wire'
 import { composeDocumentForSave } from '../app/contracts/document'
 import conformance from '../../../../canopi-types/canopi-design-conformance.json'
 import { hydrateSceneFromDesign, serializeScenePersistedState } from '../canvas/runtime/scene/codec'
@@ -37,7 +36,7 @@ const FIXTURE: CanopiFile = {
       pinned_name: false,
       position: storedGeoAt(100, 200),
       rotation: 45,
-      scale: 3.5,
+      canopy_spread_m: 3.5,
       notes: 'Near the pond',
       planted_date: '2025-03-15',
       quantity: 1,
@@ -51,7 +50,7 @@ const FIXTURE: CanopiFile = {
       pinned_name: false,
       position: storedGeoAt(-50.5, 300.75),
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: 3,
@@ -121,7 +120,7 @@ describe('file format round-trip', () => {
     expect(serialized.updated_at).toBe(now.toISOString())
     expect(serialized).toEqual({
       ...sceneOwned,
-      version: 9,
+      version: 10,
       name: 'Untitled',
       description: null,
       created_at: now.toISOString(),
@@ -130,7 +129,7 @@ describe('file format round-trip', () => {
   })
 
   it('round-trips a serialized current-version Design through JSON and the Design decoder', () => {
-    expect(CURRENT_CANOPI_FILE_VERSION).toBe(9)
+    expect(CURRENT_CANOPI_FILE_VERSION).toBe(10)
     const hydrated = hydrateSceneFromDesign(FIXTURE)
     const serialized = serializeScenePersistedState(hydrated.persisted, hydrated.plane, {
       now: new Date('2026-04-09T12:00:00.000Z'),
@@ -138,7 +137,7 @@ describe('file format round-trip', () => {
 
     const decoded = decodeCanopiDesign(JSON.parse(JSON.stringify(encodeCanopiDesign(serialized))))
 
-    expect(decoded.version).toBe(9)
+    expect(decoded.version).toBe(10)
     expect(decoded.plants.map((plant) => plant.position)).toEqual(FIXTURE.plants.map((plant) => plant.position))
     expect(decoded.zones).toEqual(serialized.zones)
     expect(decoded.annotations).toEqual(serialized.annotations)
@@ -161,8 +160,22 @@ describe('file format round-trip', () => {
     }
 
     const first = save(JSON.stringify(wire))
+    const firstParsed = JSON.parse(first) as Record<string, unknown>
 
-    expect(JSON.parse(first)).toEqual(wire)
+    // Full canonical v10 round-trip: views, stories, and every other field preserved against `wire`.
+    const { lidar, ...wireWithoutLidar } = wire
+    const expectedFromWire = {
+      ...wireWithoutLidar,
+      version: 10,
+      site_data: {
+        visible: lidar.visible,
+        entries: lidar.entries.map(({ kind: _kind, ...rest }) => rest),
+      },
+    }
+    expect(firstParsed).toEqual(expectedFromWire)
+    expect(firstParsed.version).toBe(10)
+    expect(firstParsed.views).toEqual(wire.views)
+    expect(firstParsed.stories).toEqual(wire.stories)
     expect(save(first)).toBe(first)
   })
 
@@ -170,7 +183,7 @@ describe('file format round-trip', () => {
     const { extra: _extra, ...wire } = conformance.accepted_documents['views-and-stories']
     for (const version of [4, 7, 8]) {
       expect(() => decodeCanopiDesign({ ...wire, version })).toThrow(
-        `$.version: unsupported Canopi Design version ${version}; Canopi 2.0 and later open only version 9`,
+        `format version ${version} is older than Canopi 2.0`,
       )
     }
   })

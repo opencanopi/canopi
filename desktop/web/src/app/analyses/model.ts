@@ -14,7 +14,16 @@ import type {
   ParamValue,
   Provenance,
 } from '../../generated/contracts'
+import type { EditionCapabilitySet } from '../../generated/edition-capabilities'
 import type { LocaleKey } from '../../generated/locale-keys'
+import {
+  bareInputUnitSymbol,
+  formatNumber,
+  formatQuantityInputNumber,
+  localeNumberSeparators,
+  parseQuantity,
+  type UnitSystem,
+} from '../../utils/format'
 
 /**
  * The Analyze dialog as a pure model, generated from the analysis registry.
@@ -26,12 +35,9 @@ import type { LocaleKey } from '../../generated/locale-keys'
  * stays authoritative.
  */
 
-type Edition = 'desktop' | 'web'
-
 /** Why an analysis cannot run from one item, native or frontend. */
 export type AnalysisAvailability =
   | AnalysisUnavailable
-  | { readonly reason: 'NeedsDesktop' }
   | { readonly reason: 'AlreadyInSiteData'; readonly itemId: string }
 
 /** What the model reads from the item the dialog analyses. */
@@ -48,7 +54,7 @@ interface ExistingResult {
 }
 
 export interface AnalysisContext {
-  readonly edition: Edition
+  readonly capabilities: EditionCapabilitySet
   /** Every derived item in the library. */
   readonly results: readonly ExistingResult[]
   /** Item ids the current Design references. */
@@ -80,8 +86,8 @@ export type ParamError =
   | { readonly code: 'required' }
   | { readonly code: 'number' }
   | { readonly code: 'integer' }
-  | { readonly code: 'range'; readonly min: number; readonly max: number }
-  | { readonly code: 'step'; readonly step: number }
+  | { readonly code: 'range'; readonly min: number; readonly max: number; readonly unit?: ParamUnit }
+  | { readonly code: 'step'; readonly step: number; readonly unit?: ParamUnit }
 
 export interface FormValidation {
   readonly params: Readonly<Record<string, ParamError>>
@@ -106,11 +112,15 @@ export function analysisOptions(
   locale: string,
   registry: readonly AnalysisEntry[] = ANALYSIS_REGISTRY,
   groups: readonly { readonly key: AnalysisGroup; readonly labelKey: LocaleKey }[] = ANALYSIS_GROUPS,
+  system: UnitSystem = 'metric',
 ): AnalysisOptionGroup[] {
   return groups.flatMap((group) => {
     const options = registry
       .filter((entry) => entry.group === group.key)
-      .map((entry) => ({ entry, unavailable: entryAvailability(entry, subject, context, initialForm(entry, subject.name, '', locale), locale) }))
+      .map((entry) => ({
+        entry,
+        unavailable: entryAvailability(entry, subject, context, initialForm(entry, subject.name, '', locale, system), locale, system),
+      }))
     return options.length > 0 ? [{ key: group.key, labelKey: group.labelKey, options }] : []
   })
 }
@@ -118,9 +128,9 @@ export function analysisOptions(
 /**
  * Why one entry cannot run from this item with these settings, or null.
  *
- * The edition comes first (nothing runs on Web), then the native offer; a run
- * that would duplicate a result the Design already shows is refused last, as
- * "Show in Site data" rather than a second identical calculation.
+ * The native/worker offer comes first; a run that would duplicate a result the
+ * Design already shows is refused last, as "Show in Site data" rather than a
+ * second identical calculation.
  */
 export function entryAvailability(
   entry: AnalysisEntry,
@@ -128,13 +138,13 @@ export function entryAvailability(
   context: AnalysisContext,
   form: AnalysisForm,
   locale: string,
+  system: UnitSystem = 'metric',
 ): AnalysisAvailability | null {
-  if (context.edition === 'web') return { reason: 'NeedsDesktop' }
   const offer = subject.offers.find((candidate) => candidate.analysis_id === entry.id)
   // An entry native does not offer cannot be run from this snapshot.
   if (!offer) return { reason: 'NotReady' }
   if (offer.unavailable) return offer.unavailable
-  const existing = findExistingResult(entry, subject.id, form, context, locale)
+  const existing = findExistingResult(entry, subject.id, form, context, locale, system)
   if (existing?.inDesign) return { reason: 'AlreadyInSiteData', itemId: existing.id }
   return null
 }
@@ -165,10 +175,44 @@ export function defaultAnalysisSource(
   return sources[0]?.id ?? null
 }
 
+function paramQuantityKind(unit: ParamUnit): 'length' | 'area' | null {
+  switch (unit) {
+    case 'metre': return 'length'
+    case 'square-metre': return 'area'
+    case 'degree': return null
+  }
+}
+
+function formatParamNumber(param: AnalysisParamSpec, value: number, locale: string, system: UnitSystem): string {
+  if (param.kind.type === 'number') {
+    const quantityKind = paramQuantityKind(param.kind.unit)
+    if (quantityKind) {
+      return formatQuantityInputNumber(quantityKind, value, system, locale, system === 'metric' ? 6 : 2)
+    }
+  }
+  return formatLocaleNumber(value, locale)
+}
+
+function parseParamNumber(param: AnalysisParamSpec, text: string, locale: string, system: UnitSystem): number | null {
+  if (param.kind.type === 'number') {
+    const quantityKind = paramQuantityKind(param.kind.unit)
+    if (quantityKind) {
+      return parseQuantity(quantityKind, text, system, locale)
+    }
+  }
+  return parseLocaleNumber(text, locale)
+}
+
 /** The form an entry opens with: registry defaults and the default outputs. */
-export function initialForm(entry: AnalysisEntry, subjectName: string, title: string, locale: string): AnalysisForm {
+export function initialForm(
+  entry: AnalysisEntry,
+  subjectName: string,
+  title: string,
+  locale: string,
+  system: UnitSystem = 'metric',
+): AnalysisForm {
   const values: Record<string, FormValue> = {}
-  for (const param of entry.params) values[param.key] = defaultValue(param, locale)
+  for (const param of entry.params) values[param.key] = defaultValue(param, locale, system)
   const outputs: Record<string, boolean> = {}
   for (const output of entry.outputs) {
     if (output.optional) outputs[output.key] = output.defaultSelected
@@ -189,12 +233,13 @@ export function formFromProvenance(
   subjectName: string,
   title: string,
   locale: string,
+  system: UnitSystem = 'metric',
 ): AnalysisForm {
-  const form = initialForm(entry, subjectName, title, locale)
+  const form = initialForm(entry, subjectName, title, locale, system)
   const values: Record<string, FormValue> = { ...form.values }
   for (const param of entry.params) {
     const recorded = provenance.parameters.find((candidate) => candidate.key === param.key)?.value
-    if (recorded) values[param.key] = formValue(recorded, locale)
+    if (recorded) values[param.key] = formValue(param, recorded, locale, system)
   }
   const outputs: Record<string, boolean> = {}
   for (const output of entry.outputs) {
@@ -203,21 +248,21 @@ export function formFromProvenance(
   return { ...form, values, outputs }
 }
 
-function formValue(value: ParamValue, locale: string): FormValue {
+function formValue(param: AnalysisParamSpec, value: ParamValue, locale: string, system: UnitSystem): FormValue {
   if ('Choice' in value) return value.Choice
   if ('Boolean' in value) return value.Boolean
-  if ('Number' in value) return formatLocaleNumber(value.Number, locale)
+  if ('Number' in value) return formatParamNumber(param, value.Number, locale, system)
   return formatLocaleNumber(value.Integer, locale)
 }
 
-function defaultValue(param: AnalysisParamSpec, locale: string): FormValue {
+function defaultValue(param: AnalysisParamSpec, locale: string, system: UnitSystem): FormValue {
   const value = param.default
   switch (param.kind.type) {
     case 'choice':
       return typeof value === 'string' ? value : null
     case 'number':
     case 'integer':
-      return typeof value === 'number' ? formatLocaleNumber(value, locale) : ''
+      return typeof value === 'number' ? formatParamNumber(param, value, locale, system) : ''
     case 'boolean':
       return typeof value === 'boolean' ? value : false
   }
@@ -242,18 +287,23 @@ export function isParamVisible(
     && isParamVisible(entry, values, controller, new Set([...seen, key]))
 }
 
-export function validateForm(entry: AnalysisEntry, form: AnalysisForm, locale: string): FormValidation {
+export function validateForm(
+  entry: AnalysisEntry,
+  form: AnalysisForm,
+  locale: string,
+  system: UnitSystem = 'metric',
+): FormValidation {
   const params: Record<string, ParamError> = {}
   for (const param of entry.params) {
     if (!isParamVisible(entry, form.values, param.key)) continue
-    const error = paramError(param, form.values[param.key] ?? null, locale)
+    const error = paramError(param, form.values[param.key] ?? null, locale, system)
     if (error) params[param.key] = error
   }
   const noOutputs = requestedOutputs(entry, form).length === 0
   return { params, noOutputs, valid: !noOutputs && Object.keys(params).length === 0 }
 }
 
-function paramError(param: AnalysisParamSpec, value: FormValue, locale: string): ParamError | null {
+function paramError(param: AnalysisParamSpec, value: FormValue, locale: string, system: UnitSystem): ParamError | null {
   const kind = param.kind
   switch (kind.type) {
     case 'choice':
@@ -262,13 +312,14 @@ function paramError(param: AnalysisParamSpec, value: FormValue, locale: string):
       return null
     case 'number':
     case 'integer': {
-      const number = typeof value === 'string' ? parseLocaleNumber(value, locale) : null
+      const number = typeof value === 'string' ? parseParamNumber(param, value, locale, system) : null
       if (number === null) return { code: kind.type === 'integer' ? 'integer' : 'number' }
       if (kind.type === 'integer' && !Number.isInteger(number)) return { code: 'integer' }
-      if (number < kind.min || number > kind.max) return { code: 'range', min: kind.min, max: kind.max }
-      if (kind.type === 'number' && kind.step > 0) {
+      const unitProp = kind.type === 'number' ? { unit: kind.unit } : {}
+      if (number < kind.min || number > kind.max) return { code: 'range', min: kind.min, max: kind.max, ...unitProp }
+      if (kind.type === 'number' && kind.step > 0 && (system === 'metric' || paramQuantityKind(kind.unit) === null)) {
         const steps = (number - kind.min) / kind.step
-        if (Math.abs(steps - Math.round(steps)) > 1e-9) return { code: 'step', step: kind.step }
+        if (Math.abs(steps - Math.round(steps)) > 1e-9) return { code: 'step', step: kind.step, ...unitProp }
       }
       return null
     }
@@ -276,17 +327,17 @@ function paramError(param: AnalysisParamSpec, value: FormValue, locale: string):
 }
 
 /** Typed values of the parameters that apply; hidden ones are omitted so native defaults apply. */
-function requestParameters(entry: AnalysisEntry, form: AnalysisForm, locale: string): AnalysisParamValue[] {
+function requestParameters(entry: AnalysisEntry, form: AnalysisForm, locale: string, system: UnitSystem): AnalysisParamValue[] {
   const parameters: AnalysisParamValue[] = []
   for (const param of entry.params) {
     if (!isParamVisible(entry, form.values, param.key)) continue
-    const value = paramValue(param, form.values[param.key] ?? null, locale)
+    const value = paramValue(param, form.values[param.key] ?? null, locale, system)
     if (value) parameters.push({ key: param.key, value })
   }
   return parameters
 }
 
-function paramValue(param: AnalysisParamSpec, value: FormValue, locale: string): ParamValue | null {
+function paramValue(param: AnalysisParamSpec, value: FormValue, locale: string, system: UnitSystem): ParamValue | null {
   switch (param.kind.type) {
     case 'choice':
       return typeof value === 'string' ? { Choice: value } : null
@@ -294,7 +345,7 @@ function paramValue(param: AnalysisParamSpec, value: FormValue, locale: string):
       return { Boolean: value === true }
     case 'number':
     case 'integer': {
-      const number = typeof value === 'string' ? parseLocaleNumber(value, locale) : null
+      const number = typeof value === 'string' ? parseParamNumber(param, value, locale, system) : null
       if (number === null) return null
       return param.kind.type === 'integer' ? { Integer: number } : { Number: number }
     }
@@ -314,14 +365,15 @@ export function buildAnalysisRequest(
   subject: Pick<AnalysisSubject, 'id'>,
   form: AnalysisForm,
   locale: string,
+  system: UnitSystem = 'metric',
 ): AnalysisRequest | null {
-  if (!validateForm(entry, form, locale).valid) return null
+  if (!validateForm(entry, form, locale, system).valid) return null
   const input = entry.inputs[0]
   if (!input) return null
   return {
     analysis_id: entry.id,
     inputs: [{ key: input.key, item_id: subject.id }],
-    parameters: requestParameters(entry, form, locale),
+    parameters: requestParameters(entry, form, locale, system),
     outputs: requestedOutputs(entry, form),
     name: form.name.trim() || null,
   }
@@ -341,9 +393,10 @@ export function findExistingResult(
   form: AnalysisForm,
   context: AnalysisContext,
   locale: string,
+  system: UnitSystem = 'metric',
 ): ExistingMatch | null {
-  if (!validateForm(entry, form, locale).valid) return null
-  const wanted = effectiveParameters(entry, requestParameters(entry, form, locale))
+  if (!validateForm(entry, form, locale, system).valid) return null
+  const wanted = effectiveParameters(entry, requestParameters(entry, form, locale, system))
   const inputKey = entry.inputs[0]?.key
   let match: ExistingMatch | null = null
   for (const result of context.results) {
@@ -386,17 +439,17 @@ function registryDefault(param: AnalysisParamSpec): ParamValue | null {
 }
 
 /** The unit written after a number parameter's field. */
-export function paramUnitSuffix(unit: ParamUnit): string {
+export function paramUnitSuffix(unit: ParamUnit, system: UnitSystem = 'metric'): string {
   switch (unit) {
-    case 'metre': return 'm'
-    case 'square-metre': return 'm²'
+    case 'metre': return bareInputUnitSymbol('length', system)
+    case 'square-metre': return bareInputUnitSymbol('area', system)
     case 'degree': return '°'
   }
 }
 
 /** A number as a field shows it in this locale: no grouping, locale decimal mark. */
 export function formatLocaleNumber(value: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { useGrouping: false, maximumFractionDigits: 6 }).format(value)
+  return formatNumber(value, locale, { useGrouping: false, maximumFractionDigits: 6 })
 }
 
 /**
@@ -405,7 +458,7 @@ export function formatLocaleNumber(value: number, locale: string): string {
  * rather than guessed.
  */
 export function parseLocaleNumber(text: string, locale: string): number | null {
-  const decimal = new Intl.NumberFormat(locale).formatToParts(1.5).find((part) => part.type === 'decimal')?.value ?? '.'
+  const { decimal } = localeNumberSeparators(locale)
   let normalised = text.replace(/[\s  ]/g, '')
   if (decimal !== '.') normalised = normalised.split(decimal).join('.')
   if (!/^[-+]?(\d+\.?\d*|\.\d+)$/.test(normalised)) return null

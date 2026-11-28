@@ -10,8 +10,8 @@ import {
   type PhoneSheetHeight,
 } from '../../app/shell/phone-layout'
 import { isSidePanel } from '../../app/shell/state'
-import { currentCanvasTool, currentCanvasToolGuidance } from '../../canvas/session-state'
-import type { ToolId } from '../../canvas/runtime/tool-id'
+import { currentCanvasTool, currentCanvasToolGuidance } from '../../canvas/session'
+import type { ToolId } from '../../app/command-table'
 import { framingMapFrame } from '../../app/shell/visible-map-area'
 import { DOCK_KEY_REGION } from '../../app/keyboard/target-class'
 import { t } from '../../i18n'
@@ -73,7 +73,7 @@ interface SheetDrag {
  * it stands taller than a bottom band, and the zoom column then keeps the
  * window's height beside it.
  */
-export function PhoneSheet({ layout, tabs, bar, options, children }: {
+export function PhoneSheet({ layout, tabs, bar, options, inspectorOpen = false, onCloseInspector, children }: {
   readonly layout: PhoneLayout
   /**
    * The panel commands, in rail order; the first `PHONE_SHEET_TABS` show as
@@ -84,6 +84,10 @@ export function PhoneSheet({ layout, tabs, bar, options, children }: {
   readonly bar?: ComponentChildren
   /** The armed tool's options (ToolOptions), shown in place of the open panel while `phoneToolOptions` is set. */
   readonly options?: ComponentChildren
+  /** True when the docked dimensions inspector is open inside the phone sheet. */
+  readonly inspectorOpen?: boolean
+  /** Closes the dimensions inspector when the sheet collapses to peek. */
+  readonly onCloseInspector?: () => void
   /** The open panel, when there is one. */
   readonly children?: ComponentChildren
 }) {
@@ -95,10 +99,9 @@ export function PhoneSheet({ layout, tabs, bar, options, children }: {
   const optionsId = useId()
   const portrait = layout === 'portrait'
   const panels = tabs.filter((command) => command.panel)
-  // Only side panels open the sheet; a primary view (Templates) just switches the map.
   const sidePanels = panels.filter((command) => isSidePanel(command.panel!))
   const openPanel = sidePanels.find((command) => command.active)?.panel ?? null
-  const open = openPanel !== null
+  const open = openPanel !== null || inspectorOpen
   // The tool's options stand in front of the open panel, which comes back as it was once they close.
   const optionsHeight = options ? phoneToolOptions.value : null
   const height: PhoneSheetHeight = optionsHeight ?? (open && children ? phoneSheetOpenHeight.value : 'peek')
@@ -116,6 +119,7 @@ export function PhoneSheet({ layout, tabs, bar, options, children }: {
   function moveTo(next: PhoneSheetHeight): void {
     if (next === 'peek') {
       phoneToolOptions.value = null
+      if (inspectorOpen) onCloseInspector?.()
       sidePanels.find((command) => command.active)?.action()
       return
     }

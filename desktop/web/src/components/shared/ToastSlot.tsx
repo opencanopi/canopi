@@ -67,6 +67,15 @@ export function ToastSlot() {
           key={toast.id}
           icon="info"
           message={t(toast.message, toast.params)}
+          {...(toast.actionLabel && toast.onAction
+            ? {
+                actionLabel: t(toast.actionLabel),
+                onAction: () => {
+                  toast.onAction!()
+                  dismissToast(toast.id)
+                },
+              }
+            : {})}
           {...(toast.timeoutMs === undefined ? {} : { timeoutMs: toast.timeoutMs })}
           onDismiss={() => dismissToast(toast.id)}
         />

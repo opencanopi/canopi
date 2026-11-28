@@ -21,7 +21,7 @@ import {
   type SceneArrangementPlacement,
   type SceneArrangementTemplate,
 } from '../scene-runtime/arrangement-placement'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import { stampGhostShapes, stampTemplateAt, turnStampRotation } from './stamp-rotation'
 import type { CanvasTool, HitTarget, ToolContext } from './tool'
 

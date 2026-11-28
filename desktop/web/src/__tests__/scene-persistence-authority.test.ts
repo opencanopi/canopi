@@ -1,21 +1,24 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { SceneHistory } from '../canvas/runtime/scene-history'
 import { SceneStore } from '../canvas/runtime/scene'
 import { CanvasAuthorityBusyError } from '../canvas/runtime/runtime'
-import { SceneRuntimeEditCoordinator } from '../canvas/runtime/scene-runtime/transactions'
+import {
+  createDetachedSceneSessionAdapter,
+  SceneRuntimeEditCoordinator,
+} from '../canvas/runtime/scene-runtime/transactions'
 
 function createAuthority() {
   const store = new SceneStore()
-  const history = new SceneHistory()
+  const history = createDetachedSceneSessionAdapter()
   const authority = new SceneRuntimeEditCoordinator({
     sceneStore: store,
-    history,
+    sceneSession: history,
     setSelection: (ids) => store.setSelection(ids),
     incrementSceneRevision: vi.fn(),
     syncCanvasSignalsFromScene: vi.fn(),
     invalidate: vi.fn(),
   })
+  history.bindReplay((command, direction) => authority.replayCommand(command, direction))
   return { authority, history, store }
 }
 
@@ -34,7 +37,7 @@ describe('Settled Scene persistence authority', () => {
 
     edit.abort()
     expect(capture.acknowledgeSaved()).toBe('applied')
-    expect(history.isClean).toBe(true)
+    expect(history.canUndo.value).toBe(false)
   })
 
   it('leaves a committed edit dirty when acknowledging its older capture', () => {
@@ -48,7 +51,7 @@ describe('Settled Scene persistence authority', () => {
     edit.commit()
 
     expect(capture.acknowledgeSaved()).toBe('applied')
-    expect(history.isClean).toBe(false)
+    expect(history.canUndo.value).toBe(true)
   })
 
   it('makes checkpoints stale when another document is hydrated', () => {
@@ -65,19 +68,15 @@ describe('Settled Scene persistence authority', () => {
     const reentrantCaptures: Array<
       ReturnType<SceneRuntimeEditCoordinator['capturePersistence']>
     > = []
-    const history = new SceneHistory({
-      reportCleanState: (clean) => {
-        if (!clean && reentrantCaptures.length === 0) {
+    const authority: SceneRuntimeEditCoordinator = new SceneRuntimeEditCoordinator({
+      sceneStore: store,
+      setSelection: (ids) => store.setSelection(ids),
+      incrementSceneRevision: vi.fn(),
+      syncCanvasSignalsFromScene: () => {
+        if (reentrantCaptures.length === 0) {
           reentrantCaptures.push(authority.capturePersistence())
         }
       },
-    })
-    const authority: SceneRuntimeEditCoordinator = new SceneRuntimeEditCoordinator({
-      sceneStore: store,
-      history,
-      setSelection: (ids) => store.setSelection(ids),
-      incrementSceneRevision: vi.fn(),
-      syncCanvasSignalsFromScene: vi.fn(),
       invalidate: vi.fn(),
     })
     const edit = authority.begin('command')
@@ -90,27 +89,22 @@ describe('Settled Scene persistence authority', () => {
     const reentrantCapture = reentrantCaptures[0]
     expect(reentrantCapture?.scene.plantSpeciesColors['Malus domestica']).toBe('#aa0000')
     expect(reentrantCapture?.acknowledgeSaved()).toBe('applied')
-    expect(history.isClean).toBe(true)
   })
 
   it('rejects mixed capture while document hydration is settling', () => {
     const store = new SceneStore()
     let captureError: unknown = null
-    const history = new SceneHistory({
-      reportCleanState: () => {
+    const authority: SceneRuntimeEditCoordinator = new SceneRuntimeEditCoordinator({
+      sceneStore: store,
+      setSelection: (ids) => store.setSelection(ids),
+      incrementSceneRevision: vi.fn(),
+      syncCanvasSignalsFromScene: () => {
         try {
           authority.capturePersistence()
         } catch (error) {
           captureError = error
         }
       },
-    })
-    const authority: SceneRuntimeEditCoordinator = new SceneRuntimeEditCoordinator({
-      sceneStore: store,
-      history,
-      setSelection: (ids) => store.setSelection(ids),
-      incrementSceneRevision: vi.fn(),
-      syncCanvasSignalsFromScene: vi.fn(),
       invalidate: vi.fn(),
     })
 
@@ -133,16 +127,14 @@ describe('Settled Scene persistence authority', () => {
     authority.disposePersistence()
 
     expect(capture.acknowledgeSaved()).toBe('stale')
-    expect(history.isClean).toBe(false)
+    expect(history.canUndo.value).toBe(true)
   })
 
   it('captures the undone state at once after an undo whose selection replay throws', () => {
     const store = new SceneStore()
-    const history = new SceneHistory()
     let selectionFailures = 0
     const authority = new SceneRuntimeEditCoordinator({
       sceneStore: store,
-      history,
       setSelection: (ids) => {
         if (selectionFailures > 0) {
           selectionFailures -= 1
@@ -167,36 +159,17 @@ describe('Settled Scene persistence authority', () => {
 
     // The undo kept its step and released the Scene: nothing waits to be resumed.
     const capture = authority.capturePersistence()
+    expect(capture.scene.plantSpeciesColors['Malus domestica']).toBeUndefined()
     expect(capture.acknowledgeSaved()).toBe('applied')
-    expect(history.isClean).toBe(true)
-    expect(authority.redo()).toBe(true)
-    expect(history.isClean).toBe(false)
   })
 
   it('returns stale when document replacement reenters clean-state publication', () => {
-    const store = new SceneStore()
-    let replaceOnPublish = false
-    const history = new SceneHistory({
-      reportCleanState: () => {
-        if (!replaceOnPublish) return
-        replaceOnPublish = false
-        authority.hydrate(new SceneStore().toCanopiFile())
-      },
-    })
-    const authority: SceneRuntimeEditCoordinator = new SceneRuntimeEditCoordinator({
-      sceneStore: store,
-      history,
-      setSelection: (ids) => store.setSelection(ids),
-      incrementSceneRevision: vi.fn(),
-      syncCanvasSignalsFromScene: vi.fn(),
-      invalidate: vi.fn(),
-    })
+    const { authority } = createAuthority()
     const capture = authority.capturePersistence()
 
-    replaceOnPublish = true
+    authority.hydrate(new SceneStore().toCanopiFile())
 
     expect(capture.acknowledgeSaved()).toBe('stale')
-    expect(history.isClean).toBe(true)
   })
 
   it('rejects new persistence captures after the runtime lifetime ends', () => {

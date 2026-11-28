@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createDefaultScenePersistedState,
   isSceneDesignObjectLocked,
+  isSceneLayerEditable,
   lockedSceneGroupMembers,
   setSceneDesignObjectLocks,
   type ScenePersistedState,
@@ -143,6 +144,13 @@ describe('scene design object locks', () => {
     )
 
     expect(isSceneDesignObjectLocked(scene, { kind: 'group', id: 'group-1' })).toBe(true)
+  })
+
+  it('treats a layer at opacity 0 as non-editable, like a hidden layer', () => {
+    const scene = sceneWithGroup()
+    expect(isSceneLayerEditable(scene, 'plants')).toBe(true)
+    scene.layers = scene.layers.map((layer) => layer.name === 'plants' ? { ...layer, visible: true, opacity: 0 } : layer)
+    expect(isSceneLayerEditable(scene, 'plants')).toBe(false)
   })
 })
 

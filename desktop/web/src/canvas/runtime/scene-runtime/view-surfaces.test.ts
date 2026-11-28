@@ -1,3 +1,4 @@
+import type { GeoPoint, CanopiFile } from '../../../types/design'
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest'
@@ -6,27 +7,25 @@ import '../../../__tests__/support/camera-tolerance'
 vi.mock('../../../ipc/species', async (importOriginal) => ({
   ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
-import type { CanopiFile } from '../../../types/design'
-import { stageScaleToMapZoom } from '../../projection'
-import type { GeoPosition } from '../../session-plane'
+import { createSessionPlane } from '../../../geo/session-plane'
 import { AttachedInteractionMap } from '../../../__tests__/support/canvas-interaction-setup'
 import { placeOnHost } from '../../../__tests__/support/test-view'
 import { createMapLibreCameraDriver } from '../../../maplibre/camera-driver'
-import { planarCameraOf } from '../view/view-transform'
-import { SceneCanvasRuntime } from '../scene-runtime'
+import { planarCameraOf } from '../../../geo/view/view-transform'
+import { createTestSceneCanvasRuntime } from '../../../__tests__/support/detached-canvas-app-adapter'
+import type { SceneCanvasRuntime } from '../scene-runtime'
 import type * as IpcSpeciesModule from '../../../ipc/species'
 
 const SCREEN = { width: 400, height: 300 }
 
 type DesignZone = CanopiFile['zones'][number]
 
-function bedAt(origin: GeoPosition): DesignZone {
+function bedAt(origin: GeoPoint): DesignZone {
   return {
     id: 'bed', name: 'bed', zone_type: 'rect', rotation: 0,
     points: [geoAt(0, 0, origin), geoAt(8, 0, origin), geoAt(8, 6, origin), geoAt(0, 6, origin)],
@@ -34,7 +33,7 @@ function bedAt(origin: GeoPosition): DesignZone {
   }
 }
 
-function designAt(origin: GeoPosition, name: string, zones: readonly DesignZone[] = [bedAt(origin)]): CanopiFile {
+function designAt(origin: GeoPoint, name: string, zones: readonly DesignZone[] = [bedAt(origin)]): CanopiFile {
   return {
     version: CURRENT_CANOPI_FILE_VERSION,
     name,
@@ -75,15 +74,15 @@ function todaysCapture(runtime: SceneCanvasRuntime) {
   const viewport = placementOf(runtime)
   const { width, height } = runtime.querySurface.view.captureView().screen
   const plane = runtime.querySurface.sessionPlane.peek()!
-  const centre = plane.toGeo({ x: (width / 2 - viewport.x) / viewport.scale, y: (height / 2 - viewport.y) / viewport.scale })
+  const centre = plane.toGeo(runtime.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: width / 2, y: height / 2 }))
   return {
-    view: { lon: centre.lon, lat: centre.lat, zoom: stageScaleToMapZoom(viewport.scale, plane.origin.lat) },
+    view: { lon: centre.lon, lat: centre.lat, zoom: createSessionPlane({ lon: 0, lat: plane.origin.lat }).zoomForPixelsPerMetre(viewport.scale) },
   }
 }
 
 describe('the runtime view surfaces', () => {
   it('capture the Design\'s ground on a headless runtime, before and after a hydration replaces the plane', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     try {
       runtime.documentSurface.loadDocument(designAt({ lon: 2.35, lat: 48.85 }, 'Paris'))
       runtime.documentSurface.resize(SCREEN.width, SCREEN.height)
@@ -111,7 +110,7 @@ describe('the runtime view surfaces', () => {
   })
 
   it('follow every Scene plane change on the runtime\'s camera until it is destroyed', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const { frames } = runtime.cameraHost
     try {
       runtime.documentSurface.loadDocument(designAt({ lon: 2.35, lat: 48.85 }, 'Paris'))
@@ -150,7 +149,7 @@ describe('the runtime view surfaces', () => {
   })
 
   it('a Design loaded while the map is attached frames in the Design\'s plane', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const map = new AttachedInteractionMap()
     try {
       runtime.documentSurface.loadDocument(designAt({ lon: 2.35, lat: 48.85 }, 'Paris'))
@@ -175,7 +174,7 @@ describe('the runtime view surfaces', () => {
   })
 
   it('show a camera and fit the selection through the runtime\'s camera', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     try {
       const origin = { lon: 2.35, lat: 48.85 }
       runtime.documentSurface.loadDocument(designAt(origin, 'Paris'))
@@ -209,7 +208,7 @@ describe('the runtime view surfaces', () => {
   })
 
   it('fit the selection\'s own outline at the bearing, never its world-axis box', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     try {
       const origin = { lon: 2.35, lat: 48.85 }
       // A path 28 m long and 1.4 m wide, along the south-east diagonal.
@@ -229,10 +228,14 @@ describe('the runtime view surfaces', () => {
       runtime.commandSurface.sceneEdits.selectAll()
       runtime.commandSurface.viewport.zoomToSelection()
 
-      // At 45 the path runs along screen-right, so its length spans the framing width less the padding; the corners of its
+      // At 45 the path runs along screen-right, so its conformal length spans the framing width less the padding; the corners of its
       // world-axis box would also reach 29 m down the screen and fit further out.
-      const [start, end, , back] = path.points.map((point) => plane.toPlane(point))
-      const along = ((end!.x - start!.x) + (end!.y - start!.y)) * Math.SQRT1_2
+      const [, end, , back] = path.points.map((point) => plane.toPlane(point))
+      const projected = path.points.map((point) => {
+        const v = plane.toView(plane.toPlane(point))
+        return (v.x + v.y) * Math.SQRT1_2
+      })
+      const along = Math.max(...projected) - Math.min(...projected)
       expect(placementOf(runtime).scale).toBeCloseTo((SCREEN.width * 0.8) / along, 6)
       const centre = plane.toPlane(runtime.querySurface.view.captureView().camera.center)
       expect(centre.x).toBeCloseTo((back!.x + end!.x) / 2, 6)
@@ -245,7 +248,7 @@ describe('the runtime view surfaces', () => {
   it('put the inspection lens on the ground under the screen at the live bearing', () => {
     vi.useFakeTimers()
     const getContext = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     try {
       const origin = { lon: 2.35, lat: 48.85 }
       runtime.documentSurface.loadDocument(designAt(origin, 'Paris'))
@@ -256,7 +259,6 @@ describe('the runtime view surfaces', () => {
         { center: plane.toGeo(target), zoom: 19, bearingDeg: 30, pitchDeg: 0 },
         { motion: 'jump' },
       )
-      const scale = placementOf(runtime).scale
       const lens = runtime.documentSurface.attachInspectionTo(document.createElement('div'))
 
       lens.centerOnCanvas()
@@ -264,13 +266,13 @@ describe('the runtime view surfaces', () => {
       expect(lens.state.value!.point.x).toBeCloseTo(target.x, 6)
       expect(lens.state.value!.point.y).toBeCloseTo(target.y, 6)
 
-      // 40 px right of the centre and 30 px down: screen-right is (cos 30, sin 30) on the ground, screen-down (-sin 30, cos 30).
-      lens.inspectAtScreenPoint({ x: SCREEN.width / 2 + 40, y: SCREEN.height / 2 + 30 })
+      // 40 px right of the centre and 30 px down: maps through the live view's affine to ground metres.
+      const screenPt = { x: SCREEN.width / 2 + 40, y: SCREEN.height / 2 + 30 }
+      lens.inspectAtScreenPoint(screenPt)
       vi.advanceTimersByTime(20)
-      const cos = Math.cos(Math.PI / 6)
-      const sin = Math.sin(Math.PI / 6)
-      expect(lens.state.value!.point.x).toBeCloseTo(target.x + (40 * cos - 30 * sin) / scale, 6)
-      expect(lens.state.value!.point.y).toBeCloseTo(target.y + (40 * sin + 30 * cos) / scale, 6)
+      const expected = runtime.cameraHost.frames.viewFrame.peek().view.screenToWorld(screenPt)
+      expect(lens.state.value!.point.x).toBeCloseTo(expected.x, 6)
+      expect(lens.state.value!.point.y).toBeCloseTo(expected.y, 6)
       lens.dispose()
     } finally {
       runtime.destroy()

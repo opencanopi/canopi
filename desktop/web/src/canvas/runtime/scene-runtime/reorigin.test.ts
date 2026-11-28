@@ -5,24 +5,22 @@ import '../../../__tests__/support/camera-tolerance'
 
 vi.mock('../../../ipc/species', () => ({
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 
 import { createSceneInteractionEventHarness } from '../../../__tests__/support/canvas-interaction-events'
-import { clearSavedObjectStampSource, selectSavedObjectStampSource } from '../../saved-object-stamp-source'
 import type { DraftPresentation, DraftShape } from '../tools/draft'
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
 import type { CanopiFile } from '../../../types/design'
-import { createSessionPlane, type SessionPlane } from '../../session-plane'
+import { createSessionPlane, type SessionPlane } from '../../../geo/session-plane'
 import { createTestView, placeOnHost } from '../../../__tests__/support/test-view'
-import { createDetachedCanvasRuntimeAppAdapter } from '../app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from '../scene-runtime'
 import { SceneRuntimeReoriginController } from './reorigin'
 import type { SceneCommandAdmission, SceneEditCoordinator } from './transactions'
-import type { ViewFrame } from '../view/types'
-import { planarCameraOf } from '../view/view-transform'
+import type { ViewFrame } from '../../../geo/view/types'
+import { planarCameraOf } from '../../../geo/view/view-transform'
 
 function makeFile(): CanopiFile {
   return {
@@ -44,7 +42,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(10, 10),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -57,7 +55,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(30, 20),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -114,17 +112,13 @@ const SCREEN = { width: 400, height: 300 }
 const FAR_EAST_METERS = 20_000
 
 function createRuntime() {
-  const setCanvasClean = vi.fn<(clean: boolean) => void>()
   const runtime = new SceneCanvasRuntime({
-    appAdapter: {
-      ...createDetachedCanvasRuntimeAppAdapter(),
-      cleanState: { setCanvasClean },
-    },
+    appAdapter: createDetachedCanvasRuntimeAppAdapter(),
   })
   const file = makeFile()
   runtime.documentSurface.loadDocument(file)
   runtime.documentSurface.resize(SCREEN.width, SCREEN.height)
-  return { runtime, file, setCanvasClean }
+  return { runtime, file }
 }
 
 function sessionPlane(runtime: SceneCanvasRuntime): SessionPlane {
@@ -138,8 +132,10 @@ function frameOf(runtime: SceneCanvasRuntime): ViewFrame {
 
 /** Centres the view on a session-plane point at the given scale. */
 function centreViewOn(runtime: SceneCanvasRuntime, point: { x: number; y: number }, scale = 1): void {
-  placeOnHost(runtime.cameraHost, runtime.querySurface.sessionPlane.peek()!,
-    { x: SCREEN.width / 2 - point.x * scale, y: SCREEN.height / 2 - point.y * scale, scale })
+  const plane = runtime.querySurface.sessionPlane.peek()!
+  const viewPoint = plane.toView(point)
+  placeOnHost(runtime.cameraHost, plane,
+    { x: SCREEN.width / 2 - viewPoint.x * scale, y: SCREEN.height / 2 - viewPoint.y * scale, scale })
 }
 
 function sceneEdits(runtime: SceneCanvasRuntime): SceneEditCoordinator {
@@ -193,13 +189,12 @@ function geoNear(point: { lon: number; lat: number }) {
 
 describe('session plane re-origin', () => {
   it('moves the plane origin to a distant view centre without moving any saved lon/lat or dirtying the Design', async () => {
-    const { runtime, file, setCanvasClean } = createRuntime()
+    const { runtime, file } = createRuntime()
     try {
       const before = savedScene(runtime, file)
       const previous = sessionPlane(runtime)
       const farCentre = { x: FAR_EAST_METERS, y: 0 }
       const expectedOrigin = previous.toGeo(farCentre)
-      setCanvasClean.mockClear()
 
       centreViewOn(runtime, farCentre)
       await settleReorigin()
@@ -217,7 +212,6 @@ describe('session plane re-origin', () => {
       expect(Math.hypot(centre.x, centre.y)).toBeLessThan(0.01)
 
       expect(savedScene(runtime, file)).toEqual(before)
-      expect(setCanvasClean).not.toHaveBeenCalledWith(false)
       expect(runtime.commandSurface.history.canUndo.value).toBe(false)
       expect(runtime.commandSurface.history.canRedo.value).toBe(false)
     } finally {
@@ -378,7 +372,7 @@ describe('session plane re-origin', () => {
     const mounted = await createMountedRuntime()
     const { runtime, events } = mounted
     try {
-      runtime.commandSurface.tools.setTool('polygon')
+      runtime.commandSurface.tools.arm('polygon')
       events.pointerDown({ x: 200, y: 150 })
       events.pointerUp({ x: 200, y: 150 })
       events.pointerDown({ x: 250, y: 150 })
@@ -408,7 +402,7 @@ describe('session plane re-origin', () => {
     const mounted = await createMountedRuntime()
     const { runtime, events, container } = mounted
     try {
-      runtime.commandSurface.tools.setTool('text')
+      runtime.commandSurface.tools.arm('text')
       events.pointerDown({ x: 200, y: 150 })
       events.pointerUp({ x: 200, y: 150 })
       const textarea = container.querySelector<HTMLTextAreaElement>('textarea')
@@ -446,18 +440,20 @@ describe('session plane re-origin', () => {
       return ghost?.entity.kind === 'objects' ? ghost.entity.template.plants[0]!.entity : null
     }
     try {
-      selectSavedObjectStampSource({
-        version: 2,
-        anchor: { x: 0, y: 0 },
-        plants: [{
-          id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
-          position: { x: 0, y: 0 }, rotationDeg: null, scale: null,
-        }],
-        zones: [],
-        annotations: [],
-        groups: [],
+      runtime.commandSurface.tools.arm('saved-object-stamp', {
+        kind: 'saved-stamp',
+        stamp: {
+          version: 2,
+          anchor: { x: 0, y: 0 },
+          plants: [{
+            id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
+            position: { x: 0, y: 0 }, rotationDeg: null, scale: null,
+          }],
+          zones: [],
+          annotations: [],
+          groups: [],
+        },
       })
-      runtime.commandSurface.tools.setTool('saved-object-stamp')
       events.pointerMove({ x: 250, y: 150 })
       events.pointerLeave({ x: 450, y: 150 })
       expect(ghostPlant()).not.toBeNull()
@@ -474,7 +470,6 @@ describe('session plane re-origin', () => {
       expect(ghostPlant()!.position.x).toBeCloseTo(under.x, 6)
       expect(ghostPlant()!.position.y).toBeCloseTo(under.y, 6)
     } finally {
-      clearSavedObjectStampSource()
       mounted.dispose()
     }
   })

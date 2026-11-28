@@ -5,7 +5,7 @@
 //
 // The specs share one app session and run in order. Each Design file lives in the session's profile; the names are
 // what the title bar shows once a file opens.
-import { execFileSync } from 'node:child_process'
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import { basename, dirname, join } from 'node:path'
 import { $, browser, expect } from '@wdio/globals'
 import { currentAppPid, currentPlatform, currentProfile, designFile, launchSecondProcess, renameOpenDesign, savedName, separateProfile, waitForOpenDesign } from '../support/app'
@@ -36,7 +36,10 @@ function nativeWindow(body: string, handle?: number): NativeWindow {
     "Add-Type -Namespace Canopi -Name Window -MemberDefinition '"
       + '[DllImport("user32.dll")] public static extern bool ShowWindow(System.IntPtr h, int c); '
       + '[DllImport("user32.dll")] public static extern bool IsIconic(System.IntPtr h); '
-      + "[DllImport(\"user32.dll\")] public static extern System.IntPtr GetForegroundWindow();'",
+      + '[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); '
+      + '[DllImport("user32.dll")] public static extern System.IntPtr GetShellWindow(); '
+      + '[DllImport("user32.dll")] public static extern System.IntPtr GetDesktopWindow(); '
+      + "[DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(System.IntPtr h);'",
     handle === undefined
       ? `$h = (Get-Process -Id ${currentAppPid()} -ErrorAction Stop).MainWindowHandle`
       : `$h = [System.IntPtr]::new(${handle})`,
@@ -50,17 +53,73 @@ function nativeWindow(body: string, handle?: number): NativeWindow {
 }
 
 /**
- * Minimises the app's window from outside it, as a user switching away would, and fails unless it really is
- * minimised. Returns the window's handle on Windows, for the native focus checks.
+ * Spawns a real top-level Win32 window on headless Windows runners (where no shell window can take foreground)
+ * and uses AttachThreadInput + SetForegroundWindow so the minimised Canopi window genuinely loses foreground
+ * until the second launch reclaims it. The caller must kill the returned process in a finally block.
  */
-function minimiseAppWindow(): number | undefined {
+function spawnWindowsFocusHolder(): ChildProcess {
+  const script = [
+    'Add-Type -AssemblyName System.Windows.Forms',
+    "Add-Type -Namespace Canopi -Name Focus -MemberDefinition '"
+      + '[DllImport("user32.dll")] public static extern System.IntPtr GetForegroundWindow(); '
+      + '[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(System.IntPtr h, System.IntPtr pid); '
+      + '[DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId(); '
+      + '[DllImport("user32.dll")] public static extern bool AttachThreadInput(uint idAttach, uint idAttachTo, bool fAttach); '
+      + '[DllImport("user32.dll")] public static extern bool BringWindowToTop(System.IntPtr h); '
+      + '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(System.IntPtr h); '
+      + "[DllImport(\"user32.dll\")] public static extern bool AllowSetForegroundWindow(uint dwProcessId);'",
+    '$f = New-Object System.Windows.Forms.Form',
+    "$f.Text = 'CanopiFocusHolder'; $f.Width = 200; $f.Height = 100; $f.TopMost = $false",
+    "$f.StartPosition = 'Manual'; $f.Left = 0; $f.Top = 0",
+    '$f.Show()',
+    '$fg = [Canopi.Focus]::GetForegroundWindow()',
+    '$fgTid = [Canopi.Focus]::GetWindowThreadProcessId($fg, [System.IntPtr]::Zero)',
+    '$myTid = [Canopi.Focus]::GetCurrentThreadId()',
+    'if ($fgTid -ne 0 -and $fgTid -ne $myTid) { [void][Canopi.Focus]::AttachThreadInput($myTid, $fgTid, $true) }',
+    '[void][Canopi.Focus]::BringWindowToTop($f.Handle)',
+    '[void][Canopi.Focus]::SetForegroundWindow($f.Handle)',
+    'if ($fgTid -ne 0 -and $fgTid -ne $myTid) { [void][Canopi.Focus]::AttachThreadInput($myTid, $fgTid, $false) }',
+    '[void][Canopi.Focus]::AllowSetForegroundWindow([uint32]::MaxValue)',
+    '[System.Windows.Forms.Application]::Run($f)',
+  ].join('; ')
+  const encoded = Buffer.from(script, 'utf16le').toString('base64')
+  return spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-STA', '-EncodedCommand', encoded], {
+    stdio: 'ignore',
+    windowsHide: false,
+  })
+}
+
+/**
+ * Minimises the app's window from outside it, as a user switching away would, and fails unless it really is
+ * minimised. Returns the window's handle and optional focus-holder cleanup on Windows, for the native focus checks.
+ */
+async function minimiseAppWindow(): Promise<{ readonly handle?: number; readonly release: () => void }> {
   if (currentPlatform() === 'linux') {
     execFileSync('xdotool', ['search', '--sync', '--onlyvisible', '--name', '^Canopi$', 'windowminimize', '%@'])
-    return undefined
+    return { release: () => {} }
   }
-  const window = nativeWindow('[void][Canopi.Window]::ShowWindow($h, 6); Start-Sleep -Milliseconds 250')
+  const window = nativeWindow(
+    '[void][Canopi.Window]::ShowWindow($h, 6); '
+    + 'if ([Canopi.Window]::GetForegroundWindow() -eq $h) { '
+    + '$other = [Canopi.Window]::GetShellWindow(); '
+    + 'if ($other -eq [System.IntPtr]::Zero) { $other = [Canopi.Window]::GetDesktopWindow() }; '
+    + 'if ($other -ne [System.IntPtr]::Zero) { [void][Canopi.Window]::SetForegroundWindow($other) } '
+    + '}; Start-Sleep -Milliseconds 250',
+  )
   if (!window.iconic) throw new Error(`the app's window ${window.handle} is not minimised after SW_MINIMIZE`)
-  return window.handle
+  if (!window.foreground) return { handle: window.handle, release: () => {} }
+  const holder = spawnWindowsFocusHolder()
+  const release = () => {
+    try {
+      holder.kill()
+    } catch {
+      // reason: focus holder already exited.
+    }
+  }
+  await browser.waitUntil(() => !nativeWindow('', window.handle).foreground, { timeout: 10_000 }).catch(() => {
+    // reason: line 114 reports the exact foreground failure if the holder could not take focus.
+  })
+  return { handle: window.handle, release }
 }
 
 /** Suspends or resumes the attached app's process on Windows (ntdll, as Process Explorer does). */
@@ -92,31 +151,38 @@ describe('a second launch while Canopi runs', () => {
 
   it('focuses the existing window and opens the file, a relative path resolved against its folder (2.1-M60)', async () => {
     const garden = designFile('Launched garden')
-    const handle = minimiseAppWindow()
-    // The page's focus is what the user sees on X11. WebView2 may keep reporting focus for a window minimised from
-    // outside (it follows its controller, F5 probe 3), so on Windows the check falls back to the native foreground
-    // window: the minimised window must not be in front, and must come back to the front.
-    const pageBlurred = await browser.waitUntil(async () => !(await documentHasFocus()), { timeout: 10_000 }).catch(() => false)
-    let tookFocus: () => Promise<boolean> = documentHasFocus
-    if (!pageBlurred) {
-      if (handle === undefined) throw new Error('the minimised window still has focus, so the focus check would prove nothing')
-      if (nativeWindow('', handle).foreground) {
-        throw new Error('the minimised window is still the foreground window, so the focus check would prove nothing')
-      }
-      tookFocus = async () => {
-        const window = nativeWindow('', handle)
+    const { handle, release } = await minimiseAppWindow()
+    try {
+      // The page's focus is what the user sees on X11. WebView2 may keep reporting focus for a window minimised from
+      // outside (it follows its controller, F5 probe 3), so on Windows the check falls back to the native foreground
+      // window: the minimised window must not be in front, and must come back to the front.
+      const pageBlurred = await browser.waitUntil(async () => !(await documentHasFocus()), { timeout: 10_000 }).catch(() => false)
+      const nativeTookFocus = (winHandle: number): boolean => {
+        const window = nativeWindow('', winHandle)
         return window.foreground && !window.iconic
       }
+      let tookFocus: () => Promise<boolean> = handle === undefined
+        ? documentHasFocus
+        : async () => (await documentHasFocus()) || nativeTookFocus(handle)
+      if (!pageBlurred) {
+        if (handle === undefined) throw new Error('the minimised window still has focus, so the focus check would prove nothing')
+        if (nativeWindow('', handle).foreground) {
+          throw new Error('the minimised window is still the foreground window, so the focus check would prove nothing')
+        }
+        tookFocus = async () => nativeTookFocus(handle)
+      }
+
+      const second = await launchSecondProcess([basename(garden)], dirname(garden))
+
+      expect(second.exit).toBe(0)
+      await waitForOpenDesign('Launched garden')
+      await browser.waitUntil(tookFocus, {
+        timeout: 10_000,
+        timeoutMsg: `the window did not take focus${pageBlurred ? '' : ' (native foreground window, Windows)'}`,
+      })
+    } finally {
+      release()
     }
-
-    const second = await launchSecondProcess([basename(garden)], dirname(garden))
-
-    expect(second.exit).toBe(0)
-    await waitForOpenDesign('Launched garden')
-    await browser.waitUntil(tookFocus, {
-      timeout: 10_000,
-      timeoutMsg: `the window did not take focus${pageBlurred ? '' : ' (native foreground window, Windows)'}`,
-    })
   })
 
   // Runs on the Design the previous spec opened: when that one fails, this one fails to find 'Launched garden'.

@@ -7,13 +7,16 @@ import {
   setMapLayerVisible,
 } from '../app/map-layers/actions'
 import {
-  createDefaultMapLayers,
+  createDefaultMapLayersForTests as createDefaultMapLayers,
   hasVisibleMapLayer,
   mapBackgroundOf,
   mapLayers,
+  mapLayersFromSettings,
+  mapLayersToSettingsFields,
   normalizeMapLayers,
   type MapLayersState,
-} from '../app/map-layers/state'
+} from '../app/settings/state'
+import { presentedMapLayers, setStoryPresentationOverrides } from '../app/story-presentation/overrides'
 import {
   installSettingsProjection,
   resetSettingsProjectionForTests,
@@ -191,5 +194,31 @@ describe('map layer store', () => {
       basemap_style: 'liberty',
       basemap_opacity: 1,
     }))
+  })
+
+  it('2.1-M137: round-trips map-layer fields through the settings slice and overlays a story override without mutating settings', () => {
+    const sample = layers({
+      basemap: { style: 'dark', visible: false, opacity: 0.35 },
+      satellite: { visible: true, opacity: 0.75 },
+      contours: { visible: true, opacity: 0.6, intervalMeters: 15 },
+      hillshade: { visible: true, opacity: 0.25 },
+    })
+    const roundTripped = mapLayersFromSettings(mapLayersToSettingsFields({ ...sample, softenBackground: true }))
+    expect(roundTripped).toEqual({ ...sample, softenBackground: true })
+
+    expect(presentedMapLayers()).toEqual(mapLayers.value)
+    setStoryPresentationOverrides({
+      mapLayers: roundTripped,
+      siteDataIds: new Set(),
+      plantLabels: 'none',
+      targets: [],
+    })
+    try {
+      expect(presentedMapLayers()).toEqual(roundTripped)
+      expect(mapLayers.value).toEqual(createDefaultMapLayers())
+    } finally {
+      setStoryPresentationOverrides(null)
+    }
+    expect(presentedMapLayers()).toEqual(mapLayers.value)
   })
 })

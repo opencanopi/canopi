@@ -12,7 +12,7 @@ import { dismissNotice, notices, resetNoticesForTests } from './notices'
 import { reportFailure, resetFailureNoticesForTests } from './report'
 import { readFailureCode, StoreRefusedError } from './store-read'
 import { createBrowserAppDataStore } from '../web/browser-app-data'
-import { createReducedSpeciesCatalogAdapters, type ReducedSpeciesCatalogReader } from '../web/reduced-species-catalog'
+import { createReducedSpeciesCatalogAdapters, type ReducedSpeciesCatalogReader } from '../editions/web/reduced-species-catalog'
 
 type Kind = StoreOpenStatus['kind']
 

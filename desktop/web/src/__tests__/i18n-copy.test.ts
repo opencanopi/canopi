@@ -95,7 +95,7 @@ describe('placeholder lengths', () => {
  * them (Design, Layers, Select), as are brands and file formats.
  */
 const PROPER_NOUNS = new Set([
-  'Canopi', 'Google', 'OpenStreetMap', 'IGN', 'Esri', 'Maps', 'API', 'GeoLibre', 'Grime', 'Raunkiaer', 'Ellenberg', 'Köppen',
+  'Canopi', 'Google', 'OpenStreetMap', 'Nominatim', 'Pelias', 'IGN', 'Esri', 'Maps', 'API', 'GeoLibre', 'Grime', 'Raunkiaer', 'Ellenberg', 'Köppen',
   'Design', 'Designs', 'Layers', 'Select', 'Pan', 'Satellite', 'Start', 'Web', 'Desktop', 'Edition', 'English', 'Latin',
   'Ctrl', 'Shift', 'Alt', 'Esc', 'Tab', 'Enter', 'Space', 'Delete', 'Backspace', 'Home', 'End', 'Plus', 'Minus',
 ])
@@ -241,5 +241,19 @@ describe('Brazilian Portuguese', () => {
     expect(europeanPortuguese('O Canopi está usando as configurações padrão. Salve o arquivo na tela; a seleção atual')).toEqual([])
     expect(europeanPortuguese('Uma fotografia de contactos antigos')).toEqual(['contactos'])
     expect(europeanPortuguese('compartilhar o ficheiro')).toEqual(['ficheiro'])
+  })
+})
+
+describe('story image limit copy (#921)', () => {
+  const LIMIT_KEYS = ['stories.imageTooLarge', 'stories.imageDesignFull', 'stories.imagesDoNotFit'] as const
+
+  it('interpolates {{limit}} instead of hard-coding 1 MB or 10 MB in every locale', () => {
+    for (const [code, entries] of Object.entries(flat)) {
+      for (const key of LIMIT_KEYS) {
+        const text = entries.get(key)
+        expect(text, `${code}.${key}`).toContain('{{limit}}')
+        expect(text, `${code}.${key}`).not.toMatch(/\b(?:1|10)\s*(?:MB|Mo|МБ)\b/u)
+      }
+    }
   })
 })

@@ -2,25 +2,27 @@ import type { SpeciesFocus, SpeciesFocusCommands } from './species-key'
 import type { CanvasPrintSnapshot } from '../print'
 import type { CanvasInspectionHandle } from '../inspection'
 import type { ReadonlySignal } from '@preact/signals'
+import type { SceneCommand } from './scene-commands'
 import type {
   Annotation,
   CanopiFile,
+  GeoPoint,
   MeasurementGuide,
   ObjectGroup,
   PlacedPlant,
   Zone,
 } from '../../types/design'
-import type { SessionPlane } from '../session-plane'
+import type { SessionPlane } from '../../geo/session-plane'
 import type { SelectedPlantColorContext } from '../plant-color-context'
 import type { SelectedPlantSymbolContext } from '../plant-symbol-context'
 import type { PlantSymbolId, SceneDesignObjectTarget, ScenePoint, ScenePersistedState } from './scene'
-import type { SceneBounds, ViewTransform } from './view/types'
+import type { SceneBounds, ViewTransform, WorldPoint } from '../../geo/view/types'
 import type { PlantLabelMode } from './plant-display'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
-import type { PointerWorld } from './interaction-ports'
-import type { Modifiers, ToolId } from './interaction-types'
-import type { ViewCommandSurface, ViewReadSurface } from './view/read-surface'
-import type { SpeciesCacheEntry } from './species-cache'
+import type { PointerWorld, ToolHostState } from './interaction-ports'
+import type { MapInputHandle, MapInputRequest, Modifiers, ToolId, ToolSource } from './interaction-types'
+import type { ViewCommandSurface, ViewReadSurface } from '../../geo/view/read-surface'
+import type { SpeciesCacheEntry } from './presentation-data'
 
 export interface CanvasRuntimeDocumentMetadata {
   name: string
@@ -83,7 +85,8 @@ export interface CanvasPlantRowPathCommands {
 }
 
 export interface CanvasToolCommandSurface {
-  setTool(id: ToolId): void
+  /** Arms a tool with optional source and map-input request (ToolHost, §18 F29). */
+  arm<T = unknown>(id: ToolId, source?: ToolSource | null, request?: MapInputRequest<T>): MapInputHandle<T>
   readonly plantRowSpacing: CanvasPlantRowSpacingField
   readonly plantRowPath?: CanvasPlantRowPathCommands
 }
@@ -152,6 +155,56 @@ export interface CanvasSceneEditCommandSurface {
    * nothing changed (unknown or locked zone, locked layer, same name).
    */
   renameZone(zoneId: string, name: string | null): boolean
+  /** Updates fill colour, stroke colour, and/or unified opacity on an editable zone (2.1-Q355). */
+  setZoneStyle(
+    zoneId: string,
+    style: { readonly fillColor?: string | null; readonly strokeColor?: string | null; readonly opacity?: number | null },
+  ): boolean
+  /** Edits a zone's true-ground dimensions, angle, or centre in one undoable edit (2.1-Q149, 2.1-Q353). */
+  editZoneDimensions(
+    zoneId: string,
+    edit: {
+      readonly widthM?: number
+      readonly heightM?: number
+      readonly lengthM?: number
+      readonly rotationDeg?: number
+      readonly angleDeg?: number
+      readonly center?: GeoPoint
+      readonly sideIndex?: number
+      readonly sideLengthM?: number
+      readonly cornerIndex?: number
+      readonly cornerAngleDeg?: number
+    },
+  ): boolean
+  /** Edits a measurement guide's true-ground length, angle, or centre in one undoable edit. */
+  editMeasurementGuideDimensions(
+    guideId: string,
+    edit: {
+      readonly lengthM?: number
+      readonly angleDeg?: number
+      readonly center?: GeoPoint
+    },
+  ): boolean
+  /** Edits a plant's canopy spread, notes, planted date, or quantity in one undoable edit (2.1-Q149). */
+  editPlantFields(
+    plantId: string,
+    edit: {
+      readonly canopySpreadM?: number
+      readonly notes?: string | null
+      readonly plantedDate?: string | null
+      readonly quantity?: number
+    },
+  ): boolean
+  /** Edits a text note's text or font size in one undoable edit. */
+  editAnnotationFields(
+    annotationId: string,
+    edit: {
+      readonly text?: string
+      readonly fontSize?: number
+    },
+  ): boolean
+  /** Sets a species' short code in `plant_species_codes` (2.1-M158). */
+  setSpeciesCode(canonicalName: string, code: string): boolean
   /**
    * Turns the editable selection about its centre by `degrees`, clockwise on
    * the map for positive values, as one undoable edit. A selection holding a
@@ -213,6 +266,8 @@ export interface CanvasViewSceneRequest {
   readonly focusedSpecies: string | null
   /** Labels the view shows; absent, the workspace's choice. */
   readonly plantLabels?: PlantLabelMode
+  /** Objects the saved view highlights (2.1-Q352, canopi-5ys2.3.10). */
+  readonly highlightedObjects?: readonly { readonly kind: string; readonly id: string }[]
 }
 
 /** How many plants in view carry a label on the map now ("Codes shown for 70 of 282 plants in view"). */
@@ -226,6 +281,10 @@ export interface CanvasQuerySurface {
   /** Labels drawn for the plants in view; zero in overview and while nothing is mounted. */
   getPlantLabelCoverage(): CanvasPlantLabelCoverage
   readonly revision: CanvasQueryRevision
+  /** ToolHost's single authoritative tool state record (id, source; L11, §18 F29). */
+  readonly toolState: ReadonlySignal<ToolHostState>
+  /** The armed canvas tool, derived from ToolHost's one state record (L11, §18 F29). */
+  readonly activeTool: ReadonlySignal<ToolId>
   /** What app code observes of the view (spec §1.1a): coarse signals and the capture of what is on screen. */
   readonly view: ViewReadSurface
   // The open Design's metre frame; null only before the first hydration.
@@ -265,22 +324,22 @@ export interface CanvasQuerySurface {
    * The inspection lens reads it instead of its own map-host pointermove. Before the interaction session exists it hears nothing.
    */
   subscribePointerWorld(listener: (point: PointerWorld | null) => void): () => void
+  /** Forwards ToolHost.subscribeEmptyGroundTap: unused Select empty-ground tap or Pan tap in site mode (2.1-Q364). */
+  subscribeEmptyGroundTap?(listener: (world: WorldPoint) => void): () => void
 }
 
 export interface CanvasDocumentReplacementReceipt {
   readonly callerFinalizerInvoked: boolean
 }
 
-export class CanvasDocumentReplacementNotAdmittedError extends Error {
-  constructor(readonly reason: unknown) {
-    super(
-      reason instanceof Error
-        ? reason.message
-        : 'Canvas rejected document replacement before hydration',
-    )
-    this.name = 'CanvasDocumentReplacementNotAdmittedError'
-  }
-}
+import type { CanvasDocumentReplacementToken } from './scene-runtime/replacement-token'
+
+export {
+  CanvasAuthorityBusyError,
+  CanvasDocumentReplacementNotAdmittedError,
+  createCanvasDocumentReplacementToken,
+  type CanvasDocumentReplacementToken,
+} from './scene-runtime/replacement-token'
 
 export type CanvasPersistenceAcknowledgement = 'applied' | 'stale'
 
@@ -288,28 +347,6 @@ export interface CanvasPersistenceCapture {
   readonly content: CanopiFile
   isCurrent(): boolean
   acknowledgeSaved(): CanvasPersistenceAcknowledgement
-}
-
-export class CanvasAuthorityBusyError extends Error {
-  constructor(
-    readonly activeType: string,
-    message = `Canvas authority ${activeType} is busy`,
-  ) {
-    super(message)
-    this.name = 'CanvasAuthorityBusyError'
-  }
-}
-
-const canvasDocumentReplacementTokenBrand = Symbol('canvas-document-replacement-token')
-
-export interface CanvasDocumentReplacementToken {
-  readonly [canvasDocumentReplacementTokenBrand]: true
-}
-
-export function createCanvasDocumentReplacementToken(): CanvasDocumentReplacementToken {
-  return Object.freeze({
-    [canvasDocumentReplacementTokenBrand]: true as const,
-  })
 }
 
 export interface CanvasDocumentSurface {
@@ -333,6 +370,8 @@ export interface CanvasDocumentSurface {
     metadata: CanvasRuntimeDocumentMetadata,
     doc: CanopiFile,
   ): CanvasPersistenceCapture
+  serializeSceneFields(): Partial<CanopiFile>
+  replaySceneCommand(command: SceneCommand, direction: 'undo' | 'redo'): boolean
   resize(width: number, height: number): void
   destroy(): void
 }

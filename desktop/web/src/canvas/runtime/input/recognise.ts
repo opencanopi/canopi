@@ -26,8 +26,8 @@
 // hears it (A4).
 
 import type { CancelReason, Modifiers, PointerKind, ToolHandleId } from '../interaction-types'
-import { ROTATE_DEG_PER_PX } from '../view/navigation-policy'
-import type { ScreenPoint } from '../view/types'
+import { ROTATE_DEG_PER_PX } from '../../../geo/view/navigation-policy'
+import type { ScreenPoint } from '../../../geo/view/types'
 import type { Gesture, NavigationSource, PressTarget } from './gestures'
 import { modKeyIsCmd, type InputPlatform } from './platform'
 import type { AdapterEffect, ButtonRole, RawInput, RecogniserConfig, RecogniserState } from './raw-input'

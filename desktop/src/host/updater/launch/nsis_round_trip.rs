@@ -136,13 +136,8 @@ fn command_line_to_argv(command_line: &str) -> Vec<String> {
 fn relaunched_argv(exe: &str, design: Option<&str>) -> Vec<String> {
     let installer =
         PathBuf::from("C:\\Users\\Jean Pierre\\AppData\\Local\\Temp\\Canopi-update-setup.exe");
-    let current = [OsString::from(exe)];
-    let command = super::installer_command(
-        UpdateBundle::Nsis,
-        &installer,
-        &super::relaunch_args(&current, design.map(PathBuf::from)),
-        None,
-    );
+    let relaunch: Vec<OsString> = design.into_iter().map(OsString::from).collect();
+    let command = super::installer_command(UpdateBundle::Nsis, &installer, &relaunch, None);
     let cmdline = format!(
         "\"{}\" {}",
         command.program.to_string_lossy(),

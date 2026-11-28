@@ -2,40 +2,34 @@ import i18n, { type TOptions } from "i18next";
 import { effect } from "@preact/signals";
 import { locale } from "../app/settings/state";
 import type { LocaleKey } from "../generated/locale-keys";
+import { SUPPORTED_LOCALES } from "../generated/locale-registry";
 
-import en from "./en.json";
-import fr from "./fr.json";
-import es from "./es.json";
-import pt from "./pt.json";
-import it from "./it.json";
-import zh from "./zh.json";
-import de from "./de.json";
-import ja from "./ja.json";
-import ko from "./ko.json";
-import nl from "./nl.json";
-import ru from "./ru.json";
+export { SUPPORTED_LOCALES };
 
-/** Every interface language; the plant catalog carries names in each of them. */
-export const SUPPORTED_LOCALES = ["en", "fr", "es", "pt", "it", "zh", "de", "ja", "ko", "nl", "ru"] as const;
+/** Active interface locale, read untracked for imperative formatting and request headers. */
+export function currentLocale(): string {
+  return locale.peek();
+}
+
+// Stryker disable next-line all
+const localeBundles = import.meta.glob<Record<string, unknown>>("./*.json", {
+  eager: true,
+  import: "default",
+});
+
+const resources = Object.fromEntries(
+  SUPPORTED_LOCALES.map((code) => [
+    code,
+    { translation: localeBundles[`./${code}.json`] ?? {} },
+  ]),
+);
 
 i18n.init({
   lng: locale.value,
   fallbackLng: "en",
   supportedLngs: [...SUPPORTED_LOCALES],
   interpolation: { escapeValue: false },
-  resources: {
-    en: { translation: en },
-    fr: { translation: fr },
-    es: { translation: es },
-    pt: { translation: pt },
-    it: { translation: it },
-    zh: { translation: zh },
-    de: { translation: de },
-    ja: { translation: ja },
-    ko: { translation: ko },
-    nl: { translation: nl },
-    ru: { translation: ru },
-  },
+  resources,
 });
 
 // Sync locale signal → i18next

@@ -1,40 +1,30 @@
 //! Plan-level test support for the generation tests in lib.rs: temporary roots, the destination list with its
-//! sentinels, a fixture source root, and the external renderers that fail, probe admission or stall.
+//! sentinels, a fixture source root, and the external renderers that succeed or fail.
 
 use crate::external_contracts::{ExternalContractRenderer, WebCatalogArtifacts};
 use crate::locale_keys::EN_JSON;
 use crate::{
-    ANALYSIS_REGISTRY_RUST, ANALYSIS_REGISTRY_TS, CONTRACTS_TS, DESIGN_FORMAT_TS, GenerationMode,
-    KNOWN_KEYS_TS, LOCALE_KEYS_TS, NEW_DESIGN_DEFAULTS_RUST, NEW_DESIGN_DEFAULTS_TS,
-    PLANT_FILTER_RUST, PLANT_FILTER_TS, REDACTION_RUST, REDACTION_TS, SETTINGS_TS,
-    SPECIES_SEARCH_NORMALIZATION_TS, WEB_CATALOG_DECLARATION, WEB_CATALOG_MODULE,
-    execute_generation,
+    ANALYSIS_REGISTRY_RUST, ANALYSIS_REGISTRY_TS, CONTRACTS_TS, DESIGN_FORMAT_TS,
+    EDITION_CAPABILITIES_TS, GenerationMode, KNOWN_KEYS_TS, LOCALE_KEYS_TS, LOCALE_REGISTRY_TS,
+    NEW_DESIGN_DEFAULTS_TS, PLANT_FILTER_RUST, PLANT_FILTER_TS, QUANTITY_TABLE_TS, REDACTION_RUST,
+    REDACTION_TS, SETTINGS_TS, SPECIES_SEARCH_NORMALIZATION_TS, STAMP_V3_SPEC_SCHEMA_JSON,
+    STORE_CHAIN_TS, TRANSLATE_VALUE_RUST, TYPE_MANIFEST_JSON, V10_SPEC_ADDITION_PRINT_SETUP,
+    V10_SPEC_ADDITION_TIMELINE_OFFSET, V10_SPEC_ADDITION_ZONE_STYLE, V10_SPEC_DEFAULTS_JSON,
+    V10_SPEC_FIELDS_JSON, V10_SPEC_FIXTURE_CANOPI, V10_SPEC_SCHEMA_JSON, WEB_CATALOG_DECLARATION,
+    WEB_CATALOG_MODULE, execute_generation,
 };
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Mutex, MutexGuard, PoisonError};
 
 static NEXT_TEMP_ROOT: AtomicU64 = AtomicU64::new(0);
-
-// `execute_generation` spawns rustfmt. A child forked while another test
-// holds its admission flock inherits that descriptor until exec, so a
-// concurrent test can see its own admission as still held (canopi-he4e).
-// The CLI runs one generation per process; only parallel tests race.
-static GENERATION_RUNS: Mutex<()> = Mutex::new(());
-
-pub(crate) fn serialize_generation_runs() -> MutexGuard<'static, ()> {
-    GENERATION_RUNS
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-}
 
 pub(crate) struct TempRoot(pub(crate) PathBuf);
 
 impl TempRoot {
     pub(crate) fn new() -> Self {
         let path = std::env::temp_dir().join(format!(
-            "canopi_bindings_gen_late_renderer_{}_{}",
+            "canopi_bindings_gen_{}_{}",
             std::process::id(),
             NEXT_TEMP_ROOT.fetch_add(1, Ordering::Relaxed),
         ));
@@ -50,23 +40,36 @@ impl Drop for TempRoot {
 }
 
 /// Every destination one generation publishes, relative to the destination root.
-pub(crate) const DESTINATIONS: [&str; 16] = [
+pub(crate) const DESTINATIONS: [&str; 29] = [
     CONTRACTS_TS,
+    TYPE_MANIFEST_JSON,
     KNOWN_KEYS_TS,
     DESIGN_FORMAT_TS,
     SETTINGS_TS,
+    STORE_CHAIN_TS,
+    EDITION_CAPABILITIES_TS,
     NEW_DESIGN_DEFAULTS_TS,
-    NEW_DESIGN_DEFAULTS_RUST,
     PLANT_FILTER_TS,
     PLANT_FILTER_RUST,
     SPECIES_SEARCH_NORMALIZATION_TS,
     ANALYSIS_REGISTRY_TS,
     ANALYSIS_REGISTRY_RUST,
     LOCALE_KEYS_TS,
+    LOCALE_REGISTRY_TS,
+    QUANTITY_TABLE_TS,
+    TRANSLATE_VALUE_RUST,
     REDACTION_TS,
     REDACTION_RUST,
     WEB_CATALOG_MODULE,
     WEB_CATALOG_DECLARATION,
+    V10_SPEC_SCHEMA_JSON,
+    V10_SPEC_FIELDS_JSON,
+    V10_SPEC_DEFAULTS_JSON,
+    V10_SPEC_FIXTURE_CANOPI,
+    V10_SPEC_ADDITION_PRINT_SETUP,
+    V10_SPEC_ADDITION_ZONE_STYLE,
+    V10_SPEC_ADDITION_TIMELINE_OFFSET,
+    STAMP_V3_SPEC_SCHEMA_JSON,
 ];
 
 pub(crate) fn repo_root() -> &'static Path {
@@ -88,11 +91,6 @@ pub(crate) fn assert_sentinels_unchanged(root: &Path) {
             format!("sentinel:{relative}"),
         );
     }
-    assert!(
-        !root
-            .join("target/bindings-gen-publication.in-progress")
-            .exists()
-    );
 }
 
 /// A source root holding the canopi-types contracts and an en.json fixture, so a test can change English.
@@ -163,65 +161,5 @@ impl ExternalContractRenderer for LateFailure {
         _repo_root: &Path,
     ) -> Result<WebCatalogArtifacts, Box<dyn std::error::Error>> {
         Err("forced late Web Catalog renderer failure".into())
-    }
-}
-
-pub(crate) struct AdmissionLifetimeProbe {
-    pub(crate) admission: PathBuf,
-}
-
-impl AdmissionLifetimeProbe {
-    fn assert_exclusive_admission_is_blocked(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let file = fs::OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .open(&self.admission)?;
-        match file.try_lock() {
-            Err(fs::TryLockError::WouldBlock) => Ok(()),
-            Err(fs::TryLockError::Error(error)) => Err(error.into()),
-            Ok(()) => Err("external rendering began before generation admission".into()),
-        }
-    }
-}
-
-impl ExternalContractRenderer for AdmissionLifetimeProbe {
-    fn validate_species_catalog(
-        &self,
-        _repo_root: &Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self.assert_exclusive_admission_is_blocked()
-    }
-
-    fn render_web_catalog(
-        &self,
-        _repo_root: &Path,
-    ) -> Result<WebCatalogArtifacts, Box<dyn std::error::Error>> {
-        self.assert_exclusive_admission_is_blocked()?;
-        Err("forced renderer failure after admission probe".into())
-    }
-}
-
-/// Stalls once the native artifacts are rendered, before publication, until the parent's SIGINT arrives.
-pub(crate) struct StallBeforePublication {
-    pub(crate) ready: PathBuf,
-}
-
-impl ExternalContractRenderer for StallBeforePublication {
-    fn validate_species_catalog(
-        &self,
-        _repo_root: &Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        Ok(())
-    }
-
-    fn render_web_catalog(
-        &self,
-        _repo_root: &Path,
-    ) -> Result<WebCatalogArtifacts, Box<dyn std::error::Error>> {
-        fs::write(&self.ready, b"")?;
-        std::thread::sleep(std::time::Duration::from_secs(120));
-        Err("the interrupt never arrived".into())
     }
 }

@@ -1,16 +1,7 @@
-use canopi_types::location::GeoResult;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-struct NominatimResult {
-    display_name: String,
-    #[serde(deserialize_with = "de_f64_from_str")]
-    lat: f64,
-    #[serde(deserialize_with = "de_f64_from_str")]
-    lon: f64,
-}
+use canopi_types::location::GEOCODER_IDENTIFIED_HOSTS;
 
 const MAX_GEOCODING_BYTES: u64 = 1024 * 1024;
+
 /// Nominatim's usage policy requires an agent that identifies the application.
 const NOMINATIM_USER_AGENT: &str = concat!(
     "Canopi/",
@@ -18,55 +9,50 @@ const NOMINATIM_USER_AGENT: &str = concat!(
     " (+https://projectcanopi.com)"
 );
 
-pub async fn geocode_address(
+/// Pure native geocoder transport (canopi-f47t.52.77): fetches a TS-built Nominatim URL with
+/// Canopi's identifying User-Agent, no redirects, and a bounded response read.
+pub async fn geocoder_fetch(
     executor: &crate::native_operation::NativeOperationExecutor,
-    query: String,
-) -> Result<Vec<GeoResult>, String> {
+    url: String,
+) -> Result<String, String> {
+    let validated = validate_geocoder_url(&url)?;
     executor
         .run(
             crate::native_operation::NativeOperationClass::Network,
             "geocoding",
-            move || geocode_address_blocking(query),
+            move || geocoder_fetch_blocking(&validated),
         )
         .await
 }
 
-fn geocode_address_blocking(query: String) -> Result<Vec<GeoResult>, String> {
+fn validate_geocoder_url(url: &str) -> Result<String, String> {
+    crate::http::validate_geocoder_url(url, GEOCODER_IDENTIFIED_HOSTS)
+}
+
+fn geocoder_fetch_blocking(url: &str) -> Result<String, String> {
     let mut response = crate::http::build_get_request(
-        "https://nominatim.openstreetmap.org/search",
+        url,
         NOMINATIM_USER_AGENT,
         std::time::Duration::from_secs(5),
     )
-    .query("q", &query)
-    .query("format", "json")
-    .query("limit", "5")
     .call()
     .map_err(|e| format!("Failed to geocode: {e}"))?;
 
-    let body =
-        crate::http::read_limited_string(&mut response, MAX_GEOCODING_BYTES, "geocoding response")?;
+    if response.status().is_redirection() {
+        return Err(format!(
+            "Geocoding redirects are not allowed ({})",
+            response.status()
+        ));
+    }
 
-    let results: Vec<NominatimResult> =
-        serde_json::from_str(&body).map_err(|e| format!("Failed to geocode: {e}"))?;
-
-    Ok(results
-        .into_iter()
-        .map(|result| GeoResult {
-            display_name: result.display_name,
-            lat: result.lat,
-            lon: result.lon,
-        })
-        .collect())
-}
-
-fn de_f64_from_str<'de, D: serde::Deserializer<'de>>(d: D) -> Result<f64, D::Error> {
-    let s = String::deserialize(d)?;
-    s.parse::<f64>().map_err(serde::de::Error::custom)
+    crate::http::read_limited_string(&mut response, MAX_GEOCODING_BYTES, "geocoding response")
 }
 
 #[cfg(test)]
 mod tests {
-    use super::GeoResult;
+    use super::{geocoder_fetch_blocking, validate_geocoder_url};
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
 
     #[test]
     fn identifies_the_application_to_nominatim() {
@@ -75,27 +61,55 @@ mod tests {
     }
 
     #[test]
-    fn parses_nominatim_string_coordinates() {
-        let results: Vec<GeoResult> = serde_json::from_str::<Vec<serde_json::Value>>(
-            r#"[{"display_name":"Paris","lat":"48.8566","lon":"2.3522"}]"#,
+    fn allows_only_https_nominatim_search_without_port_or_userinfo() {
+        let valid = validate_geocoder_url(
+            "https://nominatim.openstreetmap.org/search?q=Lyon&format=jsonv2&limit=5&accept-language=fr",
         )
-        .ok()
-        .into_iter()
-        .flat_map(|values| {
-            values.into_iter().map(|value| {
-                let parsed: super::NominatimResult = serde_json::from_value(value).unwrap();
-                GeoResult {
-                    display_name: parsed.display_name,
-                    lat: parsed.lat,
-                    lon: parsed.lon,
-                }
-            })
-        })
-        .collect();
+        .expect("valid Nominatim search URL is accepted");
+        assert!(valid.starts_with("https://nominatim.openstreetmap.org/search?"));
 
-        assert_eq!(results.len(), 1);
-        assert_eq!(results[0].display_name, "Paris");
-        assert_eq!(results[0].lat, 48.8566);
-        assert_eq!(results[0].lon, 2.3522);
+        assert!(validate_geocoder_url("http://nominatim.openstreetmap.org/search?q=Lyon").is_err());
+        assert!(validate_geocoder_url("https://example.com/search?q=Lyon").is_err());
+        assert!(
+            validate_geocoder_url("https://nominatim.openstreetmap.org:8443/search?q=Lyon")
+                .is_err()
+        );
+        assert!(
+            validate_geocoder_url("https://user:pass@nominatim.openstreetmap.org/search?q=Lyon")
+                .is_err()
+        );
+        assert!(
+            validate_geocoder_url("https://user@nominatim.openstreetmap.org/search?q=Lyon")
+                .is_err()
+        );
+        assert!(
+            validate_geocoder_url("https://nominatim.openstreetmap.org/reverse?lat=0&lon=0")
+                .is_err()
+        );
+        assert!(
+            validate_geocoder_url("https://nominatim.openstreetmap.org/details?place_id=1")
+                .is_err()
+        );
+        assert!(validate_geocoder_url("https://nominatim.openstreetmap.org/").is_err());
+        assert!(validate_geocoder_url("not-a-url").is_err());
+    }
+
+    #[test]
+    fn refuses_redirects_on_geocoder_requests() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local test listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let server = std::thread::spawn(move || {
+            if let Ok((mut stream, _)) = listener.accept() {
+                let mut buf = [0u8; 512];
+                let _ = stream.read(&mut buf);
+                let _ = stream.write_all(
+                    b"HTTP/1.1 302 Found\r\nLocation: https://example.com/evil\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                );
+            }
+        });
+
+        let result = geocoder_fetch_blocking(&format!("http://{addr}/search?q=Lyon"));
+        server.join().expect("server thread finishes");
+        assert!(result.is_err(), "redirect must be refused, got {result:?}");
     }
 }

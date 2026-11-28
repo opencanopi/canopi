@@ -1,6 +1,11 @@
 //! Tests for `views`, an out-of-line test module so `views.rs` keeps under the file-size limit.
 
 use super::*;
+use crate::design::v10::{
+    RichTextSpanV10 as RichTextSpan, SavedViewCameraV10 as SavedViewCamera,
+    SavedViewGroundSizeV10 as SavedViewGroundSize, SavedViewObjectV10 as SavedViewObject,
+    SavedViewV10 as SavedView, StoryImageV10 as StoryImage, StoryV10 as Story,
+};
 use serde_json::json;
 
 /// The views and stories check with its refusal as the text a log reads.
@@ -60,7 +65,8 @@ fn saved_views_round_trip_with_typed_objects_and_rich_text() {
     assert_eq!(
         view.highlighted.objects[1],
         SavedViewObject::MeasurementGuide {
-            id: "guide-1".to_owned()
+            id: "guide-1".to_owned(),
+            extra: Default::default(),
         }
     );
     assert_eq!(serde_json::to_value(&view).expect("serialize"), value);
@@ -130,12 +136,14 @@ fn a_view_without_its_ground_size_is_refused() {
 }
 
 #[test]
-fn an_older_extent_record_is_dropped_on_load() {
+fn unknown_saved_view_fields_are_preserved_on_round_trip() {
+    // 2.1-Q69: v10 preserves unknown nested keys (including legacy `extent` or future view keys).
     let mut value = view_value(camera(2.0, 48.0, 17.0, 0.0));
-    value["extent"] = json!({ "west": 1.99, "south": 47.995, "east": 2.01, "north": 48.005 });
+    let extent = json!({ "west": 1.99, "south": 47.995, "east": 2.01, "north": 48.005 });
+    value["extent"] = extent.clone();
     let view: SavedView = serde_json::from_value(value).expect("view should parse");
     let written = serde_json::to_value(&view).expect("serialize");
-    assert!(written.get("extent").is_none(), "{written}");
+    assert_eq!(written.get("extent"), Some(&extent), "{written}");
 }
 
 #[test]
@@ -148,7 +156,8 @@ fn view_ground_sizes_round_trip_and_must_be_positive_finite_and_at_most_1e8_m() 
         view.camera.ground_size_m,
         SavedViewGroundSize {
             width: 312.5,
-            height: 200.25
+            height: 200.25,
+            extra: Default::default(),
         }
     );
     assert_eq!(serde_json::to_value(&view).expect("serialize"), value);
@@ -158,6 +167,7 @@ fn view_ground_sizes_round_trip_and_must_be_positive_finite_and_at_most_1e8_m() 
     largest.camera.ground_size_m = SavedViewGroundSize {
         width: SAVED_VIEW_MAX_GROUND_SIZE_M,
         height: SAVED_VIEW_MAX_GROUND_SIZE_M,
+        extra: Default::default(),
     };
     views_and_stories(&[largest], &[]).expect("1e8 m is the largest ground size");
 
@@ -169,7 +179,11 @@ fn view_ground_sizes_round_trip_and_must_be_positive_finite_and_at_most_1e8_m() 
         (1.000_000_1e8, 200.0),
     ] {
         let mut view = valid_view();
-        view.camera.ground_size_m = SavedViewGroundSize { width, height };
+        view.camera.ground_size_m = SavedViewGroundSize {
+            width,
+            height,
+            extra: Default::default(),
+        };
         let error = views_and_stories(&[view], &[]).expect_err("ground size is invalid");
         assert!(
             error.starts_with("$.views[0].camera.ground_size_m: "),
@@ -362,6 +376,7 @@ fn a_design_embeds_at_most_ten_megabytes_of_images() {
     over[1].steps[3].images.push(StoryImage {
         src: data_uri("image/png", 1),
         alt: String::new(),
+        extra: Default::default(),
     });
     assert_eq!(
         views_and_stories(&[valid_view()], &over),

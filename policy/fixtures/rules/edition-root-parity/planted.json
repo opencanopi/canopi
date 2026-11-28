@@ -1,0 +1,8 @@
+{
+  "$comment": "Planted unexplained Desktop-only drift verified red by desktop/web/src/__tests__/edition-root-parity.test.ts.",
+  "plantedDrift": {
+    "surface": "commands",
+    "entry": "file.unexplainedDesktopOnlyCommand",
+    "desktopOnly": true
+  }
+}

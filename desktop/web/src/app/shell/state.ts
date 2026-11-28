@@ -1,9 +1,8 @@
 import { signal, batch, effect } from "@preact/signals";
 import { currentDesign, designSessionStore } from "../document-session/store";
-import { DEFAULT_SETTINGS } from "../../generated/settings";
 import { phoneToolOptions } from "./phone-layout";
 
-export type Panel = "plant-db" | "canvas" | "favorites" | "templates" | "design-notebook" | "species-key" | "layers" | "site-data" | "calendar" | "budget" | "consortium" | "stories";
+export type Panel = "plant-db" | "canvas" | "favorites" | "design-notebook" | "species-key" | "layers" | "site-data" | "calendar" | "budget" | "consortium" | "stories";
 
 // Panels that open as a sidebar alongside the canvas instead of replacing it.
 export type SidePanel = "plant-db" | "favorites" | "design-notebook" | "species-key" | "layers" | "site-data" | "calendar" | "budget" | "consortium" | "stories";
@@ -13,8 +12,6 @@ const SIDE_PANELS = new Set<Panel>(["plant-db", "favorites", "design-notebook", 
 export function isSidePanel(panel: Panel): panel is SidePanel {
   return SIDE_PANELS.has(panel);
 }
-
-export const activePanel = signal<Panel>("canvas");
 
 // Which sidebar panel is open alongside the canvas. null = none.
 // Starts closed — the user opens the Species Catalog Workbench when they need it
@@ -27,10 +24,6 @@ effect(() => {
   if (currentDesign.value === null && sidePanel.peek() !== "plant-db") sidePanel.value = null;
 });
 
-// Sidebar width in pixels. null = no explicit user resize, so the shell uses
-// the responsive first-use default.
-export const sidePanelWidth = signal<number | null>(DEFAULT_SETTINGS.side_panel_width);
-
 /**
  * Select a panel without applying the command-layer toggle behavior. Every route that shows a panel comes here, so on a
  * phone it also closes the tool's options, which would cover the panel in the sheet, even when it is already open.
@@ -38,14 +31,7 @@ export const sidePanelWidth = signal<number | null>(DEFAULT_SETTINGS.side_panel_
 export function selectPanel(panel: Panel): void {
   batch(() => {
     phoneToolOptions.value = null;
-    if (isSidePanel(panel)) {
-      sidePanel.value = panel;
-      activePanel.value = "canvas";
-      return;
-    }
-
-    sidePanel.value = null;
-    activePanel.value = panel;
+    sidePanel.value = isSidePanel(panel) ? panel : null;
   });
 }
 
@@ -64,7 +50,7 @@ export function navigateTo(panel: Panel): void {
 }
 
 /**
- * The open Design is shown read-only (one a newer Canopi saved, 2.1-M478): the chrome's tools and commands read it to
+ * The open Design is shown read-only (2.1-M478, Q347): the chrome's tools and commands read it to
  * offer only what looks (Select, Pan, the panels, Close). A computed that calls it follows the Session kind.
  */
 export function designShownReadOnly(): boolean {

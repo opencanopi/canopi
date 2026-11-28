@@ -1,6 +1,6 @@
 import { createMapLibreEmptyStyle, MAPLIBRE_MAP_MAX_ZOOM } from './config'
 import type { MapLibreApi, MapLibreMapInstance } from './loader'
-import { WORKSPACE_MAP_MIN_ZOOM } from '../canvas/workspace-camera-policy'
+import { WORKSPACE_MAP_MIN_ZOOM } from '../geo/workspace-camera-policy'
 import type { MapBackgroundPresentation } from './map-background'
 
 export interface WorkspaceMapSnapshot {

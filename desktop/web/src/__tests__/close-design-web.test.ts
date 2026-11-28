@@ -1,21 +1,21 @@
-import { signal } from '@preact/signals'
-import { describe, expect, it, vi } from 'vitest'
-import { createDesignSessionStore } from '../app/document-session/store'
-import type { CanvasDocumentSurface, CanvasPersistenceCapture } from '../canvas/runtime/runtime'
-import { SceneHistory } from '../canvas/runtime/scene-history'
-import { SceneStore } from '../canvas/runtime/scene'
-import { SceneRuntimeEditCoordinator } from '../canvas/runtime/scene-runtime/transactions'
-import type { SceneCommand } from '../canvas/runtime/scene-commands'
-import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
-import {
-  createBrowserDesignSessionController,
-  type BrowserDesignFileAdapter,
-} from '../web/browser-design-session'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
-import { CONTINUOUS_SAVE_DELAY_MS } from '../app/document-session/continuous-save'
-import type { CanopiFile } from '../types/design'
-import { editDesignSessionForTest } from './support/design-session-edit'
+// @vitest-environment jsdom
 
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { flattenDocumentForJson as encodeCanopiDesign } from '../app/contracts/document'
+import { designRevertAvailable, newDesignAction, openDesignDraft } from '../app/document-session/actions'
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore, type SessionCore } from '../app/document-session/live-core'
+import { designSessionStore } from '../app/document-session/store'
+import type { ScenePort } from '../app/document-session/core/scene-half'
+import type { SceneCommand } from '../canvas/runtime/scene-commands'
+import type { CanopiFile } from '../types/design'
+import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
+import { browserAppLifecyclePort, browserFileAccessPort } from '../editions/web/session-ports'
+import { createBrowserSessionHomeStore } from './support/browser-session-home-store'
+import { readWebDesignIdentity } from '../editions/web/web-session'
+import { editDesignSessionForTest } from './support/design-session-edit'
+import { createTestDesignCore } from './support/design-wire'
+
+const CONTINUOUS_SAVE_DELAY_MS = 1500
 const NOW = new Date('2026-09-27T12:00:00.000Z')
 
 interface MemoryStorage extends BrowserStorageAdapter {
@@ -39,7 +39,7 @@ function memoryStorage(): MemoryStorage {
 
 function makeFile(name: string): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name,
     description: null,
     plant_species_colors: {},
@@ -62,187 +62,167 @@ function makeFile(name: string): CanopiFile {
   }
 }
 
-interface SceneSession extends CanvasDocumentSurface {
-  readonly history: SceneHistory
-}
-
-function makeSceneSession(): SceneSession {
-  const history = new SceneHistory()
-  const sceneStore = new SceneStore()
-  const authority = new SceneRuntimeEditCoordinator({
-    sceneStore,
-    history,
-    setSelection: (ids) => sceneStore.setSelection(ids),
-    incrementSceneRevision: () => {},
-    syncCanvasSignalsFromScene: () => {},
-    invalidate: () => {},
-  })
+function makeScenePort() {
   return {
-    history,
-    presented: signal(true),
-    attachInspectionTo: () => { throw new Error('Inspection is not used by this fixture.') },
-    showCanvasChrome: vi.fn(),
-    hideCanvasChrome: vi.fn(),
-    zoomToFit: vi.fn(),
-    loadDocument: vi.fn((next: CanopiFile) => authority.hydrate(next)),
-    replaceDocument: vi.fn((next, token, finalizeReplacement) => ({
-      callerFinalizerInvoked: authority.replaceDocument(next, {
-        token,
-        prepare: () => {},
-        finalizeReplacement,
-      }),
+    load: vi.fn<ScenePort['load']>(),
+    serialize: vi.fn<ScenePort['serialize']>(() => ({
+      plant_species_colors: {},
+      layers: [],
+      plants: [],
+      zones: [],
+      annotations: [],
+      measurement_guides: [],
+      groups: [],
     })),
-    hasLoadedDocument: vi.fn(() => true),
-    captureForPersistence: vi.fn((metadata, document): CanvasPersistenceCapture => {
-      const capture = authority.capturePersistence()
-      return {
-        content: { ...document, name: metadata.name },
-        isCurrent: () => capture.isCurrent(),
-        acknowledgeSaved: () => capture.acknowledgeSaved(),
-      }
-    }),
-    resize: vi.fn(),
-    destroy: vi.fn(() => authority.disposePersistence()),
-  }
+    replay: vi.fn<ScenePort['replay']>(),
+  } satisfies ScenePort
 }
 
-function fileAdapter(openedFile?: CanopiFile): BrowserDesignFileAdapter {
-  return {
-    openCanopiFile: vi.fn(async () => openedFile
-      ? { fileName: 'opened.canopi', text: JSON.stringify(encodeCanopiDesign(openedFile)) }
-      : null),
-    downloadCanopiFile: vi.fn(async () => undefined),
-  }
-}
+const disposers: Array<() => void> = []
 
-function setup(options: { openedFile?: CanopiFile, requestSaveDecision?: ReturnType<typeof vi.fn> } = {}) {
+function setup() {
   const storage = memoryStorage()
-  const store = createDesignSessionStore()
   const appDataStore = createBrowserAppDataStore({ storage })
-  const draftIds = ['draft-first', 'draft-second', 'draft-third']
-  const requestSaveDecision = options.requestSaveDecision ?? vi.fn(async () => 'cancel' as const)
-  const controller = createBrowserDesignSessionController({
-    store,
-    appDataStore,
-    fileAdapter: fileAdapter(options.openedFile),
-    now: () => NOW,
-    createDraftId: () => draftIds.shift() ?? 'draft-extra',
-    requestSaveDecision: requestSaveDecision as never,
+  const designHome = createBrowserSessionHomeStore(appDataStore, () => NOW)
+  const core: SessionCore = createSessionCore({
+    designHome,
+    fileAccess: browserFileAccessPort,
+    lifecycle: browserAppLifecyclePort,
+    codec: createJsonSessionCodec({ designCore: createTestDesignCore() }),
+    settings: {
+      readLastOpenHome: async () => null,
+      writeLastOpenHome: async () => {},
+    },
+    newDesignFactory: () => makeFile('Untitled'),
+    flushDelayMs: CONTINUOUS_SAVE_DELAY_MS,
   })
-  const session = makeSceneSession()
-  const detach = controller.attachCanvasSession(session)
-  return { storage, store, appDataStore, controller, session, detach, requestSaveDecision }
+  const dispose = installLiveSessionCore(core)
+  disposers.push(dispose)
+  const scenePort = makeScenePort()
+  core.attachScene(scenePort)
+  return { storage, appDataStore, core, scenePort, dispose }
 }
+
+afterEach(() => {
+  while (disposers.length > 0) disposers.pop()?.()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 describe('Web Close Design', () => {
   it('writes the Draft, then empties the store, Scene history and continuous save', async () => {
-    const { store, appDataStore, controller, session } = setup()
-    await controller.newDesign()
-    editDesignSessionForTest(store, (design) => ({ ...design, description: 'last edit' }))
-    session.history.record({ type: 'test-edit' } as unknown as SceneCommand, () => {})
+    const { appDataStore, core } = setup()
+    await newDesignAction()
+    const draftId = core.currentDesign.peek()!.home.key
+    editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'last edit' }))
+    core.recordSceneEdit('test-edit', { type: 'test-edit' } as unknown as SceneCommand)
+    expect(core.canUndo.value).toBe(true)
 
-    await expect(controller.closeDesign()).resolves.toBe(true)
+    await expect(core.close('close')).resolves.toBe('closed')
 
-    expect(appDataStore.loadDraft('draft-first')?.description).toBe('last edit')
-    expect(store.readCurrentDesign()).toBeNull()
-    expect(controller.hasCurrentDesign()).toBe(false)
-    expect(controller.readDesignIdentity()).toBeNull()
-    expect(session.history.canUndo.value).toBe(false)
-    expect(session.hideCanvasChrome).toHaveBeenCalled()
-    expect(controller.continuousSave.revertAvailable.value).toBe(false)
-    // The Draft stays on disk for the Start screen.
-    expect(controller.listDrafts().map((draft) => draft.id)).toEqual(['draft-first'])
+    expect(appDataStore.loadRawDraft(draftId)?.description).toBe('last edit')
+    expect(designSessionStore.readCurrentDesign()).toBeNull()
+    expect(designSessionStore.hasCurrentDesign()).toBe(false)
+    expect(readWebDesignIdentity()).toBeNull()
+    expect(core.canUndo.value).toBe(false)
+    expect(designRevertAvailable.value).toBe(false)
+    // The Draft stays in storage for the Start screen.
+    expect(appDataStore.listDrafts().map((draft) => draft.id)).toEqual([draftId])
   })
 
   it('never writes the closed Design Draft again', async () => {
     vi.useFakeTimers()
-    const { store, appDataStore, controller } = setup()
-    const uninstall = controller.installContinuousSave({
-      document: Object.assign(new EventTarget(), { visibilityState: 'visible' as const }),
-      window: new EventTarget(),
-    })
-    try {
-      await controller.newDesign()
-      editDesignSessionForTest(store, (design) => ({ ...design, description: 'kept' }))
-      await controller.closeDesign()
-      const saveDraft = vi.spyOn(appDataStore, 'saveDraft')
+    const { appDataStore, core } = setup()
+    await newDesignAction()
+    const draftId = core.currentDesign.peek()!.home.key
+    editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'kept' }))
+    await core.close('close')
+    const writeRecord = vi.spyOn(appDataStore, 'writeRecord')
 
-      await vi.advanceTimersByTimeAsync(CONTINUOUS_SAVE_DELAY_MS * 4)
-      await expect(controller.continuousSave.flush()).resolves.toBe(true)
+    await vi.advanceTimersByTimeAsync(CONTINUOUS_SAVE_DELAY_MS * 4)
+    await expect(core.flushNow()).resolves.toBe(true)
 
-      expect(saveDraft).not.toHaveBeenCalled()
-      expect(appDataStore.loadDraft('draft-first')?.description).toBe('kept')
-    } finally {
-      uninstall()
-      vi.useRealTimers()
-    }
+    expect(writeRecord).not.toHaveBeenCalled()
+    expect(appDataStore.loadRawDraft(draftId)?.description).toBe('kept')
   })
 
   it('asks when the Draft write fails; Cancel keeps the Design and Discard closes it', async () => {
-    const requestSaveDecision = vi.fn(async () => 'cancel' as const)
-    const { storage, store, controller } = setup({ requestSaveDecision })
-    await controller.newDesign()
-    editDesignSessionForTest(store, (design) => ({ ...design, description: 'unwritable' }))
+    const { storage, core } = setup()
+    await newDesignAction()
+    editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'unwritable' }))
     storage.failWrites = true
 
-    await expect(controller.closeDesign()).resolves.toBe(false)
-    expect(requestSaveDecision).toHaveBeenCalledWith({
-      kind: 'flush-failed',
-      purpose: 'replace',
-      conflict: false,
-    })
-    expect(store.readCurrentDesign()?.description).toBe('unwritable')
+    const firstClose = core.close('close')
+    await vi.waitFor(() => expect(core.state.value.kind).toBe('closing'))
+    const q1 = core.state.value
+    expect(q1.kind).toBe('closing')
+    if (q1.kind === 'closing') {
+      expect(q1.question?.kind).toBe('flush-failed-before-close')
+      expect(q1.question?.purpose).toBe('close')
+      core.answer(q1.question!.id, 'cancel')
+    }
+    await expect(firstClose).resolves.toBe('cancelled')
+    expect(designSessionStore.readCurrentDesign()?.description).toBe('unwritable')
 
-    requestSaveDecision.mockResolvedValueOnce('discard' as never)
-    await expect(controller.closeDesign()).resolves.toBe(true)
-    expect(store.readCurrentDesign()).toBeNull()
+    const secondClose = core.close('close')
+    await vi.waitFor(() => expect(core.state.value.kind).toBe('closing'))
+    const q2 = core.state.value
+    if (q2.kind === 'closing') {
+      core.answer(q2.question!.id, 'discard')
+    }
+    await expect(secondClose).resolves.toBe('closed')
+    expect(designSessionStore.readCurrentDesign()).toBeNull()
   })
 
   it('does nothing when no Design is open', async () => {
-    const { controller, session, requestSaveDecision } = setup()
-    vi.mocked(session.replaceDocument).mockClear()
+    const { core, scenePort } = setup()
+    scenePort.load.mockClear()
 
-    await expect(controller.closeDesign()).resolves.toBe(false)
-    expect(session.replaceDocument).not.toHaveBeenCalled()
-    expect(requestSaveDecision).not.toHaveBeenCalled()
+    await expect(core.close('close')).resolves.toBe('closed')
+    expect(scenePort.load).not.toHaveBeenCalled()
+    expect(core.state.value.kind).toBe('idle')
   })
 
   it('creates, opens and reopens Drafts normally after a close', async () => {
-    const { store, controller } = setup({ openedFile: makeFile('Opened') })
-    await controller.newDesign()
-    editDesignSessionForTest(store, (design) => ({ ...design, description: 'first Draft' }))
-    await controller.closeDesign()
+    const { core } = setup()
+    await newDesignAction()
+    const firstDraftId = core.currentDesign.peek()!.home.key
+    editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'first Draft' }))
+    await core.close('close')
 
-    await controller.newDesign()
-    expect(store.readDesignName()).toBe('Untitled')
-    await controller.closeDesign()
+    await newDesignAction()
+    expect(designSessionStore.readDesignName()).toBe('Untitled')
+    await core.close('close')
 
-    await expect(controller.openCanopi()).resolves.toBe(true)
-    expect(store.readDesignName()).toBe('Opened')
-    await controller.closeDesign()
+    const bytes = new TextEncoder().encode(JSON.stringify(encodeCanopiDesign(makeFile('Opened'))))
+    const openResult = await core.openFrom({ kind: 'bytes', name: 'opened.canopi', bytes })
+    expect(openResult.status).toBe('opened')
+    expect(designSessionStore.readDesignName()).toBe('Opened')
+    await core.close('close')
 
-    await expect(controller.openDraft('draft-first')).resolves.toBe(true)
-    expect(store.readCurrentDesign()?.description).toBe('first Draft')
+    await openDesignDraft(firstDraftId, { presentFailure: false })
+    expect(designSessionStore.readCurrentDesign()?.description).toBe('first Draft')
   })
 
-  it('does not clear a Design opened while the close was still asking', async () => {
-    const answer = { resolve: (_value: 'discard') => {} }
-    const requestSaveDecision = vi.fn(() => new Promise<'discard'>((resolve) => {
-      answer.resolve = resolve
-    }))
-    const { storage, store, controller } = setup({ requestSaveDecision })
-    await controller.newDesign()
-    editDesignSessionForTest(store, (design) => ({ ...design, description: 'unwritable' }))
+  it('does not leave a stale closing question able to close after retry succeeds', async () => {
+    const { storage, core } = setup()
+    await newDesignAction()
+    editDesignSessionForTest(designSessionStore, (design) => ({ ...design, description: 'unwritable' }))
     storage.failWrites = true
 
-    const closing = controller.closeDesign()
-    await vi.waitFor(() => expect(requestSaveDecision).toHaveBeenCalled())
-    storage.failWrites = false
-    await controller.newDesign()
-    const opened = store.readCurrentDesign()
-    answer.resolve('discard')
+    const closing = core.close('close')
+    await vi.waitFor(() => expect(core.state.value.kind).toBe('closing'))
+    const q = core.state.value
+    expect(q.kind).toBe('closing')
+    const questionId = q.kind === 'closing' ? q.question!.id : null
+    expect(questionId).not.toBeNull()
 
-    await expect(closing).resolves.toBe(false)
-    expect(store.readCurrentDesign()).toBe(opened)
+    // Fix storage and answer retry: close flushes the edit and closes cleanly.
+    storage.failWrites = false
+    expect(core.answer(questionId!, 'retry')).toBe('answered')
+    await expect(closing).resolves.toBe('closed')
+    // Answering the same question id again is stale.
+    expect(core.answer(questionId!, 'discard')).toBe('stale')
+    expect(designSessionStore.readCurrentDesign()).toBeNull()
   })
 })

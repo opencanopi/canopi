@@ -16,7 +16,7 @@ import {
 import type { SceneEditTransaction } from '../../scene-runtime/transactions'
 import type { SceneDesignObjectTarget } from '../../scene/design-object-targets'
 import type { ScenePersistedState } from '../../scene/types'
-import type { WorldPoint } from '../../view/types'
+import type { WorldPoint } from '../../../../geo/view/types'
 import type { DraftPresentation } from '../draft'
 import { plantDragDistanceGuideShapes } from '../distance-guides'
 import type { ToolContext, ToolPoint } from '../tool'
@@ -102,7 +102,13 @@ function distanceGuides(ctx: ToolContext, drag: MoveDrag): DraftPresentation | n
   const plantId = drag.activePlantId
   const active = plantId ? ctx.scene.persisted.plants.find((plant) => plant.id === plantId) : undefined
   if (!active) return null
-  const shapes = plantDragDistanceGuideShapes(ctx.scene, active, new Set(drag.state.plantStarts.keys()))
+  const shapes = plantDragDistanceGuideShapes(
+    ctx.scene,
+    active,
+    new Set(drag.state.plantStarts.keys()),
+    ctx.settings.unitSystem?.() ?? 'metric',
+    ctx.settings.locale?.() ?? 'en',
+  )
   return shapes.length > 0 ? { shapes } : null
 }
 

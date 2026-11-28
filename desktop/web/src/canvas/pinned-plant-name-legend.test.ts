@@ -5,13 +5,13 @@ import { geoAt } from '../__tests__/support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
 import { buildPinnedPlantNameLegendEntries } from './pinned-plant-name-legend'
-import { getStratumColor } from './plants'
+import { DEFAULT_PLANT_COLOR } from './plant-colors'
 import { DEFAULT_PLANT_DISPLAY } from './runtime/plant-display'
 import { resolvePlantDisplayColor } from './runtime/plant-presentation'
 import type { SceneRendererSnapshot } from './runtime/renderers/scene-types'
-import { createDetachedCanvasRuntimeAppAdapter } from './runtime/app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from './runtime/scene-runtime'
-import type { SpeciesCacheEntry } from './runtime/species-cache'
+import type { SpeciesCacheEntry } from './runtime/presentation-data'
 
 describe('pinned plant name legend through the runtime', () => {
   // A20: a plant carries no stratum; the canvas colours one without its own colour from the species catalog entries
@@ -32,7 +32,6 @@ describe('pinned plant name legend through the runtime', () => {
               }
               return true
             },
-            getSuggestedPlantColor: () => null,
           },
           plantLabels: {
             getLocaleSnapshot: () => new Map(),
@@ -44,9 +43,9 @@ describe('pinned plant name legend through the runtime', () => {
     })
     runtime.connectRenderTarget(renderer)
     runtime.documentSurface.loadDocument(openedDesignWithPinnedPlant())
-    const legendColor = () => buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)[0]?.color
-    // Before the first frame no catalog entry has loaded.
-    expect(legendColor()).not.toBe(getStratumColor('high'))
+    const legendColor = () => buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en')[0]?.color
+    // Before the first frame, the default plant colour is used.
+    expect(legendColor()).toBe(DEFAULT_PLANT_COLOR)
     const plantNamesRevision = runtime.querySurface.revision.plantNames.value
     const host = document.createElement('div')
     Object.defineProperty(host, 'clientWidth', { configurable: true, value: 400 })
@@ -56,10 +55,19 @@ describe('pinned plant name legend through the runtime', () => {
     await vi.waitFor(() => expect(renderer.setSnapshot).toHaveBeenCalled())
 
     const drawn = renderer.setSnapshot.mock.calls.at(-1)![0] as SceneRendererSnapshot
-    const canvasColor = resolvePlantDisplayColor(drawn.scene.plants[0]!, drawn.speciesCache, DEFAULT_PLANT_DISPLAY)
-    expect(canvasColor).toBe(getStratumColor('high'))
+    const canvasColor = resolvePlantDisplayColor(drawn.scene.plants[0]!, DEFAULT_PLANT_DISPLAY)
+    expect(canvasColor).toBe(DEFAULT_PLANT_COLOR)
     expect(legendColor()).toBe(canvasColor)
     expect(runtime.querySurface.revision.plantNames.value).toBeGreaterThan(plantNamesRevision)
+    runtime.destroy()
+  })
+
+  it('falls back to the canonical name when commonName is empty', () => {
+    const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
+    const design = openedDesignWithPinnedPlant()
+    design.plants[0]!.common_name = ''
+    runtime.documentSurface.loadDocument(design)
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en')[0]?.label).toBe('Malus domestica')
     runtime.destroy()
   })
 
@@ -67,10 +75,30 @@ describe('pinned plant name legend through the runtime', () => {
     const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
     const design = openedDesignWithPinnedPlant()
     runtime.documentSurface.loadDocument(design)
-    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)).toHaveLength(1)
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en')).toHaveLength(1)
 
     runtime.documentSurface.loadDocument({ ...design, layers: [{ name: 'plants', visible: true, locked: false, opacity: 0 }] })
-    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY)).toEqual([])
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en')).toEqual([])
+    runtime.destroy()
+  })
+
+  it('2.1-Q94: sorts pinned legend entries with the interface language collation (Swedish ä/å after z)', () => {
+    const runtime = new SceneCanvasRuntime({ appAdapter: createDetachedCanvasRuntimeAppAdapter() })
+    const design = openedDesignWithPinnedPlant()
+    runtime.documentSurface.loadDocument({
+      ...design,
+      plants: [
+        { ...design.plants[0]!, id: 'p1', canonical_name: 'Malus domestica', common_name: 'Äpple' },
+        { ...design.plants[0]!, id: 'p2', canonical_name: 'Ziziphus jujuba', common_name: 'Ziziphus' },
+        { ...design.plants[0]!, id: 'p3', canonical_name: 'Alnus glutinosa', common_name: 'Ål' },
+      ],
+    })
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'sv').map((e) => e.label)).toEqual([
+      'Ziziphus', 'Ål', 'Äpple',
+    ])
+    expect(buildPinnedPlantNameLegendEntries(runtime.querySurface, DEFAULT_PLANT_DISPLAY, 'en').map((e) => e.label)).toEqual([
+      'Ål', 'Äpple', 'Ziziphus',
+    ])
     runtime.destroy()
   })
 })
@@ -91,7 +119,7 @@ function openedDesignWithPinnedPlant(): CanopiFile {
       pinned_name: true,
       position: geoAt(10, 10, { lon: 0, lat: 0 }),
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: 1,

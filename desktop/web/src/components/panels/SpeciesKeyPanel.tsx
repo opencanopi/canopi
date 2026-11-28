@@ -9,8 +9,9 @@ import {
 import { buildSpeciesKey, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
 import { DEFAULT_PLANT_SYMBOL_ID } from '../../canvas/runtime/scene'
 import { t } from '../../i18n'
-import { locale } from '../../app/settings/state'
+import { locale, mapLayers } from '../../app/settings/state'
 import { formatCount } from '../../utils/format-count'
+import { formatPercent as formatLocalePercent } from '../../utils/format'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { navigateTo } from '../../app/shell/state'
 import { usePlanningViewState } from '../../app/planning-view/state'
@@ -26,6 +27,7 @@ import {
 import type { SpeciesListItem } from '../../types/species'
 import { PlantSymbolGlyph } from '../canvas/PlantSymbolGlyph'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
+import { CanopiColorSwatchPicker } from '../canvas/CanopiColorPicker'
 import { ControlIcon } from '../shared/ControlIcon'
 import { DockPanelHeader } from '../shared/DockPanelHeader'
 import { EmptyState } from '../shared/EmptyState'
@@ -52,7 +54,6 @@ import {
 import { plantLabelCoverage, zoomInForPlantLabels } from '../../app/plant-display/coverage'
 import { currentPlantDisplay, displayedPlantColor } from '../../app/plant-display/state'
 import { setSoftenBackground } from '../../app/map-layers/actions'
-import { mapLayers } from '../../app/map-layers/state'
 import { currentDesign } from '../../app/document-session/store'
 import { SpeciesIdentity } from '../shared/SpeciesIdentity'
 import row from '../shared/species-row.module.css'
@@ -98,16 +99,17 @@ function PlantsInDesign({ renderDetail, onOpenDetail }: {
   const queries = currentCanvasQuerySurface.value
   const revision = queries?.revision.scene.value
   const namesRevision = queries?.revision.plantNames.value
+  const activeLocale = locale.value
   const entries = useMemo(
     () => queries
       ? buildSpeciesKey(
         queries.getSceneSnapshot(),
-        queries.getSpeciesCache(),
         queries.getLocalizedCommonNames(),
         queries.getEnglishFallbackNames(),
+        activeLocale,
       )
       : [],
-    [queries, revision, namesRevision],
+    [queries, revision, namesRevision, activeLocale],
   )
   const finderSpecies = useMemo(() => entries.map((entry) => ({
     canonicalName: entry.canonicalName,
@@ -250,12 +252,10 @@ function DisplayOnMap() {
           {display.colorBy === 'one-color' && (
             <label className={styles.inlineField}>
               <span>{t('speciesKey.oneColor')}</span>
-              <input
-                type="color"
-                className={styles.swatch}
-                value={display.oneColor.toLowerCase()}
-                aria-label={t('speciesKey.oneColorLabel')}
-                onInput={(event) => setPlantDisplayOptions({ oneColor: event.currentTarget.value })}
+              <CanopiColorSwatchPicker
+                value={display.oneColor}
+                ariaLabel={t('speciesKey.oneColorLabel')}
+                onChange={(oneColor) => setPlantDisplayOptions({ oneColor })}
               />
             </label>
           )}
@@ -304,7 +304,7 @@ function DisplayOnMap() {
 }
 
 function formatPercent(percent: number): string {
-  return new Intl.NumberFormat(locale.value, { style: 'percent' }).format(percent / 100)
+  return formatLocalePercent(percent / 100, locale.value)
 }
 
 /**
@@ -321,12 +321,11 @@ function StratumLegend({ display }: { readonly display: PlantDisplay }) {
           return (
             <li key={key}>
               <label className={styles.legendEntry}>
-                <input
-                  type="color"
-                  className={`${styles.swatch} ${styles.legendSwatch}`}
-                  value={stratumDisplayColor(key, display).toLowerCase()}
-                  aria-label={t('speciesKey.stratumColorOf', { stratum: label })}
-                  onInput={(event) => setStratumDisplayColor(key, event.currentTarget.value)}
+                <CanopiColorSwatchPicker
+                  compact
+                  value={stratumDisplayColor(key, display)}
+                  ariaLabel={t('speciesKey.stratumColorOf', { stratum: label })}
+                  onChange={(color) => setStratumDisplayColor(key, color)}
                 />
                 {label}
               </label>
@@ -376,13 +375,11 @@ function SpeciesRow({ entry, result, focused, detail, onOpenDetail }: {
     <li className={row.row} data-selected={focused}>
       {/* While searching, Select takes the swatch's room (FindPlants board). */}
       {bySpecies && !result.active && color && /^#[0-9a-f]{6}$/i.test(color) && (
-        <input
-          type="color"
-          className={styles.swatch}
+        <CanopiColorSwatchPicker
           value={color}
-          aria-label={t('speciesKey.colorOf', { name })}
-          onInput={(event) => {
-            currentCanvasPlantPresentationCommandSurface.value?.setPlantColorForSpecies(entry.canonicalName, event.currentTarget.value)
+          ariaLabel={t('speciesKey.colorOf', { name })}
+          onChange={(nextColor) => {
+            currentCanvasPlantPresentationCommandSurface.value?.setPlantColorForSpecies(entry.canonicalName, nextColor)
           }}
         />
       )}
@@ -406,9 +403,9 @@ function SpeciesRow({ entry, result, focused, detail, onOpenDetail }: {
           englishFallback={entry.englishFallback}
           highlight={finderHighlight(result.byKey.get(entry.canonicalName))}
         />
-        <span className={row.code}>{entry.code}</span>
         <span className={row.count}>{formatCount(entry.count, locale.value)}</span>
       </button>
+      <SpeciesCodeInput canonicalName={entry.canonicalName} name={name} code={entry.code} />
       {result.active && (
         <button
           type="button"
@@ -430,6 +427,49 @@ function SpeciesRow({ entry, result, focused, detail, onOpenDetail }: {
         </button>
       )}
     </li>
+  )
+}
+
+function SpeciesCodeInput({
+  canonicalName,
+  name,
+  code,
+}: {
+  readonly canonicalName: string
+  readonly name: string
+  readonly code: string
+}) {
+  const [draft, setDraft] = useState(code)
+  useEffect(() => {
+    setDraft(code)
+  }, [code])
+
+  const commit = (raw: string) => {
+    const ok = currentCanvasSceneEditCommandSurface.value?.setSpeciesCode(canonicalName, raw)
+    if (!ok) setDraft(code)
+  }
+
+  return (
+    <input
+      type="text"
+      className={row.code}
+      value={draft}
+      maxLength={12}
+      aria-label={t('speciesKey.codeLabel', { name })}
+      data-species-code-input={canonicalName}
+      onClick={(e) => e.stopPropagation()}
+      onInput={(e) => setDraft(e.currentTarget.value)}
+      onFocusOut={(e) => commit(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          commit(e.currentTarget.value)
+        } else if (e.key === 'Escape') {
+          e.preventDefault()
+          setDraft(code)
+        }
+      }}
+    />
   )
 }
 

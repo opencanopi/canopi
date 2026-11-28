@@ -4,8 +4,8 @@
 // (policy/gate/ci-lanes.test.ts). Its Playwright project runs only when named, never in the full browser suite.
 import { describe, expect, it } from 'vitest'
 import { projectsFor } from '../../playwright.config'
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
-import { createSessionPlane } from '../canvas/session-plane'
+import { decodeCanopiDesign } from './support/design-wire'
+import { createSessionPlane } from '../geo/session-plane'
 
 interface LargeFixtureGenerator {
   readonly LARGE_FIXTURE_SITE: { readonly lon: number, readonly lat: number }

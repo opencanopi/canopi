@@ -3,27 +3,28 @@ import { currentDesign, designSessionStore } from '../../../app/document-session
 import {
   attachmentFailure, cancelAnalysisJob, cancelLibraryImport, dismissAttachmentFailure, moveReferenceTo,
   pendingAttachments, removeFromDesign, rerunAnalysis, setLidarEntryVisibility, setSiteDataShown,
-} from '../../../app/lidar/actions'
-import { siteDataLines, type SiteDataLine } from '../../../app/lidar/analysis-groups'
+} from '../../../app/data-library/actions'
+import { siteDataLines, type SiteDataLine } from '../../../app/data-library/analysis-groups'
 import { analysisTitle } from '../../../app/analyses/registry'
-import { viewDesignLocation, viewLidarCoverage } from '../../../app/lidar/camera-request'
-import { lidarDisplayStyle, readLidarEntryDisplay } from '../../../app/lidar/display'
-import { formatRasterRange, legendGradient } from '../../../app/lidar/display-legend'
-import { itemTypeLabel } from '../../../app/lidar/item-types'
-import { beginDataImport, openDataLibrary } from '../../../app/lidar/library-navigation'
+import { viewDesignLocation, viewLidarCoverage } from '../../../app/data-library/camera-request'
+import { lidarDisplayStyle, readLidarEntryDisplay } from '../../../app/data-library/display'
+import { formatRasterRange, legendGradient } from '../../../app/data-library/display-legend'
+import { itemTypeLabel } from '../../../app/data-library/item-types'
+import { beginDataImport, openDataLibrary } from '../../../app/data-library/library-navigation'
 import {
   isMissing, libraryItemName, noteImportCancel,
   lidarLibrary, readCurrentLidarPresentation, type LidarMissingReason, type LidarPresentationItem,
-} from '../../../app/lidar/library-store'
+} from '../../../app/data-library/library-store'
 import {
   filterKeepingAncestors, referenceRows, siblingMoveOrders, siblingNeighbour, siblingUnits, type ReferenceRow,
-} from '../../../app/lidar/reference-tree'
-import type { SiteDataView } from '../../../app/lidar/site-data-view'
-import { siteValues } from '../../../app/lidar/site-values'
-import { formatRowValue } from '../../../app/lidar/value-format'
-import { locale } from '../../../app/settings/state'
+} from '../../../app/data-library/reference-tree'
+import type { SiteDataView } from '../../../app/data-library/site-data-view'
+import { siteValues } from '../../../app/data-library/site-values'
+import { formatRowValue } from '../../../app/data-library/value-format'
+import { locale, unitSystem } from '../../../app/settings/state'
 import type { LibraryItemSummary } from '../../../generated/contracts'
 import { t } from '../../../i18n'
+import { formatPercent } from '../../../utils/format'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { ControlIcon } from '../../shared/ControlIcon'
 import { LayerVisibilityIcon } from '../../shared/LayerVisibilityIcon'
@@ -84,7 +85,7 @@ function matches(item: LidarPresentationItem, query: string): boolean {
  */
 export function SiteDataList({ view }: { readonly view: SiteDataView }) {
   const items = readCurrentLidarPresentation()
-  const sectionShown = currentDesign.value?.lidar?.visible ?? true
+  const sectionShown = currentDesign.value?.site_data?.visible ?? true
   const identity = designSessionStore.sessionIdentity.value
   const pending = pendingAttachments.value.filter((entry) => entry.identity === identity)
   const failure = attachmentFailure.value
@@ -503,7 +504,7 @@ function Trailing({ row }: { readonly row: LidarPresentationItem }) {
   if (value.kind === 'no-data') {
     return <span className={`${styles.trailing} ${styles.muted}`} data-trailing role="img" aria-label={t('siteData.noData')}>—</span>
   }
-  return <span className={styles.trailing} data-trailing>{formatRowValue(value.value, row.units, locale.value)}</span>
+  return <span className={styles.trailing} data-trailing>{formatRowValue(value.value, row.units, locale.value, unitSystem.value)}</span>
 }
 
 const MISSING_REASON_KEYS: Readonly<Record<LidarMissingReason, LocaleKey>> = {
@@ -516,7 +517,7 @@ const MISSING_REASON_KEYS: Readonly<Record<LidarMissingReason, LocaleKey>> = {
 function caption(item: LidarPresentationItem): string {
   if (!item.itemType) return ''
   if (item.inputId) return [t('canvas.lidar.layers.fromItem', { name: nameOfItem(item.inputId) }), unitWords(item.units)].filter(Boolean).join(' · ')
-  return [itemTypeLabel(item.itemType), item.displayRange ? formatRasterRange(item.displayRange, item.units, locale.value) : null]
+  return [itemTypeLabel(item.itemType), item.displayRange ? formatRasterRange(item.displayRange, item.units, locale.value, unitSystem.value) : null]
     .filter(Boolean).join(' · ')
 }
 
@@ -588,7 +589,7 @@ function PendingLine({ line }: { readonly line: Extract<ListLine, { kind: 'pendi
         <span className={styles.chevronSlot} aria-hidden="true" />
         <span className={styles.name}>{name}</span>
         <span className={`${styles.trailing} ${styles.muted}`}>
-          {percent !== undefined ? `${status} · ${new Intl.NumberFormat(locale.value, { style: 'percent' }).format(percent / 100)}` : status}
+          {percent !== undefined ? `${status} · ${formatPercent(percent / 100, locale.value)}` : status}
         </span>
         {(line.work === 'analysis' || first.import_job) && (
           <button

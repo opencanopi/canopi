@@ -11,6 +11,7 @@ import { join } from 'node:path'
 import type { E2ePlan, PlannedCheck } from './plan.ts'
 import { GateError } from './plan.ts'
 import { display, needsPackages, TABLE, WEB, type Table } from './table.ts'
+import { sizeWorkers, vitestWorkers } from './vitest-workers.mjs'
 
 const log = (line: string) => process.stderr.write(`gate: ${line}\n`)
 /** The signals that end a run as cancelled: the terminal's interrupt, and `timeout`'s or a supervisor's stop. */
@@ -89,16 +90,35 @@ interface Duration {
   seconds: number | null
 }
 
+/** Fast (<5s) preflight checks that run first and fail fast before expensive suites start (Stage 1 E1). */
+export const PREFLIGHT_IDS: ReadonlySet<string> = new Set([
+  'closed-beads', 'prepush-checks', 'commit-gate-pr', 'cargo-locked', 'fmt',
+  'docs', 'docs-drift', 'playwright-pins', 'unicode-facts', 'actionlint',
+])
+
+/** Resource group for Tier 2 parallel execution: checks in the same group run serially; distinct groups run in parallel.
+ * `build-web` invokes `build:format-wasm` (`cargo build --target wasm32`) in CARGO_TARGET_DIR, so it stays in `cargo`
+ * without marking frontend-only stamps as Rust checks. */
+export function resourceGroup(check: PlannedCheck): 'cargo' | 'python' | 'web' {
+  if (check.cargo || check.id === 'build-web') return 'cargo'
+  if (check.command.startsWith('python3 ')) return 'python'
+  return 'web'
+}
+
 /**
  * Runs `checks` and the e2e run at `root`; 0 when every check passed, 1 when one failed, 130 after SIGINT and 143
- * after SIGTERM (`timeout`'s), each forwarded to the running check's group. With
- * `logDir`, writes `<logDir>/durations.json` (each check's id, command, outcome and seconds) however the run ends. With
+ * after SIGTERM (`timeout`'s), each forwarded to every running check's group. Non-staged runs use two-tier execution
+ * (Stage 1 E1): fast preflight checks run first and fail fast, then remaining checks run in parallel across independent
+ * resource groups (cargo, web, python) while preserving order within each group. With `logDir`, writes
+ * `<logDir>/durations.json` (each check's id, command, outcome and seconds) however the run ends. With
  * CANOPI_E2E_RUNNER set (quiet-gates' Docker wrapper, A14), the e2e command runs as that program's arguments.
  */
 export async function execute(root: string, checks: readonly PlannedCheck[], e2e: E2ePlan | undefined,
   notes: readonly string[], staged: boolean, env: NodeJS.ProcessEnv = process.env, logDir?: string): Promise<number> {
   const base = checkEnv(env, staged)
   for (const note of notes) log(note)
+  const { workers, warning } = vitestWorkers(env)
+  if (warning) log(warning)
   const failed: string[] = []
   let passed = 0
   const durations: Duration[] = [...checks.map((planned) => ({ id: planned.id, command: display(planned), outcome: 'not run' as const,
@@ -112,41 +132,61 @@ export async function execute(root: string, checks: readonly PlannedCheck[], e2e
   }
   const packages = existsSync(join(root, WEB, 'node_modules'))
   let interrupted: NodeJS.Signals | undefined
-  let running: Running | undefined
+  const active = new Set<Running>()
   const onInterrupt = (signal: NodeJS.Signals) => {
     interrupted = signal
-    running?.stop(signal)
+    for (const proc of active) proc.stop(signal)
   }
   for (const signal of STOPS) process.on(signal, onInterrupt)
   const run = async (name: string, argv: readonly string[], cwd: string, runEnv: NodeJS.ProcessEnv) => {
-    running = start(name, argv, cwd, runEnv)
-    const code = await running.done
-    running = undefined
+    const proc = start(name, argv, cwd, runEnv)
+    active.add(proc)
+    const code = await proc.done
+    active.delete(proc)
     return code
   }
+  const runOne = async (index: number, planned: PlannedCheck): Promise<boolean> => {
+    const text = sizeWorkers(display(planned).split(' '), workers).join(' ')
+    if (planned.ciOnly) {
+      log(`CI only: ${text}`)
+      Object.assign(durations[index] ?? {}, { outcome: 'CI only' })
+      return true
+    }
+    if (needsPackages(planned) && !packages) {
+      log(`FAIL ${text}: ${WEB}/node_modules is missing: run npm ci in ${WEB}`)
+      Object.assign(durations[index] ?? {}, { outcome: 'failed', seconds: 0 })
+      failed.push(text)
+      return false
+    }
+    const { env: extra, argv } = splitEnv(planned.command)
+    const code = await timed(index, () => run(text, sizeWorkers(argv, workers), join(root, planned.cwd ?? ''), { ...base, ...extra }))
+    if (interrupted) return false
+    if (code === 0) { passed += 1; return true }
+    failed.push(text)
+    return false
+  }
+  const runSequence = async (items: readonly (readonly [number, PlannedCheck])[], failFast: boolean) => {
+    for (const [index, planned] of items) {
+      if (interrupted) break
+      const ok = await runOne(index, planned)
+      if (!ok && failFast) break
+    }
+  }
   try {
-    for (const [index, planned] of checks.entries()) {
-      if (interrupted) break
-      const text = display(planned)
-      if (planned.ciOnly) {
-        log(`CI only: ${text}`)
-        Object.assign(durations[index] ?? {}, { outcome: 'CI only' })
-        continue
-      }
-      if (needsPackages(planned) && !packages) {
-        log(`FAIL ${text}: ${WEB}/node_modules is missing: run npm ci in ${WEB}`)
-        Object.assign(durations[index] ?? {}, { outcome: 'failed', seconds: 0 })
-        failed.push(text)
-        if (staged) break
-        continue
-      }
-      const { env: extra, argv } = splitEnv(planned.command)
-      const code = await timed(index, () => run(text, argv, join(root, planned.cwd ?? ''), { ...base, ...extra }))
-      if (interrupted) break
-      if (code === 0) passed += 1
-      else {
-        failed.push(text)
-        if (staged) break
+    const indexed = checks.map((planned, index) => [index, planned] as const)
+    if (staged) {
+      await runSequence(indexed, true)
+    } else {
+      const preflight = indexed.filter(([, planned]) => !planned.ciOnly && PREFLIGHT_IDS.has(planned.id))
+      const rest = indexed.filter(([, planned]) => planned.ciOnly || !PREFLIGHT_IDS.has(planned.id))
+      await runSequence(preflight, true)
+      if (!failed.length && !interrupted) {
+        const groups = new Map<string, (readonly [number, PlannedCheck])[]>()
+        for (const item of rest) {
+          const group = item[1].ciOnly ? 'ci' : resourceGroup(item[1])
+          groups.set(group, [...groups.get(group) ?? [], item])
+        }
+        await Promise.all([...groups.values()].map((items) => runSequence(items, false)))
       }
     }
     if (e2e && !failed.length && !interrupted) {

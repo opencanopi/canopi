@@ -9,8 +9,10 @@
 import type { SceneDesignObjectSelection } from '../scene/design-object-targets'
 import { isSceneObjectGroupMemberTarget } from '../scene/group-members'
 import type { ScenePersistedState } from '../scene/types'
-import type { ScreenPoint, WorldPoint, WorldVector } from '../view/types'
-import { getRectangularZoneCorners, polygonArea } from '../zone-geometry'
+import type { GroundMeasure } from '../../../geo/session-plane'
+import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
+import type { UnitSystem } from '../../../utils/format'
+import { dispatchZoneByShape, getRectangularZoneCorners, polygonArea } from '../zone-geometry'
 import {
   createEllipticalZoneMeasurements,
   createLinearZoneMeasurements,
@@ -19,6 +21,7 @@ import {
   type ZoneMeasurementLabel,
 } from '../zone-measurements'
 import type { DraftShape } from './draft'
+import { worldDeltaToScreenCoords, type ScreenBasis } from './screen-basis'
 
 /** An edge chip needs this much edge on screen. */
 const MIN_EDGE_LABEL_PX = 36
@@ -32,7 +35,7 @@ const NO_OFFSET = Object.freeze({ x: 0, y: 0 })
 export interface EdgeDots {
   readonly corners: readonly WorldPoint[]
   readonly edges: ReadonlySet<number>
-  readonly screenAxes: { readonly right: WorldVector; readonly down: WorldVector }
+  readonly screenAxes: ScreenBasis
 }
 
 /** The chips of `labels`, centred on their points, an edge with a dot in `dots` beside it; `screenDistance` is
@@ -70,12 +73,9 @@ function outwardNormalPx(dots: EdgeDots, labelId: string, interiorLeft: boolean)
   const start = corners[index]
   const end = corners[(index + 1) % corners.length]
   if (!start || !end) return null
-  // The outside is the side away from the interior; both turn together under any axis convention.
-  const dx = end.x - start.x
-  const dy = end.y - start.y
-  const outward = interiorLeft ? { x: dy, y: -dx } : { x: -dy, y: dx }
-  const x = outward.x * screenAxes.right.x + outward.y * screenAxes.right.y
-  const y = outward.x * screenAxes.down.x + outward.y * screenAxes.down.y
+  const screenEdge = worldDeltaToScreenCoords(screenAxes, { x: end.x - start.x, y: end.y - start.y })
+  const x = interiorLeft ? screenEdge.y : -screenEdge.y
+  const y = interiorLeft ? -screenEdge.x : screenEdge.x
   const length = Math.hypot(x, y)
   return length > 0 ? { x: x / length, y: y / length } : null
 }
@@ -87,22 +87,27 @@ function outwardNormalPx(dots: EdgeDots, labelId: string, interiorLeft: boolean)
 export function selectedZoneMeasurementLabels(
   scene: Readonly<ScenePersistedState>,
   selection: SceneDesignObjectSelection,
+  measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): ZoneMeasurementLabel[] {
   if (selection.length !== 1) return []
   const target = selection[0]!
   if (target.kind !== 'zone') return []
-  if (scene.layers.find((layer) => layer.name === 'zones')?.visible === false) return []
+  const zonesLayer = scene.layers.find((layer) => layer.name === 'zones')
+  if (zonesLayer?.visible === false || (zonesLayer?.opacity ?? 1) <= 0) return []
   if (scene.groups.some((group) => group.members.some((member) => isSceneObjectGroupMemberTarget(member, target)))) return []
   const zone = scene.zones.find((entry) => entry.id === target.id)
   if (!zone) return []
 
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    return createEllipticalZoneMeasurements(zone.points[0]!, zone.points[1]!, zone.rotationDeg)
-  }
-  if (zone.zoneType === 'line' && zone.points.length >= 2) {
-    return createLinearZoneMeasurements(zone.points[0]!, zone.points[1]!)
-  }
-  if (zone.zoneType === 'polygon') return createPolygonalZoneMeasurements(zone.points)
-  if (zone.zoneType !== 'rect') return []
-  return createRectangularZoneMeasurements(getRectangularZoneCorners(zone) ?? zone.points)
+  return dispatchZoneByShape(zone, {
+    ellipse: (z) => z.points.length >= 2
+      ? createEllipticalZoneMeasurements(z.points[0]!, z.points[1]!, z.rotationDeg, measure, system, activeLocale)
+      : [],
+    line: (z) => z.points.length >= 2
+      ? createLinearZoneMeasurements(z.points[0]!, z.points[1]!, measure, system, activeLocale)
+      : [],
+    polygon: (z) => createPolygonalZoneMeasurements(z.points, measure, system, activeLocale),
+    rect: (z) => createRectangularZoneMeasurements(getRectangularZoneCorners(z) ?? z.points, measure, system, activeLocale),
+  })
 }

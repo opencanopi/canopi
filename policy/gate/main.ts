@@ -19,7 +19,7 @@ const USAGE = `usage: node policy/gate/cli.mjs affected (--base <rev> | --staged
        node policy/gate/cli.mjs bundle-summary <row log>
        node policy/gate/cli.mjs rollback-refs   (rollback.yml's resolve step; tag names on stdin)
        node policy/gate/cli.mjs rollback-fixtures check <dir> | snapshot <dir> <out> | compare <dir> <before> | plant <dir> <edition>
-       node policy/gate/cli.mjs agents-rows [--check]
+       node policy/gate/cli.mjs agents-rows [--check | --write]
        node policy/gate/cli.mjs commit-gate <mode> ...
        node policy/gate/cli.mjs agent-hook pre-tool-use|session-start|planted <command.json>...`
 
@@ -79,8 +79,12 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
     if (mode === 'rollback-refs' && !rest.length) return (await import('./rollback-refs.ts')).runRollbackRefs(readFileSync(0, 'utf8'), process.env)
     if (mode === 'rollback-fixtures') return (await import('./rollback-refs.ts')).runRollbackFixtures(rest, process.env)
     if (mode === 'agents-rows') {
-      const parsed = parse(rest, ['--check'], [])
-      if (!parsed) return usage()
+      const parsed = parse(rest, ['--check', '--write'], [])
+      if (!parsed || (parsed.seen.has('--check') && parsed.seen.has('--write'))) return usage()
+      if (parsed.seen.has('--write')) {
+        rows.writeGatesDoc(ROOT)
+        return 0
+      }
       if (!parsed.seen.has('--check')) {
         process.stdout.write(`${rows.rowsText()}\n`)
         return 0
@@ -94,8 +98,15 @@ export async function main(ROOT: string, args: readonly string[]): Promise<numbe
       return base?.length === 1 ? (await import('./prepush-checks.ts')).prepushChecks(ROOT, base[0] ?? '') : usage()
     }
     if (mode === 'areas') {
-      const base = parse(rest, [], ['--base'])?.values.get('--base')
-      if (base?.length !== 1) return usage()
+      const parsedAreas = parse(rest, ['--github-output'], ['--base', '--event'])
+      const base = parsedAreas?.values.get('--base')
+      const event = parsedAreas?.values.get('--event')
+      if (!parsedAreas || base?.length !== 1 || (event?.length ?? 0) > 1) return usage()
+      if (parsedAreas.seen.has('--github-output')) {
+        const outputs = (await import('./ci-areas.ts')).ciAreasOutputs(ROOT, base[0], event?.[0] ?? 'pull_request')
+        process.stdout.write(`${Object.entries(outputs).map(([k, v]) => `${k}=${v}`).join('\n')}\n`)
+        return 0
+      }
       process.stdout.write(`${JSON.stringify(plan.areasJson(ROOT, plan.changed(ROOT, base[0], false)), null, 2)}\n`)
       return 0
     }

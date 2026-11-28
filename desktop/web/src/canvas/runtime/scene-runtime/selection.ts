@@ -1,6 +1,6 @@
 import { getCanvasDetailLayout } from '../automatic-detail'
-import { getAnnotationFontEpoch, getAnnotationVisualWorldBounds, getRevealedAnnotationId } from '../annotation-layout'
-import type { SceneBounds } from '../view/types'
+import { getAnnotationFontEpoch, getAnnotationVisualWorldBounds, getAnnotationVisualWorldCorners, getRevealedAnnotationId } from '../annotation-layout'
+import type { SceneBounds } from '../../../geo/view/types'
 import {
   getPlantWorldBounds,
   type PlantPresentationContext,
@@ -10,20 +10,19 @@ import type {
   CanvasDesignObjectSelectionModel,
   CanvasDesignObjectSelectionTarget,
 } from '../runtime'
-import type { ScenePersistedState, SceneDesignObjectSelection } from '../scene'
+import type { ScenePersistedState, SceneDesignObjectSelection, ScenePoint } from '../scene'
 import {
   getSceneGroupedMemberKeys,
   resolveSceneObjectGroupMembers,
   sceneContainsTarget,
-  sceneObjectGroupMemberFromTarget,
   sceneObjectGroupMemberKey,
+  sceneObjectGroupMemberKeyForTarget,
   sceneTargetKey,
   sceneTargetLayerNames,
   freezeInDev,
   isSceneDesignObjectLocked,
 } from '../scene'
-import { getCanvasPlantDisplay } from '../plant-display'
-import { getZoneWorldBounds } from '../zone-geometry'
+import { createScreenAlignedBounds, getZoneWorldBounds } from './selection-rotation'
 import { getSameSpeciesReferenceCanonicalName } from './species-selection'
 
 declare global {
@@ -83,7 +82,7 @@ export function projectSceneSelectionEntityIds(
     }
   }
   for (const guide of persisted.measurementGuides) {
-    if (selectedKeys.has(sceneTargetKey({ kind: 'measurement-guide', id: guide.id }))) {
+    if (isSelected({ kind: 'measurement-guide', id: guide.id })) {
       selectedMeasurementGuideIds.add(guide.id)
     }
   }
@@ -134,7 +133,10 @@ export function getSelectedTopLevelTargets(
   }
 
   for (const guide of persisted.measurementGuides) {
-    if (!selectedKeys.has(sceneTargetKey({ kind: 'measurement-guide', id: guide.id }))) continue
+    if (
+      !selectedKeys.has(sceneTargetKey({ kind: 'measurement-guide', id: guide.id }))
+      || groupedMemberKeys.has(sceneTargetKey({ kind: 'measurement-guide', id: guide.id }))
+    ) continue
     targets.push({ kind: 'measurement-guide', id: guide.id })
   }
 
@@ -187,7 +189,7 @@ export function getDesignObjectSelectionModel(
   selectedTargets: SceneDesignObjectSelection,
   options: SceneSelectionReadModelOptions,
 ): CanvasDesignObjectSelectionModel {
-  const symbolScale = getCanvasPlantDisplay().symbolScale
+  const symbolScale = options.plantContext.plantDisplay?.symbolScale ?? 1
   const fontEpoch = getAnnotationFontEpoch()
   const memo = selectionModelMemos.get(persisted)
   if (
@@ -242,9 +244,25 @@ function getPlantNamePinning(
   persisted: ScenePersistedState,
   editableTargets: readonly SceneSelectionTarget[],
 ): CanvasDesignObjectSelectionModel['plantNamePinning'] {
-  const plantIds = editableTargets
-    .filter((target): target is Extract<SceneSelectionTarget, { kind: 'plant' }> => target.kind === 'plant')
-    .map((target) => target.id)
+  const plantIds: string[] = []
+  const seen = new Set<string>()
+  const addPlant = (id: string) => {
+    if (!seen.has(id)) {
+      seen.add(id)
+      plantIds.push(id)
+    }
+  }
+  for (const target of editableTargets) {
+    if (target.kind === 'plant') {
+      addPlant(target.id)
+    } else if (target.kind === 'group') {
+      const group = persisted.groups.find((entry) => entry.id === target.id)
+      if (!group) continue
+      for (const member of resolveSceneObjectGroupMembers(persisted, group)) {
+        if (member.kind === 'plant') addPlant(member.id)
+      }
+    }
+  }
   if (plantIds.length === 0) {
     return {
       plantIds: [],
@@ -327,7 +345,7 @@ function getTargetBounds(
   if (annotation) {
     const bounds = getAnnotationVisualWorldBounds(
       annotation, options.annotationViewportScale, annotation.id === options.revealedAnnotationId,
-      getCanvasDetailLayout(persisted, options.annotationViewportScale).annotationIds.has(annotation.id),
+      getCanvasDetailLayout(persisted, options.annotationViewportScale, options.plantContext.plantDisplay?.symbolScale).annotationIds.has(annotation.id),
     )
     return {
       minX: bounds.x,
@@ -358,11 +376,11 @@ function getBlockedSelectionTargets(
   const groupedMemberKeys = getSceneGroupedMemberKeys(persisted)
 
   for (const target of selectedTargets) {
-    const member = sceneObjectGroupMemberFromTarget(target)
+    const memberKey = sceneObjectGroupMemberKeyForTarget(target)
     // A structural block wins over the Design Object's own lock: a locked Object on a locked Layer is not selected locked.
     if (
       !sceneContainsTarget(persisted, target)
-      || (member && groupedMemberKeys.has(sceneObjectGroupMemberKey(member)))
+      || (memberKey !== null && groupedMemberKeys.has(memberKey))
       || isOnHiddenOrLockedLayer(persisted, target)
     ) {
       pushBlocked(blockedTargets, seen, { target, reason: 'structural' })
@@ -388,5 +406,61 @@ function pushBlocked(
 function isOnHiddenOrLockedLayer(persisted: ScenePersistedState, target: SceneSelectionTarget): boolean {
   return sceneTargetLayerNames(persisted, target)
     .map((layerName) => persisted.layers.find((layer) => layer.name === layerName))
-    .some((layer) => layer?.visible === false || layer?.locked === true)
+    .some((layer) => layer?.visible === false || (layer?.opacity ?? 1) <= 0 || layer?.locked === true)
+}
+
+/**
+ * Centre of the screen-aligned bounding box of `targets` at `bearingDeg` (2.1-Q89),
+ * matching `selectionScreenHull` (`right = (cos θ, sin θ)`, `down = (-sin θ, cos θ)`).
+ */
+export function screenAlignedTargetsCenter(
+  persisted: ScenePersistedState,
+  targets: readonly SceneSelectionTarget[],
+  options: SceneSelectionReadModelOptions,
+  bearingDeg: number,
+): ScenePoint | null {
+  const box = createScreenAlignedBounds(bearingDeg)
+
+  const addTarget = (target: SceneSelectionTarget, revealable: boolean): void => {
+    switch (target.kind) {
+      case 'group': {
+        const group = persisted.groups.find((entry) => entry.id === target.id)
+        if (!group) return
+        for (const member of resolveSceneObjectGroupMembers(persisted, group)) addTarget(member, false)
+        return
+      }
+      case 'plant': {
+        const plant = persisted.plants.find((entry) => entry.id === target.id)
+        if (!plant) return
+        const bounds = getPlantWorldBounds(plant, { ...options.plantContext, plants: persisted.plants })
+        const radius = Math.max(bounds.width, bounds.height) / 2
+        box.addSpan(plant.position, radius, radius)
+        return
+      }
+      case 'zone': {
+        const zone = persisted.zones.find((entry) => entry.id === target.id)
+        if (zone) box.addZone(zone)
+        return
+      }
+      case 'annotation': {
+        const annotation = persisted.annotations.find((entry) => entry.id === target.id)
+        if (!annotation) return
+        const textAllowed = getCanvasDetailLayout(persisted, options.annotationViewportScale).annotationIds.has(annotation.id)
+        box.addPoints(getAnnotationVisualWorldCorners(
+          annotation,
+          options.annotationViewportScale,
+          revealable && annotation.id === options.revealedAnnotationId,
+          textAllowed,
+        ))
+        return
+      }
+      case 'measurement-guide': {
+        const guide = persisted.measurementGuides.find((entry) => entry.id === target.id)
+        if (guide) box.addPoints([guide.start, guide.end])
+      }
+    }
+  }
+
+  for (const target of targets) addTarget(target, true)
+  return box.center()
 }

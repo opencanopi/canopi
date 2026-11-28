@@ -1,15 +1,16 @@
 // Desktop's Design attachment (canopi-v4kj, 2.1-M479, Q337): a Design a newer Canopi saved is open as the format core's
 // read view, never the user's file, so the attachment is never its re-encode; a storage-unchecked read-only Draft and an
-// editing Design attach as today. The session is applied as the Design session's load result applies it.
-import { afterEach, describe, expect, it } from 'vitest'
-import { draftLoadResultOf, loadResultOf, type DocumentTransitionLoadResult } from '../document-session/load-result'
-import { designSessionStore } from '../document-session/store'
+// editing Design attach through DesignCore.encode.
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { createTestDesignCore } from '../../__tests__/support/design-wire'
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } from '../document-session/live-core'
+import { createInMemoryDesignHomeStore } from '../../__tests__/support/session-core-fixture'
 import type { CanopiFile } from '../../types/design'
 import { buildCurrentDesignProblemReportAttachment } from './attachments'
 
 function makeFile(name: string): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name,
     description: null,
     plant_species_colors: {},
@@ -29,27 +30,45 @@ function makeFile(name: string): CanopiFile {
   }
 }
 
-function apply(result: DocumentTransitionLoadResult): void {
-  designSessionStore.replaceCurrentDesignState(result.file, result.path, result.name, result.session)
+let disposeSession: (() => void) | null = null
+
+afterEach(() => {
+  disposeSession?.()
+  disposeSession = null
+})
+
+function mountSession(file: CanopiFile, designCore: ReturnType<typeof createTestDesignCore>, readOnly = false): void {
+  disposeSession?.()
+  const core = createSessionCore({
+    designHome: createInMemoryDesignHomeStore(),
+    fileAccess: { pickOpen: async () => ({ kind: 'cancelled' }), pickHomeTarget: async () => ({ kind: 'cancelled' }) },
+    lifecycle: { subscribe: () => () => {} },
+    codec: createJsonSessionCodec({ designCore }),
+    settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
+    newDesignFactory: () => file,
+    initialDesign: { home: { kind: 'draft', key: 'test' as never, version: null }, file, ...(readOnly ? { readOnly: true } : {}) },
+  })
+  disposeSession = installLiveSessionCore(core)
 }
 
-afterEach(() => designSessionStore.clearCurrentDesign())
-
 describe('the Desktop Design attachment', () => {
-  it('canopi-v4kj: a Design or Draft a newer Canopi saved, open read-only, is never attached re-encoded', () => {
-    apply(loadResultOf({ view: makeFile('Orchard 2.1'), saved_by_version: 10 }, '/designs/orchard.canopi'))
-    expect(designSessionStore.sessionKind.value).toEqual({ kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
-    expect(buildCurrentDesignProblemReportAttachment()).toBeNull()
-
-    apply(draftLoadResultOf({ view: makeFile('Hedge 2.1'), saved_by_version: 10 }, 'draft-hedge'))
-    expect(buildCurrentDesignProblemReportAttachment()).toBeNull()
+  it('returns null when no live session core is installed', async () => {
+    expect(await buildCurrentDesignProblemReportAttachment()).toBeNull()
   })
 
-  it('canopi-v4kj: an editing Design and a storage-unchecked read-only Draft still attach', () => {
-    apply(loadResultOf({ file: makeFile('Orchard'), fingerprint: 'fp' }, '/designs/orchard.canopi'))
-    expect(buildCurrentDesignProblemReportAttachment()).toContain('"name": "Orchard"')
+  it('canopi-v4kj: an editing Design and a storage-unchecked read-only Draft still attach', async () => {
+    const designCore = createTestDesignCore()
+    const encodeSpy = vi.spyOn(designCore, 'encode')
 
-    designSessionStore.replaceCurrentDesignState(makeFile('Hedge as 2.0 left it'), null, 'Hedge as 2.0 left it', { kind: 'read-only', origin: 'storage-unchecked' })
-    expect(buildCurrentDesignProblemReportAttachment()).toContain('"name": "Hedge as 2.0 left it"')
+    mountSession(makeFile('Orchard'), designCore, false)
+    const orchard = await buildCurrentDesignProblemReportAttachment()
+    expect(orchard).not.toBeNull()
+    expect((JSON.parse(orchard!) as { name: string }).name).toBe('Orchard')
+
+    mountSession(makeFile('Hedge as 2.0 left it'), designCore, true)
+    const hedge = await buildCurrentDesignProblemReportAttachment()
+    expect(hedge).not.toBeNull()
+    expect((JSON.parse(hedge!) as { name: string }).name).toBe('Hedge as 2.0 left it')
+    expect(encodeSpy).toHaveBeenCalledTimes(2)
   })
 })

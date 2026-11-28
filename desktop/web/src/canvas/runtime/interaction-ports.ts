@@ -6,11 +6,18 @@ import type { CanvasContextMenuPointAction, CanvasFocusPort } from './app-adapte
 import type { Gesture, MenuSource } from './input/gestures'
 import type { InputPlatform } from './input/platform'
 import type { AdapterEffect, RawInput, TargetClass } from './input/raw-input'
-import type { OverviewDropPayload, PointerKind, ToolHandleId, ToolId } from './interaction-types'
+import type {
+  MapInputHandle,
+  MapInputRequest,
+  OverviewDropPayload,
+  PointerKind,
+  ToolHandleId,
+  ToolId,
+} from './interaction-types'
 import type { PlantPresentationContext } from './plant-presentation'
 import type { SpeciesCacheEntry } from './presentation-data'
 import type { SceneRenderTarget } from './renderers/scene-types'
-import type { CanvasDesignObjectSelectionModel, CanvasSceneEditCommandSurface } from './runtime'
+import type { CanvasDesignObjectSelectionModel, CanvasEscapeLayer, CanvasSceneEditCommandSurface } from './runtime'
 import type { SceneDesignObjectSelection, SceneDesignObjectTarget } from './scene/design-object-targets'
 import type { SceneStateReader } from './scene/store'
 import type { SceneCommandAdmission, SceneEditCoordinator, SettledSceneReader } from './scene-runtime/transactions'
@@ -25,8 +32,8 @@ import type {
   ToolSettingsPort,
   ToolSource,
 } from './tools/tool'
-import type { ViewNavigation } from './view/navigation'
-import type { ScreenPoint, ViewFrameSource, WorldPoint } from './view/types'
+import type { ViewNavigation } from '../../geo/view/navigation'
+import type { ScreenPoint, ViewFrameSource, WorldPoint } from '../../geo/view/types'
 
 /** What a route answers for the event being handled; the source applies it. Every field optional; {} changes nothing. */
 export interface GestureOutcome {
@@ -130,7 +137,19 @@ export interface ToolHostDeps {
   readonly menu: ContextMenuPort                                // opened only by the host (menuAt)
   readonly focus: CanvasFocusPort                               // ToolEffects.requestFocus
   readonly guidance: (g: Partial<CanvasToolGuidance> | null) => void
-  readonly toolState: { readonly active: ReadonlySignal<ToolId>; set(id: ToolId): void }   // the session's tool signal
+  /** Optional initial tool id (defaults to 'select'); ToolHost owns the single active tool signal. */
+  readonly initialTool?: ToolId
+  /** Descriptor lookup for the active tool's cursor, Shift constraint, zone-draft, and Esc steps (from app/command-table TOOL_ROWS). */
+  readonly toolRow?: (id: ToolId) => {
+    readonly shiftConstrains?: boolean
+    readonly zoneDraft?: boolean
+    readonly cursor: string
+    readonly escSteps?: readonly CanvasEscapeLayer[]
+  }
+  /** Optional hook run after the host itself switches tools (e.g. a tool requesting Select) so the session can reconfigure. */
+  readonly onToolChanged?: (id: ToolId, previous?: ToolId) => void
+  /** Touch constraint toggle (2.1-Q158 / T11): read on modifier resolution and reset on tool switch. */
+  readonly touchConstrain?: { readonly read: () => boolean; readonly reset: () => void }
   readonly settings: ToolSettingsPort
   /** Snap to grid, read at each point (interaction-session.ts wires the runtime settings adapter's readSnapToGridEnabled);
    *  the shape tools/snapping.ts takes. */
@@ -146,14 +165,6 @@ export interface ToolHostDeps {
   readonly initialPointer: PointerKind
   /** Hover restyle (a directly locked object shows the locked hover stroke): the runtime's hovered target. */
   readonly hover: (target: SceneDesignObjectTarget | null) => void
-  /** Pins a Site data point (canopi-f47t.42, U49 Q17; spec §1.10, §3.8, fixture J10): called after a resolved Select tap
-   *  that hit nothing and moved nothing, or any Pan-tool tap; never in overview, never by another tool. It claims nothing:
-   *  the tap still reaches the tool (Select clears the selection). Absent on Web and while the Site data panel is closed
-   *  (CanvasRuntimeAppAdapter.pinAt, passed by scene-runtime.ts). */
-  readonly pin?: (world: WorldPoint) => void
-  /** The Site data profile (canopi-f47t.42, spec §1.10): ToolEffects.finishProfile's line, 2 or more points. Absent on Web
-   *  (CanvasRuntimeAppAdapter.finishProfile, passed by scene-runtime.ts). */
-  readonly finishProfile?: (points: readonly WorldPoint[]) => void
   /** ToolEffects.refuseLockedMove: a drag refused by a lock, which the session reports for the lock toast (2.1-Q177). */
   readonly lockedMoveRefused: () => void
   /**
@@ -202,7 +213,21 @@ export interface ToolSceneSource {
   readonly selectionModel: () => CanvasDesignObjectSelectionModel               // querySurface.getDesignObjectSelection
 }
 
+/** The single typed state record owned exclusively by ToolHost (L11, §18 F29). */
+export interface ToolHostState {
+  readonly id: ToolId
+  readonly source: ToolSource | null
+}
+
 export interface ToolHost {
+  /** Single authoritative state record for the active tool and its armed source (L11, §18 F29). */
+  readonly state: ReadonlySignal<ToolHostState>
+  /** Derived active tool id from `state`. */
+  readonly activeTool: ReadonlySignal<ToolId>
+  /** Arms a tool with optional source and map-input request; the returned handle settles once. */
+  arm<T = unknown>(id: ToolId, source?: ToolSource | null, request?: MapInputRequest<T>): MapInputHandle<T>
+  /** Leaves the active tool for Select via Escape, settling any pending map-input request with reason `'escape'`. */
+  escapeTool(): void
   /** Editing gestures, hovers and drops (drops go to the host's shared drop handler, whatever tool is armed); converts to world at event time. */
   gesture(g: Gesture): GestureOutcome
   command(c: ToolCommand): ToolReply
@@ -210,9 +235,6 @@ export interface ToolHost {
    *  `handle`: the handle the menu's press landed on (the keyboard menu reads the focused one); when the armed tool answers
    *  CanvasTool.pointMenu for it, the point menu opens there instead, retargeting nothing (A16). */
   menuAt(at: ScreenPoint | 'selection', source: MenuSource, handle?: ToolHandleId): GestureOutcome
-  setTool(id: ToolId, source: ToolSource | null): void
-  /** A new source for the armed tool (the session's read-model bridge): forwards to CanvasTool.sourceChanged. */
-  sourceChanged(source: ToolSource | null): void
   /**
    * Presses the host never sees as gestures: the session calls it for every raw pointerdown on the map host before routing it
    * (from the source's raw input, not a gesture; the down's role, 'auxiliary' as 'middle'). Commits the nudge series for any
@@ -239,6 +261,8 @@ export interface ToolHost {
   /** The active tool holds a transient its Esc drops first (none whose tool `escapeLeaves`: Place plants' waiting point). */
   activeToolHasEscapeTransient(): boolean
   activeToolIsSelect(): boolean
+  /** The active tool's declared Esc steps in priority order (S21, from TOOL_ROWS[active].escSteps). */
+  activeToolEscSteps(): readonly CanvasEscapeLayer[]
   /**
    * Arrow nudge, the one owner of the series: with a selection, the Select tool and site mode, turns the screen direction
    * into a world delta along screenAxesInWorld() (0.1 m, or 1 m when large), calls deps.nudge.nudgeSelected and (re)starts
@@ -282,6 +306,8 @@ export interface ToolHost {
    *  published too: the interaction session's subscribePointerWorld drops it (its raw buttonMask), so the lens skips a
    *  move with any button held. For the inspection lens, the status line and, later, hover readouts over analysis results: the screen point lets a readout query the map there without projecting (R1, P2). */
   subscribePointerWorld(listener: (point: PointerWorld | null) => void): () => void
+  /** Notifies listeners on an unused Select empty-ground tap or Pan tap in site mode (2.1-Q364 Site data tap-to-pin). */
+  subscribeEmptyGroundTap(listener: (world: WorldPoint) => void): () => void
   dispose(): void
 }
 

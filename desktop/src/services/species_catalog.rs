@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 
 use canopi_types::species::{
-    CommonNameEntry, DynamicFilterOptions, FilterOptions, FlowerColorResolution, SpeciesDetail,
-    SpeciesImage,
+    CommonNameEntry, DynamicFilterOptions, FilterOptions, SpeciesDetail, SpeciesImage,
 };
 
 use crate::db::{self, PlantDb};
@@ -32,14 +31,6 @@ pub fn get_species_batch(
 ) -> Result<Vec<SpeciesDetail>, String> {
     let conn = db::require_plant_db(plant_db)?;
     SpeciesCatalogRead::new(&conn).details_for_canonical_names(&canonical_names, &locale)
-}
-
-pub fn get_flower_color_batch(
-    plant_db: &PlantDb,
-    canonical_names: Vec<String>,
-) -> Result<Vec<FlowerColorResolution>, String> {
-    let conn = db::require_plant_db(plant_db)?;
-    SpeciesCatalogRead::new(&conn).flower_colors_for_canonical_names(&canonical_names)
 }
 
 pub fn get_filter_options(plant_db: &PlantDb) -> Result<FilterOptions, String> {

@@ -40,6 +40,6 @@ The roadmap adds analyses (shade, wind, cut and fill; aspect and frost in 2.1), 
 ## Checks
 
 - `analysis_registry_generated.rs` drift test (exists); `analysis_row_has_golden_fixture` and `every_output_quantity_has_a_row` (to be created by Phase 3), fail-closed; `every_output_quantity_has_a_row` also requires a scale; a drift test fails if `bindings-gen` declares its own registry shape.
-- `file-delivery-rows` (to be created by Phase 2a); `no_design_field_holds_library_results` (Phase 2b, ADR 0026); the Web build boundary check (exists).
+- `file-delivery-rows` (built in Phase 2a); `no_design_field_holds_library_results` (Phase 2b, ADR 0026); the Web build boundary check (exists).
 - The ranking corpus on the native catalog commands and the DuckDB reader, a generated-query drift test and a check that each top result's marks fall on the entry that matched (to be created by Phase 3 N4); ast-grep `no-formatted-sql` is ADR 0023's Phase 0 ratchet, 0 by N4.
 - A Web e2e in Chromium, WebKit and Firefox (Phases 2c and 2d): contours and Relief draw from the shared terrain contribution, lit fixed to the map, and labels show common names.

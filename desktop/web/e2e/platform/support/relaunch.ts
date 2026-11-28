@@ -102,11 +102,12 @@ export function canopiProcesses(): RunningProcess[] {
 }
 
 /**
- * Whether `running` (one of `canopiProcesses`, so its program is Canopi's exe) was started with exactly the Design
- * `path`: argv [exe, path], nothing split or added.
+ * Whether `running` (one of `canopiProcesses`, so its program is Canopi's exe) was started with no Design path or
+ * prior launch arguments: argv [exe] alone, because launch reopens the last open home from settings (2.1-Q127,
+ * 2.1-M523).
  */
-export function relaunchedWith(running: RunningProcess, path: string): boolean {
-  return running.argv.length === 2 && running.argv[1] === path
+export function relaunchedCleanly(running: RunningProcess): boolean {
+  return running.argv.length === 1
 }
 
 /** The pending-update markers left in the profile at `root`; Canopi takes its marker as it starts the update's N. */

@@ -1,18 +1,6 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-cancelled-literal",
-  "ledger": "2.1-M224",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/src/**",
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-cancelled-literal"
-  ],
   "entries": {
     "desktop/src/services/lidar/analyses/mod.rs": {
       "count": 2,
@@ -89,10 +77,6 @@
     "desktop/web/src/ipc/transport.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.36"
-    },
-    "desktop/web/src/web/browser-design-session.ts": {
-      "count": 3,
-      "bead": "canopi-f47t.52.35"
     }
   }
 }

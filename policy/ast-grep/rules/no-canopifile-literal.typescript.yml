@@ -6,7 +6,7 @@
 id: no-canopifile-literal.typescript
 language: typescript
 severity: error
-message: "no-canopifile-literal (§18 F28): no production code builds a CanopiFile except the serializer and the generated defaults factory; decode, encode and new designs go through canopi-format behind the design-core port. ADR 0026; owner desktop/web/src/canvas/runtime/scene/codec.ts; target desktop/web/src/platform/design-core.ts (2b); example desktop/web/src/canvas/runtime/scene/codec.ts"
+message: "no-canopifile-literal (§18 F28): no production code builds a CanopiFile except the serializer and the generated defaults factory; decode, encode and new designs go through canopi-format behind the design-core port. ADR 0026; owner desktop/web/src/platform/design-core.ts (also desktop/web/src/canvas/runtime/scene/codec.ts); target desktop/web/src/platform/design-core.ts (2b); example desktop/web/src/canvas/runtime/scene/codec.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
@@ -15,6 +15,8 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/platform/design-core.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/scene/codec.ts"
 rule:
   any:

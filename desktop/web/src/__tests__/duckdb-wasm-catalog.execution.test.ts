@@ -7,7 +7,7 @@ import {
 } from '@duckdb/duckdb-wasm/blocking'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createEmptySpeciesFilter } from '../app/plant-browser'
-import { createDuckDbReducedSpeciesCatalogReader } from '../web/duckdb-wasm-catalog'
+import { createDuckDbReducedSpeciesCatalogReader } from '../editions/web/duckdb-wasm-catalog'
 import { validWebCatalogManifest } from './fixtures/web-catalog-manifest'
 
 const SPECIES_PARQUET = "read_parquet('species/species-0000.parquet')"

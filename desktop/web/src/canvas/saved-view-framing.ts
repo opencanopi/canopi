@@ -4,11 +4,11 @@
 // turned frame; going to a saved view, a story step, a thumbnail and opening a Design at the view it was saved with all fit that
 // ground into their window at the view's bearing with one rule.
 
-import { mapZoomToStageScale } from './projection'
-import { roundGeoDegrees, storedBearing, type GeographicView } from './session-plane'
-import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from './workspace-camera-policy'
+import { createSessionPlane, roundGeoDegrees, storedBearing, type GeographicView } from '../geo/session-plane'
+import { WORKSPACE_MAP_MAX_ZOOM, WORKSPACE_MAP_MIN_ZOOM } from '../geo/workspace-camera-policy'
 import { SAVED_VIEW_MAX_GROUND_SIZE_M, SAVED_VIEW_MAX_ZOOM } from '../generated/canopi-design-format'
 import type { SavedViewCamera } from '../types/design'
+import { formatPrecision } from '../utils/format'
 
 type GroundSize = SavedViewCamera['ground_size_m']
 
@@ -47,7 +47,7 @@ export function savedViewCameraOf(view: GeographicView, screen: WindowSize): Sav
  */
 function savedViewGroundSize(camera: Pick<SavedViewCamera, 'lat' | 'zoom'>, window: WindowSize): GroundSize | null {
   const metresPerPixel = groundMetresPerPixel(camera)
-  const side = (pixels: number) => Math.min(Number((pixels * metresPerPixel).toPrecision(10)), SAVED_VIEW_MAX_GROUND_SIZE_M)
+  const side = (pixels: number) => Math.min(Number(formatPrecision(pixels * metresPerPixel, 10)), SAVED_VIEW_MAX_GROUND_SIZE_M)
   const ground = { width: side(window.width), height: side(window.height) }
   return [ground.width, ground.height].every((length) => Number.isFinite(length) && length > 0) ? ground : null
 }
@@ -67,5 +67,5 @@ export function savedViewZoom(camera: SavedViewCamera, window: WindowSize): numb
 
 /** Ground metres per CSS pixel at a stored camera's centre latitude and zoom: a size, never a position. */
 function groundMetresPerPixel(camera: Pick<SavedViewCamera, 'lat' | 'zoom'>): number {
-  return 1 / mapZoomToStageScale(camera.zoom, camera.lat)
+  return 1 / createSessionPlane({ lon: 0, lat: camera.lat }).pixelsPerMetre(camera.zoom).mean
 }

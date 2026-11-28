@@ -1,0 +1,135 @@
+{
+  "current": 10,
+  "fields": [
+    {
+      "key": "version",
+      "owner": "format",
+      "required": true
+    },
+    {
+      "key": "name",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "description",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "plant_species_colors",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "plant_species_codes",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "plant_species_symbols",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "layers",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "plants",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "zones",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "annotations",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "measurement_guides",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "consortiums",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "groups",
+      "owner": "scene",
+      "required": false
+    },
+    {
+      "key": "timeline",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "budget",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "budget_currency",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "budget_ext",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "site_data",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "plant_display",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "print_setup",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "views",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "stories",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "map_view",
+      "owner": "format",
+      "required": false
+    },
+    {
+      "key": "created_at",
+      "owner": "document",
+      "required": false
+    },
+    {
+      "key": "updated_at",
+      "owner": "format",
+      "required": false
+    }
+  ],
+  "floor": 9,
+  "release_labels": {
+    "10": "2.1",
+    "9": "2.0"
+  }
+}

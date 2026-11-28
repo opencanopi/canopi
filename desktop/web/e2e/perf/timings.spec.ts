@@ -10,8 +10,9 @@
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Page, TestInfo } from '@playwright/test'
-import { createSessionPlane } from '../../src/canvas/session-plane'
+import { createSessionPlane } from '../../src/geo/session-plane'
 import { designMap, expectCanvasDrawn, seedPointingDevice } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 interface LargeFixtureGenerator {
@@ -98,11 +99,7 @@ async function startScreen(page: Page): Promise<void> {
 }
 
 async function openFixture(page: Page, path: string): Promise<void> {
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(path)
+  await chooseFixtureFromStart(page, path)
   await expect(designMap(page)).toBeVisible()
   await expectCanvasDrawn(page)
 }

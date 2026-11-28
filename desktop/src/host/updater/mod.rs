@@ -44,7 +44,7 @@ use tokio::sync::watch;
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
 use channel::{Channel, Endpoints, Installation};
 
-pub use launch::{launch_check_get, launch_check_set, restart};
+pub use launch::restart;
 pub use transfer::ProgressSink;
 
 /// The plugin, registered by [`super::register`]; its settings are `tauri.conf.json`'s
@@ -455,7 +455,7 @@ impl UpdaterHost {
         };
         // Filesystem work (a stat per `PATH` folder, an access check), so a Local operation, part
         // of the download: a full Local lane settles the download busy.
-        let context = self.install_context(app, None);
+        let context = self.install_context(app);
         let replaceable = executor
             .run_typed::<_, Failure, _>(NativeOperationClass::Local, op.op(), move || {
                 Ok(install::can_replace_itself(installation.bundle, &context))
@@ -496,12 +496,9 @@ impl UpdaterHost {
         Ok((UpdateDownload::Verified, Some(staged)))
     }
 
-    /// What an install reads from the running app, the Windows relaunch reopening `design_path`.
-    fn install_context<R: Runtime>(
-        &self,
-        app: &AppHandle<R>,
-        design_path: Option<PathBuf>,
-    ) -> install::Context {
+    /// What an install reads from the running app; Windows relaunch passes no Design path
+    /// because launch reopens the last open home (2.1-Q127, 2.1-M523).
+    fn install_context<R: Runtime>(&self, app: &AppHandle<R>) -> install::Context {
         install::Context {
             appimage: self.appimage.clone().or_else(|| running_appimage(app)),
             search_path: self
@@ -515,21 +512,19 @@ impl UpdaterHost {
                 .ok()
                 .map(|dir| dir.join(install::MARKER_FILE)),
             probe_app_bundle: cfg!(feature = "updater-e2e"),
-            relaunch: launch::relaunch_args(&app.env().args_os, design_path),
+            relaunch: launch::relaunch_args(),
         }
     }
 
     /// Installs the verified payload: on Linux while Canopi runs (the `.deb` through Canopi's own
     /// `pkexec dpkg -i`, the AppImage written whole and renamed over the running one); on Windows
     /// the pending-update marker is written, then the installer starts after the write drain and
-    /// Canopi exits, the installer relaunching it with `design_path`, the Design open when Install
-    /// was pressed (none for a Draft). Every failure leaves the Design open; nothing relaunches,
-    /// and the payload is freed either way.
+    /// Canopi exits with no Design path argument (launch reopens the last open home; 2.1-M523).
+    /// Every failure leaves the Design open; nothing relaunches, and the payload is freed either way.
     pub async fn install<R: Runtime>(
         &self,
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
-        design_path: Option<PathBuf>,
     ) -> Result<(), Failure> {
         let op = UpdateOp::Install;
         let (Some(installation), Some(staged)) = (self.installation, self.ops().staged.take())
@@ -540,7 +535,7 @@ impl UpdaterHost {
                 "no verified update",
             ));
         };
-        let context = self.install_context(app, design_path);
+        let context = self.install_context(app);
         // The payload leaves the stage for good: a failed install frees it, and Check for updates
         // downloads again (2.1-M340; Retry is defined for download failures only).
         let Staged { update, bytes } = staged;
@@ -565,7 +560,7 @@ impl UpdaterHost {
         app: &AppHandle<R>,
         executor: &NativeOperationExecutor,
     ) -> Result<bool, Failure> {
-        let marker = self.install_context(app, None).marker;
+        let marker = self.install_context(app).marker;
         let running = app.package_info().version.clone();
         executor
             .run_typed(

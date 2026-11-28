@@ -9,21 +9,25 @@ import {
   currentCanvasTool,
   setCurrentCanvasSession,
 } from '../canvas/session'
-import { SceneCanvasRuntime } from '../canvas/runtime/scene-runtime'
+import { createTestSceneCanvasRuntime } from './support/detached-canvas-app-adapter'
+import type { SceneCanvasRuntime } from '../canvas/runtime/scene-runtime'
 import { createForwardingCanvasKeyboardPort } from '../canvas/runtime/keyboard-port'
 import {
   createDefaultScenePersistedState,
   serializeScenePersistedState,
 } from '../canvas/runtime/scene'
-import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../canvas/session-plane'
+import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../geo/session-plane'
 import type {
   CanvasCommandSurface,
   CanvasDocumentSurface,
   CanvasQuerySurface,
   CanvasRuntimeSurfaces,
 } from '../canvas/runtime/runtime'
+import type { ToolHostState } from '../canvas/runtime/interaction-ports'
+import type { ToolId } from '../canvas/runtime/interaction-types'
 import { createCanvasDocumentReplacementToken } from '../canvas/runtime/runtime'
-import { createTestViewReadSurface } from './support/canvas-query-surface'
+import { createTestCanvasQuerySurface, createTestViewReadSurface } from './support/canvas-query-surface'
+import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { geoAt } from './support/geo-design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
@@ -31,6 +35,8 @@ import type { CanopiFile } from '../types/design'
 function createQuerySurface() {
   return {
     revision: { scene: signal(0), plantNames: signal(0), transientHistory: signal(0) },
+    toolState: signal<ToolHostState>({ id: 'select', source: null }),
+    activeTool: signal<ToolId>('select'),
     sessionPlane: signal(createSessionPlane(DEFAULT_NEW_DESIGN_VIEW)),
     view: createTestViewReadSurface(),
     getSpeciesFocus: () => ({ canonicalName: null }),
@@ -53,7 +59,6 @@ function createQuerySurface() {
       singleSpeciesCanonicalName: null,
       singleSpeciesCommonName: null,
       sharedCurrentColor: null,
-      suggestedColor: null,
       singleSpeciesDefaultColor: null,
     }),
     getSelectedPlantSymbolContext: () => ({
@@ -80,7 +85,7 @@ function createCommandSurface() {
   return {
     speciesFocus: { focus: () => {} },
     tools: {
-      setTool: (_name: string) => {},
+      arm: (_id: ToolId) => ({ settled: new Promise<never>(() => {}), cancel: () => {} }),
       plantRowSpacing: { input: () => {}, commit: () => {}, blur: () => {}, cancel: () => {} },
     },
     viewport: {
@@ -128,6 +133,12 @@ function createCommandSurface() {
       groupSelected: () => {},
       ungroupSelected: () => {},
       renameZone: () => false,
+      setZoneStyle: () => false,
+      editZoneDimensions: () => false,
+      editMeasurementGuideDimensions: () => false,
+      editPlantFields: () => false,
+      editAnnotationFields: () => false,
+      setSpeciesCode: () => false,
       rotateSelected: () => {},
       unlockAll: () => {},
       nudgeSelected: () => false,
@@ -171,6 +182,8 @@ function createDocumentSurface() {
       isCurrent: () => true,
       acknowledgeSaved: () => 'applied',
     }),
+    serializeSceneFields: () => ({}),
+    replaySceneCommand: () => true,
     resize: () => {},
     destroy: () => {},
   } satisfies CanvasDocumentSurface
@@ -189,7 +202,7 @@ function createCanvasRuntimeSurfaces(runtime: SceneCanvasRuntime): CanvasRuntime
 function twoApples(): CanopiFile {
   const plant = (id: string, x: number, y: number) => ({
     id, canonical_name: 'Malus domestica', common_name: 'Apple', color: null, position: geoAt(x, y, { lon: 0, lat: 0 }),
-    rotation: null, scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+    rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: 1, locked: false,
   })
   return {
     version: CURRENT_CANOPI_FILE_VERSION, name: 'Coverage', description: null, plant_species_colors: {},
@@ -206,7 +219,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('publishes explicit facades instead of the mounted runtime', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const surfaces = createCanvasRuntimeSurfaces(runtime)
 
     try {
@@ -223,13 +236,19 @@ describe('canvas runtime surfaces', () => {
     }
   })
 
-  it('routes representative command, query, and document behavior through role surfaces', () => {
-    const runtime = new SceneCanvasRuntime()
+  it('routes representative command, query, and document behavior through role surfaces', async () => {
+    const runtime = createTestSceneCanvasRuntime()
     const surfaces = createCanvasRuntimeSurfaces(runtime)
     const file = serializeScenePersistedState(createDefaultScenePersistedState(), createSessionPlane(DEFAULT_NEW_DESIGN_VIEW))
+    const container = document.createElement('div')
+    document.body.appendChild(container)
+    Object.defineProperty(container, 'clientWidth', { configurable: true, value: 400 })
+    Object.defineProperty(container, 'clientHeight', { configurable: true, value: 300 })
 
     try {
-      surfaces.commands.tools.setTool('hand')
+      await runtime.init(container)
+      setCurrentCanvasSession(surfaces)
+      surfaces.commands.tools.arm('hand')
       surfaces.documents.loadDocument(file)
 
       expect(currentCanvasTool.value).toBe('hand')
@@ -237,6 +256,7 @@ describe('canvas runtime surfaces', () => {
       expect(surfaces.queries.getSceneSnapshot()).toEqual(createDefaultScenePersistedState())
     } finally {
       runtime.destroy()
+      container.remove()
     }
   })
 
@@ -254,7 +274,7 @@ describe('canvas runtime surfaces', () => {
   it('keeps command consumers away from scene queries and document serialization', () => {
     const commandSurface = createCommandSurface()
 
-    commandSurface.tools.setTool('hand')
+    commandSurface.tools.arm('hand')
     expect(commandSurface.history.canUndo.value).toBe(false)
     // @ts-expect-error command surfaces do not expose flat tool commands.
     commandSurface.setTool
@@ -284,7 +304,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('reports whether a runtime has loaded a document without caller monkey-patching', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const surfaces = createCanvasRuntimeSurfaces(runtime)
     const file = serializeScenePersistedState(createDefaultScenePersistedState(), createSessionPlane(DEFAULT_NEW_DESIGN_VIEW))
 
@@ -298,7 +318,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('offers Undo and Redo only once the Scene is settled: an open edit greys both, and they come back when it ends', () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     const { commands, documents } = createCanvasRuntimeSurfaces(runtime)
     try {
       documents.loadDocument(twoApples())
@@ -322,7 +342,7 @@ describe('canvas runtime surfaces', () => {
   })
 
   it('canopi-knon: label coverage counts no plants while Plants is at opacity 0', async () => {
-    const runtime = new SceneCanvasRuntime()
+    const runtime = createTestSceneCanvasRuntime()
     runtime.connectRenderTarget({ setSnapshot: vi.fn(), setDraft: vi.fn(), requestRender: vi.fn() })
     const container = document.createElement('div')
     document.body.appendChild(container)
@@ -342,5 +362,72 @@ describe('canvas runtime surfaces', () => {
       runtime.destroy()
       container.remove()
     }
+  })
+
+  // Two-sided runtime-surfaces contract suite (policy/suites.json: runtime-surfaces, 2-1-foundations.md:351).
+  describe.each(['the test fake', 'the real scene runtime'] as const)('runtime-surfaces contract (%s)', (side) => {
+    it('commands and queries stay in sync across selection, layers, and scene revision bumps', () => {
+      const file = twoApples()
+      let cleanup = () => {}
+      let surfaces: ReturnType<typeof createCanvasRuntimeSurfaces>
+      if (side === 'the real scene runtime') {
+        const runtime = createTestSceneCanvasRuntime()
+        surfaces = createCanvasRuntimeSurfaces(runtime)
+        surfaces.documents.loadDocument(file)
+        cleanup = () => runtime.destroy()
+      } else {
+        const scene = createDefaultScenePersistedState()
+        scene.plants = file.plants.map((plant) => ({
+          kind: 'plant' as const,
+          id: plant.id,
+          locked: plant.locked ?? false,
+          canonicalName: plant.canonical_name,
+          commonName: plant.common_name ?? null,
+          color: plant.color ?? null,
+          canopySpreadM: plant.canopy_spread_m ?? null,
+          position: { x: 0, y: 0 },
+          rotationDeg: plant.rotation ?? 0,
+          notes: plant.notes ?? null,
+          plantedDate: plant.planted_date ?? null,
+          quantity: plant.quantity ?? 1,
+        }))
+        const queries = createTestCanvasQuerySurface({ scene, plants: file.plants })
+        const commands = createTestCanvasCommandSurface({
+          sceneEdits: {
+            selectAll: () => {
+              queries.setSelection(scene.plants.map((plant) => ({ kind: 'plant' as const, id: plant.id })))
+              queries.bumpSceneRevision()
+            },
+            clearSelection: () => {
+              queries.setSelection([])
+              queries.bumpSceneRevision()
+            },
+          },
+          layers: {
+            setSceneLayerVisibility: (name, visible) => {
+              const layer = scene.layers.find((entry) => entry.name === name)
+              if (!layer || layer.visible === visible) return false
+              layer.visible = visible
+              queries.bumpSceneRevision()
+              return true
+            },
+          },
+        })
+        surfaces = createTestCanvasRuntimeSurfaces({ commands, queries })
+      }
+      try {
+        expect(surfaces.queries.getSceneSnapshot().plants).toHaveLength(2)
+        const revBefore = surfaces.queries.revision.scene.value
+        surfaces.commands.sceneEdits.selectAll()
+        expect(surfaces.queries.getSelection().map((t) => t.id)).toEqual(['apple-a', 'apple-b'])
+        surfaces.commands.sceneEdits.clearSelection()
+        expect(surfaces.queries.getSelection()).toEqual([])
+        expect(surfaces.commands.layers.setSceneLayerVisibility('plants', false)).toBe(true)
+        expect(surfaces.queries.getSceneSnapshot().layers.find((l) => l.name === 'plants')?.visible).toBe(false)
+        expect(surfaces.queries.revision.scene.value).toBeGreaterThan(revBefore)
+      } finally {
+        cleanup()
+      }
+    })
   })
 })

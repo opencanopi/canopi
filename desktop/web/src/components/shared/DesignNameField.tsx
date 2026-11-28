@@ -1,24 +1,25 @@
 import { useSignalEffect } from '@preact/signals'
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { useRef, useState } from 'preact/hooks'
 import { designRenameRequest } from '../../app/shell/requests'
 import { t } from '../../i18n'
+import { InlineRenameField, type RenameCommitResult } from './InlineRenameField'
 import styles from './WorkspaceTitleBar.module.css'
 
 const FALLBACK_DESIGN_NAME = 'Untitled'
 
 /**
- * The Design name in the title bar: a button that turns into a field to
- * rename the Design (also File › Rename…, F2). Enter keeps the new name,
- * Escape restores the old one.
+ * The Design name in the title bar: a button that turns into the shared
+ * `InlineRenameField` to rename the Design (also File › Rename…, F2).
+ * Enter and click-away keep the new name, Escape restores the old one, and a
+ * refused rename reopens the field with the error keeping the typed name
+ * (2.1-Q87, 2.1-Q360).
  */
 export function DesignNameField({ name, onRename }: {
   readonly name: string
-  onRename(name: string): void
+  onRename(name: string): RenameCommitResult
 }) {
   const visibleName = visibleDesignName(name)
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(visibleName)
-  const input = useRef<HTMLInputElement>(null)
   const button = useRef<HTMLButtonElement>(null)
   const seenRequest = useRef(designRenameRequest.peek())
 
@@ -26,50 +27,34 @@ export function DesignNameField({ name, onRename }: {
     const request = designRenameRequest.value
     if (request === seenRequest.current) return
     seenRequest.current = request
-    setDraft(visibleDesignName(name))
     setEditing(true)
   })
 
-  useEffect(() => {
-    if (!editing) setDraft(visibleName)
-  }, [editing, visibleName])
-  // The field takes focus as it replaces the button, so an Esc at once ends the rename (canopi-f47t.52.228.20).
-  useLayoutEffect(() => {
-    if (!editing) return
-    input.current?.focus()
-    input.current?.select()
-  }, [editing, visibleName])
-
-  // What the field holds, not the last render's draft: a value set and Enter pressed in the same task arrive before
-  // the typed draft renders (canopi-f47t.52.228.15).
-  function finish(commit: boolean): void {
-    const next = (input.current?.value ?? draft).trim()
-    if (commit && next.length > 0 && next !== name && !(name === FALLBACK_DESIGN_NAME && next === t('titleBar.untitledDesign'))) {
-      onRename(next)
-    }
+  function closeEditing(): void {
     setEditing(false)
     requestAnimationFrame(() => button.current?.focus())
   }
 
   if (editing) {
     return (
-      <input
-        ref={input}
+      <InlineRenameField
+        value={visibleName}
+        ariaLabel={t('titleBar.designNameInput')}
         className={styles.nameInput}
-        aria-label={t('titleBar.designNameInput')}
-        value={draft}
-        onInput={(event) => setDraft(event.currentTarget.value)}
-        onFocusOut={() => { if (editing) finish(true) }}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter') {
-            event.preventDefault()
-            finish(true)
-          } else if (event.key === 'Escape') {
-            event.preventDefault()
-            event.stopPropagation()
-            finish(false)
+        unchangedName={name}
+        fallbackDisplayName={name === FALLBACK_DESIGN_NAME ? t('titleBar.untitledDesign') : undefined}
+        onCommit={(next) => {
+          const result = onRename(next)
+          if (result && typeof (result as Promise<unknown>).then === 'function') {
+            return (result as Promise<void | null | { readonly error: string }>).then((resolved) => {
+              if (!resolved || !('error' in resolved) || !resolved.error) closeEditing()
+              return resolved
+            })
           }
+          if (!result || !('error' in result) || !result.error) closeEditing()
+          return result
         }}
+        onCancel={closeEditing}
       />
     )
   }

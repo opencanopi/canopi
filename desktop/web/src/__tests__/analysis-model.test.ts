@@ -1,3 +1,4 @@
+import { capabilitiesForEdition } from '../generated/edition-capabilities'
 import { describe, expect, it } from 'vitest'
 import type { AnalysisEntry, AnalysisGroup } from '../generated/analysis-registry'
 import { ANALYSIS_GROUPS, ANALYSIS_REGISTRY } from '../generated/analysis-registry'
@@ -80,7 +81,7 @@ function subject(offers: AnalysisOffer[] = [
 }
 
 function context(overrides: Partial<AnalysisContext> = {}): AnalysisContext {
-  return { edition: 'desktop', results: [], inDesign: new Set(), ...overrides }
+  return { capabilities: capabilitiesForEdition('desktop', 'linux'), results: [], inDesign: new Set(), ...overrides }
 }
 
 function provenance(overrides: Partial<Provenance> = {}): Provenance {
@@ -108,10 +109,7 @@ describe('Analyze dialog model', () => {
     expect(groups[1]!.options[0]!.unavailable).toBeNull()
   })
 
-  it('refuses every entry on Web, and an entry native did not offer', () => {
-    expect(analysisOptions(subject(), context({ edition: 'web' }), 'en', REGISTRY, GROUPS)
-      .flatMap((group) => group.options.map((option) => option.unavailable)))
-      .toEqual([{ reason: 'NeedsDesktop' }, { reason: 'NeedsDesktop' }])
+  it('refuses an entry the host did not offer (no Web-only NeedsDesktop branch, 2.1-E5)', () => {
     expect(analysisOptions(subject([]), context(), 'en', REGISTRY, GROUPS)[0]!.options[0]!.unavailable)
       .toEqual({ reason: 'NotReady' })
   })
@@ -152,8 +150,8 @@ describe('Analyze dialog model', () => {
 
     expect(errors({ depressions: null })).toEqual({ depressions: { code: 'required' } })
     expect(errors({ max_breach_m: 'abc' })).toEqual({ max_breach_m: { code: 'number' } })
-    expect(errors({ max_breach_m: '2000' })).toEqual({ max_breach_m: { code: 'range', min: 1, max: 1000 } })
-    expect(errors({ max_breach_m: '1.25' })).toEqual({ max_breach_m: { code: 'step', step: 0.5 } })
+    expect(errors({ max_breach_m: '2000' })).toEqual({ max_breach_m: { code: 'range', min: 1, max: 1000, unit: 'metre' } })
+    expect(errors({ max_breach_m: '1.25' })).toEqual({ max_breach_m: { code: 'step', step: 0.5, unit: 'metre' } })
     expect(errors({ passes: '2.5' })).toEqual({ passes: { code: 'integer' } })
     expect(errors({ passes: '9' })).toEqual({ passes: { code: 'range', min: 1, max: 5 } })
     expect(errors({ max_breach_m: '1.5', passes: '5' })).toEqual({})
@@ -205,8 +203,21 @@ describe('Analyze dialog model', () => {
     expect(defaultAnalysisSource([], items, 'slope')).toBeNull()
   })
 
-  it('names parameter units users see: metres, square metres and degrees', () => {
-    expect(['metre', 'square-metre', 'degree'].map((unit) => paramUnitSuffix(unit as 'metre'))).toEqual(['m', 'm²', '°'])
+  it('names parameter units users see in metric and US customary', () => {
+    expect(['metre', 'square-metre', 'degree'].map((unit) => paramUnitSuffix(unit as 'metre', 'metric'))).toEqual(['m', 'm²', '°'])
+    expect(['metre', 'square-metre', 'degree'].map((unit) => paramUnitSuffix(unit as 'metre', 'us_customary'))).toEqual(['ft', 'ft²', '°'])
+  })
+
+  it('formats and parses metre parameters in US customary and sends SI metres in requests', () => {
+    const form = initialForm(FLOW, 'Ground', 'Flow', 'en', 'us_customary')
+    expect(form.values.max_breach_m).toBe('164.04')
+    expect(validateForm(FLOW, form, 'en', 'us_customary').valid).toBe(true)
+
+    const updated = withValues(form, { max_breach_m: '100' })
+    const req = buildAnalysisRequest(FLOW, { id: 'ground' }, updated, 'en', 'us_customary')
+    expect(req).not.toBeNull()
+    const breach = req!.parameters.find((p) => p.key === 'max_breach_m')?.value
+    expect(breach && 'Number' in breach ? breach.Number : null).toBeCloseTo(30.48, 6)
   })
 
   it('shows an existing result in the Design instead of calculating it again', () => {

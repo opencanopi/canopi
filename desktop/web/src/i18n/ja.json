@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "ノートに追加する前にこのデザインを保存します。",
     "addCurrentDesign": "現在のデザインをノートに追加",
     "addCurrentButton": "現在のデザインを追加",
-    "openNow": "現在開いています"
+    "openNow": "現在開いています",
+    "renameSectionFailed": "Canopi はこのセクションの名前を変更できませんでした。もう一度お試しください。"
   },
   "plantDb": {
     "title": "植物カタログ",
@@ -73,7 +74,6 @@
     "addFavoriteNamed": "{{name}}をお気に入りに追加",
     "favoriteNeedsNewer": "新しいバージョンの Canopi で保存されました。お気に入りを変更するには Canopi を更新してください。",
     "removeFavoriteNamed": "{{name}}をお気に入りから削除",
-    "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
     "factEdible": "食用 {{rating}}/5",
     "quickEdible": "食用",
@@ -240,7 +240,6 @@
       "selectedCount_few": "{{count}} 件を選択",
       "selectedCount_many": "{{count}} 件を選択",
       "selectedCount_other": "{{count}} 件を選択",
-      "suggested": "花色からの提案",
       "moreColors": "カスタムカラー",
       "hue": "色相",
       "saturationLightness": "彩度と明度",
@@ -312,7 +311,7 @@
       "placeholder": "場所または座標",
       "searching": "検索中…",
       "noResults": "場所が見つかりません",
-      "error": "場所の検索に失敗しました",
+      "error": "場所の検索を利用できません。代わりに緯度・経度を入力してください。",
       "results": "場所",
       "placeholderShort": "場所を検索",
       "east": "東経",
@@ -360,7 +359,9 @@
       "siteDataWeb_one": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要",
       "siteDataWeb_few": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要",
       "siteDataWeb_many": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要",
-      "siteDataWeb_other": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要"
+      "siteDataWeb_other": "このデザインに地形または高さのレイヤーが {{count, number}} 個 · Canopi Desktop が必要",
+      "webgl2Unavailable": "このデバイスではWebGL2を利用できません。地図の描画にはWebGL2が必要です。",
+      "layerFailed": "読み込めませんでした"
     },
     "timeline": {
       "actionType": "作業の種類",
@@ -724,11 +725,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Google Maps API キー（任意）",
-      "saveKey": "キーを保存",
-      "clearKey": "キーを消去",
-      "keySaved": "このデバイスにキーを保存しました。",
-      "keyLocalOnly": "このデバイスの設定にのみ保存されます。デザイン・エクスポート・ログ・レポートには書き込まれません。",
       "style": "スタイル",
       "styles": {
         "liberty": "Liberty",
@@ -736,9 +732,6 @@
         "bright": "明るい",
         "dark": "ダーク"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "キーがない場合、Canopi は Google の公開衛星タイルを使用します。公式の Map Tiles API を使うには Google Maps API キーを追加してください。"
     },
     "zoom": {
       "scaleBar": "縮尺バー: {{distance}}",
@@ -752,7 +745,7 @@
     },
     "myLocation": {
       "show": "現在地を表示",
-      "blocked": "位置情報がブロックされています。ブラウザの設定でこのサイトに許可してください。",
+      "blocked": "位置情報がブロックされています。ブラウザーまたはシステムの設定で許可してください。",
       "unavailable": "現在地を取得できません。引き続き試しています。"
     },
     "selectionChip": {
@@ -792,7 +785,9 @@
       "clear": "選択を解除",
       "rename": "名前を変更…",
       "sameSpeciesShort": "同じ種",
-      "clearShort": "解除"
+      "clearShort": "解除",
+      "dimensions": "寸法",
+      "dimensionsShort": "寸法"
     },
     "viewChip": "表示",
     "map": {
@@ -871,7 +866,8 @@
       "pathKeys": "Alt で鋭い点を置く · Shift で 45° に固定 · {{mod}} でスナップをオフ",
       "pathTouchHint": "点をドラッグして移動 · 印をドラッグして点を追加 · 点を長押しでその他",
       "pathFinish": "列を植える",
-      "options": "オプション"
+      "options": "オプション",
+      "constrain": "固定"
     },
     "placePreview": {
       "nearest": "{{name}} まで {{distance}}",
@@ -898,18 +894,6 @@
       "point": "列の点 {{index}}",
       "dot": "列の区間 {{index}} に点を追加"
     }
-  },
-  "worldMap": {
-    "title": "世界地図",
-    "discover": "デザインを発見",
-    "featured": "おすすめ",
-    "downloading": "テンプレートをダウンロード中…",
-    "author": "{{author}} 作",
-    "noDesigns": "この地域にデザインはまだありません",
-    "zoomToExplore": "ズームしてデザインを探索",
-    "filterByClimate": "気候で絞り込み",
-    "filterByStyle": "スタイルで絞り込み",
-    "openTemplate": "新しいデザインとして開く"
   },
   "theme": {
     "light": "ライト",
@@ -1060,7 +1044,6 @@
     "fireResistant": "耐火性",
     "fireTolerance": "火災耐性",
     "hedgeTolerance": "剪定耐性",
-    "inchesUnit": "in",
     "daysUnit": "日",
     "pollinators": "送粉者",
     "salinityTolerance": "耐塩性",
@@ -1381,7 +1364,11 @@
     "reorderNamed": "{{name}}を並べ替え（Alt ↑ または ↓）",
     "placeNamed": "スタンプ「{{name}}」を配置",
     "deleteNamed": "スタンプ「{{name}}」を削除",
-    "actionsFor": "{{name}}のその他の操作"
+    "actionsFor": "{{name}}のその他の操作",
+    "renameFailed": "Canopi はこのスタンプの名前を変更できませんでした。もう一度お試しください。",
+    "deletedToast": "「{{name}}」を削除しました",
+    "placedToast": "スタンプを配置しました（{{summary}}）",
+    "undo": "元に戻す"
   },
   "boundary": {
     "panelFailed": "このパネルを読み込めませんでした",
@@ -1530,7 +1517,11 @@
     "mapOrientationAsOnScreen": "画面どおり",
     "northArrow": "方位記号と縮尺",
     "pageOptions": "選択したページ",
-    "findInKey": "凡例で検索"
+    "findInKey": "凡例で検索",
+    "scale": "縮尺",
+    "pageAngle": "ページの角度",
+    "angleDegrees": "角度 (°)",
+    "savedViewAngle": "保存済みビュー"
   },
   "speciesKey": {
     "title": "このデザインの植物",
@@ -1598,7 +1589,8 @@
     "namesShown_one": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示",
     "namesShown_few": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示",
     "namesShown_many": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示",
-    "namesShown_other": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示"
+    "namesShown_other": "表示中の植物 {{count, number}} 本のうち {{shown, number}} 本に名前を表示",
+    "codeLabel": "{{name}} の種コード"
   },
   "geojson": {
     "import": "GeoJSON をインポート…",
@@ -1639,10 +1631,7 @@
     "conflictAnotherTab": "別のタブで変更されました"
   },
   "readOnlyDesign": {
-    "label": "読み取り専用",
-    "status": "読み取り専用：新しいバージョンの Canopi で保存",
-    "details": "このデザインは新しいバージョンの Canopi で保存されました。表示はできますが、変更や保存はできません。編集するには Canopi を更新してください。",
-    "update": "更新"
+    "label": "読み取り専用"
   },
   "saveProblem": {
     "flushFailedTitle": "変更を保存できませんでした",
@@ -1745,7 +1734,6 @@
       "ValuesNotMetres": "メートル単位の値が必要です。このデータの単位は {{units}} です。",
       "GridNotProjectedMetres": "地上のメートル単位の投影グリッドが必要です。Web Mercator や経緯度は使えません。",
       "EngineMissing": "利用できません：GeoLibre エンジンがありません。",
-      "NeedsDesktop": "Canopi Desktop が必要です。",
       "AlreadyInSiteData": "すでに敷地データにあります。"
     },
     "stale": {
@@ -1867,7 +1855,6 @@
   "siteOnboarding": {
     "locateTitle": "敷地はどこですか？",
     "locateIntro": "場所を検索するか座標を貼り付けてください。地図がそこへ移動します。まだ何も配置されません。",
-    "placeNamesCredit": "地名 © OpenStreetMap 貢献者",
     "skip": "スキップして地図で探す",
     "startTitle": "デザインを始めましょう",
     "closeStart": "「デザインを始めましょう」を閉じる",
@@ -1981,7 +1968,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "Canopi について…",
     "mapStyle": "地図のスタイル",
-    "googleKeyKept": "Google キーはこのデバイスに保存されたまま、使われていません。もう一度使うには「自分の Google キー」を選んでください。"
+    "googleKeyKept": "Google キーはこのデバイスに保存されたまま、使われていません。もう一度使うには「自分の Google キー」を選んでください。",
+    "units": {
+      "label": "単位",
+      "metric": "メートル法",
+      "usCustomary": "米国慣用単位"
+    }
   },
   "savedViews": {
     "defaultName": "ビュー {{number}}",
@@ -2078,9 +2070,9 @@
     "imageRemove": "画像 {{number}} を削除",
     "imagePreview": "画像 {{number}}：{{alt}}",
     "imageType": "PNG、JPEG、WebP、GIF のいずれかの画像を選んでください。",
-    "imageTooLarge": "この画像は {{size}} です。画像は 1 MB までです。もっと小さい画像を選んでください。",
-    "imageDesignFull": "このデザインにはすでに {{used}} の画像があり、デザインに入れられるのは 10 MB までです。画像を削除するか、もっと小さい画像を選んでください。",
-    "imagesDoNotFit": "これらの画像は入りません。デザインに入れられる画像は 10 MB までです。画像を削除してから、もう一度お試しください。",
+    "imageTooLarge": "この画像は {{size}} です。画像は {{limit}} までです。もっと小さい画像を選んでください。",
+    "imageDesignFull": "このデザインにはすでに {{used}} の画像があり、デザインに入れられるのは {{limit}} までです。画像を削除するか、もっと小さい画像を選んでください。",
+    "imagesDoNotFit": "これらの画像は入りません。デザインに入れられる画像は {{limit}} までです。画像を削除してから、もう一度お試しください。",
     "imageUnreadable": "Canopi はこの画像を読み込めませんでした。別のファイルを試してください。",
     "imageResized": "Canopi がこの画像を上限に収まるよう縮小しました（{{from}} → {{to}}）。",
     "imageShrinking": "画像を縮小しています…",
@@ -2199,7 +2191,13 @@
     "downloadFailedMessage": "この下書きはこのブラウザーにもう存在しないか、読み込めませんでした。",
     "uncheckedReadOnly": "読み取り専用で開きました：Canopi はこのブラウザーのストレージを確認できなかったため、この下書きは最新でない可能性があります。残すには「コピーをダウンロード」を選んでください。",
     "keepDrafts": "下書きを保持する",
-    "keepDraftsMenu": "下書きを保持…"
+    "keepDraftsMenu": "下書きを保持…",
+    "storeBlockedTitle": "他のタブの終了を待機中",
+    "storeBlockedMessage": "続行するには他の Canopi タブを閉じてください。",
+    "pendingWriteTitle": "最後の変更が失われた可能性があります",
+    "pendingWriteMessage": "「{{name}}」への最後の変更を保存する前に Canopi が閉じられました。続行する前にデザインを確認してください。",
+    "olderTabCopyTitle": "古いタブからコピーされました",
+    "olderTabCopyMessage": "古い Canopi タブで行われた「{{name}}」への変更は、別の下書きとして保存されました。"
   },
   "webRelease": {
     "title": "新しいバージョン",
@@ -2264,5 +2262,39 @@
     "title": "Canopi を起動できませんでした",
     "desktopHint": "お使いのシステムは、このバージョンの Canopi には古すぎる可能性があります。オペレーティングシステムを更新してから、Canopi をもう一度開いてください。",
     "webHint": "ページを再読み込みしてください。それでも Canopi が起動しない場合は、このブラウザーが古すぎる可能性があります。ブラウザーを更新するか、別のブラウザーをお試しください。"
+  },
+  "editionCapability": {
+    "needsDesktop": "Canopi Desktop が必要です"
+  },
+  "fileDelivery": {
+    "refused": "そのファイル名では保存できませんでした。別のファイル名またはフォルダーを選んでやり直してください。"
+  },
+  "geocoding": {
+    "credit": "{{service}} による検索 · © OpenStreetMap 貢献者"
+  },
+  "inspector": {
+    "title": "寸法を編集",
+    "close": "閉じる",
+    "empty": "編集可能なオブジェクトを選択して寸法を編集してください。",
+    "dimensions": "寸法",
+    "width": "幅",
+    "height": "高さ",
+    "length": "長さ",
+    "rotation": "回転",
+    "angle": "角度",
+    "centerLat": "中心緯度",
+    "centerLon": "中心経度",
+    "side": "辺 {{index}}",
+    "cornerAngle": "角 {{index}}",
+    "style": "ゾーンスタイル",
+    "fillColor": "塗りつぶし色",
+    "strokeColor": "枠線の色",
+    "opacity": "不透明度",
+    "canopySpread": "樹冠幅",
+    "quantity": "数量",
+    "plantedDate": "植栽日",
+    "notes": "メモ",
+    "noteText": "メモ本文",
+    "fontSize": "文字サイズ"
   }
 }

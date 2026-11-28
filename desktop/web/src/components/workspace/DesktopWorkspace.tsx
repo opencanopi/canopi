@@ -1,9 +1,12 @@
 import { Suspense } from 'preact/compat'
 import { retryableLazy } from '../../failures/lazy'
-import { closeDataDialog, closeDataLibrary, dataDialog, libraryView } from '../../app/lidar/library-navigation'
+import { closeDataDialog, closeDataLibrary, dataDialog, libraryView } from '../../app/data-library/library-navigation'
+import { designSessionStore } from '../../app/document-session/store'
 import { SurfaceBoundary } from '../shared/SurfaceBoundary'
 import { appCommandGraphPanelProjection } from '../../commands/registry'
 import { CanvasPanel } from '../panels/CanvasPanel'
+import { PhoneContextBar } from '../canvas/PhoneContextBar'
+import { ToolOptions } from '../canvas/ToolCard'
 import {
   WorkspaceComposition,
   type WorkspaceSurfaces,
@@ -97,11 +100,15 @@ function closeDataSurfaces(): void {
 }
 
 export function DesktopWorkspace() {
+  const panelProjection = appCommandGraphPanelProjection.value
   return (
     <>
       <WorkspaceComposition
-        panelProjection={appCommandGraphPanelProjection.value}
+        panelProjection={panelProjection}
         surfaces={DESKTOP_WORKSPACE_SURFACES}
+        phoneTabs={[...panelProjection.design, ...panelProjection.planning]}
+        phoneBar={<DesktopPhoneBar />}
+        phoneOptions={<ToolOptions />}
       />
       {/* The Data library and the data dialogs sit outside the composition, which turns inert under them. */}
       {(libraryView.value || dataDialog.value) && (
@@ -113,4 +120,9 @@ export function DesktopWorkspace() {
       )}
     </>
   )
+}
+
+/** The phone's context bar while a Design is open; the start screen has none. */
+function DesktopPhoneBar() {
+  return designSessionStore.currentDesign.value === null ? null : <PhoneContextBar />
 }

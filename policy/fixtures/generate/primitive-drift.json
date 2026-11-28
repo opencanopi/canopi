@@ -3,6 +3,7 @@
  "generate": true,
  "expect": [],
  "drifted": [
+  "policy/ast-grep/rules/ids-only-in-minters.tsx.yml",
   "policy/ast-grep/rules/ids-only-in-minters.typescript.yml"
  ],
  "files": {

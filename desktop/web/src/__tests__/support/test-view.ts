@@ -7,11 +7,11 @@
 import { signal } from '@preact/signals'
 import type { ScenePersistedState } from '../../canvas/runtime/scene'
 import { sceneExtentPoints } from '../../canvas/runtime/scene-extent'
-import type { CameraDriverHost } from '../../canvas/runtime/view/camera-driver'
-import { planarToViewCamera } from '../../canvas/runtime/view/camera-math'
-import { createCameraDriverHost } from '../../canvas/runtime/view/driver-host'
-import { createViewNavigation, type ViewNavigation } from '../../canvas/runtime/view/navigation'
-import { planarCameraOf } from '../../canvas/runtime/view/view-transform'
+import type { CameraDriverHost } from '../../geo/view/camera-driver'
+import { planarToViewCamera } from '../../geo/view/camera-math'
+import { createCameraDriverHost } from '../../geo/view/driver-host'
+import { createViewNavigation, type ViewNavigation } from '../../geo/view/navigation'
+import { planarCameraOf } from '../../geo/view/view-transform'
 import type {
   PlanarCamera,
   SceneExtent,
@@ -21,9 +21,8 @@ import type {
   ViewFrameSource,
   ViewScreen,
   ViewTransform,
-} from '../../canvas/runtime/view/types'
-import { stageScaleToMapZoom } from '../../canvas/projection'
-import { createSessionPlane, type SessionPlane } from '../../canvas/session-plane'
+} from '../../geo/view/types'
+import { createSessionPlane, type SessionPlane } from '../../geo/session-plane'
 
 export interface TestViewOptions {
   /** Default { width: 400, height: 300, devicePixelRatio: 1 }: the split files' camera today. */
@@ -64,7 +63,7 @@ export function createTestView(options: TestViewOptions = {}): TestView {
   const camera: ViewCamera = options.camera
     ? {
       center: options.camera.center ?? plane.origin,
-      zoom: options.camera.zoom ?? stageScaleToMapZoom(1, plane.origin.lat),
+      zoom: options.camera.zoom ?? plane.zoomForPixelsPerMetre(1),
       bearingDeg: options.camera.bearingDeg ?? 0,
       pitchDeg: 0,
     }

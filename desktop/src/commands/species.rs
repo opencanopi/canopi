@@ -1,8 +1,8 @@
 use tauri::State;
 
 use canopi_types::species::{
-    CommonNameEntry, DynamicFilterOptions, FilterOptions, FlowerColorResolution, PaginatedResult,
-    SpeciesDetail, SpeciesImage, SpeciesListItem, SpeciesSearchRequest,
+    CommonNameEntry, DynamicFilterOptions, FilterOptions, PaginatedResult, SpeciesDetail,
+    SpeciesImage, SpeciesListItem, SpeciesSearchRequest,
 };
 
 /// Search species with optional full-text and structured filters.
@@ -159,24 +159,6 @@ async fn get_species_batch_with_executor(
                     canonical_names,
                     locale,
                 )
-            },
-        )
-        .await
-}
-
-#[tauri::command]
-pub async fn get_flower_color_batch(
-    executor: State<'_, crate::native_operation::NativeOperationExecutor>,
-    plant_db: State<'_, crate::db::PlantDb>,
-    canonical_names: Vec<String>,
-) -> Result<Vec<FlowerColorResolution>, String> {
-    let plant_db = plant_db.inner().clone();
-    executor
-        .run(
-            crate::native_operation::NativeOperationClass::Catalog,
-            "species flower color batch",
-            move || {
-                crate::services::species_catalog::get_flower_color_batch(&plant_db, canonical_names)
             },
         )
         .await

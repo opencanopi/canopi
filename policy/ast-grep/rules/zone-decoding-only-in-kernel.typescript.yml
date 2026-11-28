@@ -14,6 +14,7 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/zone-geometry.ts"
 rule:
   any:
@@ -34,3 +35,15 @@ rule:
             field: property
             regex: ^(zoneType|zone_type)$
           stopBy: end
+    - kind: binary_expression
+      has:
+        field: left
+        kind: member_expression
+        all:
+          - has:
+              field: object
+              regex: \bgeometry$
+          - has:
+              field: property
+              regex: ^kind$
+      regex: ^[^\n]*?\s(===|!==|==|!=)\s['"](ellipse|line|rect|polygon)['"]

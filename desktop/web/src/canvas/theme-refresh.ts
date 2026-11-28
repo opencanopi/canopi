@@ -32,6 +32,25 @@ type CanvasColorName =
   | 'chip-primary'
   | 'chip-shadow'
 
+export type CanvasPaintTokens = { readonly [K in CanvasColorName]: string }
+
+/**
+ * What shows under the Design on the map. The UI theme never decides label
+ * ink: the basemap stays light in a dark UI and satellite imagery stays dark
+ * in a light one, so text, halos, badges and the grid follow the backdrop.
+ */
+export type CanvasMapBackdrop = 'basemap' | 'dark-basemap' | 'satellite' | 'paper'
+
+export interface CanvasBackdropInk {
+  readonly text: string
+  /** Drawn under text and markers so they read on busy imagery. */
+  readonly halo: string
+  readonly badgeBackground: string
+  readonly badgeText: string
+  readonly grid: string
+  readonly gridMajor: string
+}
+
 /** CSS variable read for each canvas colour. Most follow `--canvas-{key}`. */
 export const CANVAS_COLOR_CSS_VARS: { readonly [K in CanvasColorName]: string } = {
   background: '--canvas-bg',
@@ -56,7 +75,7 @@ export const CANVAS_COLOR_CSS_VARS: { readonly [K in CanvasColorName]: string } 
 }
 
 // Light-theme values from `styles/global.css`, used until the first refresh.
-const _colors: { [K in CanvasColorName]: string } = {
+const DEFAULT_CANVAS_PAINT_TOKENS: CanvasPaintTokens = Object.freeze({
   background: '#EFE9DD',
   'guide-line': '#FFF3D6',
   'overlay-casing': 'rgba(20, 16, 10, 0.6)',
@@ -74,7 +93,9 @@ const _colors: { [K in CanvasColorName]: string } = {
   'chip-text': '#27231D',
   'chip-primary': '#9C5A16',
   'chip-shadow': '0 2px 8px rgba(30, 22, 10, 0.12)',
-}
+})
+
+const _colors: { [K in CanvasColorName]: string } = { ...DEFAULT_CANVAS_PAINT_TOKENS }
 
 // The light and dark `--canvas-zone-fill` values: a zone storing one of them
 // follows the theme instead of keeping it as an authored colour.
@@ -94,11 +115,9 @@ export function isThemeManagedZoneFill(value: string | null | undefined): boolea
   return MANAGED_ZONE_FILL_VALUES.has(normalized)
 }
 
-/**
- * Returns the current theme color for a canvas element.
- */
-export function getCanvasColor(name: CanvasColorName): string {
-  return _colors[name]
+/** Returns an immutable snapshot of every canvas paint token for SceneRendererSnapshot (ADR 0024). */
+export function readCanvasPaintTokens(): CanvasPaintTokens {
+  return Object.freeze({ ..._colors })
 }
 
 /** Moves when a canvas colour or the map backdrop changes. */

@@ -1,0 +1,12 @@
+[
+  { "tags": ["fr_FR"], "expected": "fr" },
+  { "tags": ["pt-BR"], "expected": "pt" },
+  { "tags": ["zh-Hant-TW"], "expected": "zh" },
+  { "tags": ["xx"], "expected": null },
+  { "tags": ["xx", "pt-BR", "fr_FR"], "expected": "pt" },
+  { "tags": ["EN-us"], "expected": "en" },
+  { "tags": ["de_DE.UTF-8"], "expected": "de" },
+  { "tags": ["", "   ", "zz-ZZ"], "expected": null },
+  { "tags": ["\u212ao"], "expected": null },
+  { "tags": ["ja-JP"], "expected": "ja" }
+]

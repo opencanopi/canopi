@@ -1,0 +1,13 @@
+id: data-map-active-only-from-map-surface-visibility.tsx
+valid:
+  - |
+    export const View = ({ mapNotice }: { mapNotice: { mapSurfaceVisible: boolean } }) => (
+      <div data-map-active={mapNotice.mapSurfaceVisible ? 'true' : 'false'} />
+    )
+invalid:
+  - |
+    export const View = ({ ready }: { ready: boolean }) => (
+      <div data-map-active={ready ? 'true' : 'false'} />
+    )
+  - |
+    export const View = () => <div data-map-active="true" />

@@ -42,7 +42,7 @@ import {
   VIEW_SNAPSHOT_THUMBNAIL,
   ViewSnapshotSceneBusyError,
 } from '../app/saved-views/snapshot'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import { createDefaultMapLayersForTests as createDefaultMapLayers, mapLayers } from '../app/settings/state'
 import { designSessionStore } from '../app/document-session/store'
 import { setCurrentCanvasSession } from '../canvas/session'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
@@ -92,7 +92,7 @@ function design(): CanopiFile {
     version: 9, name: 'Orchard', description: null,
     plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
     layers: [], plants: [], zones: [], annotations: [], measurement_guides: [], consortiums: [],
-    groups: [], timeline: [], budget: [], budget_currency: 'EUR', lidar: null,
+    groups: [], timeline: [], budget: [], budget_currency: 'EUR', site_data: null,
     views: [VIEW], stories: [], created_at: '', updated_at: '', extra: {},
   }
 }
@@ -142,7 +142,7 @@ describe('saved view snapshot request', () => {
     const view = createTestRendererView({ x: 1, y: 2, scale: 3 })
     const scene = request.scene.build(view)
     expect(build).toHaveBeenCalledWith({
-      view, visibleLayerNames: ['plants'], focusedSpecies: 'Rubus idaeus', plantLabels: 'codes',
+      view, visibleLayerNames: ['plants'], focusedSpecies: 'Rubus idaeus', plantLabels: 'codes', highlightedObjects: [{ kind: 'plant', id: 'p1' }],
     })
     expect(scene.scene.layers.map((layer) => [layer.name, layer.visible])).toEqual([['plants', true], ['zones', false]])
   })

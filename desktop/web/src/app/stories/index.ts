@@ -28,7 +28,6 @@ export {
 } from './actions'
 export {
   designEmbeddedImageBytes,
-  formatImageBytes,
   readStoryImageFile,
   STORY_IMAGE_ACCEPT,
   type StoryImageDecoder,

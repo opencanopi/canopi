@@ -15,7 +15,7 @@ import { ESCAPE_PRIORITY, registerEscapeLayer } from '../app/keyboard/escape-cha
 import { focusOwner } from '../app/keyboard/focus-owner'
 import { modalLayerOpen } from '../app/shell/modal-layer'
 import { registerPlantFinder } from '../app/plant-finder/focus'
-import { sidePanel, activePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { closeSaveViewDialog, openSaveViewDialog } from '../app/saved-views'
 import { aboutCanopiDialogOpen, closeAboutCanopiDialog, openAboutCanopiDialog } from '../app/about/state'
 import { answerSaveProblem, requestSaveProblemDecision, saveProblem } from '../app/document-session/save-problem'
@@ -23,7 +23,7 @@ import { AboutCanopiDialog } from '../components/shared/AboutCanopiDialog'
 import { SaveProblemDialog } from '../components/shared/SaveProblemDialog'
 import type { MenuDefinition } from '../app/shell-commands/menus'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { commandPaletteOpen } from '../commands/registry'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
 import { installDesktopKeys } from './support/desktop-key-router'
@@ -105,7 +105,6 @@ describe('Modal layer', () => {
     document.body.appendChild(container)
     locale.value = 'en'
     theme.value = 'light'
-    activePanel.value = 'canvas'
     sidePanel.value = null
     replaceCurrentDesignState(design(), null, 'Orchard')
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({

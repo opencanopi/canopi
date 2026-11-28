@@ -1,14 +1,15 @@
 import type { ComponentChildren } from 'preact'
 import { useEffect, useState } from 'preact/hooks'
-import { fetchItemSources, fetchProcessingHistory } from '../../../app/lidar/actions'
+import { fetchItemSources, fetchProcessingHistory } from '../../../app/data-library/actions'
 import { analysisTitle, findAnalysis } from '../../../app/analyses/registry'
-import { formatRasterMetres, formatRasterRange } from '../../../app/lidar/display-legend'
-import { itemTypeLabel } from '../../../app/lidar/item-types'
-import type { LibraryItem } from '../../../app/lidar/library-items'
-import { locale } from '../../../app/settings/state'
-import { formatInstantInDetail } from '../../../app/timeline/civil-date'
+import { formatRasterMetres, formatRasterRange } from '../../../app/data-library/display-legend'
+import { itemTypeLabel } from '../../../app/data-library/item-types'
+import type { LibraryItem } from '../../../app/data-library/library-items'
+import { locale, unitSystem } from '../../../app/settings/state'
+import { formatInstantInDetail } from '../../../planning/civil-date'
 import type { ProcessingRun, Provenance } from '../../../generated/contracts'
 import { t } from '../../../i18n'
+import { formatNumber } from '../../../utils/format'
 import { Notice } from '../../shared/Notice'
 import { paramValueText, staleReasonText } from '../analyze/analysis-text'
 import { isRunning, isStale, itemStatusLabel } from './item-text'
@@ -72,11 +73,11 @@ export function ItemDetails({ item, nameOf, onOpenInput, onRefresh, busy, previe
         <dd>{item.units === 'unknown' ? t('canvas.lidar.library.unitUnknown') : item.units}</dd>
         {item.resolutionM !== null && <>
           <dt>{t('canvas.lidar.library.factResolution')}</dt>
-          <dd>{formatRasterMetres(item.resolutionM, locale.value)}</dd>
+          <dd>{formatRasterMetres(item.resolutionM, locale.value, unitSystem.value)}</dd>
         </>}
         {item.displayRange && <>
           <dt>{t('canvas.lidar.library.factRange')}</dt>
-          <dd>{formatRasterRange(item.displayRange, item.units, locale.value)}</dd>
+          <dd>{formatRasterRange(item.displayRange, item.units, locale.value, unitSystem.value)}</dd>
         </>}
         <dt>{t('canvas.lidar.library.factStatus')}</dt>
         <dd>{item.status === 'ready' ? t('canvas.lidar.library.ready') : itemStatusLabel(item)}</dd>
@@ -132,7 +133,7 @@ function ProvenanceFacts({ provenance, nameOf, onOpenInput }: {
       const spec = entry?.params.find((param) => param.key === parameter.key)
       return [
         <dt key={`${parameter.key}-label`}>{spec ? t(spec.labelKey) : parameter.key}</dt>,
-        <dd key={`${parameter.key}-value`}>{paramValueText(entry, parameter, language)}</dd>,
+        <dd key={`${parameter.key}-value`}>{paramValueText(entry, parameter, language, unitSystem.value)}</dd>,
       ]
     })}
     {tool && <>
@@ -191,5 +192,5 @@ function ProcessingHistory({ definitionId }: { definitionId: string }) {
 function runOutputs(run: ProcessingRun, language: string): string {
   if (run.outputs.length === 0) return t('analyses.details.noOutputs')
   const cells = run.outputs.reduce((total, output) => total + Number(output.coverage_cells ?? 0), 0)
-  return t('analyses.details.coverage', { cells: new Intl.NumberFormat(language).format(cells) })
+  return t('analyses.details.coverage', { cells: formatNumber(cells, language) })
 }

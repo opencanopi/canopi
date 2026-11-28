@@ -149,19 +149,29 @@ pub(super) fn schema_version(conn: &Connection) -> Result<i32, UserDbInitError> 
 /// [`UserDbInitError::NewerSchemaVersion`]; neither is modified. Both
 /// accepted paths end in the same integrity check.
 pub(super) fn initialize_connection(conn: &Connection) -> Result<(), UserDbInitError> {
+    let floor = canopi_types::store_chain::USER_DB_FLOOR;
     let version = schema_version(conn)?;
     match version {
         0 if has_tables(conn)? => {
             return Err(UserDbInitError::OlderSchemaVersion { found: 0 });
         }
-        0 | CURRENT_USER_DB_VERSION => {}
-        found if found > CURRENT_USER_DB_VERSION => {
-            return Err(UserDbInitError::NewerSchemaVersion {
-                found,
-                supported: CURRENT_USER_DB_VERSION,
-            });
-        }
-        found => return Err(UserDbInitError::OlderSchemaVersion { found }),
+        0 => {}
+        found if found < 0 => return Err(UserDbInitError::OlderSchemaVersion { found }),
+        found => match canopi_types::store_chain::admit_version(floor, Some(found as u32)) {
+            canopi_types::store_chain::Admission::Current => {}
+            canopi_types::store_chain::Admission::NewerReadable { .. }
+            | canopi_types::store_chain::Admission::RefusedNewer { .. } => {
+                return Err(UserDbInitError::NewerSchemaVersion {
+                    found,
+                    supported: floor.current as i32,
+                });
+            }
+            canopi_types::store_chain::Admission::BeforeFloor { .. }
+            | canopi_types::store_chain::Admission::Migratable { .. }
+            | canopi_types::store_chain::Admission::Absent => {
+                return Err(UserDbInitError::OlderSchemaVersion { found });
+            }
+        },
     }
     conn.pragma_update(None, "foreign_keys", true)
         .map_err(UserDbInitError::ConfigureForeignKeys)?;
@@ -275,6 +285,7 @@ pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, rusql
     .optional()
 }
 
+#[cfg(test)]
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), rusqlite::Error> {
     conn.execute(
         "INSERT INTO settings (key, value) VALUES (?1, ?2)
@@ -339,16 +350,16 @@ pub fn get_recently_viewed_names(
     stmt.query_map([limit], |row| row.get(0))?.collect()
 }
 
-/// True (1) for a saved stamp whose payload carries a numeric `version` above 2, the newest this build reads
-/// (2.1-M88, design check F6): a v3 payload from 2.1 lists as needing a newer Canopi, and every stamp write guards on
-/// its negation (the plan's `json_extract(payload_json,'$.version') <= 2`). A payload with no numeric version (damaged)
-/// and a pre-2.0 v1 stay this build's to delete. The `CASE` keeps `json_extract` off text that is not JSON, which it
-/// rejects. A macro, so each statement is one `concat!` literal and no SQL is formatted at run time.
+/// True (1) for a saved stamp whose payload carries a numeric `version` above 3, the newest this build reads
+/// (2.1-M88, design check F6): a v4+ payload from a later Canopi lists as needing a newer Canopi, and every stamp
+/// write guards on its negation (`json_extract(payload_json,'$.version') <= 3`). A payload with no numeric version
+/// (damaged) and a pre-2.0 v1 stay this build's to delete. The `CASE` keeps `json_extract` off text that is not JSON,
+/// which it rejects. A macro, so each statement is one `concat!` literal and no SQL is formatted at run time.
 macro_rules! stamp_payload_newer {
     () => {
         "COALESCE(CASE WHEN json_valid(payload_json) THEN \
          json_type(payload_json, '$.version') IN ('integer', 'real') \
-         AND json_extract(payload_json, '$.version') > 2 END, 0)"
+         AND json_extract(payload_json, '$.version') > 3 END, 0)"
     };
 }
 
@@ -432,6 +443,18 @@ pub fn delete_saved_object_stamp(conn: &Connection, id: &str) -> Result<bool, St
     )?;
     refuse_newer_stamp(conn, id, deleted)?;
     Ok(deleted > 0)
+}
+
+/// Restores a previously deleted stamp row at its original id, sort_order, and timestamps (2.1-Q158).
+pub fn restore_saved_object_stamp(
+    conn: &Connection,
+    s: &SavedObjectStamp,
+) -> Result<SavedObjectStamp, rusqlite::Error> {
+    conn.execute(
+        "INSERT OR REPLACE INTO saved_object_stamps (id, name, payload_json, sort_order, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        (&s.id, &s.name, &s.payload_json, s.sort_order, &s.created_at, &s.updated_at),
+    )?;
+    conn.query_row(select_stamps!("WHERE id = ?1"), [&s.id], stamp_from_row)
 }
 
 /// Renumbers the named rows in the given order; rows not named, a newer one among them, keep their place. A list

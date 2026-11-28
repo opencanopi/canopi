@@ -1,6 +1,6 @@
 {
   "browser-workspace-reaches-no-desktop": {
-    "src/web/planted-mid.ts": "the reach chain's middle: the rule fires on the transitive edge from browser-workspace-runtime.ts"
+    "src/editions/web/planted-mid.ts": "the reach chain's middle: the rule fires on the transitive edge from browser-workspace-runtime.ts"
   },
   "deep-imports": {
     "src/app/budget/index.ts": "the folder's index.ts that makes inner.ts a deep import"

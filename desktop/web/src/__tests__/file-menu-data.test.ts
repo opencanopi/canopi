@@ -5,7 +5,7 @@ const navigation = vi.hoisted(() => ({
   openDataLibrary: vi.fn(),
 }))
 
-vi.mock('../app/lidar/library-navigation', async (importOriginal) => ({
+vi.mock('../app/data-library/library-navigation', async (importOriginal) => ({
   ...await importOriginal<typeof LibraryNavigationModule>(),
   ...navigation,
 }))
@@ -28,11 +28,11 @@ vi.mock('../app/budget/export', async (importOriginal) => ({
 import { DESKTOP_SHELL_COMMAND_CATALOG } from '../commands/graph/catalog'
 import type { ShellCommandState } from '../app/shell-commands'
 import { t } from '../i18n'
-import type * as LibraryNavigationModule from '../app/lidar/library-navigation'
+import type * as LibraryNavigationModule from '../app/data-library/library-navigation'
 import type * as DocumentSessionActionsModule from '../app/document-session/actions'
 import type * as BudgetExportModule from '../app/budget/export'
 
-const withDesign: ShellCommandState = { hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }
+const withDesign: ShellCommandState = { hasDesign: true, revertAvailable: false, sidePanel: null }
 const command = (id: string) => DESKTOP_SHELL_COMMAND_CATALOG.find((entry) => entry.id === id)!
 
 describe('File menu (Desktop)', () => {
@@ -70,7 +70,7 @@ describe('File menu (Desktop)', () => {
       expect(command(id).isExecutionDisabled({ ...withDesign, hasDesign: false }), id).toBe(true)
       command(id).execute()
     }
-    expect(command('file.close').shortcut).toBe('Ctrl+W')
+    expect(command('file.close').shortcut).toBe('Alt+Shift+W')
     expect(fileActions.closeDesign).toHaveBeenCalledOnce()
     expect(fileActions.exportCurrentBudgetCsv).toHaveBeenCalledOnce()
   })

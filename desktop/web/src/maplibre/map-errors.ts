@@ -44,12 +44,30 @@ export const reportMapError: MapErrorReporter = (message, ...optionalParams) => 
 }
 
 /**
- * Records a passive basemap failure under its code: a tile source names the layer whose source failed, anything else
- * is the style (its sprite or TileJSON). Silent until 2d's map status (2.1-Q300).
+ * Records a passive basemap or layer source failure under its code: a tile source names the layer whose source failed,
+ * anything else is the style (its sprite or TileJSON). Reaches the diagnostics ring and problem report (MAP-03).
  */
 export function reportMapSourceFailure(context: string, event: unknown): void {
   const summary = describeMapErrorEvent(event)
   reportFailure(`${context} ${summary}`, { shown: 'none', source: 'map', echo: [context, summary], code: mapFailureCode(event) })
+}
+
+/**
+ * Records a hard map failure (`map_unavailable` or `webgl2_unavailable`) into the failure sink so it reaches the
+ * diagnostics ring and problem report (contracts §2, §6, MAP-03).
+ */
+export function reportMapFailure(
+  kind: 'map_unavailable' | 'webgl2_unavailable',
+  context: string,
+  error?: unknown,
+): void {
+  const summary = error === undefined ? redact(context) : `${redact(context)} ${describeMapErrorEvent(error)}`
+  reportFailure(summary, {
+    shown: 'notice',
+    source: 'map',
+    echo: error === undefined ? [context] : [context, describeMapErrorEvent(error)],
+    code: { kind },
+  })
 }
 
 function mapFailureCode(event: unknown): FailureCode {

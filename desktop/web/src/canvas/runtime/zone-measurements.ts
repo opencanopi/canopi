@@ -1,3 +1,5 @@
+import type { GroundMeasure } from '../../geo/session-plane'
+import { formatArea, formatLength, type UnitSystem } from '../../utils/format'
 import type { ScenePoint } from './scene'
 import { degreesToRadians, polygonArea, rotatePointAround } from './zone-geometry'
 
@@ -16,57 +18,73 @@ export function createEllipticalZoneMeasurements(
   center: ScenePoint,
   radii: ScenePoint,
   rotationDeg: number,
+  measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): ZoneMeasurementLabel[] {
-  const width = Math.abs(radii.x) * 2
-  const height = Math.abs(radii.y) * 2
+  const rx = Math.abs(radii.x)
+  const ry = Math.abs(radii.y)
+  const radians = degreesToRadians(rotationDeg)
+  const scale = measure?.groundScaleAt(center)
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  const width = (scale ? Math.hypot(rx * cos * scale.x, rx * sin * scale.y) : rx) * 2
+  const height = (scale ? Math.hypot(-ry * sin * scale.x, ry * cos * scale.y) : ry) * 2
   if (width < 0.5 || height < 0.5) return []
 
-  const radians = degreesToRadians(rotationDeg)
-  const widthPosition = rotatePointAround({ x: center.x, y: center.y - Math.abs(radii.y) }, center, radians)
-  const heightPosition = rotatePointAround({ x: center.x + Math.abs(radii.x), y: center.y }, center, radians)
+  const widthPosition = rotatePointAround({ x: center.x, y: center.y - ry }, center, radians)
+  const area = Math.PI * rx * ry * (scale ? scale.x * scale.y : 1)
 
   return [
     {
-      id: 'ellipse-width',
+      id: 'ellipse-dimensions',
       kind: 'dimension',
-      text: `W ${formatMetricDistance(width)}`,
+      text: `${formatMetricDistance(width, system, activeLocale)} × ${formatMetricDistance(height, system, activeLocale)}`,
       worldPosition: widthPosition,
-    },
-    {
-      id: 'ellipse-height',
-      kind: 'dimension',
-      text: `H ${formatMetricDistance(height)}`,
-      worldPosition: heightPosition,
     },
     {
       id: 'area',
       kind: 'area',
-      text: formatMetricArea(Math.PI * Math.abs(radii.x) * Math.abs(radii.y)),
+      text: formatMetricArea(area, system, activeLocale),
       worldPosition: center,
     },
   ]
 }
 
-export function createRectangularZoneMeasurements(points: readonly ScenePoint[]): ZoneMeasurementLabel[] {
+export function createRectangularZoneMeasurements(
+  points: readonly ScenePoint[],
+  measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
+): ZoneMeasurementLabel[] {
   if (points.length < 4) return []
   const corners = points.slice(0, 4)
-  return createPolygonalZoneMeasurements(corners)
+  return createPolygonalZoneMeasurements(corners, measure, system, activeLocale)
 }
 
-export function createLinearZoneMeasurements(start: ScenePoint, end: ScenePoint): ZoneMeasurementLabel[] {
-  if (distance(start, end) < 0.5) return []
-  return [createEdgeLabel('edge-0', start, end)]
+export function createLinearZoneMeasurements(
+  start: ScenePoint,
+  end: ScenePoint,
+  measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
+): ZoneMeasurementLabel[] {
+  if (segmentLength(start, end, measure) < 0.5) return []
+  return [createEdgeLabel('edge-0', start, end, measure, system, activeLocale)]
 }
 
 /** An open line while it is drawn (Profile): one edge per segment, the last one to the pointer. */
 export function createPolylineDraftMeasurements(
   vertices: readonly ScenePoint[],
   activePoint: ScenePoint | null,
+  measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): ZoneMeasurementLabel[] {
   const previewPoints = draftPreviewPoints(vertices, activePoint)
   const labels: ZoneMeasurementLabel[] = []
   for (let index = 0; index < previewPoints.length - 1; index += 1) {
-    labels.push(createEdgeLabel(`edge-${index}`, previewPoints[index]!, previewPoints[index + 1]!))
+    labels.push(createEdgeLabel(`edge-${index}`, previewPoints[index]!, previewPoints[index + 1]!, measure, system, activeLocale))
   }
   return labels
 }
@@ -75,18 +93,21 @@ export function createPolylineDraftMeasurements(
 export function createPolygonalZoneDraftMeasurements(
   vertices: readonly ScenePoint[],
   activePoint: ScenePoint | null,
+  measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): ZoneMeasurementLabel[] {
   const previewPoints = draftPreviewPoints(vertices, activePoint)
-  const labels = createPolylineDraftMeasurements(vertices, activePoint)
+  const labels = createPolylineDraftMeasurements(vertices, activePoint, measure, system, activeLocale)
 
   if (previewPoints.length >= 3) {
-    const area = Math.abs(polygonArea(previewPoints))
+    const area = measure ? measure.groundArea(previewPoints) : Math.abs(polygonArea(previewPoints))
     if (area >= 0.25) {
-      labels.push(createEdgeLabel('edge-closing', previewPoints[previewPoints.length - 1]!, previewPoints[0]!))
+      labels.push(createEdgeLabel('edge-closing', previewPoints[previewPoints.length - 1]!, previewPoints[0]!, measure, system, activeLocale))
       labels.push({
         id: 'area',
         kind: 'area',
-        text: formatMetricArea(area),
+        text: formatMetricArea(area, system, activeLocale),
         worldPosition: averagePoint(previewPoints),
       })
     }
@@ -103,52 +124,59 @@ function draftPreviewPoints(vertices: readonly ScenePoint[], activePoint: SceneP
 }
 
 /** A closed polygon's edges and area; none under 0.25 m². */
-export function createPolygonalZoneMeasurements(points: readonly ScenePoint[]): ZoneMeasurementLabel[] {
+export function createPolygonalZoneMeasurements(
+  points: readonly ScenePoint[],
+  measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
+): ZoneMeasurementLabel[] {
   if (points.length < 3) return []
-  const area = Math.abs(polygonArea(points))
+  const area = measure ? measure.groundArea(points) : Math.abs(polygonArea(points))
   if (area < 0.25) return []
 
   const labels: ZoneMeasurementLabel[] = []
   for (let index = 0; index < points.length; index += 1) {
-    labels.push(createEdgeLabel(`edge-${index}`, points[index]!, points[(index + 1) % points.length]!))
+    labels.push(createEdgeLabel(`edge-${index}`, points[index]!, points[(index + 1) % points.length]!, measure, system, activeLocale))
   }
 
   labels.push({
     id: 'area',
     kind: 'area',
-    text: formatMetricArea(area),
+    text: formatMetricArea(area, system, activeLocale),
     worldPosition: averagePoint(points),
   })
 
   return labels
 }
 
-function createEdgeLabel(id: string, start: ScenePoint, end: ScenePoint): ZoneMeasurementLabel {
+function createEdgeLabel(
+  id: string,
+  start: ScenePoint,
+  end: ScenePoint,
+  measure?: GroundMeasure,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
+): ZoneMeasurementLabel {
   return {
     id,
     kind: 'edge',
-    text: formatMetricDistance(distance(start, end)),
+    text: formatMetricDistance(segmentLength(start, end, measure), system, activeLocale),
     worldPosition: midpoint(start, end),
     worldStart: start,
     worldEnd: end,
   }
 }
 
-export function formatMetricDistance(value: number): string {
-  const meters = Math.abs(value)
-  if (meters < 1) return `${formatMetricNumber(meters * 100)} cm`
-  return `${formatMetricNumber(meters)} m`
+export function formatMetricDistance(value: number, system: UnitSystem = 'metric', activeLocale = 'en'): string {
+  return formatLength(Math.abs(value), system, activeLocale, { trimTrailingZeros: true })
 }
 
-export function formatMetricArea(value: number): string {
-  const squareMeters = Math.abs(value)
-  if (squareMeters < 1) return `${formatMetricNumber(squareMeters * 10000)} cm²`
-  if (squareMeters >= 10000) return `${formatMetricNumber(squareMeters / 10000)} ha`
-  return `${formatMetricNumber(squareMeters)} m²`
+export function formatMetricArea(value: number, system: UnitSystem = 'metric', activeLocale = 'en'): string {
+  return formatArea(Math.abs(value), system, activeLocale, { trimTrailingZeros: true })
 }
 
-function distance(a: ScenePoint, b: ScenePoint): number {
-  return Math.hypot(b.x - a.x, b.y - a.y)
+function segmentLength(a: ScenePoint, b: ScenePoint, measure?: GroundMeasure): number {
+  return measure ? measure.groundLength(a, b) : Math.hypot(b.x - a.x, b.y - a.y)
 }
 
 function midpoint(a: ScenePoint, b: ScenePoint): ScenePoint {
@@ -167,11 +195,6 @@ function averagePoint(points: readonly ScenePoint[]): ScenePoint {
     x: total.x / points.length,
     y: total.y / points.length,
   }
-}
-
-function formatMetricNumber(value: number): string {
-  const rounded = value >= 10 ? Math.round(value) : Math.round(value * 10) / 10
-  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1)
 }
 
 function pointsEqual(a: ScenePoint, b: ScenePoint): boolean {

@@ -1,0 +1,16 @@
+id: locale-list-only-in-registry.typescript
+valid:
+  - |
+    import { LOCALE_REGISTRY, SUPPORTED_LOCALES } from '../generated/locale-registry'
+    const items = LOCALE_REGISTRY.map((entry) => ({ value: entry.code, label: entry.endonym }))
+  - |
+    const fallback = 'en'
+invalid:
+  - |
+    const locales = ['en', 'fr', 'es', 'de'] as const
+  - |
+    const weekStart = { en: 0, fr: 1, es: 1, ru: 1 }
+  - |
+    const columns = { 'fr': 'value_fr', 'es': 'value_es' }
+  - |
+    const label = 'Français'

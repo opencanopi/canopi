@@ -1,16 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import { applyToolConstraint } from './constraints'
-
-const WORLD_AXES = { right: { x: 1, y: 0 }, down: { x: 0, y: 1 } } as const
+import type { ScreenBasis } from './screen-basis'
 
 /** Screen axes of a view turned so that `bearingDeg` points up (screen-right is world east turned by the bearing). */
-function screenAxesAt(bearingDeg: number) {
+function screenAxesAt(bearingDeg: number): ScreenBasis {
   const radians = (bearingDeg * Math.PI) / 180
   const cos = Math.cos(radians)
   const sin = Math.sin(radians)
-  return { right: { x: cos, y: sin }, down: { x: -sin, y: cos } }
+  return {
+    right: { x: cos, y: sin },
+    down: { x: -sin, y: cos },
+    worldDeltaToScreen: (d) => ({ x: d.x * cos + d.y * sin, y: -d.x * sin + d.y * cos }),
+    screenDeltaToWorld: (s) => ({ x: s.x * cos - s.y * sin, y: s.x * sin + s.y * cos }),
+  }
 }
+
+const WORLD_AXES = screenAxesAt(0)
 
 const SAMPLE_POINTS: readonly WorldPoint[] = [
   { x: 3.25, y: 1.1 },

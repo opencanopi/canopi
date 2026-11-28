@@ -100,7 +100,7 @@ classDiagram
 | `ScenePersistedState`, `SceneStore` | Scene | memory, plane metres |
 | `SessionPlane` | the Earth model | memory; its anchor is never stored |
 | `SavedObjectStamp`, `SavedObjectStampPayload` | stamp store; chain in `canopi-format` | Desktop user DB `saved_object_stamps`; Web browser record |
-| `PrintSetup`, `PlanePrintSetup` | Document; `PlanePrintSetup` derived by `app/canvas-pdf/print-setup.ts` (2.1) | `.canopi` `print_setup`; the plane form never stored |
+| `PrintSetup`, `PlanePrintSetup` | Document; `PlanePrintSetup` derived by `app/canvas-pdf/print-setup.ts` | `.canopi` `print_setup`; the plane form never stored |
 
 ### Coordinates: file, plane and view
 
@@ -112,12 +112,12 @@ flowchart LR
   file["GeoPoint lon/lat WGS84 in .canopi"]
   core["canopi-format decode and admission"]
   codec["canvas/runtime/scene/codec.ts hydrate"]
-  plane["geo/session-plane.ts (2.1) SessionPlane, Earth model owner"]
+  plane["geo/session-plane.ts SessionPlane, Earth model owner"]
   scene["ScenePersistedState in ground metres, Scene"]
   frame["canvas/runtime/scene/geo-frame.ts write-back at 1e-9 deg"]
   view["ConformalPoint (2.1) camera similarity"]
   measure["groundLength and groundArea (2.1)"]
-  fmt["utils/format.ts (2.1)"]
+  fmt["utils/format.ts"]
   north["trueNorthAt (2.1)"]
   pdf["app/canvas-pdf/page-frame.ts north arrow"]
   reorigin["canvas/runtime/scene-runtime/reorigin.ts"]
@@ -131,7 +131,7 @@ flowchart LR
   class core,plane,view,measure,fmt,north target
 ```
 
-- Owner: `geo/session-plane.ts` (2.1), today `canvas/session-plane.ts`, is the one Earth model. A plane metre is a WGS84 ground metre at the anchor (Web Mercator scaled by N cosφ east and M north), x east, y south, north-aligned at any bearing; the radii come from `canopi-types`.
+- Owner: `geo/session-plane.ts`, today `geo/session-plane.ts`, is the one Earth model. A plane metre is a WGS84 ground metre at the anchor (Web Mercator scaled by N cosφ east and M north), x east, y south, north-aligned at any bearing; the radii come from `canopi-types`.
 - Invariant: stored lon/lat is the only authority. The anchor is the objects' bounds centre or the view centre and is never stored; re-origin builds a new plane and re-hydrates; write-back rounds to 1e-9 degrees idempotently. Every shown length and area is `groundLength` or `groundArea`.
 - Tests: `geolocated-design-codec.test.ts`; in the target `scale-only-through-plane`, the 1e-6 px landing and the 1 ppm Vincenty checks of contracts §20.
 
@@ -163,7 +163,7 @@ stateDiagram-v2
 | Site data | root `lidar`; each entry carries `kind` | root `site_data`; `kind` optional and ignored, resolved by id, or required, per Step 2.0.4 R2's probe | Document |
 | Read schema (frozen by the reader release) | none | only identity and geometry required; every other field optional with a documented default | `canopi-format` |
 | Additions, no step (`canopi-format/spec/v10/additions/` (2.1)) | none | `print_setup` (Document); zone stroke colour and opacity (Scene) | spec emitter |
-| Codec | native `desktop/src/design/format.rs`; TS `app/contracts/canopi-design-schema-decoder.ts` | `canopi-format-wasm` in the format worker on both editions, canonical encode; TS decoder deleted | `canopi-format` |
+| Codec | native `desktop/src/design/format.rs` and TS mirror (deleted at 2b-5) | `canopi-format-wasm` in `platform/design-core.worker.ts` on Web, `desktop/src/services/design_core.rs` on Desktop, canonical encode | `canopi-format` |
 
 - Owner: `canopi-format` owns read checks, the chain (`FLOOR = 9`, `CURRENT = FLOOR + STEPS.len()`), write admission, the new-Design builder and the frozen spec per version.
 - Invariant: a migrated open is clean; the first Desktop write in v10 keeps `<name> (Canopi 2.0).canopi` once; a migrated Desktop Draft keeps its v9 form once, unlisted; a failing step refuses with `migration_failed{from}`.
@@ -254,7 +254,6 @@ classDiagram
     +angle_deg clockwise from true north
   }
   class PlanePrintSetup {
-    <<2.1>>
     <<derived, never stored>>
   }
   CanopiFile --> PrintSetup : print_setup

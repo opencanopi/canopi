@@ -1,9 +1,11 @@
 import { effect } from '@preact/signals'
-import { createPdfDelivery } from '#canvas-pdf-platform'
+import { editionPorts } from '../../platform/edition-ports'
+import type { FileDeliveryPort } from '../../platform/file-delivery'
 import { currentCanvasQuerySurface } from '../../canvas/session'
+import { endPrintSetupCoalesce, readPrintSetup, writePrintSetup } from '../design-edit'
 import { designSessionStore } from '../document-session/store'
 import { speciesCatalogWorkbench } from '../plant-browser'
-import { locale } from '../settings/state'
+import { locale, unitSystem } from '../settings/state'
 import { t } from '../../i18n'
 import { PLANT_SYMBOL_IDS } from '../../generated/known-canopi-keys'
 import { createPdfWorkflow } from './workflow'
@@ -15,10 +17,12 @@ export function canExportCanvasPdf(): boolean {
 export const canvasPdf = createPdfWorkflow({
   capture() {
     const query = currentCanvasQuerySurface.value
-    if (!query || !designSessionStore.currentDesign.value) return null
+    const design = designSessionStore.currentDesign.value
+    if (!query || !design) return null
     const identity = designSessionStore.sessionIdentity.value
     const revision = query.revision.scene.value
     const language = locale.value
+    const system = unitSystem.value
     const name = designSessionStore.designName.value
     const canvas = query.capturePrintSnapshot()
     if (!canvas) return null
@@ -27,16 +31,17 @@ export const canvasPdf = createPdfWorkflow({
     const viewBearingDeg = query.view.captureView().camera.bearingDeg
     const settled = query.view.settledCamera.value
     const turning = normalise(viewBearingDeg) !== normalise(settled.bearingDeg)
-    return { identity, input: { name, locale: language, canvas, commonNames: {}, viewBearingDeg }, ...(turning ? { turning } : {}),
+    const savedViews = (design.views ?? []).map((v) => ({ id: v.id, name: v.name, bearingDeg: v.camera.bearing }))
+    return { identity, input: { name, locale: language, unitSystem: system, canvas, commonNames: {}, viewBearingDeg, ...(savedViews.length ? { savedViews } : {}) }, ...(turning ? { turning } : {}),
       isCurrent: () => designSessionStore.sessionIdentity.value === identity && currentCanvasQuerySurface.value === query
-        && query.revision.scene.value === revision && locale.value === language && designSessionStore.designName.value === name
+        && query.revision.scene.value === revision && locale.value === language && unitSystem.value === system && designSessionStore.designName.value === name
         && query.getSettledPlacedPlants() !== null && (!turning || query.view.settledCamera.value === settled) }
   },
   // The catalog's batch projections: the same names and habits every plant list shows, in both editions.
   resolveDisplayNames: (names, language) => speciesCatalogWorkbench.resolveDisplayNames(names, language),
   resolveHabits: (names) => speciesCatalogWorkbench.resolveHabits(names),
   prepare: async (input, signal, progress) => (await import('./job')).preparePdfJob(input, pdfFontUrls(), signal, progress),
-  delivery: createPdfDelivery(),
+  delivery: createLazyPdfDelivery(),
   labels: () => ({ notes: t('pdf.notes'), observations: t('pdf.observations'), keyAndNotes: t('pdf.keyAndNotes'), overview: t('pdf.overview'), plants: t('pdf.plants'), actualSize: t('pdf.actualSize'),
     detail: t('pdf.detail'), measurementSummary: t('pdf.measurementSummary'), zone: t('pdf.zone'), longSide: t('pdf.longSide'), width: t('pdf.width'), guides: t('pdf.guides'),
     metres: t('pdf.metres'), diameters: t('pdf.diameters'), outerSides: t('pdf.outerSides'), quantity: t('pdf.quantity'), species: t('pdf.species'), plantKey: t('pdf.plantKey'),
@@ -44,6 +49,11 @@ export const canvasPdf = createPdfWorkflow({
     habitOther: t('pdf.habitOther'), continued: t('pdf.continued'), englishFallback: t('pdf.englishFallback', { mark: t('speciesName.englishMark') }), englishMark: t('speciesName.englishMark'), symbols: t('pdf.symbols'), north: t('pdf.north'),
     symbolNames: symbolNames() }),
   namePrintArea: (number) => t('pdf.areaName', { number }),
+  printSetup: {
+    read: readPrintSetup,
+    write: writePrintSetup,
+    endCoalesce: endPrintSetupCoalesce,
+  },
 })
 const disposeObservation = effect(() => {
   const identity = designSessionStore.sessionIdentity.value
@@ -53,6 +63,7 @@ const disposeObservation = effect(() => {
     void query?.getSettledPlacedPlants()
     void query?.view.settledCamera.value
     void locale.value
+    void unitSystem.value
     void designSessionStore.designName.value
   }
   canvasPdf.synchronize(identity)
@@ -61,4 +72,12 @@ const normalise = (deg: number) => ((deg % 360) + 360) % 360
 function symbolNames(): Record<string, string> {
   return Object.fromEntries(PLANT_SYMBOL_IDS.map(symbol => [symbol, t(`canvas.plantSymbol.names.${symbol}`)]))
 }
+function createLazyPdfDelivery(): FileDeliveryPort {
+  return {
+    deliverFile(kind, stem, content, signal) {
+      return editionPorts().fileDelivery.deliverFile(kind, stem, content, signal)
+    },
+  }
+}
+
 if (import.meta.hot) import.meta.hot.dispose(() => { disposeObservation(); canvasPdf.dispose() })

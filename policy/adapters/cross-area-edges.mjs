@@ -2,7 +2,7 @@
 //
 // An area is a policy/layers.json row's `area` (the longest row covering a module wins) or a workspace crate (its
 // package name). An edge is a runtime import between production modules of two areas, in either edition's graph:
-// desktop/web's depcruise with both generated configs (an aliased edition module resolves to its Desktop file in one
+// desktop/web's depcruise with both configs (loaded dynamically via policy/generate/depcruise.mjs; an aliased edition module resolves to its Desktop file in one
 // graph and its Web file in the other); a type-only import is no edge, a re-export and a dynamic import are; tests (a
 // `test` layer row, a .test or .spec file) are left out. A workspace member's `[dependencies]` or
 // `[build-dependencies]` path dependency on another member is a crate edge, read from the Cargo.toml files (no cargo
@@ -31,7 +31,7 @@ import { cruise } from './dependency-cruiser.mjs';
 const RULE = 'cross-area-edges';
 const CWD = 'desktop/web';
 const CONFIGS = ['.dependency-cruiser.cjs', '.dependency-cruiser.web.cjs'];
-const REAL_ROOTS = ['src', 'ui-gallery'];
+const REAL_ROOTS = ['src'];
 const FIXTURES = 'policy/fixtures/';
 const LAYER_TABLE = 'policy/layers.json';
 const MIRROR = /^(?:\.\.\/\.\.\/policy\/fixtures\/rules\/[^/]+\/)?src\//u;
@@ -65,7 +65,7 @@ function moduleSites(root, reports) {
     fail(`no readable ${LAYER_TABLE}`);
   }
   const rows = (table.layers ?? []).filter((r) => typeof r?.path === 'string');
-  const isTest = (rel) => /\.(?:test|spec)\.tsx?$/u.test(rel) || rowFor(rows, rel)?.layer === 'test';
+  const isTest = (rel) => /\.(?:test|spec)\.tsx?$/u.test(rel) || rowFor(rows, rel)?.layer === 'test' || rowFor(rows, rel)?.edition === 'gallery';
   const sites = [];
   const unplaced = new Map();
   const areaOf = (rel, source) => {

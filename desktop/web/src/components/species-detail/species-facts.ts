@@ -1,4 +1,11 @@
+import { unitSystem } from '../../app/settings/state'
 import { openSetText, t } from '../../i18n'
+import {
+  fahrenheitToCelsius,
+  formatCatalogSize,
+  formatNumber as formatLocaleNumber,
+  formatTemperature,
+} from '../../utils/format'
 
 /** One cell of the key facts grid; `null` reads "Not recorded", never an empty cell. */
 export interface SpeciesFact {
@@ -19,23 +26,23 @@ export function formatList(values: readonly string[], locale: string): string {
 }
 
 export function formatNumber(value: number, locale: string, maximumFractionDigits = 1): string {
-  return new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value)
+  return formatLocaleNumber(value, locale, { maximumFractionDigits })
 }
 
-/** "8 m" with the unit placed as the interface language places it. */
+/** "8 m" or "26 ft" in the active unit system, with whole catalog metres rounded to whole units. */
 function formatMetres(value: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { style: 'unit', unit: 'meter', maximumFractionDigits: 1 }).format(value)
+  return formatCatalogSize(value, unitSystem.value, locale, { trimTrailingZeros: true })
 }
 
-/** "4–10 m", "10 m" or null: a catalog min/max range in metres. */
+/** "4 m–10 m", "10 m" (or "13 ft–33 ft", "33 ft") or null: a catalog min/max range in metres. */
 export function formatMetreRange(min: number | null, max: number | null, locale: string): string | null {
-  if (min !== null && max !== null && min !== max) return `${formatNumber(min, locale)}–${formatMetres(max, locale)}`
+  if (min !== null && max !== null && min !== max) return `${formatMetres(min, locale)}–${formatMetres(max, locale)}`
   const single = max ?? min
   return single === null ? null : formatMetres(single, locale)
 }
 
 export function formatYears(value: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { style: 'unit', unit: 'year', unitDisplay: 'long', maximumFractionDigits: 1 }).format(value)
+  return formatLocaleNumber(value, locale, { style: 'unit', unit: 'year', unitDisplay: 'long', maximumFractionDigits: 1 })
 }
 
 /**
@@ -48,8 +55,8 @@ export function formatHardiness(min: number | null, max: number | null, locale: 
     ? `${formatNumber(min, locale)}–${formatNumber(max, locale)}`
     : formatNumber((min ?? max)!, locale)
   if (min === null) return t('plantDetail.hardinessZones', { zones })
-  const celsius = ((10 * min - 70) - 32) * 5 / 9
-  const temperature = new Intl.NumberFormat(locale, { style: 'unit', unit: 'celsius', maximumFractionDigits: 0 }).format(celsius)
+  const celsius = fahrenheitToCelsius(10 * min - 70)
+  const temperature = formatTemperature(celsius, unitSystem.value, locale)
   return t('plantDetail.hardinessValue', { zones, temperature })
 }
 

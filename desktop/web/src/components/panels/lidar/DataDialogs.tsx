@@ -1,6 +1,8 @@
+import { editionPorts, hasEditionPorts } from '../../../platform/edition-ports'
+import { capabilitiesForEdition } from '../../../generated/edition-capabilities'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { currentDesign } from '../../../app/document-session/store'
-import { addToDesign, runAnalysis } from '../../../app/lidar/actions'
+import { addToDesign, runAnalysis } from '../../../app/data-library/actions'
 import {
   acceptsAnalysis,
   defaultAnalysisSource,
@@ -10,17 +12,17 @@ import {
 } from '../../../app/analyses/model'
 import { findAnalysis } from '../../../app/analyses/registry'
 import { t } from '../../../i18n'
-import { libraryItems, type LibraryItem } from '../../../app/lidar/library-items'
-import { lidarLibrary, readCurrentLidarPresentation } from '../../../app/lidar/library-store'
-import { referenceRows } from '../../../app/lidar/reference-tree'
+import { libraryItems, type LibraryItem } from '../../../app/data-library/library-items'
+import { lidarLibrary, readCurrentLidarPresentation } from '../../../app/data-library/library-store'
+import { referenceRows } from '../../../app/data-library/reference-tree'
 import {
   closeDataDialog,
   dataDialog,
   libraryView,
   revealInSiteData,
   type DataDialog,
-} from '../../../app/lidar/library-navigation'
-import { locale } from '../../../app/settings/state'
+} from '../../../app/data-library/library-navigation'
+import { locale, unitSystem } from '../../../app/settings/state'
 import { AnalyzeDialog } from '../analyze/AnalyzeDialog'
 import { DataLibraryView } from './DataLibraryView'
 import { ImportDataDialog } from './ImportDataDialog'
@@ -76,7 +78,7 @@ function AnalyzeRequest({ request }: { readonly request: Extract<DataDialog, { k
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const context = useMemo<AnalysisContext>(() => ({
-    edition: 'desktop',
+    capabilities: hasEditionPorts() ? editionPorts().capabilities : capabilitiesForEdition('desktop', 'linux'),
     results: items.filter((candidate) => candidate.role === 'Derived'),
     inDesign: new Set(design.map((entry) => entry.id)),
   }), [items, design.map((entry) => entry.id).join(',')])
@@ -101,7 +103,7 @@ function AnalyzeRequest({ request }: { readonly request: Extract<DataDialog, { k
     const outputs = items
       .filter((candidate) => candidate.provenance?.definition_id === provenance.definition_id)
       .map((candidate) => candidate.provenance!.output_key)
-    return formFromProvenance(entry, provenance, outputs, fixedInput.name, t(entry.titleKey), locale.value)
+    return formFromProvenance(entry, provenance, outputs, fixedInput.name, t(entry.titleKey), locale.value, unitSystem.value)
   })
   // Nothing to analyze once the library has loaded: the request closes rather than stay open unseen, which would leave
   // the library under it inert. Before the first snapshot it waits.

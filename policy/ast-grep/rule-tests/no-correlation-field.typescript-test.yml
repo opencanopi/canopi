@@ -1,0 +1,11 @@
+id: no-correlation-field.typescript
+valid:
+  - |
+    export const entry = { operation: 'u-1', job_id: 'j-1', item_id: 'i-1' }
+invalid:
+  - |
+    export const entry = { correlationId: 'c-1' }
+  - |
+    export const entry = { trace_id: 't-1' }
+  - |
+    export const entry = { sequence_id: 1 }

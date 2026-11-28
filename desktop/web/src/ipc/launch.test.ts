@@ -19,7 +19,7 @@ describe('the launch file wire (canopi-f47t.52.228.14)', () => {
     invoke.mockResolvedValueOnce({ path: '/home/g.canopi', several: true })
 
     await expect(takePendingOpen()).resolves.toEqual({ path: '/home/g.canopi', several: true })
-    expect(invoke).toHaveBeenCalledWith('take_pending_open')
+    expect(invoke).toHaveBeenCalledWith('take_pending_open', { operation: expect.stringMatching(/^s-/) })
   })
 
   it('hears the payload-free launch:pending-open event, and once when listening starts, until unsubscribed', async () => {

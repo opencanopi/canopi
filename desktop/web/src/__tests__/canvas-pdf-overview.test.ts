@@ -10,7 +10,7 @@ const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([
   ['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')], ['strong', readFileSync('src/app/canvas-pdf/fonts/NotoSans-SemiBold.ttf')],
 ]), 'en')
 const labels: PdfLabels = { ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }
-const source = (count: number): PdfInput => ({ name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: {
+const source = (count: number): PdfInput => ({ name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas: {
   layers: [{ name: 'plants', visible: true, opacity: 1 }, { name: 'annotations', visible: true, opacity: .6 }],
   plants: Array.from({ length: count }, (_, i) => ({ id: String(i), canonicalName: `Species ${i % 117}`, speciesCode: `S${i % 117}`,
     position: { x: (i % 50) * .1, y: Math.floor(i / 50) * .1 }, color: '#123456', symbol: 'round', mark: [], pinnedName: false })),

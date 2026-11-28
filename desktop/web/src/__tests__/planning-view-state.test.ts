@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { disposePlanningViewState, readPlanningViewState } from '../app/planning-view/state'
-import { designSessionStore } from '../app/document-session/store'
+import { designSessionFixture, replaceCurrentDesignState } from './support/design-session-state'
 import type { CanopiFile } from '../types/design'
 
 function design(name: string): CanopiFile {
@@ -26,7 +26,7 @@ function design(name: string): CanopiFile {
 
 beforeEach(() => {
   disposePlanningViewState()
-  designSessionStore.replaceCurrentDesignState(design('One'), null, 'One')
+  replaceCurrentDesignState(design('One'), null, 'One')
 })
 
 describe('planning view state', () => {
@@ -35,7 +35,7 @@ describe('planning view state', () => {
     first.budgetSearch.value = 'apple'
     first.calendarScrollTop = 240
 
-    designSessionStore.renameCurrentDesign('Renamed')
+    designSessionFixture.name = 'Renamed'
 
     const retained = readPlanningViewState()
     expect(retained).toBe(first)
@@ -48,7 +48,7 @@ describe('planning view state', () => {
     first.consortiumSearch.value = 'oak'
     first.calendarExpanded.value = true
 
-    designSessionStore.replaceCurrentDesignState(design('Two'), null, 'Two')
+    replaceCurrentDesignState(design('Two'), null, 'Two')
 
     const replacement = readPlanningViewState()
     expect(replacement).not.toBe(first)

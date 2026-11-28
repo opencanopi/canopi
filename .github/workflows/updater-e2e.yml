@@ -4,8 +4,8 @@ name: Updater end to end
 # of the same commit, N-1 (9.0.0) and N (9.0.1), plus on NSIS a beta (9.0.2-beta.1) for leaving beta, with the `updater-e2e` feature pointing the updater at a local channel
 # host and the `e2e` feature letting the WebdriverIO harness drive them, signed with a key generated in the job. The
 # installed N-1 checks, downloads and installs N from channel files this job prepares and updater.spec.ts serves: on
-# the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-latest, and NSIS and the MSI
-# (msiexec /passive, relaunching through AUTOLAUNCHAPP; canopi-f47t.52.244) on windows-latest. Plain HTTP reaches the updater only through this job's overlay (install-identity-policy.test.ts
+# the AppImage and the .deb (a polkit rule stands in for the password prompt) on ubuntu-26.04, and NSIS and the MSI
+# (msiexec /passive, relaunching through AUTOLAUNCHAPP; canopi-f47t.52.244) on windows-2025. Plain HTTP reaches the updater only through this job's overlay (install-identity-policy.test.ts
 # refuses it in tauri.conf.json). Build & Test calls it when the gate's updater area is selected (policy/gate/table.ts:
 # the update flow's files, the scripts it runs and the Tauri pins; design check AR3), a Release Candidate as a release
 # check.
@@ -17,6 +17,15 @@ on:
         required: false
         type: string
   workflow_dispatch:
+    inputs:
+      windows_runner:
+        description: Windows runner image for A/B testing updater hangs (canopi-ong0)
+        required: false
+        default: windows-2025
+        type: choice
+        options:
+          - windows-2025
+          - windows-2022
 
 # Its own literal group: a called workflow's github.workflow is its caller's name, whose group it would share.
 concurrency:
@@ -30,23 +39,26 @@ jobs:
   updater:
     name: updater ${{ matrix.bundle }}
     runs-on: ${{ matrix.os }}
+    # Every step that can hang ends itself (Install N-1, Update N-1 to N, Leaving beta: 40 minutes at most), so the job's
+    # limit is the untimed builds' cold worst case on top: a job timeout would cancel the steps that keep the profiles
+    # and logs, which also run on a cancellation (canopi-ong0).
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
           # `artifact` is the release artifact's folder name, which update_channel.py generate keys payloads by.
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             bundle: appimage
             artifact: canopi-x86_64-unknown-linux-gnu
-          - os: ubuntu-latest
+          - os: ubuntu-26.04
             bundle: deb
             artifact: canopi-x86_64-unknown-linux-gnu
-          - os: windows-latest
+          - os: ${{ inputs.windows_runner || 'windows-2025' }}
             bundle: nsis
             artifact: canopi-x86_64-pc-windows-msvc
           # The stable Windows installer a user may have chosen; betas ship NSIS only (2.1-M27), so no beta build.
-          - os: windows-latest
+          - os: ${{ inputs.windows_runner || 'windows-2025' }}
             bundle: msi
             artifact: canopi-x86_64-pc-windows-msvc
     defaults:
@@ -58,11 +70,15 @@ jobs:
       UPDATER_E2E_PORT: "47811"
       UPDATER_E2E_BUNDLE: ${{ matrix.bundle }}
       UPDATER_E2E_DIR: ${{ github.workspace }}/updater-channel
-      npm_config_script_shell: ${{ matrix.os == 'windows-latest' && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
+      npm_config_script_shell: ${{ startsWith(matrix.os, 'windows-') && 'C:\Program Files\Git\bin\bash.exe' || 'bash' }}
     steps:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
+      # This workflow's own commit, whose setup actions a Release Candidate's release/2.0 tree lacks (2.1-M535).
+      - uses: actions/checkout@v7
+        with:
+          path: lane
 
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
@@ -74,7 +90,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
-          # WebKitWebDriver's package is webkitgtk-webdriver from Ubuntu 26.04 (ubuntu-latest since November 2026).
+          # WebKitWebDriver's package is webkitgtk-webdriver from Ubuntu 26.04 (ubuntu-26.04 since November 2026).
           driver=webkit2gtk-driver
           apt-cache show webkit2gtk-driver 2>/dev/null | grep -q '^Version:' || driver=webkitgtk-webdriver
           timeout 10m sudo apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y "$driver" xvfb dbus dbus-x11 openbox xdotool xdg-utils file pkexec
@@ -86,21 +102,13 @@ jobs:
           });
           RULE
 
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - uses: ./lane/.github/actions/setup-rust
         with:
-          shared-key: updater-e2e-${{ matrix.os }}
-          cache-on-failure: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          cache: 'true'
+          cache-key: desktop-e2e
+          cache-save: ${{ github.ref == 'refs/heads/main' }}
 
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
-
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./lane/.github/actions/setup-frontend
 
       - name: Install tauri-driver 2.1.0
         run: cargo install tauri-driver --version 2.1.0 --locked
@@ -274,7 +282,8 @@ jobs:
 
       # A hang here (canopi-ong0) must end before the job's 60 minutes so the upload below keeps the profiles and logs;
       # a pass takes a few minutes. On Windows a stuck process tree outlives the step's own timeout (a 2026-11-15 run
-      # held it 47 minutes against its 20), so `timeout` ends the spec from inside the step, then its processes.
+      # held it 47 minutes against its 20), so `timeout` ends the spec from inside the step after 16 minutes, then its
+      # processes.
       - name: Update N-1 to N
         timeout-minutes: 20
         working-directory: desktop/web
@@ -285,7 +294,19 @@ jobs:
             dbus-run-session -- xvfb-run -a -s '-screen 0 1400x900x24' bash -euo pipefail -c \
               "openbox & wm=\$!; sleep 2; kill -0 \"\$wm\"; npm run test:platform -- --spec $spec"
           else
-            s=0; timeout --kill-after=60 1080 npm run test:platform -- --spec "$spec" || s=$?
+            # Every 30 s the job log gets the processes the hang may involve, the runner's own included (canopi-ong0):
+            # what the log holds up to a runner loss stays readable; the runner's Worker writes it, so a loss ends it.
+            (
+              while sleep 30; do
+                echo "[ong0-heartbeat $(date -u +%H:%M:%SZ)] processes:"
+                powershell -NoProfile -NonInteractive -Command \
+                  'Get-Process | Where-Object { $_.ProcessName -match "canopi|msedgedriver|msiexec|tauri-driver|node|Runner\.Worker|Runner\.Listener" } | Select-Object Id,ProcessName,@{N="WS_MB";E={[math]::Round($_.WorkingSet64/1MB,1)}} | Format-Table -AutoSize | Out-String -Width 160' 2>/dev/null || true
+              done
+            ) &
+            hb_pid=$!
+            trap 'kill "$hb_pid" 2>/dev/null || true' EXIT
+            s=0; timeout --kill-after=60 900 npm run test:platform -- --spec "$spec" || s=$?
+            kill "$hb_pid" 2>/dev/null || true
             if [ "$s" = 124 ] || [ "$s" = 137 ]; then
               echo "::error::the update spec hung (canopi-ong0); its processes are ended so the profiles and logs upload"
               powershell -NoProfile -NonInteractive -Command '$app = [IO.Path]::GetFileNameWithoutExtension($env:CANOPI_E2E_APP); Get-Process | Where-Object { $_.ProcessName -in @($app, "msedgedriver", "node") } | Stop-Process -Force' || true
@@ -325,7 +346,7 @@ jobs:
       # profile's environment; no N start after the installer's exit (4689) means its relaunch started nothing. A
       # dispatch keeps them whatever the outcome: the MSI probe reads how AUTOLAUNCHAPP started N (canopi-f47t.52.244).
       - name: Keep the audited process starts and exits (Windows)
-        if: (failure() || github.event_name == 'workflow_dispatch') && runner.os == 'Windows'
+        if: (failure() || cancelled() || github.event_name == 'workflow_dispatch') && runner.os == 'Windows'
         shell: pwsh
         run: |
           $names = 'canopi-desktop.exe', 'Canopi-update-setup.exe', 'msiexec.exe'
@@ -349,7 +370,7 @@ jobs:
           Start-Sleep -Seconds 3
 
       - name: Upload the app profiles and logs
-        if: ${{ failure() || github.event_name == 'workflow_dispatch' }}
+        if: ${{ failure() || cancelled() || github.event_name == 'workflow_dispatch' }}
         uses: actions/upload-artifact@v7
         with:
           name: updater-e2e-${{ matrix.bundle }}
@@ -367,7 +388,7 @@ jobs:
   macos-probe:
     name: macOS self-update probe
     if: github.event_name == 'workflow_dispatch'
-    runs-on: macos-latest
+    runs-on: macos-15
     timeout-minutes: 60
     continue-on-error: true
     env:
@@ -377,22 +398,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.sha }}
-
-      - uses: dtolnay/rust-toolchain@1.97.1
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # This workflow's own commit, whose setup actions a Release Candidate's release/2.0 tree lacks (2.1-M535).
+      - uses: actions/checkout@v7
         with:
-          shared-key: updater-macos-probe
-          cache-on-failure: false
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          path: lane
 
-      - uses: actions/setup-node@v7
+      - uses: ./lane/.github/actions/setup-rust
         with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: desktop/web/package-lock.json
+          cache: 'true'
+          cache-key: desktop-e2e
+          cache-save: ${{ github.ref == 'refs/heads/main' }}
 
-      - name: Install frontend deps
-        run: npm ci --prefix desktop/web --no-audit --no-fund
+      - uses: ./lane/.github/actions/setup-frontend
 
       # The key lives in the runner's temp folder for this job only; nothing uploads it.
       - name: Generate the job's updater key and the probe overlays

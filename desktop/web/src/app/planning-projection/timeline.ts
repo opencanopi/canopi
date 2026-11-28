@@ -1,6 +1,7 @@
 import type { PlacedPlant } from '../../types/design'
 import type { PlantSymbolId } from '../../canvas/runtime/scene'
 import { isEnglishFallbackName, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
+import { compareSpeciesByShownName } from '../../utils/species-sort'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 export type ActionType = 'planting' | 'pruning' | 'harvest' | 'watering' | 'fertilising' | 'other'
@@ -44,12 +45,14 @@ export function buildTimelineSpeciesOptions(
       continue
     }
     const commonName = localizedNames?.get(plant.canonical_name) ?? plant.common_name ?? null
+    const englishFallback = isEnglishFallbackName(englishFallbackNames, plant.canonical_name, commonName)
+    const displayName = commonName ?? englishFallbackNames.get(plant.canonical_name) ?? plant.canonical_name
     const entry = identity.get(plant.canonical_name)
     byName.set(plant.canonical_name, {
       canonical_name: plant.canonical_name,
-      display_name: commonName ?? plant.canonical_name,
+      display_name: displayName,
       common_name: commonName,
-      english_fallback: isEnglishFallbackName(englishFallbackNames, plant.canonical_name, commonName),
+      english_fallback: englishFallback,
       code: entry?.code ?? '',
       plant_count: 1,
       appearance: entry?.appearances[0] ?? null,
@@ -57,6 +60,10 @@ export function buildTimelineSpeciesOptions(
   }
 
   const result = [...byName.values()]
-  result.sort((left, right) => left.display_name.localeCompare(right.display_name, locale))
+  result.sort((left, right) => compareSpeciesByShownName(
+    { shownName: left.display_name, canonicalName: left.canonical_name },
+    { shownName: right.display_name, canonicalName: right.canonical_name },
+    locale,
+  ))
   return result
 }

@@ -11,6 +11,7 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Page, Route } from '@playwright/test'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -29,7 +30,7 @@ type Kind = 'name' | 'badge' | 'guide'
 function kindOf(text: string): Kind | null {
   if (/Apple|Malus/.test(text)) return 'name'
   if (text === '2') return 'badge'
-  if (/^\d[\d.,]*\s?m$/.test(text)) return 'guide'
+  if (/^\d[\d.,]*\s?(?:m|ft)$/.test(text)) return 'guide'
   return null
 }
 
@@ -117,11 +118,7 @@ test('a pinned plant name, a stack badge and a guide label drawn before the web 
   const font = await holdInterfaceFont(page)
   // The load event waits for the held fonts: only the document is waited for.
   await page.goto('', { waitUntil: 'domcontentloaded' })
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /\.canopi/ }).first().click(),
-  ])
-  await chooser.setFiles(fixture)
+  await chooseFixtureFromStart(page, fixture)
   await expect(designMap(page)).toBeVisible()
   await expectCanvasDrawn(page)
 

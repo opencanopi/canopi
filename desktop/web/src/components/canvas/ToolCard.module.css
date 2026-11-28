@@ -114,6 +114,7 @@
 }
 
 .barRowStatus {
+  flex: 1 1 auto;
   font-variant-numeric: tabular-nums;
 }
 
@@ -123,6 +124,7 @@
 }
 
 .barRowStatus[data-density="blocked"] {
+  flex: 1 0 auto;
   color: var(--color-danger);
   font-weight: 600;
 }

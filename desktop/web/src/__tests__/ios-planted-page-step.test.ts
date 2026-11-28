@@ -1,6 +1,6 @@
 // Regression tests for the iOS lane's planted blank-page step (2.1-Q247, F5 chunk 11 review findings 1a and 1b):
 // the step passes only when the smoke itself fails on the blank page, and the smoke names the start screen only when
-// wdio's wait timed out, so a session that never started or died mid-wait fails the step. The step runs when a change
+// its start-screen poll timed out, so a session that never started or died mid-wait fails the step. The step runs when a change
 // touches the lane's own files, and on the schedule or a dispatch (canopi-f47t.52.240).
 import { execFileSync, spawnSync } from 'node:child_process'
 import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -39,24 +39,27 @@ function runPlantedStep(log: string, status: number): boolean {
   }
 }
 
-// The smoke's real test body, imported with a fake @wdio/globals whose start-screen wait rejects with `wait.error`,
-// and with wdio's mocha globals standing in for the describe and it the spec calls when it loads.
-const wait = vi.hoisted(() => ({ error: '' }))
-vi.mock('@wdio/globals', () => {
-  const element = { waitForDisplayed: () => Promise.reject(new Error(wait.error)) }
-  return { $: () => element, browser: { url: () => Promise.resolve() }, expect: () => { throw new Error('unreachable') } }
-})
+// The smoke's real test body, imported with a fake @wdio/globals whose start-screen probe (browser.execute) answers
+// `wait.probe`, and with wdio's mocha globals standing in for the describe and it the spec calls when it loads.
+const wait = vi.hoisted(() => ({ probe: (): Promise<boolean> => Promise.resolve(false) }))
+vi.mock('@wdio/globals', () => ({
+  $: () => ({}),
+  browser: { url: () => Promise.resolve(), execute: () => wait.probe() },
+  expect: () => { throw new Error('unreachable') },
+}))
 let smokeBody: (() => Promise<void>) | undefined
 
-/** The message the smoke throws when wdio's start-screen wait rejects with `waitError`. */
-async function smokeFailure(waitError: string): Promise<string> {
-  wait.error = waitError
+/** The message the smoke throws when every start-screen probe answers `probe`, on a fake clock past its deadline. */
+async function smokeFailure(probe: () => Promise<boolean>): Promise<string> {
+  wait.probe = probe
+  vi.useFakeTimers({ toFake: ['setTimeout', 'performance'] })
   try {
-    await smokeBody?.()
-  } catch (error) {
-    return error instanceof Error ? error.message : String(error)
+    const outcome = (smokeBody?.() ?? Promise.resolve()).then(() => '', (error: unknown) => error instanceof Error ? error.message : String(error))
+    await vi.advanceTimersByTimeAsync(100_000)
+    return await outcome
+  } finally {
+    vi.useRealTimers()
   }
-  return ''
 }
 
 beforeAll(async () => {
@@ -75,7 +78,7 @@ afterAll(() => {
 
 describe('the iOS planted blank-page step (2.1-Q247, canopi-f47t.52.228.14)', () => {
   it('passes when the smoke fails on the blank page itself', async () => {
-    const startScreenFailure = await smokeFailure('element ("[data-start-screen]") still not displayed after 90000ms')
+    const startScreenFailure = await smokeFailure(() => Promise.resolve(false))
     expect(startScreenFailure).toBe('the start screen was not displayed 90 s after opening about:blank')
     expect(runPlantedStep(`${startScreenFailure}\n`, 1)).toBe(true)
   })
@@ -89,8 +92,8 @@ describe('the iOS planted blank-page step (2.1-Q247, canopi-f47t.52.228.14)', ()
   })
 
   it('fails when the session dies during the start-screen wait (finding 1b)', async () => {
-    const died = 'waitUntil condition failed with the following reason: invalid session id'
-    const failure = await smokeFailure(died)
+    const died = 'invalid session id'
+    const failure = await smokeFailure(() => Promise.reject(new Error(died)))
     expect(failure).toBe(died)
     expect(runPlantedStep(`${failure}\n`, 1)).toBe(false)
   })

@@ -57,6 +57,13 @@
   background: var(--color-bg);
 }
 
+.note {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  margin-left: auto;
+  padding-left: var(--space-3);
+}
+
 .shortcut {
   font-size: var(--text-xs);
   color: var(--color-text-muted);

@@ -1,4 +1,5 @@
 pub(crate) mod app_folders;
+pub mod design_core;
 pub mod design_files;
 pub mod design_notebook;
 pub mod export;
@@ -14,5 +15,6 @@ pub mod saved_object_stamps;
 pub mod settings;
 #[cfg(test)]
 mod settings_reader_release_tests;
+mod settings_record;
 pub mod species_catalog;
 pub(crate) mod species_catalog_read;

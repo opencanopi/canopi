@@ -87,17 +87,11 @@ export function ButtonTooltip({
       description,
     ].filter((part): part is string => !!part && !said.includes(part.toLowerCase()))
     node.textContent = parts.join(', ')
-    const tokens = parts.length > 0 ? [...others, describedId] : others
-    if (tokens.length > 0) button.setAttribute('aria-describedby', tokens.join(' '))
-    else button.removeAttribute('aria-describedby')
+    syncDescribedBy(button, describedId, parts.length > 0)
   })
   useEffect(() => {
     const button = marker.current?.closest('button')
-    return () => {
-      const rest = (button?.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((token) => token && token !== describedId)
-      if (rest.length > 0) button?.setAttribute('aria-describedby', rest.join(' '))
-      else button?.removeAttribute('aria-describedby')
-    }
+    return () => { syncDescribedBy(button, describedId, false) }
   }, [describedId])
 
   // A scroll moves the button from under the pointer, and a window left behind takes no hover.
@@ -162,6 +156,13 @@ export function ButtonTooltip({
       )}
     </>
   )
+}
+
+function syncDescribedBy(button: HTMLElement | null | undefined, describedId: string, include: boolean): void {
+  const others = (button?.getAttribute('aria-describedby') ?? '').split(/\s+/).filter((token) => token && token !== describedId)
+  const tokens = include ? [...others, describedId] : others
+  if (tokens.length > 0) button?.setAttribute('aria-describedby', tokens.join(' '))
+  else button?.removeAttribute('aria-describedby')
 }
 
 /** The text a button is named by when it has no aria-label: its text outside aria-hidden or hidden elements. */

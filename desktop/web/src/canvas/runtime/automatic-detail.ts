@@ -12,7 +12,7 @@ import { getSceneLayerStyle, isPlantLayerShown } from './scene-visuals'
 import { getCanvasTextOpacity } from './text-visibility'
 import type { SceneRendererSnapshot } from './renderers/scene-types'
 import { projectScenePlantLabels, type PlantNameLabel, type SelectionLabel } from './selection-labels'
-import { getCanvasPlantDisplay, PLANT_LABEL_MIN_SCALE } from './plant-display'
+import { DEFAULT_PLANT_DISPLAY, PLANT_LABEL_MIN_SCALE } from './plant-display'
 
 /**
  * The plant names admitted at `pixelsPerMetre`: pinned names first, then automatic ones where they fit, around the single
@@ -28,21 +28,21 @@ export function getCanvasPlantNameLabels(
   const scale = pixelsPerMetre
   const { scene } = snapshot
   // Labels › None keeps only names the user pinned or a single selection shows.
-  const mode = snapshot.plantLabels ?? getCanvasPlantDisplay().labels
+  const mode = snapshot.plantLabels ?? snapshot.plantDisplay.labels
   const automatic = mode !== 'none'
   const codes = mode === 'codes'
   const minimumScale = PLANT_LABEL_MIN_SCALE[codes ? 'codes' : 'names']
   if (!isPlantLayerShown(scene)) return []
   if ((!automatic || scale < minimumScale) && projected.pinnedPlantNameLabels.length === 0) return []
   const occupied = new LabelCollisionIndex()
-  for (const rect of getCanvasDetailLayout(scene, scale).bounds) occupied.add(rect)
+  for (const rect of getCanvasDetailLayout(scene, scale, snapshot.plantDisplay.symbolScale, snapshot.annotationFontEpoch).bounds) occupied.add(rect)
   for (const label of projected.selectionLabels) {
     occupied.add(nameBounds(label.text, label.anchor.x * scale + label.offsetPx.x, label.anchor.y * scale + label.offsetPx.y))
   }
   const pinned = new Map(projected.pinnedPlantNameLabels.map((label) => [label.plantId, label]))
   const plants = [...scene.plants].sort((a, b) => Number(pinned.has(b.id)) - Number(pinned.has(a.id)) || a.id.localeCompare(b.id))
   const result: PlantNameLabel[] = []
-  const context = { plants: scene.plants, pixelsPerMetre: scale }
+  const context = { plants: scene.plants, pixelsPerMetre: scale, plantDisplay: snapshot.plantDisplay }
   for (const plant of plants) {
     if (snapshot.speciesFocus.canonicalName && plant.canonicalName !== snapshot.speciesFocus.canonicalName) continue
     const existing = pinned.get(plant.id)
@@ -51,10 +51,11 @@ export function getCanvasPlantNameLabels(
     if (!existing && !plant.pinnedName && !forced && (!automatic || scale < minimumScale || (!codes && nearestPlantSpacing(scene.plants, plant.position) * scale < 35))) continue
     const opacity = forced ? 1 : existing?.opacity ?? getCanvasTextOpacity(scale)
     if (!opacity) continue
-    const commonName = snapshot.localizedCommonNames.get(plant.canonicalName) ?? plant.commonName
+    const commonName = snapshot.localizedCommonNames.get(plant.canonicalName) || plant.commonName
     const code = codes ? scene.plantSpeciesCodes[plant.canonicalName] : null
-    const text = existing?.text ?? code ?? (commonName || plant.canonicalName)
-    const fontStyle = existing?.fontStyle ?? (code || commonName ? 'normal' : 'italic')
+    const baseText = commonName || plant.canonicalName
+    const text = existing?.text ?? (plant.pinnedName && code ? `${code} · ${baseText}` : code ?? baseText)
+    const fontStyle = existing?.fontStyle ?? ((code && !plant.pinnedName) || commonName ? 'normal' : 'italic')
     const radius = getPlantWorldBounds(plant, context).width * scale / 2
     const x = plant.position.x * scale, y = plant.position.y * scale
     const candidates = [nameBounds(text, x, y + radius + 4), nameBounds(text, x, y - radius - 20)]
@@ -81,16 +82,21 @@ interface CanvasDetailLayout {
 export function isMeasurementLabelVisible(snapshot: SceneRendererSnapshot, pixelsPerMetre: number, id: string): boolean {
   return snapshot.selectedMeasurementGuideIds.has(id)
     || (snapshot.hoverTarget?.kind === 'measurement-guide' && snapshot.hoverTarget.id === id)
-    || getCanvasDetailLayout(snapshot.scene, pixelsPerMetre).measurementIds.has(id)
+    || getCanvasDetailLayout(snapshot.scene, pixelsPerMetre, snapshot.plantDisplay.symbolScale, snapshot.annotationFontEpoch).measurementIds.has(id)
 }
 
 // Pan does not affect admission. Keep the main view and an inspection view warm.
 // Symbol size changes plant bounds and a loaded web font changes note bounds, so both are part of the key.
 const layouts = new WeakMap<ScenePersistedState, Map<string, CanvasDetailLayout>>()
 
-export function getCanvasDetailLayout(scene: ScenePersistedState, scale: number): CanvasDetailLayout {
+export function getCanvasDetailLayout(
+  scene: ScenePersistedState,
+  scale: number,
+  symbolScale = DEFAULT_PLANT_DISPLAY.symbolScale,
+  fontEpoch = getAnnotationFontEpoch(),
+): CanvasDetailLayout {
   let cache = layouts.get(scene)
-  const key = `${scale}|${getCanvasPlantDisplay().symbolScale}|${getAnnotationFontEpoch()}`
+  const key = `${scale}|${symbolScale}|${fontEpoch}`
   const previous = cache?.get(key)
   if (previous) return previous
   const occupied = new LabelCollisionIndex()
@@ -98,7 +104,7 @@ export function getCanvasDetailLayout(scene: ScenePersistedState, scale: number)
   function reserve(rect: LabelBounds) { occupied.add(rect); bounds.push(rect) }
   const annotationIds = new Set<string>()
   const measurementIds = new Set<string>()
-  const context = { plants: scene.plants, pixelsPerMetre: scale }
+  const context = { plants: scene.plants, pixelsPerMetre: scale, plantDisplay: { ...DEFAULT_PLANT_DISPLAY, symbolScale } }
   // Plane pixels: admission never depends on where the plane sits on screen.
   const planePixels = { worldToScreen: (point: { readonly x: number; readonly y: number }) => ({ x: point.x * scale, y: point.y * scale }) }
   if (isLayerVisible(scene, 'plants')) {

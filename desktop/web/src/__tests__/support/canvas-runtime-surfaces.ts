@@ -1,13 +1,34 @@
 import { signal } from '@preact/signals'
-import { setCanvasTool } from '../../canvas/session-state'
+import type { MapInputHandle, MapInputOutcome } from '../../canvas/runtime/interaction-types'
 import type {
   CanvasCommandSurface,
   CanvasDocumentSurface,
   CanvasKeyboardPort,
   CanvasQuerySurface,
   CanvasRuntimeSurfaces,
+  CanvasToolCommandSurface,
 } from '../../canvas/runtime/runtime'
-import { createTestCanvasQuerySurface } from './canvas-query-surface'
+import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './canvas-query-surface'
+
+function createNoopMapInputHandle<T>(): MapInputHandle<T> {
+  let resolveSettled!: (outcome: MapInputOutcome<T>) => void
+  const settled = new Promise<MapInputOutcome<T>>((resolve) => {
+    resolveSettled = resolve
+  })
+  let done = false
+  return {
+    settled,
+    cancel(reason = 'tool-change') {
+      if (done) return
+      done = true
+      resolveSettled({ kind: 'cancelled', reason })
+    },
+  }
+}
+
+function isTestQuerySurface(queries: CanvasQuerySurface): queries is TestCanvasQuerySurface {
+  return 'setActiveTool' in queries && typeof (queries as Partial<TestCanvasQuerySurface>).setActiveTool === 'function'
+}
 
 type DeepPartial<T> = {
   [K in keyof T]?: T[K] extends object ? Partial<T[K]> : T[K]
@@ -26,7 +47,21 @@ export function createTestCanvasRuntimeSurfaces({
   documents = createTestCanvasDocumentSurface(),
   keyboard = createTestCanvasKeyboardPort(),
 }: TestCanvasRuntimeSurfaceOptions = {}): CanvasRuntimeSurfaces {
-  return { commands, queries, documents, keyboard }
+  if (!isTestQuerySurface(queries)) {
+    return { commands, queries, documents, keyboard }
+  }
+  const wiredCommands: CanvasCommandSurface = {
+    ...commands,
+    tools: {
+      ...commands.tools,
+      arm: (id, source, request) => {
+        const handle = commands.tools.arm(id, source, request)
+        queries.setActiveTool(id, source)
+        return handle
+      },
+    },
+  }
+  return { commands: wiredCommands, queries, documents, keyboard }
 }
 
 /** A keyboard port that consumes nothing: the runtime surfaces' port before an interaction session exists. */
@@ -48,7 +83,7 @@ export function createTestCanvasCommandSurface(
   const surface: CanvasCommandSurface = {
     speciesFocus: { focus: () => {} },
     tools: {
-      setTool: () => {},
+      arm: () => createNoopMapInputHandle(),
       plantRowSpacing: { input: () => {}, commit: () => {}, blur: () => {}, cancel: () => {} },
       plantRowPath: { finish: () => {}, setMode: () => {} },
     },
@@ -97,6 +132,12 @@ export function createTestCanvasCommandSurface(
       groupSelected: () => {},
       ungroupSelected: () => {},
       renameZone: () => false,
+      setZoneStyle: () => false,
+      editZoneDimensions: () => false,
+      editMeasurementGuideDimensions: () => false,
+      editPlantFields: () => false,
+      editAnnotationFields: () => false,
+      setSpeciesCode: () => false,
       rotateSelected: () => {},
       unlockAll: () => {},
       nudgeSelected: () => false,
@@ -121,17 +162,20 @@ export function createTestCanvasCommandSurface(
     },
   }
 
-  const setTool = overrides.tools?.setTool ?? surface.tools.setTool
+  const arm: CanvasToolCommandSurface['arm'] = overrides.tools?.arm ?? ((_id, _source, request) => {
+    const handle = createNoopMapInputHandle<never>()
+    if (request?.onSettled) {
+      void handle.settled.then((outcome) => request.onSettled!(outcome))
+    }
+    return handle
+  })
   return {
     tools: {
       ...surface.tools,
       ...overrides.tools,
       plantRowSpacing: { ...surface.tools.plantRowSpacing, ...overrides.tools?.plantRowSpacing },
       plantRowPath: { ...surface.tools.plantRowPath!, ...overrides.tools?.plantRowPath },
-      setTool: (name) => {
-        setTool(name)
-        setCanvasTool(name)
-      },
+      arm,
     },
     speciesFocus: { ...surface.speciesFocus, ...overrides.speciesFocus },
     viewport: { ...surface.viewport, ...overrides.viewport },
@@ -163,6 +207,8 @@ export function createTestCanvasDocumentSurface(
       isCurrent: () => true,
       acknowledgeSaved: () => 'applied',
     }),
+    serializeSceneFields: () => ({}),
+    replaySceneCommand: () => true,
     resize: () => {},
     destroy: () => {},
   }

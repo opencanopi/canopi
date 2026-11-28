@@ -1,14 +1,15 @@
-import { getRevealedAnnotationId } from '../annotation-layout'
+import { getAnnotationFontEpoch, getRevealedAnnotationId } from '../annotation-layout'
 import type { PlantPresentationContext } from '../plant-presentation'
 import {
   createDetachedCanvasPlantLabelSource,
   createDetachedCanvasSpeciesPresentationCache,
   type CanvasPlantLabelSource,
   type CanvasSpeciesPresentationCache,
+  type SpeciesCacheEntry,
 } from '../presentation-data'
 import type { SceneEditingAids, SceneRendererHoverTarget, SceneRendererSnapshot } from '../renderers/scene-types'
-import type { PlantLabelMode } from '../plant-display'
-import type { SpeciesCacheEntry } from '../species-cache'
+import { DEFAULT_PLANT_DISPLAY, plantDisplaysEqual, type PlantDisplay, type PlantLabelMode } from '../plant-display'
+import { getMapBackdropInk, readCanvasPaintTokens, type CanvasBackdropInk, type CanvasMapBackdrop } from '../scene-visuals'
 import type {
   SceneDesignObjectTarget,
   ScenePersistedState,
@@ -16,6 +17,7 @@ import type {
   SceneStateReader,
 } from '../scene'
 import { isSceneDesignObjectLocked, isSceneTargetLayerLocked, sceneContainsTarget } from '../scene'
+import type { UnitSystem } from '../../../utils/format'
 import { projectSceneSelectionEntityIds } from './selection'
 
 interface SceneRuntimePresentationControllerOptions {
@@ -23,6 +25,7 @@ interface SceneRuntimePresentationControllerOptions {
   /** The live frame's scale, for plant presentation contexts (`view.pixelsPerMetre`). */
   readPixelsPerMetre(): number
   getLocale(): string
+  getUnitSystem?(): UnitSystem
   resolveHighlightedTargets(scene: ScenePersistedState): {
     plantIds: readonly string[]
     zoneIds: readonly string[]
@@ -43,6 +46,7 @@ export class SceneRuntimePresentationController {
   private readonly _sceneStore: SceneStateReader
   private readonly _readPixelsPerMetre: () => number
   private readonly _getLocale: () => string
+  private readonly _getUnitSystem: () => UnitSystem
   private readonly _resolveHighlightedTargets: SceneRuntimePresentationControllerOptions['resolveHighlightedTargets']
   private readonly _onPlantNamesChanged: () => void
   private readonly _speciesCache: CanvasSpeciesPresentationCache
@@ -53,11 +57,14 @@ export class SceneRuntimePresentationController {
   private _presentedLayerNames: ReadonlySet<string> | null = null
   /** The workspace's grid (SceneCanvasRuntime's, while the chrome shows and the grid is on); null draws none. */
   private _editingAids: SceneEditingAids | null = null
+  private _plantDisplay: PlantDisplay = DEFAULT_PLANT_DISPLAY
+  private _mapBackdrop: CanvasMapBackdrop = 'basemap'
 
   constructor(options: SceneRuntimePresentationControllerOptions) {
     this._sceneStore = options.sceneStore
     this._readPixelsPerMetre = options.readPixelsPerMetre
     this._getLocale = options.getLocale
+    this._getUnitSystem = options.getUnitSystem ?? (() => 'metric')
     this._resolveHighlightedTargets = options.resolveHighlightedTargets
     this._onPlantNamesChanged = options.onPlantNamesChanged
     this._speciesCache = options.speciesCache ?? createDetachedCanvasSpeciesPresentationCache()
@@ -76,10 +83,6 @@ export class SceneRuntimePresentationController {
     return this._plantLabels.getEnglishFallbackSnapshot(this._getLocale())
   }
 
-  getSuggestedPlantColor(canonicalName: string): string | null {
-    return this._speciesCache.getSuggestedPlantColor(canonicalName)
-  }
-
   createPlantPresentationContext(
     viewportScale = this._readPixelsPerMetre(),
     plants: readonly ScenePlantEntity[] = this._sceneStore.persisted.plants,
@@ -89,7 +92,32 @@ export class SceneRuntimePresentationController {
       pixelsPerMetre: viewportScale,
       speciesCache: this._speciesCache.getCache(),
       localizedCommonNames: this.getLocalizedCommonNames(),
+      plantDisplay: this._plantDisplay,
     }
+  }
+
+  getPlantDisplay(): PlantDisplay {
+    return this._plantDisplay
+  }
+
+  setPlantDisplay(display: PlantDisplay): boolean {
+    if (plantDisplaysEqual(this._plantDisplay, display)) return false
+    this._plantDisplay = display
+    return true
+  }
+
+  getMapBackdrop(): CanvasMapBackdrop {
+    return this._mapBackdrop
+  }
+
+  getBackdropInk(): CanvasBackdropInk {
+    return getMapBackdropInk(this._mapBackdrop)
+  }
+
+  setMapBackdrop(backdrop: CanvasMapBackdrop): boolean {
+    if (this._mapBackdrop === backdrop) return false
+    this._mapBackdrop = backdrop
+    return true
   }
 
   /**
@@ -122,7 +150,9 @@ export class SceneRuntimePresentationController {
     if (presented) return this.buildPresentedSnapshot(presented, options.overview === true)
     const scene = this._sceneStore.persisted
     const session = this._sceneStore.session
-    if (options.overview) return buildOverviewRendererSnapshot(scene, session.speciesFocus)
+    if (options.overview) {
+      return buildOverviewRendererSnapshot(scene, session.speciesFocus, this._plantDisplay, this._mapBackdrop)
+    }
     const hoveredPlant = session.hoveredTarget?.kind === 'plant'
       ? scene.plants.find((plant) => plant.id === session.hoveredTarget?.id)
       : null
@@ -143,11 +173,21 @@ export class SceneRuntimePresentationController {
       ...selectionProjection,
       highlightedPlantIds: new Set(highlightedTargets.plantIds),
       highlightedZoneIds: new Set(highlightedTargets.zoneIds),
+      highlightedAnnotationIds: new Set(),
+      highlightedMeasurementGuideIds: new Set(),
       speciesCache: this._speciesCache.getCache(),
       localizedCommonNames,
       hoveredCanonicalName: hoveredPlant?.canonicalName ?? null,
       hoverTarget: getRendererHoverTarget(scene, session.hoveredTarget),
+      plantDisplay: this._plantDisplay,
+      mapBackdrop: this._mapBackdrop,
+      backdropInk: getMapBackdropInk(this._mapBackdrop),
+      paintTokens: readCanvasPaintTokens(),
+      annotationFontEpoch: getAnnotationFontEpoch(),
       ...this._editingAids ? { editingAids: this._editingAids } : {},
+      groundMeasure: this._sceneStore.sessionPlane,
+      unitSystem: this._getUnitSystem(),
+      locale: this._getLocale(),
     }
   }
 
@@ -167,13 +207,15 @@ export class SceneRuntimePresentationController {
 
   /**
    * A snapshot for an off-screen view capture: the persisted scene with only
-   * the requested layers visible, no selection, hover or panel highlight.
+   * the requested layers visible, the view's highlighted objects (2.1-Q352),
+   * and no selection, hover or panel highlight.
    */
   buildViewCaptureSnapshot(request: {
     readonly overview: boolean
     readonly visibleLayerNames: readonly string[]
     readonly focusedSpecies: string | null
     readonly plantLabels?: PlantLabelMode
+    readonly highlightedObjects?: readonly { readonly kind: string; readonly id: string }[]
   }): SceneRendererSnapshot {
     const persisted = this._sceneStore.persisted
     const visible = new Set(request.visibleLayerNames)
@@ -182,10 +224,26 @@ export class SceneRuntimePresentationController {
       layers: persisted.layers.map((layer) => ({ ...layer, visible: visible.has(layer.name) })),
     }
     const speciesFocus = { canonicalName: request.focusedSpecies }
-    if (request.overview) return buildOverviewRendererSnapshot(scene, speciesFocus)
+    if (request.overview) {
+      return buildOverviewRendererSnapshot(scene, speciesFocus, this._plantDisplay, this._mapBackdrop)
+    }
     const localizedCommonNames = this.getLocalizedCommonNames()
     const speciesCache = this._speciesCache.getCache()
     const selectionLabelPlantIds = new Set<string>()
+    const plantIds = new Set(scene.plants.map((plant) => plant.id))
+    const zoneIds = new Set(scene.zones.map((zone) => zone.id))
+    const annotationIds = new Set(scene.annotations.map((annotation) => annotation.id))
+    const guideIds = new Set(scene.measurementGuides.map((guide) => guide.id))
+    const highlightedPlantIds = new Set<string>()
+    const highlightedZoneIds = new Set<string>()
+    const highlightedAnnotationIds = new Set<string>()
+    const highlightedMeasurementGuideIds = new Set<string>()
+    for (const object of request.highlightedObjects ?? []) {
+      if (object.kind === 'plant' && plantIds.has(object.id)) highlightedPlantIds.add(object.id)
+      else if (object.kind === 'zone' && zoneIds.has(object.id)) highlightedZoneIds.add(object.id)
+      else if (object.kind === 'annotation' && annotationIds.has(object.id)) highlightedAnnotationIds.add(object.id)
+      else if (object.kind === 'measurement-guide' && guideIds.has(object.id)) highlightedMeasurementGuideIds.add(object.id)
+    }
     return {
       scene,
       speciesFocus,
@@ -195,13 +253,23 @@ export class SceneRuntimePresentationController {
       selectedZoneIds: new Set(),
       selectedAnnotationIds: new Set(),
       selectedMeasurementGuideIds: new Set(),
-      highlightedPlantIds: new Set(),
-      highlightedZoneIds: new Set(),
+      highlightedPlantIds,
+      highlightedZoneIds,
+      highlightedAnnotationIds,
+      highlightedMeasurementGuideIds,
       speciesCache,
       localizedCommonNames,
       hoveredCanonicalName: null,
       hoverTarget: null,
+      plantDisplay: this._plantDisplay,
+      mapBackdrop: this._mapBackdrop,
+      backdropInk: getMapBackdropInk(this._mapBackdrop),
+      paintTokens: readCanvasPaintTokens(),
+      annotationFontEpoch: getAnnotationFontEpoch(),
       ...request.plantLabels ? { plantLabels: request.plantLabels } : {},
+      groundMeasure: this._sceneStore.sessionPlane,
+      unitSystem: this._getUnitSystem(),
+      locale: this._getLocale(),
     }
   }
 
@@ -250,6 +318,8 @@ function editingAidsEqual(a: SceneEditingAids | null, b: SceneEditingAids | null
 function buildOverviewRendererSnapshot(
   scene: ScenePersistedState,
   speciesFocus: SceneRendererSnapshot['speciesFocus'],
+  plantDisplay: PlantDisplay,
+  mapBackdrop: CanvasMapBackdrop,
 ): SceneRendererSnapshot {
   return {
     scene: {
@@ -269,10 +339,17 @@ function buildOverviewRendererSnapshot(
     selectedMeasurementGuideIds: new Set(),
     highlightedPlantIds: new Set(),
     highlightedZoneIds: new Set(),
+    highlightedAnnotationIds: new Set(),
+    highlightedMeasurementGuideIds: new Set(),
     speciesCache: new Map(),
     localizedCommonNames: new Map(),
     hoveredCanonicalName: null,
     hoverTarget: null,
+    plantDisplay,
+    mapBackdrop,
+    backdropInk: getMapBackdropInk(mapBackdrop),
+    paintTokens: readCanvasPaintTokens(),
+    annotationFontEpoch: getAnnotationFontEpoch(),
   }
 }
 

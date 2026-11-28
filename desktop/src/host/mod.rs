@@ -10,22 +10,31 @@
 
 pub mod dialogs;
 pub mod exit;
+pub mod home;
 pub mod launch;
+pub mod permissions;
 pub mod single_instance;
 pub mod updater;
+pub mod window_state;
 
 /// The host's part of the builder: the pending-open slot, holding this launch's own file before
 /// any forwarded launch can arrive, then the single-instance plugin first and the dialog plugin,
 /// the dialogs' state with this build's picker (made once the app exists) and the window hook that settles a destroyed window's pick as cancelled.
 /// `lib.rs` only calls this.
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
+    let file_grants = std::sync::Arc::new(home::FileGrantRegistry::default());
     builder
-        .manage(launch::PendingOpenSlot::first_launch())
+        .manage(launch::PendingOpenSlot::first_launch_with_grants(
+            &file_grants,
+        ))
+        .manage(file_grants)
         .plugin(single_instance::plugin())
+        .plugin(window_state::plugin())
         .plugin(tauri_plugin_dialog::init())
         .plugin(dialogs::plugin())
         .plugin(updater::plugin())
         .manage(updater::UpdaterHost::production())
+        .on_permission_request(permissions::handle_request)
         .on_window_event(|window, event| {
             if matches!(event, tauri::WindowEvent::Destroyed) {
                 use tauri::Manager as _;

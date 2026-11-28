@@ -17,7 +17,11 @@ import {
   saveAsCurrentDesign,
   saveCurrentDesignEdits,
 } from '../document-session/actions'
-import { currentDesign as currentDesignSignal, designPath } from '../document-session/store'
+import {
+  currentDesign as currentDesignSignal,
+  designPath,
+  designRecentId,
+} from '../document-session/store'
 import type {
   CanopiFile,
   DesignNotebookEntry,
@@ -26,6 +30,7 @@ import type {
   DesignSummary,
 } from '../../types/design'
 import { createMutationQueue } from '../mutation-queue'
+import { normaliseObjectName } from '../contracts/object-name'
 
 const MAX_RECENT_DESIGNS = 5
 
@@ -75,6 +80,7 @@ interface CreateDesignNotebookWorkbenchOptions {
   readonly reorderEntries?: typeof reorderDesignReferences
   readonly relocateEntry?: typeof relocateDesignReference
   readonly activePath?: ReadonlySignal<string | null>
+  readonly activeRecentId?: ReadonlySignal<string | null>
   readonly currentDesign?: ReadonlySignal<CanopiFile | null>
 }
 
@@ -96,6 +102,7 @@ export function createDesignNotebookWorkbench(
   const reorderEntriesAdapter = options.reorderEntries ?? reorderDesignReferences
   const relocateEntryAdapter = options.relocateEntry ?? relocateDesignReference
   const activePath = options.activePath ?? designPath
+  const activeRecentId = options.activeRecentId ?? designRecentId
   const currentDesign = options.currentDesign ?? currentDesignSignal
 
   const entries = signal<readonly DesignNotebookEntry[]>([])
@@ -109,17 +116,23 @@ export function createDesignNotebookWorkbench(
   let recentGeneration = 0
 
   const view = computed<DesignNotebookView>(() => {
-    const currentPath = activePath.value
-    const currentPathListed = currentPath !== null && entries.value.some((entry) => entry.path === currentPath)
+    const currentKey = activePath.value
+    const currentRecentId = activeRecentId.value
+    const matchedEntry = entries.value.find(
+      (entry) =>
+        (currentRecentId !== null && entry.recent_id === currentRecentId)
+        || (currentKey !== null && (entry.grant === currentKey || entry.path === currentKey)),
+    )
+    const resolvedActivePath = matchedEntry ? matchedEntry.path : currentKey
 
     return {
       entries: entries.value,
       visibleEntries: entries.value,
       sections: sections.value,
       recentEntries: recentEntries.value,
-      canAddCurrentDesign: currentDesign.value !== null && !currentPathListed,
-      currentDesignPath: currentPath,
-      activePath: currentPath,
+      canAddCurrentDesign: currentDesign.value !== null && matchedEntry === undefined,
+      currentDesignPath: resolvedActivePath,
+      activePath: resolvedActivePath,
       loading: loading.value,
       loadError: loadError.value,
     }
@@ -201,7 +214,20 @@ export function createDesignNotebookWorkbench(
   async function openEntry(path: string): Promise<void> {
     if (queue.disposed) return
     const admittedLifetime = queue.lifetime
-    await openDesign(path)
+    const notebook = entries.value.find((entry) => entry.path === path)
+    const recent = recentEntries.value.find((entry) => entry.path === path)
+    const grant = notebook?.grant ?? recent?.grant
+    const recentId = notebook?.recent_id ?? recent?.recent_id
+    const displayName = path.split(/[\\/]/).filter(Boolean).pop() ?? notebook?.name ?? recent?.name
+    if (!grant) {
+      await load()
+      return
+    }
+    await openDesign(grant, {
+      grant,
+      ...(displayName ? { displayName } : {}),
+      ...(recentId ? { recentId } : {}),
+    })
     if (!queue.isCurrent(admittedLifetime)) return
   }
 
@@ -215,7 +241,7 @@ export function createDesignNotebookWorkbench(
         currentDesign.value !== admittedDesign
         || activePath.value !== admittedPath
       ) return false
-      let savedPath: string
+      let savedKey: string
       let savedDesign: CanopiFile
       if (admittedPath) {
         // A file home holds every edit once continuous save flushes (not a Save: a clean file is not rewritten).
@@ -223,34 +249,42 @@ export function createDesignNotebookWorkbench(
         if (!queue.isCurrent(admittedLifetime)) return false
         const design = currentDesign.value
         if (!written || activePath.value !== admittedPath || !design) return false
-        savedPath = admittedPath
+        savedKey = admittedPath
         savedDesign = design
       } else {
         const settlement = await saveAsCurrent()
         if (!queue.isCurrent(admittedLifetime)) return false
         if (settlement?.status !== 'applied' || !settlement.path) return false
-        savedPath = settlement.path
-        savedDesign = settlement.content
+        savedKey = settlement.path
+        savedDesign = settlement.content as unknown as Readonly<CanopiFile>
       }
 
-      await addDesignReferenceAdapter(savedPath, savedDesign)
+      await addDesignReferenceAdapter(savedKey, savedDesign)
       if (!queue.isCurrent(admittedLifetime)) return false
       const snapshot = await loadNotebook()
       if (!queue.isCurrent(admittedLifetime)) return false
       writeSnapshot(snapshot)
 
+      const currentRecentId = activeRecentId.value
+      const addedEntry = snapshot.entries.find(
+        (entry) =>
+          (currentRecentId !== null && entry.recent_id === currentRecentId)
+          || entry.grant === savedKey
+          || entry.path === savedKey,
+      )
+      const storedPath = addedEntry?.path ?? savedKey
       const targetSectionId = validSectionId(sectionId, sections.value)
       if (targetSectionId) {
-        await moveEntryToSectionAdapter(savedPath, targetSectionId)
+        await moveEntryToSectionAdapter(storedPath, targetSectionId)
         if (!queue.isCurrent(admittedLifetime)) return false
         entries.value = entries.value.map((entry) =>
-          entry.path === savedPath
+          entry.path === storedPath
             ? { ...entry, section_id: targetSectionId }
             : entry
         )
       }
 
-      return entries.value.some((entry) => entry.path === savedPath)
+      return entries.value.some((entry) => entry.path === storedPath)
     })
   }
 
@@ -264,8 +298,9 @@ export function createDesignNotebookWorkbench(
   }
 
   function createSection(name: string): Promise<void> {
-    const normalizedName = normalizeSectionName(name)
-    if (!normalizedName) return Promise.resolve()
+    const normalised = normaliseObjectName(name)
+    if (!normalised.ok) return Promise.resolve()
+    const normalizedName = normalised.name
     return queue.enqueue(undefined, async (admittedLifetime) => {
       const section = await createSectionAdapter(normalizedName)
       if (!queue.isCurrent(admittedLifetime)) return
@@ -274,8 +309,9 @@ export function createDesignNotebookWorkbench(
   }
 
   function renameSection(sectionId: string, name: string): Promise<void> {
-    const normalizedName = normalizeSectionName(name)
-    if (!normalizedName) return Promise.resolve()
+    const normalised = normaliseObjectName(name)
+    if (!normalised.ok) return Promise.resolve()
+    const normalizedName = normalised.name
     return queue.enqueue(undefined, async (admittedLifetime) => {
       await renameSectionAdapter(sectionId, normalizedName)
       if (!queue.isCurrent(admittedLifetime)) return
@@ -394,10 +430,6 @@ export function createDesignNotebookWorkbench(
 }
 
 export const designNotebookWorkbench = createDesignNotebookWorkbench()
-
-function normalizeSectionName(value: string): string {
-  return value.trim()
-}
 
 function validSectionId(
   sectionId: string | null,

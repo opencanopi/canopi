@@ -1,10 +1,7 @@
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
-import { afterEach, describe, expect, it } from 'vitest'
+import { decodeCanopiDesign, encodeCanopiDesign } from './support/design-wire'
+import { describe, expect, it } from 'vitest'
 import { allocateSpeciesCodes } from '../canvas/runtime/species-key'
-import { DEFAULT_PLANT_DISPLAY, setCanvasPlantDisplay } from '../canvas/runtime/plant-display'
-
-afterEach(() => { setCanvasPlantDisplay(DEFAULT_PLANT_DISPLAY) })
+import { DEFAULT_PLANT_DISPLAY } from '../canvas/runtime/plant-display'
 
 describe('Species codes', () => {
   it('assigns readable unique codes independently of plant order', () => {
@@ -98,9 +95,9 @@ it('admits short codes at detail scale while keeping dense labels collision-free
     plantedDate: null,
     quantity: 1,
   }))
-  setCanvasPlantDisplay({ ...DEFAULT_PLANT_DISPLAY, labels: 'codes' })
   const snapshot = createTestSceneRendererSnapshot({
     scene: { plants, plantSpeciesCodes: { 'Mentha spicata': 'MSP' } },
+    plantDisplay: { ...DEFAULT_PLANT_DISPLAY, labels: 'codes' },
   })
   const pixelsPerMetre = 60
   const labels = getCanvasPlantNameLabels(snapshot, pixelsPerMetre)
@@ -111,11 +108,8 @@ it('admits short codes at detail scale while keeping dense labels collision-free
     getCanvasPlantNameLabels(snapshot, 10),
   ).toEqual([])
   // Names need 100 px/m; Labels › None admits no automatic label at any scale.
-  setCanvasPlantDisplay({ ...DEFAULT_PLANT_DISPLAY, labels: 'names' })
-  expect(getCanvasPlantNameLabels(snapshot, pixelsPerMetre)).toEqual([])
-  setCanvasPlantDisplay({ ...DEFAULT_PLANT_DISPLAY, labels: 'none' })
-  expect(getCanvasPlantNameLabels(snapshot, 400)).toEqual([])
-  setCanvasPlantDisplay({ ...DEFAULT_PLANT_DISPLAY, labels: 'codes' })
+  expect(getCanvasPlantNameLabels({ ...snapshot, plantDisplay: { ...DEFAULT_PLANT_DISPLAY, labels: 'names' } }, pixelsPerMetre)).toEqual([])
+  expect(getCanvasPlantNameLabels({ ...snapshot, plantDisplay: { ...DEFAULT_PLANT_DISPLAY, labels: 'none' } }, 400)).toEqual([])
   expect(
     getCanvasPlantNameLabels({
       ...snapshot,

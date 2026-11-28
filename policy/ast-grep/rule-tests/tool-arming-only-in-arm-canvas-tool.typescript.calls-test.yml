@@ -10,3 +10,6 @@ invalid:
   - "commands!['setTool']('rectangle')"
   - "surface?.[\"setTool\"]('line')"
   - "surface.setTool!('line')"
+  - "host.arm('plant')"
+  - "tools?.arm('select')"
+  - "commands!['arm']('rectangle')"

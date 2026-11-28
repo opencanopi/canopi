@@ -195,10 +195,10 @@
 }
 
 /* Web on phones: the status stays and its action waits in File. */
-:global([data-phone-layout]) .status {
+:global([data-layout]) .status {
   font-size: var(--text-xs);
 }
 
-:global([data-phone-layout]) .link {
+:global([data-layout]) .link {
   display: none;
 }

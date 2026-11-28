@@ -5,7 +5,7 @@
   "owners": [
     "desktop/src/services/lidar/analyses/terrain.rs",
     "canopi-types/analysis-registry.json",
-    "app/lidar/item-types.ts",
+    "app/data-library/item-types.ts",
     "i18n/"
   ],
   "ideal": 8,
@@ -29,15 +29,15 @@
         "desktop/src/services/lidar/analyses/mod.rs",
         "desktop/src/services/lidar/analyses/windowed.rs",
         "desktop/src/services/lidar/analyses/tests.rs",
-        "app/lidar/item-types.ts",
-        "app/lidar/value-format.ts",
+        "app/data-library/item-types.ts",
+        "app/data-library/value-format.ts",
         "components/panels/lidar/RasterDisplayControls.tsx",
-        "app/lidar/display-legend.ts",
+        "app/data-library/display-legend.ts",
         "i18n/",
         "__tests__/item-types.test.ts",
-        "app/lidar/value-format.test.ts",
-        "app/lidar/display-legend.test.ts",
-        "desktop/web/ui-gallery/memory-backend.ts"
+        "app/data-library/value-format.test.ts",
+        "app/data-library/display-legend.test.ts",
+        "desktop/web/src/editions/gallery/command-adapter.ts"
       ],
       "count": 12
     }

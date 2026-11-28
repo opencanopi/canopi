@@ -3,29 +3,33 @@ import { useEffect, useId, useState } from 'preact/hooks'
 import { openAboutCanopiDialog } from '../../app/about/state'
 import { CANOPI_VERSION } from '../../app/about/metadata'
 import { setBasemapStyle, setSoftenBackground } from '../../app/map-layers/actions'
-import { mapLayers } from '../../app/map-layers/state'
-import { mutateSettingsProjection, type SettingsPersistMode } from '../../app/settings/projection'
+import { mutateSettingsProjection, type SettingsPersistMode, type SettingsProjectionDraft } from '../../app/settings/projection'
 import {
   locale,
+  mapLayers,
   newDesignDefaults,
   scrollWheel,
   singleKeyShortcuts,
   theme,
+  unitSystem,
   type NewDesignDefaults,
 } from '../../app/settings/state'
 import {
   closeSettingsDialog,
   openKeyboardShortcutsDialog,
   settingsDialogOpen,
+  settingsDialogSectionRequest,
+  settingsDialogSectionShown,
 } from '../../app/shell/dialogs'
 import { toggleToolNames, toolRailShowsNames } from '../../app/tool-rail/learning'
 import { modKeyName } from '../../app/shell-commands/shortcut-text'
 import { PLANT_SYMBOL_SCALE_MAX, PLANT_SYMBOL_SCALE_MIN } from '../../canvas/runtime/plant-display'
 import type { AppFolder, AppFolderLocations, BasemapStyle, PlantLabels, ScrollWheel } from '../../generated/contracts'
+import type { UnitSystem } from '../../generated/quantity-table'
 import { SETTINGS_BASEMAP_STYLES } from '../../generated/settings'
 import type { Locale, Theme } from '../../types/settings'
-import { readFailureCode } from '../../failures/store-read'
 import { t } from '../../i18n'
+import { formatPercent } from '../../utils/format'
 import { ControlIcon, type ControlIconName } from './ControlIcon'
 import { Dropdown, type DropdownItem } from './Dropdown'
 import { SegmentedControl } from './SegmentedControl'
@@ -35,32 +39,24 @@ import { Slider } from './Slider'
 import { WorkspaceDialog } from './WorkspaceDialog'
 import styles from './SettingsDialog.module.css'
 import type { LocaleKey } from '../../generated/locale-keys'
+import { LOCALE_PICKER_ORDER } from '../../generated/locale-registry'
 
-/** Each language in its own name, so anyone can find theirs. */
-const LANGUAGE_ITEMS: DropdownItem<Locale>[] = [
-  { value: 'en', label: 'English' },
-  { value: 'fr', label: 'Français' },
-  { value: 'es', label: 'Español' },
-  { value: 'pt', label: 'Português' },
-  { value: 'it', label: 'Italiano' },
-  { value: 'de', label: 'Deutsch' },
-  { value: 'nl', label: 'Nederlands' },
-  { value: 'ru', label: 'Русский' },
-  { value: 'zh', label: '中文' },
-  { value: 'ja', label: '日本語' },
-  { value: 'ko', label: '한국어' },
-]
+/** Each language in its own name in picker order (Latin, Cyrillic, CJK; from the L6 locale registry). */
+const LANGUAGE_ITEMS: DropdownItem<Locale>[] = LOCALE_PICKER_ORDER.map((entry) => ({
+  value: entry.code,
+  label: entry.endonym,
+}))
 
 type SettingsSectionId = 'appearance' | 'map' | 'canvas' | 'new-designs' | 'keyboard' | 'files' | 'about'
 
-const SECTIONS: readonly { readonly id: SettingsSectionId; readonly icon: ControlIconName; readonly labelKey: LocaleKey }[] = [
-  { id: 'appearance', icon: 'sun', labelKey: 'settings.appearance' },
-  { id: 'map', icon: 'image', labelKey: 'settings.mapAndImagery' },
-  { id: 'canvas', icon: 'fit', labelKey: 'settings.canvas' },
-  { id: 'new-designs', icon: 'plus', labelKey: 'settings.newDesigns' },
-  { id: 'keyboard', icon: 'keyboard', labelKey: 'settings.keyboard' },
-  { id: 'files', icon: 'folder-open', labelKey: 'settings.filesAndData' },
-  { id: 'about', icon: 'info', labelKey: 'settings.about' },
+const SECTIONS: readonly (readonly [SettingsSectionId, ControlIconName, LocaleKey])[] = [
+  ['appearance', 'sun', 'settings.appearance'],
+  ['map', 'image', 'settings.mapAndImagery'],
+  ['canvas', 'fit', 'settings.canvas'],
+  ['new-designs', 'plus', 'settings.newDesigns'],
+  ['keyboard', 'keyboard', 'settings.keyboard'],
+  ['files', 'folder-open', 'settings.filesAndData'],
+  ['about', 'info', 'settings.about'],
 ]
 
 /**
@@ -77,35 +73,41 @@ export interface SettingsFoldersAdapter {
  * File › Settings… (Ctrl ,): device preferences, never stored in a Design. `updates` is the Desktop root's
  * LaunchCheckSwitch, shown in About as given and never tested here, so Web shows no updater (ADR 0030, 2.1-Q201).
  */
-export function SettingsDialog({ folders, updates }: { readonly folders?: SettingsFoldersAdapter, readonly updates?: ComponentChildren }) {
+export function SettingsDialog({ folders, updates }: { readonly folders?: SettingsFoldersAdapter | undefined, readonly updates?: ComponentChildren | undefined }) {
   if (!settingsDialogOpen.value) return null
   return <SettingsDialogContent folders={folders} updates={updates} />
 }
 
 function SettingsDialogContent({ folders, updates }: { readonly folders?: SettingsFoldersAdapter, readonly updates?: ComponentChildren }) {
-  const [active, setActive] = useState<SettingsSectionId>('appearance')
+  const [active, setActive] = useState<SettingsSectionId>(() => settingsDialogSectionRequest.peek()?.section ?? 'appearance')
+  const requestedSection = settingsDialogSectionRequest.value
+  useEffect(() => {
+    if (!requestedSection) return
+    setActive(requestedSection.section)
+    settingsDialogSectionShown()
+  }, [requestedSection])
   const id = useId()
-  const section = SECTIONS.find((candidate) => candidate.id === active)!
+  const section = SECTIONS.find(([sid]) => sid === active)!
   return (
     <WorkspaceDialog title={t('settings.title')} onClose={closeSettingsDialog} wide>
       <div className={styles.layout}>
         <nav className={styles.nav} aria-label={t('settings.sections')}>
-          {SECTIONS.map((candidate) => (
+          {SECTIONS.map(([sid, icon, labelKey]) => (
             <button
-              key={candidate.id}
+              key={sid}
               type="button"
               className={styles.navItem}
-              aria-current={candidate.id === active ? 'page' : undefined}
-              data-settings-section={candidate.id}
-              onClick={() => setActive(candidate.id)}
+              aria-current={sid === active ? 'page' : undefined}
+              data-settings-section={sid}
+              onClick={() => setActive(sid)}
             >
-              <ControlIcon name={candidate.icon} size={18} />
-              {t(candidate.labelKey)}
+              <ControlIcon name={icon} size={18} />
+              {t(labelKey)}
             </button>
           ))}
         </nav>
         <section className={styles.section} aria-labelledby={`${id}-heading`}>
-          <h3 className={styles.heading} id={`${id}-heading`}>{t(section.labelKey)}</h3>
+          <h3 className={styles.heading} id={`${id}-heading`}>{t(section[2])}</h3>
           {active === 'appearance' && <AppearanceSection />}
           {active === 'map' && <MapSection />}
           {active === 'canvas' && <CanvasSection />}
@@ -119,23 +121,33 @@ function SettingsDialogContent({ folders, updates }: { readonly folders?: Settin
   )
 }
 
+const setSetting = <K extends keyof SettingsProjectionDraft>(key: K, value: SettingsProjectionDraft[K]): void => {
+  mutateSettingsProjection((settings) => { settings[key] = value })
+}
+const opt = <T extends string>(value: T, labelKey: LocaleKey) => ({ value, label: t(labelKey) })
+
+function SettingField({ label, hint, children }: { readonly label: LocaleKey, readonly hint?: LocaleKey, readonly children: ComponentChildren }) {
+  return (
+    <div className={styles.field}>
+      <span className={styles.label}>{t(label)}</span>
+      {children}
+      {hint && <span className={styles.hint}>{t(hint)}</span>}
+    </div>
+  )
+}
+
 function AppearanceSection() {
   const currentLanguage = LANGUAGE_ITEMS.find((item) => item.value === locale.value)
   return <>
-    <div className={styles.field}>
-      <span className={styles.label}>{t('settings.theme')}</span>
+    <SettingField label="settings.theme">
       <SegmentedControl<Theme>
         label={t('settings.theme')}
         value={theme.value}
-        options={[
-          { value: 'light', label: t('theme.light') },
-          { value: 'dark', label: t('theme.dark') },
-        ]}
-        onChange={(next) => mutateSettingsProjection((settings) => { settings.theme = next }, { persist: 'immediate' })}
+        options={[opt('light', 'theme.light'), opt('dark', 'theme.dark')]}
+        onChange={(next) => setSetting('theme', next)}
       />
-    </div>
-    <div className={styles.field}>
-      <span className={styles.label}>{t('settings.language')}</span>
+    </SettingField>
+    <SettingField label="settings.language">
       <Dropdown<Locale>
         trigger={currentLanguage?.label ?? locale.value}
         items={LANGUAGE_ITEMS}
@@ -143,9 +155,17 @@ function AppearanceSection() {
         ariaLabel={t('settings.language')}
         preserveOverlays
         floating
-        onChange={(next) => mutateSettingsProjection((settings) => { settings.locale = next }, { persist: 'immediate' })}
+        onChange={(next) => setSetting('locale', next)}
       />
-    </div>
+    </SettingField>
+    <SettingField label="settings.units.label">
+      <SegmentedControl<UnitSystem>
+        label={t('settings.units.label')}
+        value={unitSystem.value}
+        options={[opt('metric', 'settings.units.metric'), opt('us_customary', 'settings.units.usCustomary')]}
+        onChange={(next) => setSetting('unitSystem', next)}
+      />
+    </SettingField>
     <Switch
       label={t('settings.toolNames')}
       hint={t('settings.toolNamesHint')}
@@ -160,8 +180,7 @@ function MapSection() {
   return <>
     <SettingsGoogleKeyField />
     <div className={styles.rule} />
-    <div className={styles.field}>
-      <span className={styles.label}>{t('settings.mapStyle')}</span>
+    <SettingField label="settings.mapStyle">
       <Dropdown<BasemapStyle>
         trigger={t(`canvas.basemap.styles.${style}`)}
         items={SETTINGS_BASEMAP_STYLES.map((value) => ({ value, label: t(`canvas.basemap.styles.${value}`) }))}
@@ -171,7 +190,7 @@ function MapSection() {
         floating
         onChange={setBasemapStyle}
       />
-    </div>
+    </SettingField>
     <Switch
       label={t('speciesKey.softenBackground')}
       hint={t('speciesKey.softenBackgroundHint')}
@@ -187,21 +206,16 @@ function MapSection() {
  * the pointer. Trackpad (`pan`): two fingers pan and a pinch zooms. The Select tool card follows it.
  */
 function CanvasSection() {
-  return <>
-    <div className={styles.field}>
-      <span className={styles.label}>{t('settings.pointingDevice')}</span>
+  return (
+    <SettingField label="settings.pointingDevice" hint="settings.pointingDeviceHint">
       <SegmentedControl<ScrollWheel>
         label={t('settings.pointingDevice')}
         value={scrollWheel.value}
-        options={[
-          { value: 'zoom', label: t('settings.pointingDeviceMouse') },
-          { value: 'pan', label: t('settings.pointingDeviceTrackpad') },
-        ]}
-        onChange={(next) => mutateSettingsProjection((settings) => { settings.scrollWheel = next }, { persist: 'immediate' })}
+        options={[opt('zoom', 'settings.pointingDeviceMouse'), opt('pan', 'settings.pointingDeviceTrackpad')]}
+        onChange={(next) => setSetting('scrollWheel', next)}
       />
-      <span className={styles.hint}>{t('settings.pointingDeviceHint')}</span>
-    </div>
-  </>
+    </SettingField>
+  )
 }
 
 function setNewDesignDefault(change: Partial<NewDesignDefaults>, persist: SettingsPersistMode = 'immediate'): void {
@@ -227,23 +241,18 @@ function NewDesignsSection() {
       max={PLANT_SYMBOL_SCALE_MAX * 100}
       step={10}
       value={sizePercent}
-      format={(percent) => new Intl.NumberFormat(locale.value, { style: 'percent' }).format(percent / 100)}
+      format={(percent) => formatPercent(percent / 100, locale.value)}
       // Slider-driven, so persistence is queued rather than written per step.
       onInput={(percent) => setNewDesignDefault({ symbolScale: percent / 100 }, 'queued')}
     />
-    <div className={styles.field}>
-      <span className={styles.label}>{t('speciesKey.labels')}</span>
+    <SettingField label="speciesKey.labels">
       <SegmentedControl<PlantLabels>
         label={t('speciesKey.labels')}
         value={defaults.labels}
-        options={[
-          { value: 'none', label: t('speciesKey.labelsNone') },
-          { value: 'codes', label: t('speciesKey.labelsCodes') },
-          { value: 'names', label: t('speciesKey.labelsNames') },
-        ]}
+        options={[opt('none', 'speciesKey.labelsNone'), opt('codes', 'speciesKey.labelsCodes'), opt('names', 'speciesKey.labelsNames')]}
         onChange={(labels) => setNewDesignDefault({ labels })}
       />
-    </div>
+    </SettingField>
   </>
 }
 
@@ -253,7 +262,7 @@ function KeyboardSection() {
       label={t('settings.singleKeyShortcuts')}
       hint={t('settings.singleKeyShortcutsHint', { mod: modKeyName(t) })}
       checked={singleKeyShortcuts.value}
-      onChange={(checked) => mutateSettingsProjection((settings) => { settings.singleKeyShortcuts = checked }, { persist: 'immediate' })}
+      onChange={(checked) => setSetting('singleKeyShortcuts', checked)}
     />
     <p className={styles.hint}>{t('settings.remapLater')}</p>
     <div>
@@ -271,11 +280,6 @@ function KeyboardSection() {
   </>
 }
 
-type FolderState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'ready'; readonly locations: AppFolderLocations }
-  | { readonly status: 'failed' }
-
 /**
  * Favourites belong to this computer or this browser, never to a Design (2.1-Q312), so the note shows whatever the
  * folders do; export and import wait for a second request (canopi-13lh).
@@ -290,41 +294,41 @@ function FilesSection({ folders }: { readonly folders?: SettingsFoldersAdapter }
 }
 
 function AppFolders({ folders }: { readonly folders: SettingsFoldersAdapter }) {
-  const [state, setState] = useState<FolderState>({ status: 'loading' })
+  const [locations, setLocations] = useState<AppFolderLocations | null | false>(null)
   const [failed, setFailed] = useState<AppFolder | null>(null)
 
   useEffect(() => {
     let live = true
     folders.load().then(
-      (locations) => { if (live) setState({ status: 'ready', locations }) },
+      (next) => { if (live) setLocations(next) },
       // The reason may name a path; it stays out of logs.
-      () => { if (live) setState({ status: 'failed' }) },
+      () => { if (live) setLocations(false) },
     )
     return () => { live = false }
   }, [folders])
 
-  if (state.status === 'loading') return <p className={styles.hint} role="status">{t('settings.filesLoading')}</p>
-  if (state.status === 'failed') return <p className={styles.status} role="alert">{t('settings.filesUnavailable')}</p>
+  if (locations === null) return <p className={styles.hint} role="status">{t('settings.filesLoading')}</p>
+  if (locations === false) return <p className={styles.status} role="alert">{t('settings.filesUnavailable')}</p>
 
-  const rows: readonly { readonly folder: AppFolder; readonly label: string; readonly hint: string; readonly path: string }[] = [
-    { folder: 'drafts', label: t('drafts.title'), hint: t('settings.draftsHint'), path: state.locations.drafts },
-    { folder: 'data_library', label: t('settings.dataLibrary'), hint: t('settings.dataLibraryHint'), path: state.locations.data_library },
+  const rows: readonly (readonly [AppFolder, LocaleKey, LocaleKey])[] = [
+    ['drafts', 'drafts.title', 'settings.draftsHint'],
+    ['data_library', 'settings.dataLibrary', 'settings.dataLibraryHint'],
   ]
   return <>
     <p className={styles.intro}>{t('settings.filesIntro')}</p>
-    {rows.map((row) => (
-      <div key={row.folder} className={styles.folder} data-app-folder={row.folder}>
+    {rows.map(([folder, label, hint]) => (
+      <div key={folder} className={styles.folder} data-app-folder={folder}>
         <div className={styles.folderText}>
-          <span className={styles.label}>{row.label}</span>
-          <span className={styles.hint}>{row.hint}</span>
-          <span className={styles.path}>{row.path}</span>
+          <span className={styles.label}>{t(label)}</span>
+          <span className={styles.hint}>{t(hint)}</span>
+          <span className={styles.path}>{locations[folder]}</span>
         </div>
         <button
           type="button"
           className={styles.button}
           onClick={() => {
             setFailed(null)
-            folders.show(row.folder).catch(() => setFailed(row.folder))
+            folders.show(folder).catch(() => setFailed(folder))
           }}
         >
           {t('settings.showInFolder')}
@@ -354,27 +358,8 @@ function AboutSection({ updates }: { readonly updates?: ComponentChildren }) {
   </>
 }
 
-/** The launch-check setting's own key row, `updater.check_at_launch`, through the host (2.1-M206). */
-export interface LaunchCheckPort {
-  get(): Promise<boolean>
-  /** Resolves once written, or once held for the session under settings a newer Canopi saved; rejects otherwise. */
-  set(on: boolean): Promise<void>
-}
-
-/**
- * The port over the host's row, holding a write the store refuses under settings a newer Canopi saved (2.1-Q320,
- * M487) until the app closes, so the About tab reads the user's value again when it remounts.
- */
-export function createLaunchCheckPort(get: () => Promise<boolean>, set: (on: boolean) => Promise<void>): LaunchCheckPort {
-  let session: boolean | null = null
-  return {
-    get: () => (session === null ? get() : Promise.resolve(session)),
-    set: (on) => set(on).then(() => { session = null }, (error: unknown) => {
-      if (readFailureCode(error).kind !== 'store_read_only') throw error
-      session = on
-    }),
-  }
-}
+import { createLaunchCheckPort, type LaunchCheckPort } from './launch-check-port'
+export { createLaunchCheckPort, type LaunchCheckPort }
 
 /**
  * "Check for updates at launch" (2.1-Q164): its own key row, on when the row is missing (the host's default), so the

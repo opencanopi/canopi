@@ -1,4 +1,5 @@
 import type { CanvasPrintSnapshot, PrintBounds, PrintPlant, PrintPoint } from '../../canvas/print'
+import { formatQuantity } from '../../utils/format'
 import type { PdfDestination, PdfEnclosure, PdfInput, PdfLegendEntry, PdfLink, PdfOperation, PdfPageReference } from './types'
 import type { PdfTextEngine, TextLine } from './text'
 import { MM } from './print-style'
@@ -8,7 +9,7 @@ import { nearestPlantSpacing } from '../../canvas/plant-spacing'
 import { contains, clipSegment, distance, hits, inflate, outlineSegments, type Segment } from './field-geometry'
 import { FieldSpace, type FieldLabel } from './field-placement'
 import { fieldDimensions } from './field-dimensions'
-import { appearanceKey, assignFieldIdentity, drawEnclosure, enclosureRadius, fieldIdentity } from './field-identity'
+import { appearanceKey, assignFieldIdentity, drawEnclosure, enclosureRadius, fieldIdentity, type FieldPredicate } from './field-identity'
 import { directAnnotation } from './field-annotations'
 import type { ZoneMeasurements } from './zone-measurements'
 import { zoneLabels } from './zone-labels'
@@ -54,7 +55,7 @@ const paper = (r: PrintBounds): PrintBounds => ({ x: r.x * MM, y: r.y * MM, widt
  * Allocated once from the whole Design, so cropping and locale never renumber a species; N, P and M follow the unturned
  * `plan` (top, then left, then id), so a code names the same object at every Map orientation.
  */
-export function fieldReferences(input: PdfInput, plan: CanvasPrintSnapshot, zones: readonly ZoneMeasurements[], fields?: readonly PrintBounds[]): FieldReferences {
+export function fieldReferences(input: PdfInput, plan: CanvasPrintSnapshot, zones: readonly ZoneMeasurements[], fields?: readonly FieldPredicate[]): FieldReferences {
   const codes = new Map(input.canvas.plants.map(p => [p.canonicalName, p.speciesCode ?? p.canonicalName]))
   const names = [...codes.keys()].sort((a, b) => codes.get(a)!.localeCompare(codes.get(b)!, 'en') || a.localeCompare(b, 'en'))
   return { zones, allPlants: input.canvas.plants, identities: assignFieldIdentity(input.canvas.plants, fields), species: new Map(names.map((name, i) => [name, String(i + 1).padStart(2, '0')])),
@@ -79,9 +80,9 @@ export function visibleFieldCanvas(canvas: CanvasPrintSnapshot, ground: PrintBou
 
 /** One pure physical layout feeds both the SVG preview and the encoder. */
 export function drawField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, scale: number, page: { id: string; width: number; height: number; reserved?: readonly PrintBounds[]; summary?: readonly TextLine[]; bodyTop?: number },
-  text: PdfTextEngine, references: FieldReferences): FieldDrawing {
+  text: PdfTextEngine, references: FieldReferences, groundDistance: (a: PrintPoint, b: PrintPoint) => number): FieldDrawing {
   let identities = new Map(fieldIdentity(input.canvas.plants, references.allPlants ?? input.canvas.plants, references.identities))
-  let best = layoutField(input, frame, ground, scale, page, text, references, identities)
+  let best = layoutField(input, frame, ground, scale, page, text, references, identities, groundDistance)
   const unresolved = (drawing: FieldDrawing) => drawing.identifiedPlants.filter(p => !p.bounds.width).reduce((n, p) => n + p.ids.length, 0)
   // Spend enclosures where guide ink prevents a direct code; keep the retry budget bounded.
   if (unresolved(best) > 8) return best
@@ -98,7 +99,7 @@ export function drawField(input: PdfInput, frame: PrintBounds, ground: PrintBoun
       const candidate = new Map(identities)
       for (const p of donors) candidate.set(p.id, 'code')
       for (const p of members) candidate.set(p.id, style)
-      const drawing = layoutField(input, frame, ground, scale, page, text, references, candidate)
+      const drawing = layoutField(input, frame, ground, scale, page, text, references, candidate, groundDistance)
       if (unresolved(drawing) >= unresolved(best)) continue
       identities = candidate; best = drawing; break
     }
@@ -108,7 +109,7 @@ export function drawField(input: PdfInput, frame: PrintBounds, ground: PrintBoun
 }
 
 function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, scale: number, page: { id: string; width: number; height: number; reserved?: readonly PrintBounds[]; summary?: readonly TextLine[]; bodyTop?: number },
-  text: PdfTextEngine, references: FieldReferences, identities: ReadonlyMap<string, PdfEnclosure>): FieldDrawing {
+  text: PdfTextEngine, references: FieldReferences, identities: ReadonlyMap<string, PdfEnclosure>, groundDistance: (a: PrintPoint, b: PrintPoint) => number): FieldDrawing {
   const canvas = input.canvas, operations: PdfOperation[] = [], links: PdfLink[] = [], destinations: PdfDestination[] = []
   const point = (p: PrintPoint): PrintPoint => ({ x: (frame.x + (p.x - ground.x) * scale) / MM, y: (frame.y + (p.y - ground.y) * scale) / MM })
   // Prefer short-axis margins for shallow beds; codes can also use clear internal gaps.
@@ -116,8 +117,8 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
     ? inflate({ x: frame.x / MM, y: frame.y / MM, width: frame.width / MM, height: frame.height / MM }, 1) : undefined
   const stripOptions = (anchor: PrintPoint) => strip ? { outside: strip, axis: frame.width > frame.height ? 'y' as const : 'x' as const,
     preferred: frame.width > frame.height ? anchor.y < strip.y + strip.height / 2 ? -1 : 1 : anchor.x < strip.x + strip.width / 2 ? -1 : 1 } : {}
-  const numbers = new Intl.NumberFormat(input.locale, { maximumFractionDigits: 2 })
-  const coordinates = (p: PrintPoint) => `x ${numbers.format(p.x)} m · y ${numbers.format(p.y)} m`
+  const fmtLen = (n: number) => formatQuantity('length', n, input.unitSystem, input.locale, { trimTrailingZeros: true })
+  const coordinates = (p: PrintPoint) => `x ${fmtLen(p.x)} · y ${fmtLen(p.y)}`
   const opacity = (name: string) => canvas.layers.find(l => l.name === name)?.opacity ?? 1
   const top = (page.bodyTop ?? 24 * MM) / MM
   const space = new FieldSpace({ x: 8, y: top, width: page.width / MM - 16, height: page.height / MM - top - 18 }, text)
@@ -149,7 +150,7 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
     zoneSegments.push(...outlineSegments(zone.path, point))
   }
   operations.push({ kind: 'unclip' })
-  const points = canvas.plants.map(p => ({ plant: p, point: point(p.position), radius: Math.min(.8, paperPlantRadius(canvas.plants, p, scale) / MM) }))
+  const points = canvas.plants.map(p => ({ plant: p, point: point(p.position), radius: paperPlantRadius(canvas.plants, p, scale, canvas.symbolScale) / MM }))
   for (const p of points) {
     const radius = enclosureRadius(identities.get(p.plant.id)!, p.radius * MM) / MM
     space.mark(p.plant.id, { x: p.point.x - radius, y: p.point.y - radius, width: 2 * radius, height: 2 * radius })
@@ -159,7 +160,7 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
   const deferredMeasurement = (guide: CanvasPrintSnapshot['measurements'][number]) => {
     const clipped = clipSegment({ a: guide.start, b: guide.end }, ground)!
     const position = { x: (clipped.a.x + clipped.b.x) / 2, y: (clipped.a.y + clipped.b.y) / 2 }
-    const value = `${new Intl.NumberFormat(input.locale, { maximumFractionDigits: 2 }).format(distance(guide.start, guide.end))} m`
+    const value = fmtLen(groundDistance(guide.start, guide.end))
     const projected = { a: point(clipped.a), b: point(clipped.b) }
     line(projected, '#a29c91', .12, opacity('measurement-guides')); space.addSegments([projected])
     const home = references.measurementHomes?.get(guide.id)
@@ -218,7 +219,7 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
     }
     identifiedPlants.push({ ids: [p.plant.id], reference, bounds })
   }
-  const nativeDimensions = fieldDimensions(canvas.measurements.filter(g => contains(ground, g.start) && contains(ground, g.end)), point, space, input.locale)
+  const nativeDimensions = fieldDimensions(canvas.measurements.filter(g => contains(ground, g.start) && contains(ground, g.end)), point, space, input.locale, 8.5, groundDistance)
   const nativeDimensionIds = new Set(nativeDimensions.map(d => d.guide.id))
   for (const d of nativeDimensions) {
     d.segments.forEach(s => line(s, '#656058', .17, opacity('measurement-guides')))
@@ -244,7 +245,7 @@ function layoutField(input: PdfInput, frame: PrintBounds, ground: PrintBounds, s
     const complete = zone.dimensions.filter(d => contains(ground, d.start) && contains(ground, d.end))
     const reused = new Set(complete.filter(d => canvas.measurements.some(g =>
       distance(g.start, d.start) < .005 && distance(g.end, d.end) < .005 || distance(g.end, d.start) < .005 && distance(g.start, d.end) < .005)).map(d => d.id))
-    const dimensions = fieldDimensions(complete.filter(d => !reused.has(d.id)), point, space, input.locale)
+    const dimensions = fieldDimensions(complete.filter(d => !reused.has(d.id)), point, space, input.locale, 8.5, groundDistance, input.unitSystem)
     for (const d of dimensions) {
       d.segments.forEach(s => line(s, '#656058', .16, opacity('zones')))
       d.ticks.forEach(s => line(s, INK, .25, opacity('zones'))); labelText(d.label, opacity('zones'))

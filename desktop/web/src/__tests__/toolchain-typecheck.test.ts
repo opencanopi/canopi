@@ -71,8 +71,7 @@ describe('toolchain typecheck (2.1-M184, 2.1-Q205)', () => {
     // types unchecked), the gallery's (check:ui ran the others again, DR17), the app's last, so
     // `npm run typecheck -- -p <project>` (the PDF validation build) names the app's run.
     const script = packageJson().scripts.typecheck
-    expect(script).toBe([' -p ../../policy/tsconfig.json', ' -p e2e', ' -p e2e-release', ' -p e2e-rollback', ' -p e2e/platform', ' -p tsconfig.tooling.json',
-      ' -p ui-gallery/tsconfig.json', '']
+    expect(script).toBe([' -p ../../policy/tsconfig.json', ' -p e2e', ' -p e2e-release', ' -p e2e-rollback', ' -p e2e/platform', ' -p tsconfig.tooling.json', '']
       .map((project) => `${TYPECHECK}${project}`).join(' && '))
 
     const result = spawnSync(process.execPath, [join(WEB_ROOT, 'node_modules', TS7_ALIAS, 'bin', 'tsc'), '--version'], {

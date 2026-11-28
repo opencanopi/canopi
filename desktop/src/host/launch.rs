@@ -8,17 +8,27 @@
 
 use std::path::{Path, PathBuf};
 
+use canopi_types::ids::FileGrantId;
 use serde::Serialize;
+
+use crate::host::home::FileGrantRegistry;
 
 /// The event a forwarded launch with a file emits; the frontend answers by pulling the slot.
 pub const PENDING_OPEN_EVENT: &str = "launch:pending-open";
 
 /// A Design file a launch asked to open: an absolute path when the launch gave a relative one,
-/// and whether the launch named several files (the first opens; 2.1-Q228).
+/// whether the launch named several files (the first opens; 2.1-Q228), and the host-issued
+/// [`FileGrantId`] minted for `home_read` / `home_write` (2b-4).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct PendingOpen {
     pub path: String,
     pub several: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub grant: Option<FileGrantId>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recent_id: Option<String>,
 }
 
 /// One command-line argument as the launch delivered it.
@@ -77,7 +87,13 @@ pub fn parse(
         .into_os_string()
         .into_string()
         .ok()?;
-    Some(PendingOpen { path, several })
+    Some(PendingOpen {
+        path,
+        several,
+        grant: None,
+        display_name: None,
+        recent_id: None,
+    })
 }
 
 /// `path` with its `.` parts dropped and each `..` taking off the part before it, so one file
@@ -104,15 +120,17 @@ fn without_dot_parts(path: &Path) -> PathBuf {
 pub struct PendingOpenSlot(std::sync::Mutex<Option<PendingOpen>>);
 
 impl PendingOpenSlot {
-    /// The slot holding this process's own launch file, if it named one.
-    pub fn first_launch() -> Self {
+    /// The slot holding this process's own launch file, if it named one, with a minted
+    /// [`FileGrantId`] registered in `grants` (2b-4).
+    pub fn first_launch_with_grants(grants: &FileGrantRegistry) -> Self {
         let cwd = std::env::current_dir()
             .ok()
             .filter(|cwd| cwd.to_str().is_some());
         let launch = parse(
             std::env::args_os().map(LaunchArgument::first_launch),
             cwd.as_deref(),
-        );
+        )
+        .map(|pending| with_minted_grant(pending, grants));
         Self(std::sync::Mutex::new(launch))
     }
 
@@ -170,7 +188,14 @@ pub fn on_second_launch<R: tauri::Runtime>(
     let launch = parse(
         args.into_iter().map(LaunchArgument::forwarded),
         cwd.as_deref(),
-    );
+    )
+    .map(|pending| {
+        if let Some(grants) = app.try_state::<std::sync::Arc<FileGrantRegistry>>() {
+            with_minted_grant(pending, grants.inner())
+        } else {
+            pending
+        }
+    });
     if let Some(slot) = app.try_state::<PendingOpenSlot>()
         && slot.offer(launch)
         && let Err(error) = app.emit(PENDING_OPEN_EVENT, ())
@@ -201,6 +226,15 @@ impl<R: tauri::Runtime> WindowControl for tauri::WebviewWindow<R> {
     }
 }
 
+fn with_minted_grant(mut pending: PendingOpen, grants: &FileGrantRegistry) -> PendingOpen {
+    if let Ok(info) = grants.grant_info(Path::new(&pending.path)) {
+        pending.grant = Some(info.grant);
+        pending.display_name = Some(info.display_name);
+        pending.recent_id = Some(info.recent_id);
+    }
+    pending
+}
+
 fn log_window_failure(call: &str, result: tauri::Result<()>) {
     if let Err(error) = result {
         tracing::warn!("bringing the window to the front: {call} failed: {error}");
@@ -223,6 +257,9 @@ mod tests {
         Some(PendingOpen {
             path: path.to_owned(),
             several,
+            grant: None,
+            display_name: None,
+            recent_id: None,
         })
     }
 
@@ -401,6 +438,9 @@ mod tests {
         let wire = serde_json::to_value(PendingOpen {
             path: "/g.canopi".into(),
             several: true,
+            grant: None,
+            display_name: None,
+            recent_id: None,
         })
         .unwrap();
         assert_eq!(

@@ -1,0 +1,5 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "no-correlation-field",
+  "entries": {}
+}

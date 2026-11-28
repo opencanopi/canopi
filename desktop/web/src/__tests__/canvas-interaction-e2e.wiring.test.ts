@@ -6,8 +6,7 @@
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
 import { signal } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
-import { writePlantStampDragData } from '../canvas/plant-stamp-source'
-import { writeSavedObjectStampDragData } from '../canvas/saved-object-stamp-source'
+import { writePlantStampDragData, writeSavedObjectStampDragData } from '../canvas/stamp-drag-data'
 import { currentCanvasSelection, type CanvasToolGuidance } from '../canvas/session-state'
 import type { SceneStore } from '../canvas/runtime/scene'
 import {
@@ -50,7 +49,7 @@ describe('SceneInteractionSession', () => {
     })
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('hand')
+    session.arm('hand')
 
     events.pointerDown({ x: 20, y: 30 }, { button: 0, detail: 2 })
     events.pointerUp({ x: 20, y: 30 }, { button: 0, detail: 2 })
@@ -164,8 +163,6 @@ describe('SceneInteractionSession', () => {
   })
 
   it('continues Session teardown after one owned resource fails', () => {
-    events.dispose()
-    events = createSceneInteractionEventHarness(container, { trackListeners: true })
     store.updatePersisted((draft) => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 300, y: 250 })]
     })
@@ -184,13 +181,20 @@ describe('SceneInteractionSession', () => {
 
     expect(() => session.dispose()).toThrow('story observer disconnect failed')
 
-    // The source's press listener and the selection-drag guard's.
-    expect(events.listenerLog?.containerRemoves('pointerdown')).toHaveLength(2)
-    expect(events.listenerLog?.containerRemoves('pointermove')).toHaveLength(1)
-    expect(events.listenerLog?.windowRemoves('blur')).toHaveLength(1)
     expect(document.querySelector('[data-hover-tooltip]')).toBeNull()
     expect(container.querySelector('[data-canvas-handle-layer]')).toBeNull()
     expect(container.hasAttribute('tabindex')).toBe(false)
+    events.pointerCapture.setCalls.mockClear()
+    const errors = captureWindowErrors(() => {
+      events.pointerMove({ x: 300, y: 250 })
+      events.pointerDown({ x: 300, y: 250 })
+      events.pointerMove({ x: 320, y: 270 }, { target: window })
+      events.windowBlur()
+    })
+    expect(errors).toEqual([])
+    expect(document.querySelector('[data-hover-tooltip]')).toBeNull()
+    expect(store.persisted.plants[0]?.position).toEqual({ x: 300, y: 250 })
+    expect(events.pointerCapture.setCalls).not.toHaveBeenCalled()
     expect(() => session.dispose()).not.toThrow()
     disconnect.mockRestore()
   })
@@ -256,7 +260,7 @@ describe('SceneInteractionSession', () => {
 
     it('reports a polygon draft as a gesture until it is cancelled', () => {
       const { session, latest } = guidedSession()
-      session.setTool('polygon')
+      session.arm('polygon')
       expect(latest()).toEqual({ gesture: false, stamp: null, stampRotationDeg: null, speciesPrompts: 0, plantRow: null })
 
       events.pointerDown({ x: 10, y: 10 })
@@ -270,7 +274,7 @@ describe('SceneInteractionSession', () => {
 
     it('reports a zone drag as a gesture while the pointer is down', () => {
       const { session, latest } = guidedSession()
-      session.setTool('rectangle')
+      session.arm('rectangle')
 
       events.pointerDown({ x: 10, y: 10 })
       events.pointerMove({ x: 60, y: 40 })
@@ -283,7 +287,7 @@ describe('SceneInteractionSession', () => {
 
     it('reports an open text note field as a gesture until it closes', () => {
       const { session, latest } = guidedSession()
-      session.setTool('text')
+      session.arm('text')
 
       events.pointerDown({ x: 24, y: 32 })
       expect(latest().gesture).toBe(true)
@@ -315,14 +319,14 @@ describe('SceneInteractionSession', () => {
         }]
       })
       const { session, latest } = guidedSession()
-      session.setTool('object-stamp')
+      session.arm('object-stamp')
       expect(latest().stamp).toBeNull()
 
       events.pointerDown({ x: 20, y: 30 })
       expect(latest().stamp).toEqual({ kind: 'plant', name: 'Malus domestica', plants: 1, species: 1 })
 
-      session.setTool('select')
-      session.setTool('object-stamp')
+      session.arm('select')
+      session.arm('object-stamp')
       events.pointerDown({ x: 200, y: 200 })
       expect(latest().stamp).toEqual({ kind: 'group', name: 'Pear guild', plants: 3, species: 2 })
       session.dispose()
@@ -330,7 +334,7 @@ describe('SceneInteractionSession', () => {
 
     it('goes idle when the session ends', () => {
       const { session, latest } = guidedSession()
-      session.setTool('polygon')
+      session.arm('polygon')
       events.pointerDown({ x: 10, y: 10 })
 
       session.dispose()

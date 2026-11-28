@@ -11,7 +11,7 @@ import {
   SAVED_OBJECT_STAMP_THUMBNAIL_WIDTH,
 } from '../../app/saved-object-stamps/thumbnail-renderer'
 import { commitSavedStampsFrameHeight, saveCanvasSelectionAsObjectStamp } from '../../app/favorites/controller'
-import { clearSavedObjectStampDragSource, writeSavedObjectStampDragData } from '../../canvas/saved-object-stamp-source'
+import { clearSavedObjectStampDragSource, writePlantStampDragData, writeSavedObjectStampDragData } from '../../canvas/stamp-drag-data'
 import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
 import type { SpeciesListItem } from '../../types/species'
@@ -24,15 +24,15 @@ import { usePointerReorder } from '../shared/usePointerReorder'
 import plantDetailStyles from '../plant-detail/PlantDetail.module.css'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import { resolvePlantSymbolId } from '../../canvas/runtime/scene'
-import { writePlantStampDragData } from '../../canvas/plant-stamp-source'
 import { navigateTo } from '../../app/shell/state'
 import { designSessionStore } from '../../app/document-session/store'
 import { useEnglishFallbackNames } from '../../app/plant-finder/catalog-names'
 import { findPlants } from '../../app/plant-finder/matcher'
 import { useMapSelectionSpecies } from '../../app/plant-finder/selection'
-import { usePlantFinder } from '../../app/plant-finder/use-plant-finder'
+import { buildFavoriteFinderSpecies, rankFavoriteSpecies, usePlantFinder } from '../../app/plant-finder/use-plant-finder'
 import { PlantSymbolGlyph } from '../canvas/PlantSymbolGlyph'
 import { DockPanelHeader } from '../shared/DockPanelHeader'
+import { InlineRenameField } from '../shared/InlineRenameField'
 import { EmptyState } from '../shared/EmptyState'
 import { PanelIcon } from '../shared/PanelIcon'
 import { PlantFinder, finderHighlight } from '../shared/PlantFinder'
@@ -126,22 +126,20 @@ export function FavoritesPanel() {
   }, [])
 
   const items = favoritesView.items
-  const finderSpecies = useMemo(() => items.map((item) => ({
-    canonicalName: item.canonical_name,
-    commonName: item.common_name,
-    code: scene?.plantSpeciesCodes[item.canonical_name],
-  })), [items, scene])
+  const finderSpecies = useMemo(
+    () => buildFavoriteFinderSpecies(items, scene?.plantSpeciesCodes),
+    [items, scene],
+  )
   const finder = usePlantFinder(finderSpecies, search)
   const englishNames = useEnglishFallbackNames(finderSpecies)
-  const visibleItems = useMemo(() => {
-    const shown = items.filter((item) => (
-      (!selectedOnMap || mapSelection.plantCountBySpecies.has(item.canonical_name))
-      && (!finder.active || finder.byKey.has(item.canonical_name))
-    ))
-    if (!finder.active) return shown
-    const rank = new Map(finder.hits.map((hit, index) => [hit.key, index]))
-    return shown.sort((left, right) => rank.get(left.canonical_name)! - rank.get(right.canonical_name)!)
-  }, [finder, items, mapSelection, selectedOnMap])
+  const visibleItems = useMemo(
+    () => rankFavoriteSpecies(
+      items,
+      finder,
+      selectedOnMap ? (item) => mapSelection.plantCountBySpecies.has(item.canonical_name) : undefined,
+    ),
+    [finder, items, mapSelection, selectedOnMap],
+  )
   const count = items.length
   const isLoading = favoritesView.loading
   const savedStampItems = savedStampsView.items
@@ -771,10 +769,8 @@ function SavedObjectStampRow({
   onPreviewClear: () => void
   onReorderBegin: (sourceId: string, event: PointerEvent) => void
 }) {
-  const [draftName, setDraftName] = useState(stamp.name)
   const [isRenaming, setIsRenaming] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const renameInputRef = useRef<HTMLInputElement>(null)
   const actionsRef = useRef<HTMLDivElement>(null)
   const cancelDeleteRef = useRef<HTMLButtonElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -787,19 +783,6 @@ function SavedObjectStampRow({
   const placeable = rowState === 'ready'
   const summaryId = useId()
   const deleteCopyId = useId()
-
-  useEffect(() => {
-    setDraftName(stamp.name)
-  }, [stamp.name])
-
-  // The field takes focus as it replaces the name, so an Esc at once ends the rename (canopi-f47t.52.228.20).
-  useLayoutEffect(() => {
-    if (!isRenaming) return
-    const input = renameInputRef.current
-    if (!input) return
-    input.focus()
-    input.setSelectionRange(0, input.value.length)
-  }, [isRenaming])
 
   // The confirmation's buttons replace the control that opened it, and back on Cancel: move focus with
   // them so a keyboard user stays on the row, as they commit (canopi-f47t.52.228.20). Cancel is the safe choice and
@@ -847,21 +830,21 @@ function SavedObjectStampRow({
     })
   }
 
-  function commitRename(): void {
-    const next = (renameInputRef.current?.value ?? draftName).trim()
-    if (next.length === 0) {
-      setDraftName(stamp.name)
-      setIsRenaming(false)
-      return
+  async function commitRename(next: string): Promise<void | { readonly error: string }> {
+    let renamed: SavedObjectStamp | null
+    try {
+      renamed = await savedObjectStampWorkbench.renameStamp(stamp.id, next)
+    } catch {
+      // reason: map IPC/store refusal to translated user-facing copy instead of raw error text (2.1-Q360)
+      return { error: t('savedObjectStamps.renameFailed') }
     }
-    if (next !== stamp.name) {
-      void savedObjectStampWorkbench.renameStamp(stamp.id, next)
+    if (!renamed) {
+      return { error: t('savedObjectStamps.renameFailed') }
     }
     setIsRenaming(false)
   }
 
   function cancelRename(): void {
-    setDraftName(stamp.name)
     setIsRenaming(false)
   }
 
@@ -930,33 +913,18 @@ function SavedObjectStampRow({
         {confirmingDelete ? (
           <span id={deleteCopyId} className={styles.savedStampDeleteCopy}>{t('savedObjectStamps.deleteConfirmCopy')}</span>
         ) : isRenaming ? (
-          <input
-            ref={renameInputRef}
+          <InlineRenameField
+            value={stamp.name}
+            ariaLabel={t('savedObjectStamps.nameInput')}
             className={styles.savedStampNameInput}
-            aria-label={t('savedObjectStamps.nameInput')}
-            value={draftName}
-            onInput={(event) => setDraftName((event.currentTarget as HTMLInputElement).value)}
-            onFocusOut={(event) => {
-              const relatedTarget = event.relatedTarget
-              if (
-                relatedTarget instanceof HTMLElement &&
-                relatedTarget.closest('[data-saved-stamp-rename-cancel="true"]')
-              ) {
-                cancelRename()
-                return
-              }
-              commitRename()
-            }}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                commitRename()
-              }
-              if (event.key === 'Escape') {
-                event.preventDefault()
-                cancelRename()
-              }
-            }}
+            errorClassName={styles.savedStampRenameError}
+            unchangedName={stamp.name}
+            cancelOnFocusOutTarget={(relatedTarget) =>
+              relatedTarget instanceof HTMLElement
+              && Boolean(relatedTarget.closest('[data-saved-stamp-rename-cancel="true"]'))
+            }
+            onCommit={commitRename}
+            onCancel={cancelRename}
           />
         ) : (
           <span className={styles.savedStampName}>{stamp.name}</span>
@@ -1002,7 +970,9 @@ function SavedObjectStampRow({
           <>
             <SavedStampIconButton
               label={t('savedObjectStamps.confirmRename')}
-              onClick={commitRename}
+              onClick={() => {
+                rowRef.current?.querySelector<HTMLInputElement>('input')?.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+              }}
               tone="success"
             >
               <CheckIcon />
@@ -1028,7 +998,7 @@ function SavedObjectStampRow({
             </SavedStampIconButton>
             <ActionMenu label={t('savedObjectStamps.actionsFor', { name: stamp.name })} items={[
               { label: t('savedObjectStamps.export'), run: () => { void savedObjectStampWorkbench.exportStamp(stamp) } },
-              { label: t('savedObjectStamps.rename'), run: () => { setConfirmingDelete(false); setDraftName(stamp.name); setIsRenaming(true) } },
+              { label: t('savedObjectStamps.rename'), run: () => { setConfirmingDelete(false); setIsRenaming(true) } },
               { label: t('savedObjectStamps.delete'), danger: true, run: () => { setIsRenaming(false); setDeleteConfirmation(true) } },
             ]} />
           </>

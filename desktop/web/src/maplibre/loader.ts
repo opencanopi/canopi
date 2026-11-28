@@ -58,6 +58,7 @@ export interface MapLibreMapInstance {
 export interface MapLibreApi {
   Map: new (options: MapLibreMapConstructorOptions) => MapLibreMapInstance
   addProtocol(id: string, protocol: AddProtocolAction): void
+  removeProtocol?(id: string): void
 }
 
 let mapLibreModulePromise: Promise<MapLibreApi> | null = null

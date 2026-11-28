@@ -6,7 +6,7 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SpeciesKeyPanel } from '../components/panels/SpeciesKeyPanel'
-import { speciesCatalogWorkbench } from '../app/plant-browser'
+import { speciesCatalogWorkbench, installSpeciesCatalogWorkbench as __installCatalog } from '../app/plant-browser'
 import { SpeciesFocusChip } from '../components/canvas/SpeciesFocusChip'
 import {
   createTestCanvasCommandSurface,
@@ -22,7 +22,7 @@ import type {
 import type { SpeciesFocus } from '../canvas/runtime/species-key'
 import { SceneStore } from '../canvas/runtime/scene/store'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { locale } from '../app/settings/state'
+import { locale, mapLayers } from '../app/settings/state'
 import { navigateTo, sidePanel } from '../app/shell/state'
 import { matchedPanelTargets } from '../app/panel-targets/state'
 import { readPlanningViewState } from '../app/planning-view/state'
@@ -32,10 +32,11 @@ import { speciesTarget } from '../target'
 import type { CanopiFile, PlacedPlant } from '../types/design'
 import { designSessionFixture, replaceCurrentDesignState } from './support/design-session-state'
 import { currentDesign } from '../app/document-session/store'
-import { mapLayers } from '../app/map-layers/state'
 import { setPlantLabels } from '../app/plant-display/actions'
 import { PLANT_LABELS_CHIP_MS, PlantLabelsChip } from '../components/canvas/PlantLabelsChip'
 import { NO_STRATUM_DISPLAY_COLOR, STRATUM_DISPLAY_COLORS } from '../canvas/runtime/plant-display'
+import { speciesCatalogWorkbench as __desktopCatalog } from '../editions/desktop/species-catalog'
+__installCatalog(__desktopCatalog)
 
 const plants = [
   { id: 'apple-1', canonicalName: 'Malus domestica', commonName: 'Pommier cultivé', x: 0 },
@@ -123,9 +124,10 @@ describe('Plants in this Design', () => {
     expect(container.textContent).toContain('4 plants · 3 species')
     const rows = [...container.querySelectorAll('li')]
     expect(rows).toHaveLength(3)
-    expect(rows[0]!.textContent).toContain('Pommier cultivé')
-    expect(rows[0]!.textContent).toContain('MDO')
-    expect(rows[0]!.textContent).toContain('2')
+    expect(rows[0]!.textContent).toContain('Menthe verte')
+    expect(rows[1]!.textContent).toContain('Pommier cultivé')
+    expect(rows[1]!.querySelector<HTMLInputElement>('[data-species-code-input]')?.value).toBe('MDO')
+    expect(rows[1]!.textContent).toContain('2')
   })
 
   it('marks the English catalog name of a species with no name in the UI language', async () => {
@@ -219,7 +221,7 @@ describe('Plants in this Design', () => {
       baseQueries.setSelection([{ kind: 'plant', id: 'crab-1' }, { kind: 'plant', id: 'mint-1' }])
       baseQueries.bumpSceneRevision()
     })
-    expect(rowNames()).toEqual(['Pommier sauvage', 'Menthe verte'])
+    expect(rowNames()).toEqual(['Menthe verte', 'Pommier sauvage'])
     expect(buttonNamed('Selected on map · 2').getAttribute('aria-pressed')).toBe('true')
     expect(status()).toBe('2 species · 2 plants selected on the map')
   })
@@ -236,9 +238,9 @@ describe('Plants in this Design', () => {
     expect(row.closest('li')?.getAttribute('data-selected')).toBe('true')
     expect(queries.getSelection()).toEqual([])
     expect(queries.getSceneSnapshot()).toEqual(before)
-    expect(container.textContent).toContain('Pommier cultivé · 2 plants highlighted')
+    expect(container.textContent).toContain('Menthe verte · 1 plant highlighted')
     await act(() => buttonNamed('Select these plants').click())
-    expect(selectSpecies).toHaveBeenCalledWith(['Malus domestica'])
+    expect(selectSpecies).toHaveBeenCalledWith(['Mentha spicata'])
     await act(() => buttonNamed('Clear').click())
     expect(queries.getSpeciesFocus().canonicalName).toBeNull()
   })
@@ -252,15 +254,13 @@ describe('Plants in this Design', () => {
     const labels = container.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Labels"]')!
     expect([...labels.querySelectorAll('[role="radio"]')].map((radio) => radio.textContent)).toEqual(['None', 'Codes', 'Names'])
     await act(() => radioNamed(labels, 'Codes').click())
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ labels: 'codes' })
+    expect(currentDesign.value?.plant_display).toMatchObject({ labels: 'codes' })
     expect(radioNamed(labels, 'Codes').getAttribute('aria-checked')).toBe('true')
 
-    const swatch = container.querySelector<HTMLInputElement>('input[aria-label="Color of Menthe verte"]')!
-    await act(() => {
-      swatch.value = '#aa3355'
-      swatch.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-    expect(setPlantColorForSpecies).toHaveBeenCalledWith('Mentha spicata', '#aa3355')
+    const swatch = container.querySelector<HTMLButtonElement>('button[aria-label="Color of Menthe verte"]')!
+    expect(container.querySelector('input[type="color"]')).toBeNull()
+    await pickCustomHex(swatch, '#aa3355')
+    expect(setPlantColorForSpecies).toHaveBeenCalledWith('Mentha spicata', '#AA3355')
   })
 
   it('opens edition-specific detail and returns to its detail trigger', async () => {
@@ -334,27 +334,25 @@ describe('Plants in this Design', () => {
     readPlanningViewState().plantsDisplayOpen.value = true
     await act(() => render(<SpeciesKeyPanel />, container))
     const colorBy = container.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Color by"]')!
-    expect(container.querySelector('input[aria-label="Color of Menthe verte"]')).not.toBeNull()
+    expect(container.querySelector('button[aria-label="Color of Menthe verte"]')).not.toBeNull()
 
     await act(() => radioNamed(colorBy, 'Stratum').click())
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ color_by: 'stratum' })
+    expect(currentDesign.value?.plant_display).toMatchObject({ color_by: 'stratum' })
     const legend = container.querySelector<HTMLElement>('[aria-label="Stratum colors"]')!
     expect(legend.textContent).toContain('Emergent')
     expect(legend.textContent).toContain('No stratum yet')
     // A row swatch sets the stored species colour, so it hides while colours follow strata.
-    expect(container.querySelector('input[aria-label="Color of Menthe verte"]')).toBeNull()
+    expect(container.querySelector('button[aria-label="Color of Menthe verte"]')).toBeNull()
     expect(glyphColor('Pommier cultivé')).toBe(rgb(STRATUM_DISPLAY_COLORS.high))
     expect(glyphColor('Menthe verte')).toBe(rgb(NO_STRATUM_DISPLAY_COLOR))
     expect(glyphColor('Pommier sauvage')).toBe(rgb(NO_STRATUM_DISPLAY_COLOR))
     expect(container.textContent).toContain('Consortium')
 
     await act(() => radioNamed(colorBy, 'One color').click())
-    const one = container.querySelector<HTMLInputElement>('input[aria-label="Color for every plant"]')!
-    await act(() => {
-      one.value = '#aa3355'
-      one.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ color_by: 'one_color', one_color: '#AA3355' })
+    const one = container.querySelector<HTMLButtonElement>('button[aria-label="Color for every plant"]')!
+    expect(container.querySelector('input[type="color"]')).toBeNull()
+    await pickCustomHex(one, '#aa3355')
+    expect(currentDesign.value?.plant_display).toMatchObject({ color_by: 'one_color', one_color: '#AA3355' })
     expect(glyphColor('Menthe verte')).toBe(rgb('#AA3355'))
     expect(setPlantColorForSpecies).not.toHaveBeenCalled()
     expect(queries.getSceneSnapshot().plants.every((plant) => plant.color === '#3e8e4e')).toBe(true)
@@ -365,29 +363,27 @@ describe('Plants in this Design', () => {
       consortiums: [
         { target: { kind: 'species', canonical_name: 'Malus domestica' }, stratum: 'high', start_phase: 0, end_phase: 2 },
       ],
-      extra: { plant_display: { color_by: 'stratum' } },
+      plant_display: { color_by: 'stratum' },
     }), null, 'Display')
     readPlanningViewState().plantsDisplayOpen.value = true
     await act(() => render(<SpeciesKeyPanel />, container))
     const legend = container.querySelector<HTMLElement>('[aria-label="Stratum colors"]')!
-    const high = legend.querySelector<HTMLInputElement>('input[type="color"][aria-label="Color of High"]')!
-    expect(high.value).toBe(STRATUM_DISPLAY_COLORS.high.toLowerCase())
-    expect(legend.querySelector('input[aria-label="Color of No stratum yet"]')).not.toBeNull()
+    const high = legend.querySelector<HTMLButtonElement>('button[aria-label="Color of High"]')!
+    expect(container.querySelector('input[type="color"]')).toBeNull()
+    expect(high.dataset.colorValue?.toLowerCase()).toBe(STRATUM_DISPLAY_COLORS.high.toLowerCase())
+    expect(legend.querySelector('button[aria-label="Color of No stratum yet"]')).not.toBeNull()
     expect(container.textContent).toContain('A swatch recolors its whole stratum')
     expect(buttonNamed('Reset stratum colors')).toBeUndefined()
 
-    await act(() => {
-      high.value = '#112233'
-      high.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ stratum_colors: { high: '#112233' } })
+    await pickCustomHex(high, '#112233')
+    expect(currentDesign.value?.plant_display).toMatchObject({ stratum_colors: { high: '#112233' } })
     expect(glyphColor('Pommier cultivé')).toBe(rgb('#112233'))
     expect(glyphColor('Menthe verte')).toBe(rgb(NO_STRATUM_DISPLAY_COLOR))
     expect(setPlantColorForSpecies).not.toHaveBeenCalled()
     expect(queries.getSceneSnapshot().plants.every((plant) => plant.color === '#3e8e4e')).toBe(true)
 
     await act(() => buttonNamed('Reset stratum colors').click())
-    expect(currentDesign.value?.extra?.plant_display).not.toHaveProperty('stratum_colors')
+    expect(currentDesign.value?.plant_display).not.toHaveProperty('stratum_colors')
     expect(glyphColor('Pommier cultivé')).toBe(rgb(STRATUM_DISPLAY_COLORS.high))
   })
 
@@ -401,12 +397,12 @@ describe('Plants in this Design', () => {
       size.value = '150'
       size.dispatchEvent(new Event('input', { bubbles: true }))
     })
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ symbol_scale: 1.5 })
+    expect(currentDesign.value?.plant_display).toMatchObject({ symbol_scale: 1.5 })
 
     const outline = switchNamed('Outline')
     expect(outline.checked).toBe(true)
     await act(() => outline.click())
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ outline: false })
+    expect(currentDesign.value?.plant_display).toMatchObject({ outline: false })
 
     const soften = switchNamed('Soften background')
     expect(soften.checked).toBe(false)
@@ -507,6 +503,21 @@ function radioNamed(group: HTMLElement, name: string): HTMLButtonElement {
   return [...group.querySelectorAll<HTMLButtonElement>('[role="radio"]')].find((radio) => radio.textContent === name)!
 }
 
+async function pickCustomHex(swatch: HTMLButtonElement, hex: string): Promise<void> {
+  await act(async () => { swatch.click() })
+  const popover = document.body.querySelector<HTMLElement>('[role="dialog"]')!
+  const more = [...popover.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Custom color')!
+  await act(async () => { more.click() })
+  const input = popover.querySelector<HTMLInputElement>('input[aria-label="Custom hex"]')!
+  await act(async () => {
+    input.value = hex
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await act(async () => {
+    popover.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+  })
+}
+
 function rgb(hex: string): string {
   const [r, g, b] = [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16))
   return `rgb(${r}, ${g}, ${b})`
@@ -547,7 +558,7 @@ function placedPlant(plant: typeof plants[number]): PlacedPlant {
     color: null,
     position: { lon: 0, lat: 0 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,

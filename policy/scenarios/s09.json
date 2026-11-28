@@ -9,8 +9,8 @@
       "phase": "2",
       "note": "the one Design source contract, created by the scenario"
     },
-    "web/browser-design-session.ts",
-    "platform/browser.ts",
+    "editions/web/web-session.ts",
+    "editions/web/boot.ts",
     "i18n/"
   ],
   "ideal": 8,
@@ -25,7 +25,7 @@
       "touched": [
         "web/browser-design-session.ts",
         "web/shared-design-link.ts",
-        "platform/browser.ts",
+        "editions/web/boot.ts",
         "web/WebWelcomeScreen.tsx",
         "web/browser-app-data.ts",
         "app/design-template-import/workflow.browser.ts",

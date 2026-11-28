@@ -6,8 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MenuAction, MenuDefinition } from '../app/shell-commands/menus'
 import { MenuBar } from '../components/shared/MenuBar'
 import { appCommandGraphChromeProjection } from '../commands/graph/projections'
-import { setCurrentCanvasSession } from '../canvas/session'
-import { currentCanvasTool } from '../canvas/session-state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasKeyboardPort,
@@ -357,21 +356,19 @@ describe('MenuBar keyboard and semantics', () => {
 
 describe('MenuBar with the Desktop menus', () => {
   let container: HTMLDivElement
-  const setTool = vi.fn()
+  const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
 
   beforeEach(() => {
     container = document.createElement('div')
     document.body.appendChild(container)
-    setTool.mockReset()
-    currentCanvasTool.value = 'select'
-    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ commands: createTestCanvasCommandSurface({ tools: { setTool } }) }))
+    arm.mockClear()
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ commands: createTestCanvasCommandSurface({ tools: { arm } }) }))
   })
 
   afterEach(() => {
     render(null, container)
     container.remove()
     setCurrentCanvasSession(null)
-    currentCanvasTool.value = 'select'
   })
 
   const DesktopMenus = () => <MenuBar menus={appCommandGraphChromeProjection.value.menus} label="Menus" />
@@ -386,7 +383,7 @@ describe('MenuBar with the Desktop menus', () => {
     const pan = view.querySelector<HTMLElement>('[data-command-id="canvas.tool.hand"]')!
     expect(pan.textContent).toBe('PanH')
     await act(async () => { pan.click() })
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 

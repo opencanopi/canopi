@@ -145,7 +145,14 @@ describe('Desktop host surface', () => {
   })
 
   it('depends only on the adopted Tauri plugins', () => {
-    const adopted = ['tauri-plugin-dialog', 'tauri-plugin-mcp-bridge', 'tauri-plugin-opener', 'tauri-plugin-single-instance', 'tauri-plugin-updater']
+    const adopted = [
+      'tauri-plugin-dialog',
+      'tauri-plugin-mcp-bridge',
+      'tauri-plugin-opener',
+      'tauri-plugin-single-instance',
+      'tauri-plugin-updater',
+      'tauri-plugin-window-state',
+    ]
 
     expect(tauriPluginsNamedIn(cargoManifestText).filter((plugin) => !adopted.includes(plugin))).toEqual([])
   })

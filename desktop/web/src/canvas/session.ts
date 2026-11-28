@@ -1,5 +1,4 @@
-import { computed, signal } from '@preact/signals'
-import { setCanvasTool } from './session-state'
+import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type {
   CanvasCommandSurface,
   CanvasDocumentSurface,
@@ -12,14 +11,17 @@ import type {
   CanvasToolCommandSurface,
   CanvasViewportCommandSurface,
 } from './runtime/runtime'
+import type { ToolHostState } from './runtime/interaction-ports'
 import type { ToolId } from './runtime/interaction-types'
+
+const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: null })
 
 export const currentCanvasSession = signal<CanvasRuntimeSurfaces | null>(null)
 export const currentCanvasCommandSurface = computed<CanvasCommandSurface | null>(() =>
   currentCanvasSession.value?.commands ?? null,
 )
 export const currentCanvasToolCommandSurface = computed<CanvasToolCommandSurface | null>(() =>
-  currentCanvasSession.value?.commands.tools ?? null,
+  currentCanvasSession.value?.commands?.tools ?? null,
 )
 export const currentCanvasViewportCommandSurface = computed<CanvasViewportCommandSurface | null>(() =>
   currentCanvasSession.value?.commands.viewport ?? null,
@@ -42,7 +44,15 @@ export const currentCanvasQuerySurface = computed<CanvasQuerySurface | null>(() 
 export const currentCanvasDocumentSurface = computed<CanvasDocumentSurface | null>(() =>
   currentCanvasSession.value?.documents ?? null,
 )
-export { currentCanvasDesignPinHovered, currentCanvasHasSelection, currentCanvasSelection, currentCanvasTool, currentCanvasToolGuidance } from './session-state'
+/** Read-only view of ToolHost's single authoritative tool state record (id, source; L11, §18 F29). */
+export const currentCanvasToolState: ReadonlySignal<ToolHostState> = computed<ToolHostState>(() =>
+  currentCanvasQuerySurface.value?.toolState?.value ?? IDLE_TOOL_STATE,
+)
+/** Read-only view of ToolHost's single active tool signal (L11, §18 F29). */
+export const currentCanvasTool: ReadonlySignal<ToolId> = computed<ToolId>(() =>
+  currentCanvasQuerySurface.value?.activeTool?.value ?? currentCanvasToolState.value.id,
+)
+export { currentCanvasDesignPinHovered, currentCanvasHasSelection, currentCanvasSelection, currentCanvasToolGuidance } from './session-state'
 
 export function getCurrentCanvasSession(): CanvasRuntimeSurfaces | null {
   return currentCanvasSession.value
@@ -65,19 +75,6 @@ export function getCurrentCanvasLayerCommandSurface(): CanvasLayerCommandSurface
   return currentCanvasLayerCommandSurface.value
 }
 
-export function getCurrentCanvasDocumentSurface(): CanvasDocumentSurface | null {
-  return currentCanvasDocumentSurface.value
-}
-
 export function setCurrentCanvasSession(surfaces: CanvasRuntimeSurfaces | null): void {
   currentCanvasSession.value = surfaces
-}
-
-export function setCurrentCanvasTool(id: ToolId): void {
-  const session = currentCanvasToolCommandSurface.value
-  if (session) {
-    session.setTool(id)
-    return
-  }
-  setCanvasTool(id)
 }

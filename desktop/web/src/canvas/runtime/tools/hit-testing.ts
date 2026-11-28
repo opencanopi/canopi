@@ -25,12 +25,14 @@ import {
   sceneObjectGroupMemberLayerName,
   sceneTargetKey,
 } from '../scene'
-import type { SpeciesCacheEntry } from '../species-cache'
+import type { SpeciesCacheEntry } from '../presentation-data'
 import {
-  getEllipticalZonePolygon,
-  getRectangularZoneCorners,
+  getZoneEdges,
+  getZoneHitOutline,
+  isEllipseZoneWithRadii,
   pointsBounds,
 } from '../zone-geometry'
+export { createScreenAlignedBounds } from '../zone-geometry'
 
 /**
  * The pick rule's one owner (canopi-qd2k, the user's decision of 2026-10-14; contract: hit-testing.pick.test.ts), reached
@@ -109,10 +111,13 @@ function hitTestTopLevelWithLayerFilter(
   hoveredAnnotationId: string | null,
 ): TopLevelPick | null {
   const groupOf = memberGroups(scene, isLayerHitEligible)
-  const detail = getCanvasDetailLayout(scene, viewportScale)
   const plantContext = { ...plantPresentationContext(getPlantContext, viewportScale, speciesCache), plants: scene.plants }
+  const detail = getCanvasDetailLayout(scene, viewportScale, plantContext.plantDisplay?.symbolScale)
   /** The top-level target of a member: itself, its group, or undefined when it cannot be picked (its group or layer). */
-  const topLevel = (target: SceneConcreteDesignObjectTarget, layerName: string): SceneDesignObjectTarget | undefined => {
+  const topLevel = (
+    target: SceneConcreteDesignObjectTarget | { readonly kind: 'measurement-guide'; readonly id: string },
+    layerName: string,
+  ): SceneDesignObjectTarget | undefined => {
     const key = sceneTargetKey(target)
     if (groupOf.has(key)) return groupOf.get(key) ?? undefined
     return isLayerHitEligible(scene, layerName) ? target : undefined
@@ -144,10 +149,9 @@ function hitTestTopLevelWithLayerFilter(
 
   for (let i = scene.measurementGuides.length - 1; i >= 0; i -= 1) {
     const guide = scene.measurementGuides[i]!
-    if (!isLayerHitEligible(scene, 'measurement-guides')) continue
-    if (hitMeasurementGuide(guide, point, viewportScale)) {
-      return { target: { kind: 'measurement-guide', id: guide.id }, zone: null }
-    }
+    const target = topLevel({ kind: 'measurement-guide', id: guide.id }, 'measurement-guides')
+    if (!target) continue
+    if (hitMeasurementGuide(guide, point, viewportScale)) return { target, zone: null }
   }
 
   // Zones whose tolerance bands overlap: the nearest line wins, so a tap on one bed's line never picks the bed beside it;
@@ -188,7 +192,7 @@ function memberGroups(
 function isGroupLayerHitEligible(
   scene: ScenePersistedState,
   isLayerHitEligible: (scene: ScenePersistedState, layerName: string) => boolean,
-  members: readonly SceneConcreteDesignObjectTarget[],
+  members: readonly { readonly kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide'; readonly id: string }[],
 ): boolean {
   if (members.length === 0) return false
   return members.every((member) =>
@@ -213,54 +217,47 @@ export function queryQuadTopLevel(
   const baseContext = getPlantContext
   getPlantContext = (scale) => ({ ...baseContext(scale), plants: scene.plants })
   const groupedMemberKeys = getSceneGroupedMemberKeys(scene)
-  const detail = getCanvasDetailLayout(scene, viewportScale)
+  const detail = getCanvasDetailLayout(scene, viewportScale, getPlantContext(viewportScale).plantDisplay?.symbolScale)
   const area: QueryPolygon = { points: quad, bounds: pointsBounds(quad) }
 
+  const memberHits = (member: { readonly kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide'; readonly id: string }): boolean => {
+    if (member.kind === 'plant') {
+      const plant = scene.plants.find((entry) => entry.id === member.id)
+      return plant ? plantIntersectsPolygon(plant, area, viewportScale, speciesCache, getPlantContext) : false
+    }
+    if (member.kind === 'zone') {
+      const zone = scene.zones.find((entry) => entry.id === member.id)
+      return zone ? zoneIntersectsPolygon(zone, area, viewportScale) : false
+    }
+    if (member.kind === 'annotation') {
+      const annotation = scene.annotations.find((entry) => entry.id === member.id)
+      return annotation ? annotationIntersectsPolygon(annotation, area, viewportScale, false, detail.annotationIds.has(annotation.id)) : false
+    }
+    const guide = scene.measurementGuides.find((entry) => entry.id === member.id)
+    return guide ? segmentIntersectsPolygon(guide.start, guide.end, area) : false
+  }
   for (const group of scene.groups) {
     const members = resolveSceneObjectGroupMembers(scene, group)
-    if (!isGroupLayerHitEligible(scene, isSceneLayerEditable, members)) continue
-    const hit = members.some((member) => {
-      const plant = member.kind === 'plant' ? scene.plants.find((entry) => entry.id === member.id) : null
-      if (plant && plantIntersectsPolygon(plant, area, viewportScale, speciesCache, getPlantContext)) return true
-      const zone = member.kind === 'zone' ? scene.zones.find((entry) => entry.id === member.id) : null
-      if (zone && zoneIntersectsPolygon(zone, area, viewportScale)) return true
-      const annotation = member.kind === 'annotation'
-        ? scene.annotations.find((entry) => entry.id === member.id)
-        : null
-      return annotation ? annotationIntersectsPolygon(annotation, area, viewportScale, false, detail.annotationIds.has(annotation.id)) : false
-    })
-    if (hit) targets.push({ kind: 'group', id: group.id })
-  }
-
-  for (const plant of scene.plants) {
-    if (groupedMemberKeys.has(sceneTargetKey({ kind: 'plant', id: plant.id }))) continue
-    if (!isSceneLayerEditable(scene, 'plants')) continue
-    if (plantIntersectsPolygon(plant, area, viewportScale, speciesCache, getPlantContext)) {
-      targets.push({ kind: 'plant', id: plant.id })
+    if (isGroupLayerHitEligible(scene, isSceneLayerEditable, members) && members.some(memberHits)) {
+      targets.push({ kind: 'group', id: group.id })
     }
   }
-
-  for (const guide of scene.measurementGuides) {
-    if (!isSceneLayerEditable(scene, 'measurement-guides')) continue
-    if (segmentIntersectsPolygon(guide.start, guide.end, area)) {
-      targets.push({ kind: 'measurement-guide', id: guide.id })
+  const addUngrouped = <T extends { readonly id: string }>(
+    layer: string,
+    kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide',
+    items: readonly T[],
+    intersects: (item: T) => boolean,
+  ) => {
+    if (!isSceneLayerEditable(scene, layer)) return
+    for (const item of items) {
+      if (!groupedMemberKeys.has(sceneTargetKey({ kind, id: item.id })) && intersects(item)) targets.push({ kind, id: item.id })
     }
   }
-
-  for (const zone of scene.zones) {
-    if (groupedMemberKeys.has(sceneTargetKey({ kind: 'zone', id: zone.id }))) continue
-    if (!isSceneLayerEditable(scene, 'zones')) continue
-    if (zoneIntersectsPolygon(zone, area, viewportScale)) targets.push({ kind: 'zone', id: zone.id })
-  }
-
-  for (const annotation of scene.annotations) {
-    if (groupedMemberKeys.has(sceneTargetKey({ kind: 'annotation', id: annotation.id }))) continue
-    if (!isSceneLayerEditable(scene, 'annotations')) continue
-    if (annotationIntersectsPolygon(annotation, area, viewportScale, annotation.id === getRevealedAnnotationId(selection), detail.annotationIds.has(annotation.id))) {
-      targets.push({ kind: 'annotation', id: annotation.id })
-    }
-  }
-
+  addUngrouped('plants', 'plant', scene.plants, (p) => plantIntersectsPolygon(p, area, viewportScale, speciesCache, getPlantContext))
+  addUngrouped('measurement-guides', 'measurement-guide', scene.measurementGuides, (g) => segmentIntersectsPolygon(g.start, g.end, area))
+  addUngrouped('zones', 'zone', scene.zones, (z) => zoneIntersectsPolygon(z, area, viewportScale))
+  const revealedId = getRevealedAnnotationId(selection)
+  addUngrouped('annotations', 'annotation', scene.annotations, (a) => annotationIntersectsPolygon(a, area, viewportScale, a.id === revealedId, detail.annotationIds.has(a.id)))
   return targets
 }
 
@@ -331,13 +328,7 @@ export function zoneEdgeSegment(zone: SceneZoneEntity, edgeIndex: number): reado
 }
 
 function zoneEdges(zone: SceneZoneEntity): ReadonlyArray<readonly [ScenePoint, ScenePoint]> {
-  if (zone.zoneType === 'line' && zone.points.length >= 2) return [[zone.points[0]!, zone.points[1]!]]
-  if (zone.zoneType === 'polygon' && zone.points.length >= 3) return edgesOf(zone.points)
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
-    const corners = getRectangularZoneCorners(zone)
-    return corners ? edgesOf(corners) : []
-  }
-  return []
+  return getZoneEdges(zone)
 }
 
 /** Line zones and guides, for every pointer: they keep their picking (canopi-qd2k). */
@@ -349,18 +340,12 @@ const MIN_ELLIPSE_BOUNDARY_SEGMENTS = 48
  *  closed zone's outline, LINE_HIT_TOLERANCE_PX for a line zone), else null; never by its inside. */
 function zoneLineDistancePx(zone: SceneZoneEntity, point: ScenePoint, viewportScale: number, pointer: PointerKind): number | null {
   const scale = Math.max(viewportScale, 1e-6)
-  let outline: readonly ScenePoint[] | null
-  if (zone.zoneType === 'line' && zone.points.length >= 2) {
-    const distancePx = distanceToSegment(point, zone.points[0]!, zone.points[1]!) * scale
+  const hitOutline = getZoneHitOutline(zone, ellipseBoundarySegmentCount(zone, viewportScale))
+  if (hitOutline && !hitOutline.closed && hitOutline.points.length >= 2) {
+    const distancePx = distanceToSegment(point, hitOutline.points[0]!, hitOutline.points[1]!) * scale
     return distancePx <= LINE_HIT_TOLERANCE_PX + GEOMETRY_EPSILON ? distancePx : null
   }
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) outline = getRectangularZoneCorners(zone)
-  else if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    outline = getEllipticalZonePolygon(zone, ellipseBoundarySegmentCount(zone, viewportScale))
-  } else if (zone.zoneType === 'polygon' && zone.points.length >= 3) outline = zone.points
-  // A shape too short of points for its kind: the outline of its bounds.
-  else outline = rectCorners(zoneBounds(zone))
-  if (!outline) return null
+  const outline = hitOutline?.points ?? rectCorners(zoneBounds(zone))
   const distancePx = distanceToOutline(point, outline) * scale
   return distancePx <= PICK_TOLERANCE_PX[pointer] + GEOMETRY_EPSILON ? distancePx : null
 }
@@ -369,25 +354,11 @@ function zoneLineDistancePx(zone: SceneZoneEntity, point: ScenePoint, viewportSc
  *  band wholly inside a zone leaves the zone out (canopi-qd2k). An ellipse's outline follows its drawn curve at the zoom,
  *  as a click's does. */
 function zoneIntersectsPolygon(zone: SceneZoneEntity, area: QueryPolygon, viewportScale: number): boolean {
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
-    const corners = getRectangularZoneCorners(zone)
-    return corners ? outlineIntersectsPolygon(corners, area) : false
+  const hitOutline = getZoneHitOutline(zone, ellipseBoundarySegmentCount(zone, viewportScale))
+  if (hitOutline && !hitOutline.closed && hitOutline.points.length >= 2) {
+    return segmentIntersectsPolygon(hitOutline.points[0]!, hitOutline.points[1]!, area)
   }
-
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    const polygon = getEllipticalZonePolygon(zone, ellipseBoundarySegmentCount(zone, viewportScale))
-    return polygon ? outlineIntersectsPolygon(polygon, area) : false
-  }
-
-  if (zone.zoneType === 'line' && zone.points.length >= 2) {
-    return segmentIntersectsPolygon(zone.points[0]!, zone.points[1]!, area)
-  }
-
-  if (zone.zoneType === 'polygon' && zone.points.length >= 3) {
-    return outlineIntersectsPolygon(zone.points, area)
-  }
-
-  return outlineIntersectsPolygon(rectCorners(zoneBounds(zone)), area)
+  return outlineIntersectsPolygon(hitOutline?.points ?? rectCorners(zoneBounds(zone)), area)
 }
 
 /** A closed outline and the band's polygon: a corner of the outline inside the band, or crossing edges. */
@@ -561,7 +532,7 @@ function plantIntersectsPolygon(
 }
 
 function zoneBounds(zone: SceneZoneEntity): SimpleRect {
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
+  if (isEllipseZoneWithRadii(zone)) {
     const center = zone.points[0]!
     const radii = zone.points[1]!
     return {
@@ -588,7 +559,7 @@ function annotationIntersectsPolygon(
 
 function isLayerVisible(scene: ScenePersistedState, layerName: string): boolean {
   const layer = scene.layers.find((entry) => entry.name === layerName)
-  return layer?.visible !== false
+  return layer?.visible !== false && (layer?.opacity ?? 1) > 0
 }
 
 function plantPresentationContext(

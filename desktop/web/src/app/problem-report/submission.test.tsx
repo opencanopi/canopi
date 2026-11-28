@@ -13,7 +13,7 @@ import { resetFrontendDiagnosticsForTests, ringEntries } from '../../failures/ri
 import { IpcFailure } from '../../failures/ipc-failure'
 import { t } from '../../i18n'
 import type { EditionSections, ProblemReport, ProblemReportPort } from '../../platform/problem-report'
-import { createBrowserProblemReportWriter } from '../../platform/problem-report.browser'
+import { createBrowserProblemReportWriter } from '../../editions/web/problem-report'
 import { createProblemReportSubmission, type ProblemReportSubmissionDeps } from './submission'
 
 type Write = (report: ProblemReport) => Promise<ProblemReportResult>

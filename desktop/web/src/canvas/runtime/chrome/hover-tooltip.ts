@@ -10,7 +10,7 @@ import { hoverCardLayer } from '../../../utils/tooltip-layer'
 import { CANVAS_CHROME_FONT_FAMILY } from '../../chrome-fonts'
 
 export interface HoverTooltipController {
-  show(screenX: number, screenY: number, commonName: string | null, scientificName: string): void
+  show(screenX: number, screenY: number, title: string | null, subtitle: string, subtitleItalic?: boolean): void
   hide(): void
   dispose(): void
 }
@@ -57,12 +57,13 @@ export function createHoverTooltip(container: HTMLElement): HoverTooltipControll
   el.appendChild(scientificEl)
 
   return {
-    show(screenX, screenY, commonName, scientificName) {
+    show(screenX, screenY, commonName, scientificName, subtitleItalic = true) {
       const layer = hoverCardLayer()
       if (el.parentNode !== layer) layer.appendChild(el)
       commonEl.textContent = commonName || ''
       commonEl.style.display = commonName ? '' : 'none'
       scientificEl.textContent = scientificName
+      scientificEl.style.fontStyle = subtitleItalic ? 'italic' : 'normal'
 
       // Show first so offsetWidth/offsetHeight are accurate for clamping
       el.style.display = 'block'

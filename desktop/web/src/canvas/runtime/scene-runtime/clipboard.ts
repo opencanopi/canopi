@@ -7,9 +7,10 @@ import type {
   ScenePoint,
   SceneZoneEntity,
 } from '../scene'
-import type { SessionPlane } from '../../session-plane'
+import type { SessionPlane } from '../../../geo/session-plane'
 import type { SceneSelectionTarget } from './selection'
 import type { SceneArrangementTemplate } from './arrangement-placement'
+import { isEllipseZoneWithRadii } from './selection-rotation'
 import { resolveSceneObjectGroupMembers } from '../scene'
 
 export interface SceneClipboardPayload {
@@ -66,7 +67,7 @@ export function reprojectClipboardPayload(
     plane,
     plants: payload.plants.map((plant) => ({ ...plant, position: point(plant.position) })),
     zones: payload.zones.map((zone) => {
-      if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
+      if (isEllipseZoneWithRadii(zone)) {
         const [center, radii] = ellipse(zone.points[0]!, zone.points[1]!)
         return { ...zone, points: [center, radii, ...zone.points.slice(2).map(point)] }
       }
@@ -140,7 +141,8 @@ export function resolveSelectedEntitySets(
     for (const member of resolveSceneObjectGroupMembers(persisted, group)) {
       if (member.kind === 'plant') plantIds.add(member.id)
       else if (member.kind === 'zone') zoneIds.add(member.id)
-      else annotationIds.add(member.id)
+      else if (member.kind === 'annotation') annotationIds.add(member.id)
+      else measurementGuideIds.add(member.id)
     }
   }
 

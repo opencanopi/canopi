@@ -1,6 +1,6 @@
 # Geolocated map canvas
 
-Status: Accepted (2026-09-25, Canopi v2); rewritten 2026-10-17 for true ground metres (ledger [2.1-Q78d](../decisions/2-1.md); built by Phase 2's true-metres change, 2m); amended 2026-10-17 (geocoding rules, 2.1-Q81, 2.1-Q91)
+Status: Accepted (2026-09-25, Canopi v2); rewritten 2026-10-17 for true ground metres (ledger [2.1-Q78d](../decisions/2-1.md); built by Phase 2's true-metres change, 2m); amended 2026-10-17 (geocoding rules, 2.1-Q81, 2.1-Q91); amended 2026-11-16 (the release notes name every changed surface, 2.1-Q366)
 
 Amended by [ADR 0015](0015-rotating-map-and-canvas-controls.md) and [ADR 0016](0016-one-view-transform.md) (2026-09-29): bearing is a view property and the view can rotate. Amended 2026-10-04: reopening a Design restores the view it was saved with (U28). Amended 2026-10-06 (Q14, canopi-f47t.26): a saved longitude is clamped to ±180, the range the decoder admits, so a Design dragged past the antimeridian reopens. Amended 2026-10-17 (2.1-Q78d): plane metres are WGS84 ground metres at the plane's anchor, and the view transform is an affine ([ADR 0016](0016-one-view-transform.md)).
 
@@ -43,10 +43,10 @@ In 2.0 the plane was a spherical Mercator tangent plane: its metres were off the
 - Stored lon/lat is the only authority, so re-origin and save are lossless and precise to about 0.1 mm.
 - Metre-based features keep working inside the session plane; lengths, areas and angles read exactly. No stored data changes: `.canopi`, saved views, the last view and settings keep their meaning.
 - Files from before 2.0 are refused ([ADR 0021](0021-canopi-2-breaks-stored-data.md)); later formats migrate forward ([ADR 0026](0026-stored-data-after-2-0.md)).
-- Saved object stamps stay relative metre arrangements, now in ground metres; a stamp saved by 2.0 places 0.01 to 0.56 % off its old size, named in the Phase 2 true-metres (2m) handoff and the release notes (ADR 0021 allows it).
+- Saved object stamps stay relative metre arrangements, now in ground metres; a stamp saved by 2.0 places 0.01 to 0.56 % off its old size, named in the Phase 2 true-metres (2m) handoff and the release notes (ADR 0021 allows it). Beside it the release notes name every other surface that changes: turned 2.0 rectangles and ellipses (up to about 0.15 %), and chips, PDF text, the scale bar, 1:N and exports (up to 0.56 %) (2.1-Q366).
 - Code that converts a scale by latitude, or treats the view as a similarity (screen circles from a ground radius, orthogonal screen axes, handle angles), misplaces by up to 0.34 % of its distance from the anchor. Branded plane and conformal point types and one policy rule hold it.
 - Altitude is no longer Design metadata; terrain comes from LiDAR data.
 
 ## Checks
 
-- To be created by Phase 2 (2m): a stored lon/lat lands on MapLibre's pixel to 1e-6 px under the plane; plane lengths at the anchor and the ground measure anywhere on a 10 km site match a WGS84 Vincenty reference within 1 ppm; a rotated square keeps its ground sides and right angles; re-origin stays idempotent at 1e-9°; `scale-only-through-plane` (contracts §18 F36); one real-path test per seam (renderer, camera, map, input) in Chromium, WebKit and Firefox.
+- Built in Phase 2 (2m): a stored lon/lat lands on MapLibre's pixel to 1e-6 px under the plane; plane lengths at the anchor and the ground measure anywhere on a 10 km site match a WGS84 Vincenty reference within 1 ppm; a rotated square keeps its ground sides and right angles; re-origin stays idempotent at 1e-9°; `scale-only-through-plane` (contracts §18 F36); one real-path test per seam (renderer, camera, map, input) in Chromium, WebKit and Firefox.

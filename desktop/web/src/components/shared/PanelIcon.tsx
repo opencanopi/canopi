@@ -5,7 +5,6 @@ export type PanelIconName = Panel
 // Panel glyphs on the 20×20 grid: 1.6 stroke, round caps, currentColor.
 const PANEL_ICON_PATHS: Record<Panel, string> = {
   canvas: 'M3 4.5h14v11H3zM3 13l4-4 3 3 2.5-2.5L17 14',
-  templates: 'M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0zM3 10h14M10 3c2 2 2.8 4.4 2.8 7S12 15 10 17c-2-2-2.8-4.4-2.8-7S8 5 10 3z',
   layers: 'M10 3l7.5 4-7.5 4-7.5-4zM2.5 11l7.5 4 7.5-4',
   // Site data: topographic rings (U49 Q2).
   'site-data': 'M10 3c4 0 7 2.6 7 6.6S14 17 9.6 17 3 14.2 3 10.2 6 3 10 3zM10 6.4c2.3 0 4 1.4 4 3.5s-1.8 4-4.2 4-3.8-1.6-3.8-3.6S7.8 6.4 10 6.4zM10 9.2c.6 0 1 .4 1 1s-.4.9-1 .9-1-.4-1-.9.4-1 1-1z',

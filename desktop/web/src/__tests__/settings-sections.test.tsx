@@ -4,10 +4,9 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { aboutCanopiDialogOpen } from '../app/about/state'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
-import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
   googleMapsApiKey,
   locale,
   newDesignDefaults,
@@ -15,7 +14,10 @@ import {
   activeGoogleMapsApiKey,
   scrollWheel,
   singleKeyShortcuts,
+  unitSystem,
 } from '../app/settings/state'
+import { recentFrontendDiagnostics } from '../app/problem-report/diagnostics'
+import { resetFrontendDiagnosticsForTests } from '../failures/ring'
 import {
   closeKeyboardShortcutsDialog,
   closeSettingsDialog,
@@ -29,7 +31,7 @@ import {
   type SettingsProjectionInstallation,
 } from '../app/settings/projection'
 import { resetStoreHealthForTests, storeStatus } from '../failures/health'
-import { createBrowserSettingsPlatformAdapter } from '../platform/settings.browser'
+import { createBrowserSettingsPlatformAdapter } from '../editions/web/settings'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 
 const FAKE_KEY = 'FAKE-GOOGLE-KEY-never-log-me-42'
@@ -84,6 +86,7 @@ beforeEach(() => {
   newDesignDefaults.value = DEFAULT_NEW_DESIGNS
   singleKeyShortcuts.value = true
   scrollWheel.value = 'zoom'
+  unitSystem.value = 'metric'
   resetFrontendDiagnosticsForTests()
   consoleSpies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((method) => vi.spyOn(console, method))
 })
@@ -111,6 +114,40 @@ describe('Settings sections', () => {
     await act(async () => { button('Keyboard').click() })
     expect(nav.querySelector('[aria-current="page"]')!.textContent).toBe('Keyboard')
     expect(dialog().querySelector('h3')!.textContent).toBe('Keyboard')
+  })
+
+  it('lists every supported language in Latin, Cyrillic, CJK picker order', async () => {
+    await openSection('appearance')
+    const languageTrigger = dialog().querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!
+    await act(async () => { languageTrigger.click() })
+    const labels = [...document.body.querySelectorAll<HTMLElement>('[role="option"]')]
+      .map((option) => option.textContent?.trim())
+    expect(labels).toEqual([
+      'English',
+      'Français',
+      'Español',
+      'Português',
+      'Italiano',
+      'Deutsch',
+      'Nederlands',
+      'Русский',
+      '中文',
+      '日本語',
+      '한국어',
+    ])
+  })
+
+  it('switches the unit system between Metric and US customary (2.1-Q119/Q120)', async () => {
+    await openSection('appearance')
+    expect(radio('Metric').getAttribute('aria-checked')).toBe('true')
+    expect(unitSystem.value).toBe('metric')
+
+    await act(async () => { radio('US customary').click() })
+    expect(unitSystem.value).toBe('us_customary')
+    expect(radio('US customary').getAttribute('aria-checked')).toBe('true')
+
+    await act(async () => { radio('Metric').click() })
+    expect(unitSystem.value).toBe('metric')
   })
 })
 

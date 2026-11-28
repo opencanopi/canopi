@@ -1,14 +1,15 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
-import { formatInstantInList } from '../../app/timeline/civil-date'
+import { formatInstantInList } from '../../planning/civil-date'
 import {
   designNotebookWorkbench,
   type DesignNotebookWorkbench,
 } from '../../app/design-notebook'
-import type { DesignNotebookEntry, DesignNotebookSection } from '../../types/design'
+import type { DesignNotebookEntry, DesignNotebookSection } from '../../generated/contracts'
 import { DockPanelHeader } from '../shared/DockPanelHeader'
+import { InlineRenameField } from '../shared/InlineRenameField'
 import styles from './DesignNotebookPanel.module.css'
 import { usePointerReorder } from '../shared/usePointerReorder'
 
@@ -47,13 +48,11 @@ export function DesignNotebookPanel({
   const lang = locale.value
   const view = workbench.view.value
   const listRef = useRef<HTMLDivElement>(null)
-  const renameInputRef = useRef<HTMLInputElement>(null)
   const suppressNextOpenPathRef = useRef<string | null>(null)
   const suppressOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [newSectionName, setNewSectionName] = useState('')
   const [sectionEditorOpen, setSectionEditorOpen] = useState(false)
   const [renamingSectionId, setRenamingSectionId] = useState<string | null>(null)
-  const [renameDraft, setRenameDraft] = useState('')
   const [draggedPath, setDraggedPath] = useState<string | null>(null)
   const [draggedSectionId, setDraggedSectionId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<NotebookDropTarget | null>(null)
@@ -76,13 +75,6 @@ export function DesignNotebookPanel({
     cancel: clearDragPreview,
   })
 
-  // The field takes focus as it replaces the title, so an Esc at once ends the rename (canopi-f47t.52.228.20).
-  useLayoutEffect(() => {
-    if (!renamingSectionId) return
-    renameInputRef.current?.focus()
-    renameInputRef.current?.select()
-  }, [renamingSectionId])
-
   const orderedSections = orderItemsForPreview(
     view.sections,
     sectionPreviewIds,
@@ -103,24 +95,20 @@ export function DesignNotebookPanel({
 
   function beginRename(section: DesignNotebookSection): void {
     setRenamingSectionId(section.id)
-    setRenameDraft(section.name)
   }
 
-  function commitRename(sectionId: string): void {
-    const name = renameDraft.trim()
-    if (!name) {
-      cancelRename()
-      return
-    }
-    void workbench.renameSection(sectionId, name).then(() => {
+  async function commitRename(sectionId: string, name: string): Promise<void | { readonly error: string }> {
+    try {
+      await workbench.renameSection(sectionId, name)
       setRenamingSectionId(null)
-      setRenameDraft('')
-    })
+    } catch {
+      // reason: map IPC/store refusal to translated user-facing copy instead of raw error text (2.1-Q360)
+      return { error: t('designNotebook.renameSectionFailed') }
+    }
   }
 
   function cancelRename(): void {
     setRenamingSectionId(null)
-    setRenameDraft('')
   }
 
   function beginEntryPointerDrag(path: string, event: PointerEvent): void {
@@ -389,23 +377,14 @@ export function DesignNotebookPanel({
                   title={section.name}
                   dragging={section.id === draggedSectionId}
                   titleEditor={renaming ? (
-                    <input
-                      ref={renameInputRef}
+                    <InlineRenameField
+                      value={section.name}
+                      ariaLabel={t('designNotebook.sectionName')}
                       className={styles.sectionRenameInput}
-                      aria-label={t('designNotebook.sectionName')}
-                      value={renameDraft}
-                      onInput={(event) => setRenameDraft((event.currentTarget as HTMLInputElement).value)}
-                      onFocusOut={() => commitRename(section.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault()
-                          commitRename(section.id)
-                        }
-                        if (event.key === 'Escape') {
-                          event.preventDefault()
-                          cancelRename()
-                        }
-                      }}
+                      errorClassName={styles.sectionRenameError}
+                      unchangedName={section.name}
+                      onCommit={(name) => commitRename(section.id, name)}
+                      onCancel={cancelRename}
                     />
                   ) : undefined}
                   actions={!renaming && (

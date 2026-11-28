@@ -41,13 +41,14 @@ describe('label admission', () => {
     const admitted = admission.admit(20, true)!
     const [name] = admitted.plantNameLabels
     expect(name?.anchor).toEqual({ x: 2, y: 3 })
-    for (const [viewport, expected] of [
-      [{ x: 10, y: 20, scale: 20 }, { x: 50, y: 98 }],
-      [{ x: 17, y: 13, scale: 20 }, { x: 57, y: 91 }],
-      [{ x: -2, y: 40, scale: 20 }, { x: 38, y: 118 }],
+    for (const [viewport, offset] of [
+      [{ x: 10, y: 20, scale: 20 }, { x: 0, y: 18 }],
+      [{ x: 17, y: 13, scale: 20 }, { x: 0, y: 18 }],
+      [{ x: -2, y: 40, scale: 20 }, { x: 0, y: 18 }],
     ] as const) {
-      expect(onScreen(name!, viewport).x).toBeCloseTo(expected.x, 6)
-      expect(onScreen(name!, viewport).y).toBeCloseTo(expected.y, 6)
+      const anchor = createTestRendererView(viewport).worldToScreen({ x: 2, y: 3 })
+      expect(onScreen(name!, viewport).x).toBeCloseTo(anchor.x + offset.x, 6)
+      expect(onScreen(name!, viewport).y).toBeCloseTo(anchor.y + offset.y, 6)
     }
     // A pan admits nothing again: the scene's geometry is not read.
     Object.defineProperty(initial.scene, 'plants', { get: () => { throw new Error('pan read geometry') } })
@@ -101,15 +102,18 @@ describe('label admission', () => {
     const admission = new LabelAdmission()
     admission.setScene(snapshot(false))
     const [selection] = admission.admit(20, true)!.selectionLabels
-    expect(onScreen(selection!, { x: 10, y: 20, scale: 20 }).y).toBeCloseTo(96, 6)
+    const selAnchor = createTestRendererView({ x: 10, y: 20, scale: 20 }).worldToScreen({ x: 2, y: 3 })
+    expect(onScreen(selection!, { x: 10, y: 20, scale: 20 }).y).toBeCloseTo(selAnchor.y + 16, 6)
     const [zoomed] = admission.admit(2, true)!.selectionLabels
-    expect(onScreen(zoomed!, { x: 1, y: 2, scale: 2 }).x).toBeCloseTo(5, 6)
-    expect(onScreen(zoomed!, { x: 1, y: 2, scale: 2 }).y).toBeCloseTo(13.36, 6)
+    const zoomAnchor = createTestRendererView({ x: 1, y: 2, scale: 2 }).worldToScreen({ x: 2, y: 3 })
+    expect(onScreen(zoomed!, { x: 1, y: 2, scale: 2 }).x).toBeCloseTo(zoomAnchor.x, 6)
+    expect(onScreen(zoomed!, { x: 1, y: 2, scale: 2 }).y).toBeCloseTo(zoomAnchor.y + 5.36, 6)
     admission.setScene(snapshot(true, [['Mentha spicata', 'Menthe']]))
     expect(admission.admit(2, true)!.selectionLabels).toEqual([])
     const [name] = admission.admit(40, true)!.plantNameLabels
     expect(name?.text).toBe('Menthe')
-    expect(onScreen(name!, { x: 0, y: 0, scale: 40 }).y).toBeCloseTo(138, 6)
+    const nameAnchor = createTestRendererView({ x: 0, y: 0, scale: 40 }).worldToScreen({ x: 2, y: 3 })
+    expect(onScreen(name!, { x: 0, y: 0, scale: 40 }).y).toBeCloseTo(nameAnchor.y + 18, 6)
     admission.setScene(createTestSceneRendererSnapshot())
     expect(admission.admit(40, true)!.plantNameLabels).toEqual([])
   })

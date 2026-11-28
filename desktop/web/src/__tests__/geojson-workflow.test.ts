@@ -7,11 +7,16 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import {
   createGeoJsonWorkflow,
-  geoJsonNoticeText,
-  type GeoJsonFileAdapter,
   type GeoJsonNotice,
+  type GeoJsonSourceFile,
 } from '../app/geojson/workflow'
+import { buildDeliveryFileName, type FileDeliveryPort } from '../platform/file-delivery'
 import { t } from '../i18n'
+
+function geoJsonNoticeText(notice: GeoJsonNotice): string {
+  const message = t(notice.message, notice.params)
+  return notice.detail ? `${message} ${t(notice.detail.message, notice.detail.params)}` : message
+}
 import { geoAt } from './support/geo-design'
 import { createLiveTestCanvasRuntimeHost, type CanvasRuntimeHost } from './support/live-canvas-runtime'
 
@@ -57,7 +62,7 @@ function sourceDesign(): CanopiFile {
         pinned_name: false,
         position: { lon: 13.000012345, lat: 23.000054321 },
         rotation: null,
-        scale: 5,
+        canopy_spread_m: 5,
         notes: 'North side',
         planted_date: '2026-02-11',
         quantity: 2,
@@ -113,22 +118,34 @@ function mountDesign(file: CanopiFile): CanvasRuntimeSurfaces {
   return host.surfaces
 }
 
+interface MemoryGeoJsonFiles {
+  pickGeoJsonFile: () => Promise<GeoJsonSourceFile | null>
+  fileDelivery: FileDeliveryPort
+}
+
 function memoryFiles(text: string | null = null) {
   const written: { text: string; fileName: string }[] = []
-  const files: GeoJsonFileAdapter = {
+  const files: MemoryGeoJsonFiles = {
     pickGeoJsonFile: vi.fn(async () => text === null ? null : { name: 'input.geojson', text }),
-    writeGeoJsonFile: vi.fn(async (content: string, fileName: string) => {
-      written.push({ text: content, fileName })
-      return 'written' as const
-    }),
+    fileDelivery: {
+      deliverFile: vi.fn(async (kind, stem, content) => {
+        written.push({
+          text: 'text' in content ? content.text : new TextDecoder().decode(content.bytes),
+          fileName: buildDeliveryFileName(kind, stem),
+        })
+        return 'saved' as const
+      }),
+      dispose: () => {},
+    },
   }
   return { files, written }
 }
 
-function workflowFor(surfaces: CanvasRuntimeSurfaces, files: GeoJsonFileAdapter) {
+function workflowFor(surfaces: CanvasRuntimeSurfaces, files: MemoryGeoJsonFiles) {
   const notices: GeoJsonNotice[] = []
   const workflow = createGeoJsonWorkflow({
-    files,
+    pickGeoJsonFile: files.pickGeoJsonFile,
+    fileDelivery: () => files.fileDelivery,
     notify: (notice) => { notices.push(notice) },
     designName: () => 'Kitchen / garden',
     canvas: () => surfaces,
@@ -141,7 +158,7 @@ async function exportText(file: CanopiFile): Promise<string> {
   const { files, written } = memoryFiles()
   const { workflow } = workflowFor(surfaces, files)
   await expect(workflow.exportGeoJson()).resolves.toEqual({ status: 'written', featureCount: 5 })
-  expect(written[0]!.fileName).toBe('Kitchen _ garden.geojson')
+  expect(written[0]!.fileName).toBe('Kitchen garden.geojson')
   return written[0]!.text
 }
 
@@ -177,7 +194,7 @@ describe('GeoJSON workflow through the scene runtime', () => {
         color: null,
         position: geoAt(100, 100),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: null,
@@ -211,7 +228,7 @@ describe('GeoJSON workflow through the scene runtime', () => {
     expect(imported).toMatchObject({
       common_name: 'Apple',
       color: '#C44230',
-      scale: 5,
+      canopy_spread_m: 5,
       notes: 'North side',
       planted_date: '2026-02-11',
       quantity: 2,
@@ -316,7 +333,8 @@ describe('GeoJSON workflow through the scene runtime', () => {
     })
     const notices: GeoJsonNotice[] = []
     const workflow = createGeoJsonWorkflow({
-      files,
+      pickGeoJsonFile: files.pickGeoJsonFile,
+      fileDelivery: () => files.fileDelivery,
       notify: (notice) => { notices.push(notice) },
       designName: () => 'Replaced',
       canvas: () => target,
@@ -332,7 +350,8 @@ describe('GeoJSON workflow through the scene runtime', () => {
   it('is unavailable without a mounted canvas runtime', async () => {
     const { files } = memoryFiles('{}')
     const workflow = createGeoJsonWorkflow({
-      files,
+      pickGeoJsonFile: files.pickGeoJsonFile,
+      fileDelivery: () => files.fileDelivery,
       notify: vi.fn(),
       designName: () => 'Untitled',
       canvas: () => null,

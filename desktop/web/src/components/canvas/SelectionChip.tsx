@@ -2,9 +2,10 @@ import { canvasCommandDefinitions } from '../../app/canvas-commands'
 import { useMapSelectionSummary, type MapSelectionSummary } from '../../app/map-selection/summary'
 import { describeMapSelection } from '../../app/map-selection/summary-text'
 import { ariaKeyShortcuts } from '../../app/shell-commands/shortcut-text'
+import { openInspector } from '../../app/planning-view/state'
 import { loneEditableZoneId, openRenameZoneDialog } from '../../app/rename-zone/state'
 import { currentCanvasQuerySurface, currentCanvasSceneEditCommandSurface } from '../../canvas/session'
-import { locale } from '../../app/settings/state'
+import { locale, unitSystem } from '../../app/settings/state'
 import { t } from '../../i18n'
 import { SpeciesCommonName } from '../shared/SpeciesIdentity'
 import styles from './SelectionChip.module.css'
@@ -30,11 +31,13 @@ export function SelectionChip({ placement = 'map' }: {
   const queries = currentCanvasQuerySurface.value
   const overview = queries?.view.mode.value === 'overview'
   if (!summary || overview) return null
-  const { head, headEnglishFallback, details } = describeMapSelection(summary, locale.value)
+  const { head, headEnglishFallback, details } = describeMapSelection(summary, locale.value, unitSystem.value)
   const [only] = summary.species
   const wholeSpecies = summary.species.length === 1 && isOnlyPlants(summary) && only!.selectedCount < only!.designCount
   // The summary hook re-renders the chip on selection and scene changes (locks included).
-  const renameZoneId = loneEditableZoneId(queries?.getDesignObjectSelection() ?? null)
+  const selectionModel = queries?.getDesignObjectSelection() ?? null
+  const renameZoneId = loneEditableZoneId(selectionModel)
+  const canInspect = canInspectSelection(selectionModel)
   const bar = placement === 'bar'
   return (
     <div className={styles.chip} role="group" aria-label={t('canvas.selectionChip.label')} data-selection-chip={bar ? 'bar' : 'bottom'}>
@@ -54,6 +57,16 @@ export function SelectionChip({ placement = 'map' }: {
           onClick={() => currentCanvasSceneEditCommandSurface.value?.selectSpecies([only!.canonicalName])}
         >
           {t(bar ? 'canvas.selectionChip.sameSpeciesShort' : SELECT_SAME_SPECIES.labelKey)}
+        </button>
+      )}
+      {canInspect && (
+        <button
+          type="button"
+          className={styles.button}
+          data-open-inspector
+          onClick={() => openInspector()}
+        >
+          {t(bar ? 'canvas.selectionChip.dimensionsShort' : 'canvas.selectionChip.dimensions')}
         </button>
       )}
       {renameZoneId !== null && (
@@ -79,6 +92,12 @@ export function SelectionChip({ placement = 'map' }: {
       </button>
     </div>
   )
+}
+
+function canInspectSelection(
+  selectionModel: ReturnType<NonNullable<typeof currentCanvasQuerySurface.value>['getDesignObjectSelection']> | null,
+): boolean {
+  return selectionModel?.editableTargets.length === 1 && selectionModel.editableTargets[0]?.kind !== 'group'
 }
 
 function isOnlyPlants(summary: MapSelectionSummary): boolean {

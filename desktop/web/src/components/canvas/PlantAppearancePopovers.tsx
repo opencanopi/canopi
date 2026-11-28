@@ -3,11 +3,11 @@ import { useEffect, useMemo } from 'preact/hooks'
 import {
   closePlantAppearance,
   plantAppearanceAnchor,
+  plantColorMenuOpen,
+  plantSymbolMenuOpen,
   type PlantAppearanceAnchor,
 } from '../../app/canvas-context-menu/state'
 import { focusOwner } from '../../app/keyboard/focus-owner'
-import { plantColorMenuOpen } from '../../canvas/plant-color-menu-state'
-import { plantSymbolMenuOpen } from '../../canvas/plant-symbol-menu-state'
 import { currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/session'
 import { PlantColorMenu } from './PlantColorMenu'
 import { PlantSymbolMenu } from './PlantSymbolMenu'

@@ -5,9 +5,10 @@
 //! The contract, frozen at the reader release's tag and extended, never broken: the fixture directory holds
 //! `manifest.json` (schema `spec/rollback/manifest.schema.json`, rows `{store, form_version, edition, path}`) and each
 //! row's file at its `path`. The reader lists the Desktop rows whose store it knows, skipping a store literal or a field
-//! a later release added, runs one reader session over them and finds each read newer-read-only (a Design or Draft past
-//! this reader's read refused as newer) and no byte or folder changed; that each raises its notice is held by the
-//! presentation tests desktop/src/reader_session.rs names;
+//! a later release added, runs one reader session over them and finds each store read with the expected rollback-reader
+//! status (health stores newer-read-only; v10 Design/Draft files ready; v11+ Design/Draft files refused as newer) and no
+//! byte or folder changed; that each raises its notice is held by the presentation tests
+//! desktop/src/reader_session.rs names;
 //! `main`'s lane hashes the files itself as well (`node policy/gate/cli.mjs rollback-fixtures`).
 //!
 //! The fixture directory is `CANOPI_ROLLBACK_FIXTURES` when set (the rollback lane's reader jobs, over what the writer
@@ -42,9 +43,6 @@ mod reader {
     pub(crate) const WEB_STORES: [&str; 3] = ["settings", "web_drafts", "web_species_lists"];
     /// The Desktop stores that hold one Design each, opened as the page opens a Design rather than through store health.
     const DESIGN_STORES: [&str; 2] = ["canopi_file", "desktop_draft"];
-    /// The first `.canopi` format version 2.1 writes, the floor of what the reader release reads (canopi-format's
-    /// `FIRST_READ_VERSION`), frozen here with the contract.
-    const FIRST_2_1_CANOPI_VERSION: u32 = 10;
 
     /// One manifest row.
     #[derive(Debug, Clone, PartialEq)]
@@ -136,15 +134,15 @@ mod reader {
             .collect()
     }
 
-    /// The Desktop rows whose store this reader knows, as (store, file); a store literal a later release added is
-    /// skipped, never refused (the contract is extended, never broken).
-    fn desktop_forms(root: &Path) -> Vec<(String, PathBuf)> {
+    /// The Desktop rows whose store this reader knows, as (store, form_version, file); a store literal a later release
+    /// added is skipped, never refused (the contract is extended, never broken).
+    fn desktop_forms(root: &Path) -> Vec<(String, u64, PathBuf)> {
         manifest_forms(&root.join("manifest.json"))
             .into_iter()
             .filter(|form| {
                 form.edition == "desktop" && DESKTOP_STORES.contains(&form.store.as_str())
             })
-            .map(|form| (form.store, root.join(form.path)))
+            .map(|form| (form.store, form.form_version, root.join(form.path)))
             .collect()
     }
 
@@ -173,30 +171,27 @@ mod reader {
         out
     }
 
-    /// How one reader session read one store: its open status (`StoreOpenStatus`'s kind) and, for a Design or Draft
-    /// opened read-only, the format version its read view says saved it (`saved_by_version`, the input the page's
-    /// Read-only label and its `newer-version` popover take).
+    /// How one reader session read one store: its open status (`StoreOpenStatus`'s kind).
     #[derive(Debug, Clone, PartialEq)]
     struct StoreRead {
         store: String,
         status: String,
-        saved_by_version: Option<u32>,
     }
 
     /// One reader session over the Desktop forms through the crate's reader-session seam
     /// (`canopi_desktop::reader_session::read_session`): it opens the stores in the app data folder (the folder of the
     /// user DB's file, which holds the Drafts and the library catalogue too) as the app does at launch, lists and opens
-    /// the Drafts, opens each Design file read-only, and reports how it read each store.
-    fn reader_session(forms: &[(String, PathBuf)]) -> Result<Vec<StoreRead>, String> {
+    /// the Drafts, opens each Design file, and reports how it read each store without writing any bytes.
+    fn reader_session(forms: &[(String, u64, PathBuf)]) -> Result<Vec<StoreRead>, String> {
         let data_dir = forms
             .iter()
-            .find(|(store, _)| store == "user_db")
-            .and_then(|(_, file)| file.parent())
+            .find(|(store, _, _)| store == "user_db")
+            .and_then(|(_, _, file)| file.parent())
             .ok_or("the forms name the user DB's file")?;
         let designs: Vec<PathBuf> = forms
             .iter()
-            .filter(|(store, _)| store == "canopi_file")
-            .map(|(_, file)| file.clone())
+            .filter(|(store, _, _)| store == "canopi_file")
+            .map(|(_, _, file)| file.clone())
             .collect();
         let reads = canopi_desktop::reader_session::read_session(data_dir, &designs)?;
         Ok(reads
@@ -207,7 +202,6 @@ mod reader {
                     .unwrap()
                     .to_string(),
                 store: read.store,
-                saved_by_version: read.saved_by_version,
             })
             .collect())
     }
@@ -231,7 +225,7 @@ mod reader {
         let forms = desktop_forms(&root);
         for store in DESKTOP_STORES {
             assert!(
-                forms.iter().any(|(listed, _)| listed == store),
+                forms.iter().any(|(listed, _, _)| listed == store),
                 "the manifest lists a Desktop {store} form"
             );
         }
@@ -239,99 +233,132 @@ mod reader {
 
         let health = reader_session(&forms).expect("a reader session opens every Desktop form");
         assert_eq!(
-            every_form_read_newer_read_only(&forms, &health),
+            every_form_matches_expected_rollback_status(&forms, &health),
             Ok(()),
-            "every Desktop form opens newer-read-only"
+            "every Desktop form opens with its expected rollback-reader status"
         );
 
         assert_eq!(files(&root), before, "the session writes no byte");
     }
 
     /// Each listed Desktop store has an entry (a session that skips a store writes none of its bytes, so the byte
-    /// comparison alone would pass it). Every health store reads newer-read-only. Each Design and Draft opens as its
-    /// read view with the `saved_by_version` (at least 2.1's first) the page's Read-only label takes, or is refused as
-    /// newer than this reader's read admits, which a later release's form may correctly be. That each raises its
-    /// notice is held where the page builds notices from these (the presentation tests named in
-    /// desktop/src/reader_session.rs).
-    fn every_form_read_newer_read_only(
-        forms: &[(String, PathBuf)],
+    /// comparison alone would pass it). Every non-Design store reads newer-read-only. Under 2.1-Q347 (v10 cutover),
+    /// each Design or Draft at or below `CURRENT_CANOPI_FILE_VERSION` opens `"ready"` (without writing bytes), and
+    /// each Design or Draft above `CURRENT_CANOPI_FILE_VERSION` is refused as `"refused_newer"`.
+    fn every_form_matches_expected_rollback_status(
+        forms: &[(String, u64, PathBuf)],
         health: &[StoreRead],
     ) -> Result<(), String> {
-        if let Some((store, _)) = forms
+        let current_design_version = u64::from(canopi_types::design::CURRENT_CANOPI_FILE_VERSION);
+        if let Some((store, _, _)) = forms
             .iter()
-            .find(|(store, _)| !health.iter().any(|read| &read.store == store))
+            .find(|(store, _, _)| !health.iter().any(|read| &read.store == store))
         {
             return Err(format!("the session reports no health for {store}"));
         }
         for read in health {
             let design = DESIGN_STORES.contains(&read.store.as_str());
-            match (read.status.as_str(), read.saved_by_version) {
-                ("newer_read_only", None) if !design => {}
-                ("newer_read_only", Some(version))
-                    if design && version >= FIRST_2_1_CANOPI_VERSION => {}
-                ("refused_newer", None) if design => {}
-                (status, version) => {
-                    let store = &read.store;
-                    return Err(format!(
-                        "{store} opens {status} saved by {version:?}, not newer_read_only"
-                    ));
-                }
+            let form_version = forms
+                .iter()
+                .find(|(store, _, _)| store == &read.store)
+                .map(|(_, version, _)| *version);
+            let expected = if !design {
+                "newer_read_only"
+            } else if form_version.is_some_and(|version| version <= current_design_version) {
+                "ready"
+            } else {
+                "refused_newer"
+            };
+            if read.status != expected {
+                let store = &read.store;
+                let status = &read.status;
+                return Err(format!("{store} opens {status}, not {expected}"));
             }
         }
         Ok(())
     }
 
+    fn synthetic_desktop_forms(design_version: u64) -> Vec<(String, u64, PathBuf)> {
+        DESKTOP_STORES
+            .iter()
+            .map(|store| {
+                let version = if DESIGN_STORES.contains(store) {
+                    design_version
+                } else {
+                    99
+                };
+                (
+                    store.to_string(),
+                    version,
+                    PathBuf::from(format!("{store}.bin")),
+                )
+            })
+            .collect()
+    }
+
+    fn synthetic_health(stores: &[&str], design_status: &str) -> Vec<StoreRead> {
+        stores
+            .iter()
+            .map(|store| StoreRead {
+                store: store.to_string(),
+                status: if DESIGN_STORES.contains(store) {
+                    design_status.to_string()
+                } else {
+                    "newer_read_only".to_string()
+                },
+            })
+            .collect()
+    }
+
     #[test]
     fn r4_canopi_f47t_52_239_the_health_check_fails_a_skipped_or_writable_store_and_passes_a_design_refused_as_newer()
      {
-        let forms: Vec<(String, PathBuf)> = DESKTOP_STORES
-            .iter()
-            .map(|store| (store.to_string(), PathBuf::from(format!("{store}.bin"))))
-            .collect();
-        let read = |stores: &[&str]| -> Vec<StoreRead> {
-            stores
-                .iter()
-                .map(|store| StoreRead {
-                    store: store.to_string(),
-                    status: "newer_read_only".to_string(),
-                    saved_by_version: DESIGN_STORES
-                        .contains(store)
-                        .then_some(FIRST_2_1_CANOPI_VERSION),
-                })
-                .collect()
-        };
-        let fails =
-            |health: Vec<StoreRead>| every_form_read_newer_read_only(&forms, &health).is_err();
-        assert!(!fails(read(&DESKTOP_STORES)), "all newer-read-only");
-        assert!(fails(Vec::new()), "a session that reports no store fails");
-        assert!(
-            fails(read(&["user_db", "settings"])),
-            "a session that never opens the catalogue or the Draft fails"
+        let current = u64::from(canopi_types::design::CURRENT_CANOPI_FILE_VERSION);
+        let (v10_forms, v11_forms) = (
+            synthetic_desktop_forms(current),
+            synthetic_desktop_forms(current + 1),
         );
-        // Each row changes one read (its DESKTOP_STORES index, status, saved_by_version) and says whether that fails. A
-        // Design or Draft a later release wrote past this reader's read is refused, writing no byte: never a red lane.
-        let first = FIRST_2_1_CANOPI_VERSION;
-        let cases = [
-            (2, "ready", None, true, "a store opened read-write"),
-            (1, "ready", None, true, "a Draft opened to edit"),
-            (0, "newer_read_only", None, true, "no saved_by_version"),
-            (0, "newer_read_only", Some(first - 1), true, "pre-2.1"),
-            (0, "refused_newer", None, false, "a refused Design"),
-            (1, "refused_newer", None, false, "a refused Draft"),
-            (2, "refused_newer", None, true, "a refused store"),
+        let fails = |forms: &[(String, u64, PathBuf)], health: Vec<StoreRead>| {
+            every_form_matches_expected_rollback_status(forms, &health).is_err()
+        };
+        assert!(!fails(
+            &v10_forms,
+            synthetic_health(&DESKTOP_STORES, "ready")
+        ));
+        assert!(!fails(
+            &v11_forms,
+            synthetic_health(&DESKTOP_STORES, "refused_newer")
+        ));
+        assert!(fails(&v10_forms, Vec::new()));
+        assert!(fails(
+            &v10_forms,
+            synthetic_health(&["user_db", "settings"], "ready")
+        ));
+        for (index, status, fail, why) in [
+            (2, "ready", true, "a non-Design store opened read-write"),
+            (0, "refused_newer", true, "v10 Design must open ready"),
+            (1, "refused_newer", true, "v10 Draft must open ready"),
             (
-                2,
+                0,
                 "newer_read_only",
-                Some(first),
                 true,
-                "a health store with a saved_by_version",
+                "Designs no longer newer_read_only",
             ),
-        ];
-        for (index, status, version, fail, why) in cases {
-            let mut health = read(&DESKTOP_STORES);
+            (2, "refused_newer", true, "a refused non-Design store"),
+        ] {
+            let mut health = synthetic_health(&DESKTOP_STORES, "ready");
             health[index].status = status.to_string();
-            health[index].saved_by_version = version;
-            assert_eq!(fails(health), fail, "{why}");
+            assert_eq!(fails(&v10_forms, health), fail, "{why}");
+        }
+        for (index, status, fail, why) in [
+            (0, "ready", true, "v11 Design must be refused_newer"),
+            (1, "ready", true, "v11 Draft must be refused_newer"),
+            (0, "refused_newer", false, "v11 Design refused_newer passes"),
+            (1, "refused_newer", false, "v11 Draft refused_newer passes"),
+        ] {
+            let mut health = synthetic_health(&DESKTOP_STORES, "refused_newer");
+            health[index].status = status.to_string();
+            assert_eq!(fails(&v11_forms, health), fail, "{why}");
         }
     }
 
@@ -352,7 +379,7 @@ mod reader {
         std::fs::write(scratch.0.join("manifest.json"), manifest.to_string()).unwrap();
         assert_eq!(
             desktop_forms(&scratch.0),
-            [("user_db".to_string(), scratch.0.join("app/user.db"))]
+            [("user_db".to_string(), 11, scratch.0.join("app/user.db"))]
         );
     }
 

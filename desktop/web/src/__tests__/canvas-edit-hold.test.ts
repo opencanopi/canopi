@@ -52,7 +52,7 @@ describe('Edit › Cut and Delete during a draft (U39)', () => {
       documents: createTestCanvasDocumentSurface(),
       keyboard: session.keyboard,
     })
-    session.setTool('polygon')
+    session.arm('polygon')
     container.focus()
     events.pointerDown({ x: 20, y: 20 })
     events.pointerUp({ x: 20, y: 20 })
@@ -102,7 +102,7 @@ describe('Edit › Cut and Delete during a draft (U39)', () => {
       .map((command) => [command.id, command.disabled]))
     expect(greyed()).toEqual({ cut: false, copy: false, delete: false })
 
-    session.setTool('polygon')
+    session.arm('polygon')
     container.focus()
     events.pointerDown({ x: 20, y: 20 })
     events.pointerUp({ x: 20, y: 20 })
@@ -140,7 +140,7 @@ describe('Edit › Cut and Delete during a draft (U39)', () => {
       keyboard: session.keyboard,
     })
     deps.setSelection([plantTarget('plant-1')])
-    session.setTool('select')
+    session.arm('select')
     let projections = 0
     const stop = effect(() => {
       void workspaceCanvasCommandProjection.value
@@ -173,7 +173,7 @@ describe('Edit › Cut and Delete during a draft (U39)', () => {
       keyboard: session.keyboard,
     })
     deps.setSelection([plantTarget('plant-1')])
-    session.setTool('select')
+    session.arm('select')
     // The menu bar reads the projection throughout, as a rendered Edit menu does.
     const greyed = () => Object.fromEntries(workspaceCanvasCommandProjection.value.editActions
       .filter((command) => ['cut', 'delete'].includes(command.id))
@@ -218,7 +218,7 @@ describe('Edit › Lock and Unlock follow the Scene', () => {
       layers: [],
       plants: [{
         id: 'plant-1', canonical_name: 'Malus domestica', common_name: null, color: null, position: { lon: 0, lat: 0 },
-        rotation: null, scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+        rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: 1, locked: false,
       }],
       zones: [],
       annotations: [],

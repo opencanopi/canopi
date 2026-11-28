@@ -1,0 +1,47 @@
+# scale-only-through-plane (§18 F36, 2.1-M40): Earth radii, latitude-based cosine scaling,
+# and zoom-to-pixels-per-metre conversions live only in `desktop/web/src/geo/session-plane.ts`
+# (and pure projection helpers in `geo/projection.ts`).
+# message and ignores: generated from policy/primitives.json.
+id: scale-only-through-plane.typescript
+language: typescript
+severity: error
+message: "scale-only-through-plane (§18 F36): ground scale (Earth radii, latitude scale, zoom to pixels per metre, shown lengths and areas) only through the session plane (activated in 2m-1). ADR 0028; owner desktop/web/src/geo/session-plane.ts; target desktop/web/src/geo/session-plane.ts (2m); example desktop/web/src/geo/session-plane.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/__fixtures__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/geo/session-plane.ts"
+rule:
+  any:
+    - kind: number
+      regex: ^(6371008(\.8)?|6_371_008(\.8)?|6378137(\.0)?|6_378_137(\.0)?|40075016(\.\d+)?|40_075_016(\.\d+)?|110540|110_540|111320|111_320|111195|111_195)$
+    - pattern: stageScaleToMapZoom($$$)
+    - pattern: mapZoomToStageScale($$$)
+    - pattern: mercatorUnitsPerMeterAtLat($$$)
+    - pattern: 256 * 2 ** $Z
+    - pattern: 512 * 2 ** $Z
+    - pattern: 2 ** $Z * 256
+    - pattern: 2 ** $Z * 512
+    - pattern: 256 * Math.pow(2, $Z)
+    - pattern: 512 * Math.pow(2, $Z)
+    - pattern: Math.pow(2, $Z) * 256
+    - pattern: Math.pow(2, $Z) * 512
+    - pattern: Math.cos($LAT * Math.PI / 180)
+    - pattern: Math.cos(($LAT * Math.PI) / 180)
+    - pattern: Math.cos($LAT / 180 * Math.PI)
+    - pattern: Math.cos(($LAT / 180) * Math.PI)
+    - pattern: Math.cos(Math.PI / 180 * $LAT)
+    - pattern: Math.cos((Math.PI / 180) * $LAT)
+    - pattern: Math.cos($LAT * DEGREES_TO_RADIANS)
+    - pattern: Math.cos($LAT * DEG_TO_RAD)
+    - pattern: Math.cos(toRad($$$))
+    - pattern: Math.cos(degToRad($$$))
+    - pattern: Math.cos(toRadians($$$))
+    - pattern: cos($LAT * Math.PI / 180)
+    - pattern: cos(($LAT * Math.PI) / 180)
+    - pattern: cos(toRad($$$))

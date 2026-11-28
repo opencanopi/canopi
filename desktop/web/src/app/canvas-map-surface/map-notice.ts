@@ -1,5 +1,5 @@
-import type { MapLibreCanvasSurfaceState } from '../../maplibre/canvas-surface-state'
-import { mapBackgroundOf } from '../map-layers/state'
+import type { CanvasSurfaceState } from './canvas-host'
+import { mapBackgroundOf } from '../settings/state'
 import { presentedMapLayers } from '../story-presentation/overrides'
 import type { LocaleKey } from '../../generated/locale-keys'
 
@@ -17,7 +17,7 @@ export interface MapNoticeReadModel {
 export interface MapNoticeReadModelInput {
   readonly hasDesign: boolean
   readonly mapVisible: boolean
-  readonly mapSurface: MapLibreCanvasSurfaceState
+  readonly surface: CanvasSurfaceState
   readonly t: (key: LocaleKey) => string
 }
 
@@ -29,17 +29,11 @@ export interface MapNoticeReadModelInput {
 export function getMapNoticeReadModel({
   hasDesign,
   mapVisible,
-  mapSurface,
+  surface,
   t,
 }: MapNoticeReadModelInput): MapNoticeReadModel {
   const mapSurfaceVisible = hasDesign && mapVisible
-  const notice = !hasDesign
-    ? null
-    : mapSurface.status === 'error'
-      ? readMapFailure(mapSurface, t)
-      : mapVisible
-        ? readMapNotice(mapSurface, t)
-        : null
+  const notice = !hasDesign ? null : readSurfaceNotice(surface, mapVisible, t)
   return {
     visible: notice !== null,
     mapSurfaceVisible,
@@ -55,28 +49,29 @@ interface MapNotice {
   readonly retry: boolean
 }
 
-/** A map failure, with Retry when the map can be rebuilt. */
-function readMapFailure(mapSurface: MapLibreCanvasSurfaceState, t: (key: LocaleKey) => string): MapNotice {
-  return mapSurface.retryable
-    ? { text: t('canvas.layers.mapStopped'), tone: 'error', retry: true }
-    : { text: t('canvas.layers.mapUnavailable'), tone: 'error', retry: false }
-}
-
-/**
- * Below a map failure, by rank: a background that couldn't load (the Basemap, or Satellite while it is on, which hides
- * the Basemap: the status is the one the map draws), loading (the map, a Basemap download or Satellite's Google
- * session, so a Retry shows progress and cannot restart it), then a skipped layer or terrain.
- */
-function readMapNotice(mapSurface: MapLibreCanvasSurfaceState, t: (key: LocaleKey) => string): MapNotice | null {
-  if (mapSurface.basemapStatus === 'failed') {
+function readSurfaceNotice(
+  surface: CanvasSurfaceState,
+  mapVisible: boolean,
+  t: (key: LocaleKey) => string,
+): MapNotice | null {
+  const notice = (key: LocaleKey, tone: MapNoticeTone, retry = false): MapNotice => ({ text: t(key), tone, retry })
+  if (surface.kind === 'unavailable') return notice('canvas.layers.mapUnavailable', 'error')
+  if (surface.kind !== 'map') return mapVisible ? notice('canvas.layers.basemapLoading', 'loading') : null
+  if (surface.map.kind === 'failed') {
+    if (surface.map.cause === 'no-webgl2') return notice('canvas.layers.webgl2Unavailable', 'error')
+    return surface.retry === 'offered'
+      ? notice('canvas.layers.mapStopped', 'error', true)
+      : notice('canvas.layers.mapUnavailable', 'error')
+  }
+  if (!mapVisible) return null
+  if (surface.map.kind !== 'ready') return notice('canvas.layers.basemapLoading', 'loading')
+  // The map notice is for the background only; other layers show failures on their Layers row with Retry (2.1-Q351).
+  const background = surface.map.layers.get('background')
+  if (background?.kind === 'failed') {
     // One sentence for a rejected Google key and a lost connection: the provider keeps no cause (canopi-k94s).
     const satellite = mapBackgroundOf(presentedMapLayers()) === 'satellite'
-    return { text: t(satellite ? 'canvas.layers.satelliteFailed' : 'canvas.layers.basemapFailed'), tone: 'error', retry: true }
+    return notice(satellite ? 'canvas.layers.satelliteFailed' : 'canvas.layers.basemapFailed', 'error', true)
   }
-  if (mapSurface.basemapStatus === 'loading') return { text: t('canvas.layers.basemapLoading'), tone: 'loading', retry: false }
-  if (mapSurface.status !== 'ready') return { text: t('canvas.layers.basemapLoading'), tone: 'loading', retry: false }
-  if (mapSurface.terrainStatus === 'error' || mapSurface.layerSkipped) {
-    return { text: t('canvas.layers.layerSkipped'), tone: 'ready', retry: false }
-  }
+  if (background?.kind === 'loading') return notice('canvas.layers.basemapLoading', 'loading')
   return null
 }

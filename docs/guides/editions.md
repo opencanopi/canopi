@@ -1,6 +1,6 @@
 # Editions
 
-Covers: `desktop/web/src/web/`, `desktop/web/src/platform/`, `desktop/web/src/main.web.tsx`, `desktop/web/ui-gallery/`, `desktop/web/web.html`, `scripts/web_release.py`
+Covers: `desktop/web/src/web/`, `desktop/web/src/platform/`, `desktop/web/src/editions/web/main.tsx`, `desktop/web/src/editions/gallery/`, `desktop/web/web.html`, `scripts/web_release.py`
 
 ## Purpose
 
@@ -8,8 +8,8 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 
 ## Authorities and boundaries
 
-- Entries: `main.tsx` with `index.html` (Desktop) and `main.web.tsx` with `web.html` (Web). The codec, scene runtime, workbenches, Design Edit and `WorkspaceComposition` are shared; `DesktopWorkspace.tsx` and `web/WebWorkspace.tsx` bind the edition's capabilities.
-- Every edition difference is a compile-time alias or an injected capability. The only aliases are Web's, each a `*.desktop.ts` / `*.browser.ts` pair.
+- Entries: `editions/desktop/main.tsx` (`index.html`), `editions/web/main.tsx` (`web.html`), `editions/gallery/main.tsx` (`gallery.html`). Shared: codec, scene runtime, workbenches, Design Edit, `WorkspaceComposition`; `DesktopWorkspace.tsx` and `web/WebWorkspace.tsx` bind edition capabilities.
+- Every edition difference is an injected capability/port (`platform/edition-ports.ts`) or a `*.desktop.ts` / `*.browser.ts` adapter wired at the edition root.
 
 - Commands: `app/shell-commands/index.ts` owns the neutral ids; the Desktop graph and `web/browser-shell-commands.ts` declare what their edition supports. Web has no Recent Designs, Design Notebook, updater or native window controls, and drops the shortcuts a browser keeps (`BROWSER_RESERVED_SHORTCUTS`).
 - Web data: `web/browser-app-data.ts` owns four localStorage records (Drafts, Settings, Species activity, Saved Object Stamps) and one per-tab sessionStorage record, the Draft or none the tab had open at a release reload (session state, 2.1-Q189). Drafts are the Web Design home; a downloaded `.canopi` is an export. `web/browser-draft-persistence.ts` asks the browser to keep them, at most once per launch (2.1-Q82, Q191, M180): first visits by New or Open, existing users by Keep my drafts (Q198), never without a reason on screen (`web-draft-persistence.test.ts`, `draft-persistence.spec.ts`).
@@ -17,7 +17,7 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 - Reload saves first (Retry, Download a copy, Reload without saving, Cancel; Q188), then reopens what this tab had, its Draft or the start screen, never the newest Draft unless the tab cannot write session storage (then as at launch); Dismiss is off while it saves (`web-release-reload.test.tsx`).
 - Report a problem downloads one zip of the sections a browser has (2.1-Q60, Q283); the dialog lists only those and offers no Show folder; the root fallback offers it too (`problem-report.spec.ts`, `WebRoot.test.tsx`).
 - Shell notices share one row under the title bar; any shell notice, whatever its tone, holds it over a waiting release, which returns once it is dismissed (2.1-M182; same test). Desktop reaches neither the persistence request nor the release watch (its assets ship in the binary).
-- Phone layout: the Browser App Shell owns `installPhoneLayout` (`portrait` below 640 px wide; `landscape` when wider than tall, under 480 px tall and 960 px wide). The phone sheet replaces the dock only when the edition passes `phoneTabs`; Desktop passes none. Design: [controls and shell](../../.interface-design/patterns/controls-and-shell.md).
+- Phone layout: both Desktop (`app.tsx`) and Web (`BrowserAppShell`) install `installPhoneLayout` (`portrait` below 640 px wide; `landscape` when wider than tall, under 480 px tall and 960 px wide) and pass `phoneTabs` so `PhoneSheet` replaces the dock and rail in phone layout (`desktop-phone-layout.test.tsx`, `phone-layout.test.tsx`). Design: [controls and shell](../../.interface-design/patterns/controls-and-shell.md).
 - Web maps and catalog: Desktop's providers and geocoding; no local raster processing, so no Site data panel, Profile or Data library. The catalog is the reduced Parquet artifact ([species catalog](species-catalog.md)).
 - Show my location is Web only in 2.0, in a secure context with `navigator.geolocation`; Desktop WebViews' location permissions are unhandled (canopi-a1n2). Rules: [map workspace](map-workspace.md).
 - Publishing: this repository owns the Web source, adapters, catalog artifact and packaging. The website repository consumes only the built archive and never imports app modules, contracts, CSS or generators.
@@ -30,8 +30,7 @@ One frontend ships as a Desktop edition (Tauri), a Web edition (static bundle) a
 - A missing, corrupt or foreign browser record reads as empty; a failed write returns `{ ok: false }` and keeps the previous record. 2.0's records are `canopi:web-app-data:v3:*`; the 1.x keys (`canopi:web-app-data:v1`, every `canopi:web-app-data:v2:*`) are never read, written or deleted (ADR 0021); while one exists the shell says "Earlier data not opened" once, kept by a marker key cleared once none is left, and again if the marker cannot be written (`browser-app-data.test.ts`).
 - The persistence request runs before the click's first `await` (Firefox's prompt needs the activation); a denied permission or missing API never calls `persist()`; no warning before a first visit's ask (`web-draft-persistence.test.ts`).
 - Only the release watch listens for `vite:preloadError`, and it never prevents it: the import error proceeds as before. A manifest it cannot read (offline, missing, malformed; dev and `vite preview` have none) is silent and logs nothing (`web-release-watch.test.ts`).
-- Phone classification and the sheet's heights and keys are pure and tested (`phone-layout.test.tsx`).
-- The Templates entry appears only when `web/static-design-templates.ts` configures one; the default set is empty (`web-static-design-template-catalog.test.ts`).
+- Phone classification and the sheet's heights and keys are pure and tested (`phone-layout.test.tsx`, `desktop-phone-layout.test.tsx`).
 - Web Layers' Site data row reads "N terrain or height layers in this Design · Needs Canopi Desktop", absent with none; the `lidar` section round-trips unchanged (`web-layers-panel.test.tsx`).
 - The packaged archive is flat (`index.html`, `assets/`, `THIRD_PARTY_NOTICES.md`, `canopi-web-edition-manifest.json` with name, version, a 12-character commit, catalog and every file's size and SHA-256); packaging rejects a build without the notices file, raw `duckdb-*.wasm`, symlinks and files over 25 MiB (`test_web_release_package.py`).
 - Ports are strict and each host has its own dependency cache, so all three run at once (advice).
@@ -50,11 +49,11 @@ Install: `npm ci --prefix desktop/web`.
 
 | Host | Command | Address | Data |
 | --- | --- | --- | --- |
-| Desktop | root: `cargo tauri dev` | Vite on `localhost:1420` | real app data; catalog from `scripts/prepare-db.py` |
-| Web | `desktop/web/`: `npm run dev:web` | `localhost:1421/` | browser profile; the catalog needs `npm run generate:web-catalog` |
-| UI gallery | `desktop/web/`: `npm run dev:ui` | `127.0.0.1:1422` | memory fixtures ([README](../../desktop/web/ui-gallery/README.md)) |
+| Desktop | `cargo tauri dev` | `localhost:1420` | real app data; `scripts/prepare-db.py` |
+| Web | `npm run dev:web` (`desktop/web/`) | `localhost:1421/` | browser profile; `npm run generate:web-catalog` |
+| UI gallery | `npm run dev:ui` (`desktop/web/`) | `127.0.0.1:1422` | memory fixtures ([README](../../desktop/web/src/editions/gallery/README.md)) |
 
-`npm run check:editions` typechecks and builds both editions; no tests. The gallery's `edition=web` shows the phone layout in a phone-sized window (390×844, 844×390).
+`npm run check:editions` typechecks and builds both editions. Gallery `edition=web` previews phone layout (390×844, 844×390).
 
 ## Web publishing
 

@@ -33,7 +33,7 @@ import { createUpdateController, type UpdateController, type UpdaterPort } from 
 import { AboutCanopiDialog, AboutUpdates } from '../components/shared/AboutCanopiDialog'
 import { LaunchCheckSwitch, SettingsDialog } from '../components/shared/SettingsDialog'
 import type { UpdateDownload, UpdaterFailure, UpdateOffer, UpdateOs, UpdateProgress } from '../generated/contracts'
-import { WebApp } from '../web/WebApp'
+import { WebApp } from '../editions/web/WebApp'
 import { unmount } from './support/unmount'
 
 const OFFER: UpdateOffer = { version: '2.1.0', date: '2026-11-02', notes_url: 'https://github.com/opencanopi/canopi/releases/tag/v2.1.0' }
@@ -102,7 +102,6 @@ function controllerFor(port: UpdaterPort, platform: UpdateOs = 'linux', exit: 'p
     flushBeforeExit: () => Promise.resolve(exit),
     holdCloseUntilSettled: () => () => false,
     mintOperationId: () => `op-${++id}`,
-    currentDesignPath: () => null,
   })
 }
 
@@ -212,7 +211,6 @@ describe('About › Updates', () => {
       flushBeforeExit: () => flush.promise,
       holdCloseUntilSettled: () => () => false,
       mintOperationId: () => 'op-exit',
-      currentDesignPath: () => null,
     })
     await showAbout(controller)
     await press(action())
@@ -521,7 +519,7 @@ describe('Desktop root', () => {
     expect({ rows, text: rowNotice('update.available')!.textContent, modal: container.querySelector('[aria-modal]'), focused: document.activeElement === before })
       .toEqual({ rows: 1, text: 'Canopi 2.1.0 is availableAbout Canopi', modal: null, focused: true })
     await act(async () => { [...rowNotice('update.available')!.querySelectorAll('button')].find((button) => button.textContent === 'About Canopi')!.click() })
-    expect(container.querySelector('[data-about-updates] button')!.textContent).toBe('Download and install')
+    await vi.waitFor(() => expect(container.querySelector('[data-about-updates] button')?.textContent).toBe('Download and install'))
     // Opening About is no dismissal: the notice stays until dismissed or installed this session (2.1-Q293).
     expect(rowNotice('update.available')).not.toBeNull()
   })

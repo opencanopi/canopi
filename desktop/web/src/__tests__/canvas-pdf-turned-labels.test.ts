@@ -20,7 +20,7 @@ const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([
 const row = (y: number): PrintZone => ({ name: null, path: `M0 ${y} L20 ${y} L20 ${y + 1} L0 ${y + 1} Z`, fill: null, bounds: { x: 0, y, width: 20, height: 1 },
   geometry: { kind: 'rect', points: [{ x: 0, y }, { x: 20, y }, { x: 20, y: y + 1 }, { x: 0, y: y + 1 }] } })
 const layers = ['plants', 'zones', 'measurement-guides', 'annotations']
-const design = (canvas: Partial<PdfInput['canvas']>): PdfInput => ({ name: 'Orchard', locale: 'en', viewBearingDeg: 60, commonNames: {}, canvas: {
+const design = (canvas: Partial<PdfInput['canvas']>): PdfInput => ({ name: 'Orchard', locale: 'en', unitSystem: 'metric', viewBearingDeg: 60, commonNames: {}, canvas: {
   layers: layers.map(name => ({ name, visible: true, opacity: 1 })), plants: [], zones: [], annotations: [], measurements: [], ...canvas } })
 
 /** Printed codes on a page: their text and the centre of their ink, in page points. */
@@ -143,7 +143,7 @@ function guidePage(measurements: PdfInput['canvas']['measurements'], reserved: r
     measurements: new Map(measurements.map((g, i) => [g.id, `M${i + 1}`])) }
   const toPoints = (r: PrintBounds) => ({ x: r.x * MM, y: r.y * MM, width: r.width * MM, height: r.height * MM })
   return drawField(input, { x: 10 * MM, y: 30 * MM, width: 180 * MM, height: 240 * MM }, { x: 0, y: 0, width: 18, height: 24 }, 10 * MM,
-    { id: 'here', width: 210 * MM, height: 297 * MM, reserved: reserved.map(toPoints) }, text(), references)
+    { id: 'here', width: 210 * MM, height: 297 * MM, reserved: reserved.map(toPoints) }, text(), references, (a, b) => Math.hypot(b.x - a.x, b.y - a.y))
 }
 const printedCodes = (operations: readonly PdfPage['operations'][number][]) => codes({ operations } as PdfPage, /^M\d+$/)
 

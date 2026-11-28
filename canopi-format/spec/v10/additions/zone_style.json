@@ -1,0 +1,26 @@
+{
+  "addition": "zone_style",
+  "ignored_by_reader_release": true,
+  "ledger": [
+    "2.1-Q36",
+    "2.1-M94",
+    "2.1-Q355"
+  ],
+  "optional": true,
+  "properties": {
+    "opacity": {
+      "format": "double",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "stroke_color": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "target": "$.zones[*]"
+}

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { locale } from '../app/settings/state'
+import { locale, unitSystem } from '../app/settings/state'
 import {
   formatHardiness,
   formatMetreRange,
@@ -9,7 +9,10 @@ import {
 import { photoFromCatalogUrl } from '../components/species-detail/photo-attribution'
 
 describe('species detail facts', () => {
-  afterEach(() => { locale.value = 'en' })
+  afterEach(() => {
+    locale.value = 'en'
+    unitSystem.value = 'metric'
+  })
 
   it('derives the hardiness temperature from the coldest USDA zone and keeps the zones as recorded', () => {
     expect(formatHardiness(4, 4, 'en')).toBe('USDA 4 · to -34°C')
@@ -18,11 +21,16 @@ describe('species detail facts', () => {
     expect(formatHardiness(null, null, 'en')).toBeNull()
   })
 
-  it('formats metre ranges with the unit once', () => {
-    expect(formatMetreRange(4, 10, 'en')).toBe('4–10 m')
+  it('formats metre ranges in the active unit system', () => {
+    expect(formatMetreRange(4, 10, 'en')).toBe('4 m–10 m')
     expect(formatMetreRange(10, 10, 'en')).toBe('10 m')
-    expect(formatMetreRange(null, 0.3, 'en')).toBe('0.3 m')
+    expect(formatMetreRange(null, 0.3, 'en')).toBe('30 cm')
     expect(formatMetreRange(null, null, 'en')).toBeNull()
+
+    unitSystem.value = 'us_customary'
+    expect(formatMetreRange(4, 10, 'en')).toBe('13 ft–33 ft')
+    expect(formatMetreRange(null, 3, 'en')).toBe('10 ft')
+    expect(formatMetreRange(null, 0.3, 'en')).toBe('12 in')
   })
 
   it('shows English catalog keys as words and passes translated values through', () => {

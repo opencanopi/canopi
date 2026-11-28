@@ -3,8 +3,7 @@ import { useEffect } from 'preact/hooks'
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import type { SavedView } from '../../types/design'
 import { currentDesign, designSessionStore } from '../document-session/store'
-import { mapLayers } from '../map-layers/state'
-import { locale, theme } from '../settings/state'
+import { locale, mapLayers, theme } from '../settings/state'
 import {
   captureSavedViewSnapshot,
   savedViewPresentedLabels,

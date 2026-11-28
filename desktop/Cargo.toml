@@ -32,6 +32,8 @@ serde_json = "1"
 tauri = { version = "2.12.4", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2.8.3"
 tauri-plugin-single-instance = "2.5.4"
+# Window geometry persistence (2.1-Q144, 2.1-Q367, 2.1-M135); named only in `host/window_state.rs`.
+tauri-plugin-window-state = "2.5.0"
 # External links (https, mailto) leave the app webview for the system browser
 # or mail client; called from Rust only (`services/external_links.rs`).
 tauri-plugin-opener = "2.7.2"
@@ -55,6 +57,8 @@ tokio = { version = "1", features = ["macros", "sync", "time"] }
 # The generated `.canopi` schema is admitted against before serde (canopi-cyqd).
 canopi-types = { path = "../canopi-types", features = ["design-schema", "system-ids"] }
 canopi-redact = { path = "../canopi-redact" }
+# Narrow native support: durable files behind DurableFs, TargetLocks, FaultFs, hash, and fs4 disk-free (2.1-M541, 2.1-M542).
+canopi-support = { path = "../canopi-support" }
 # The `.canopi` format crate: its schema walker admits the v9 decode, its read admission a newer file (Step 2.0.4).
 canopi-format = { path = "../canopi-format" }
 sha2 = "0.10"
@@ -84,13 +88,8 @@ proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 ed25519-dalek = { version = "=2.1.1", default-features = false, features = ["std"] }
 
 [target.'cfg(unix)'.dependencies]
-# Free space is checked before a raster derivative or new numeric output is
-# written; neither std nor the existing dependency tree can report capacity.
+# Unix `access(W_OK)` for updater AppImage writability probe (and `setrlimit` in updater tests).
 libc = "0.2"
-
-[target.'cfg(target_os = "windows")'.dependencies]
-# Windows capacity check for the same preparation guard (see `libc` above).
-windows-sys = { version = "0.61", features = ["Win32_Storage_FileSystem"] }
 
 [lints]
 workspace = true

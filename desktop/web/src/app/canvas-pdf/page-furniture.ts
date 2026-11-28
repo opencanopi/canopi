@@ -1,9 +1,11 @@
 import type { PrintPlant } from '../../canvas/print'
+import { formatScaleBarDistance, niceDistanceAtMost, type UnitSystem } from '../../utils/format'
 import type { PdfInput, PdfLabels, PdfOperation, PdfPage, PdfPaper } from './types'
 import type { PdfTextEngine } from './text'
 import { MM, PRINT, drawMark, pathOp, textOp } from './page-drawing'
+import { compareSpeciesByShownName } from '../../utils/species-sort'
 
-export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabels, paper: PdfPaper, text: PdfTextEngine, showScale: boolean, northAngleDeg: number): PdfOperation[] {
+export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabels, paper: PdfPaper, text: PdfTextEngine, showScale: boolean, northAngleDeg: number, groundScaleFactor = 1): PdfOperation[] {
   const operations: PdfOperation[] = [], margin = 10 * MM
   const emit = (value: string, x: number, y: number, size: number, right = false) => {
     const line = text.line(value, size)
@@ -19,7 +21,7 @@ export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabel
   operations.push(pathOp(`M${margin} ${page.height - 16 * MM} h${page.width - 2 * margin}`, '#d8d2c8', null, .2 * MM))
   emit(identity, margin, y + 1.5 * MM, 8)
   emit(`${labels.actualSize} · ${paper}`, page.width - margin, y + 1.5 * MM, 7.5, true)
-  if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg))
+  if (showScale) operations.push(...groundScale(page, input.locale, text, labels.north, northAngleDeg, groundScaleFactor, input.unitSystem))
   return operations
 }
 
@@ -27,19 +29,20 @@ export function detailFurniture(page: PdfPage, input: PdfInput, labels: PdfLabel
  * Ground scale bar centred in the footer, with a north arrow to its right pointing to true north: `northAngleDeg` is the
  * arrow's clockwise turn on paper, minus the layout angle (0 on North up pages). Its letter sits beyond the tip, level.
  */
-export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerMeter'>, locale: string, text: PdfTextEngine, north = 'N', northAngleDeg = 0): PdfOperation[] {
+export function groundScale(page: Pick<PdfPage, 'width' | 'height' | 'pointsPerMeter'>, locale: string, text: PdfTextEngine, north = 'N', northAngleDeg = 0, groundScaleFactor = 1, unitSystem: UnitSystem): PdfOperation[] {
   const operations: PdfOperation[] = [], y = page.height - 10 * MM
   const emit = (value: string, x: number, y: number, size: number, right = false, strong = false) => {
     const line = text.line(value, size, strong)
     operations.push(textOp(line, right ? x - line.width : x, y, size))
     return line
   }
-  const wanted = 35 * MM / page.pointsPerMeter, magnitude = 10 ** Math.floor(Math.log10(wanted))
-  const metres = [1, 2, 5].map(n => n * magnitude).filter(n => n <= wanted).pop() ?? magnitude
-  const length = metres * page.pointsPerMeter, x = (page.width - length) / 2
+  const pointsPerGroundMeter = page.pointsPerMeter / groundScaleFactor
+  const wanted = 35 * MM / pointsPerGroundMeter
+  const metres = niceDistanceAtMost(wanted, unitSystem)
+  const length = metres * pointsPerGroundMeter, x = (page.width - length) / 2
   operations.push(pathOp(`M${x} ${y + MM} h${length} M${x} ${y} v${2 * MM} M${x + length / 2} ${y} v${2 * MM} M${x + length} ${y} v${2 * MM}`, PRINT.ink, null, .2 * MM))
   emit('0', x, y - MM, 7)
-  emit(`${new Intl.NumberFormat(locale, { maximumSignificantDigits: 4 }).format(metres)} m`, x + length, y - MM, 7, true)
+  emit(formatScaleBarDistance(metres, unitSystem, locale), x + length, y - MM, 7, true)
   // Arrow: a filled half and an open half, tip up, with the letter above it.
   const ax = x + length + 8 * MM, tip = y - 1.5 * MM, base = y + 2.5 * MM, half = 1.3 * MM, middle = (tip + base) / 2
   const angle = northAngleDeg % 360 ? northAngleDeg * Math.PI / 180 : 0, c = Math.cos(angle), s = Math.sin(angle)
@@ -67,9 +70,12 @@ export function symbolLegend(plants: readonly PrintPlant[], pageWidth: number, l
   const samples = new Map<string, PrintPlant>()
   for (const plant of plants) if (!samples.has(plant.symbol)) samples.set(plant.symbol, plant)
   if (!samples.size) return null
-  const collator = new Intl.Collator(locale)
   const nameOf = (symbol: string) => labels.symbolNames?.[symbol]?.trim() || symbol
-  const ordered = [...samples.keys()].sort((a, b) => collator.compare(nameOf(a), nameOf(b)) || a.localeCompare(b))
+  const ordered = [...samples.keys()].sort((a, b) => compareSpeciesByShownName(
+    { shownName: nameOf(a), canonicalName: a },
+    { shownName: nameOf(b), canonicalName: b },
+    locale,
+  ))
   const size = 7, rows = 4, row = 3.4 * MM, first = 12 * MM, radius = 1.1 * MM, gap = 1.2 * MM, columnGap = 4 * MM
   const right = pageWidth - 10 * MM, budget = Math.max(40 * MM, pageWidth * .45), nameWidth = 32 * MM
   const columns: { symbols: string[]; width: number }[] = []

@@ -13,7 +13,6 @@ describe('App Command Graph shell catalog', () => {
       openCanopi: { execute },
       downloadCanopi: { execute },
       navigateCanvas: { execute },
-      navigateTemplates: { execute },
       navigatePlantDatabase: { execute },
       navigateFavorites: { execute },
       toggleTheme: { execute },
@@ -24,7 +23,6 @@ describe('App Command Graph shell catalog', () => {
       'file.openCanopi',
       'file.downloadCanopi',
       'nav.canvas',
-      'nav.templates',
       'nav.plantDb',
       'nav.favorites',
       'view.toggleTheme',
@@ -80,9 +78,7 @@ describe('App Command Graph shell catalog', () => {
 
     const projection = projectShellCommandCatalog(catalog, {
       hasDesign: false,
-      revertAvailable: false,
-      activePanel: 'canvas',
-      sidePanel: 'favorites',
+      revertAvailable: false, sidePanel: 'favorites',
     }, (key) => `translated:${key}`)
 
     expect(projection.menus.map((menu) => ({
@@ -107,8 +103,8 @@ describe('App Command Graph shell catalog', () => {
     expect(projection.commands.get('file.downloadCanopi')).toMatchObject({ disabled: true })
     expect(projection.commands.get('nav.favorites')).toMatchObject({
       label: 'translated:panelRail.favorites',
-      shortcut: 'translated:shortcutKeys.ctrl 5',
-      ariaShortcut: 'Control+5 Meta+5',
+      shortcut: 'translated:shortcutKeys.alt translated:shortcutKeys.shift 5',
+      ariaShortcut: 'Alt+Shift+5',
       active: true,
       disabled: false,
     })
@@ -130,14 +126,19 @@ describe('App Command Graph shell catalog', () => {
       navigateLayers: { execute: () => undefined },
       toggleTheme: { execute: () => { dark = !dark }, isChecked: () => dark },
     })
-    const state = { hasDesign: true, revertAvailable: false, activePanel: 'canvas' as const, sidePanel: null }
+    const state = { hasDesign: true, revertAvailable: false, sidePanel: null }
     const projection = projectShellCommandCatalog(catalog, state, (key) => key === 'shortcutKeys.ctrl' ? 'Ctrl' : key, {
       unavailableShortcuts: new Set(['Ctrl+N']),
     })
 
     expect(projection.commands.get('view.toggleTheme')).toMatchObject({ check: 'checkbox', checked: true })
-    expect(projection.commands.get('file.new')?.shortcut).toBeUndefined()
-    expect(projection.commands.get('nav.layers')?.shortcut).toBe('Ctrl 1')
+    expect(projection.commands.get('file.new')?.shortcut).toBe('shortcutKeys.alt shortcutKeys.shift N')
+    expect(projection.commands.get('nav.layers')?.shortcut).toBe('shortcutKeys.alt shortcutKeys.shift 1')
     expect(projection.commands.get('file.new')?.checked).toBeUndefined()
+
+    const hiddenProjection = projectShellCommandCatalog(catalog, state, (key) => key === 'shortcutKeys.ctrl' ? 'Ctrl' : key, {
+      unavailableShortcuts: new Set(['Ctrl+N', 'Alt+Shift+N']),
+    })
+    expect(hiddenProjection.commands.get('file.new')?.shortcut).toBeUndefined()
   })
 })

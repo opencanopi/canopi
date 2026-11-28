@@ -1,0 +1,514 @@
+import { describe, expect, it } from 'vitest'
+import {
+  cloneScenePersistedState,
+  hydrateSceneFromDesign,
+  serializeScenePersistedState,
+} from './codec'
+import { SceneStore } from './store'
+import { createDetachedSceneSessionAdapter, SceneRuntimeEditCoordinator } from '../scene-runtime/transactions'
+import { SceneRuntimeMutationController } from '../scene-runtime/mutations'
+import { getDesignObjectSelectionModel, projectSceneSelectionEntityIds } from '../scene-runtime/selection'
+import { hoverStateForTarget } from '../renderers/scene-paint'
+import { hitTestTopLevel } from '../tools/hit-testing'
+import type { PlantPresentationContext } from '../plant-presentation'
+import { makeTestDesign } from '../../../__tests__/support/session-core-fixture'
+import { decodeCanopiDesign, encodeCanopiDesign } from '../../../__tests__/support/design-wire'
+
+function withExtra<T extends object>(item: T, extra: Record<string, unknown>): T {
+  return Object.assign({}, item, extra)
+}
+
+describe('scene codec lossless v10 preservation', () => {
+  it('preserves ext bags, zone stroke_color/opacity, and measurement_guide group members across hydrate, clone, and serialize', () => {
+    const input = makeTestDesign({
+      layers: [
+        withExtra({ name: 'plants', visible: true, locked: false, opacity: 0.9 }, { ext: { customLayer: 1 }, future_layer_flag: true }),
+      ],
+      plants: [
+        withExtra({
+          id: 'plant-1',
+          locked: false,
+          canonical_name: 'Malus domestica',
+          common_name: 'Apple',
+          color: null,
+          symbol: null,
+          pinned_name: false,
+          position: { lon: 2.2945, lat: 48.8584 },
+          rotation: 15,
+          canopy_spread_m: 1.5,
+          notes: 'North row',
+          planted_date: '2026-03-01',
+          quantity: 3,
+        }, { ext: { customPlant: true }, future_plant_tag: 'orchard' }),
+      ],
+      zones: [
+        withExtra({
+          id: 'zone-1',
+          locked: false,
+          zone_type: 'polygon' as const,
+          name: 'Meadow',
+          points: [
+            { lon: 2.2944, lat: 48.8583 },
+            { lon: 2.2946, lat: 48.8583 },
+            { lon: 2.2945, lat: 48.8585 },
+          ],
+          fill_color: '#3A6EA5',
+          stroke_color: '#1E3A5F',
+          opacity: 0.45,
+          rotation: 0,
+          notes: null,
+        }, { ext: { customZone: 'keep' }, future_zone_meta: { slope: 5 } }),
+      ],
+      annotations: [
+        withExtra({
+          id: 'ann-1',
+          locked: false,
+          annotation_type: 'label',
+          position: { lon: 2.2945, lat: 48.8584 },
+          text: 'Swale',
+          font_size: 14,
+          rotation: 0,
+        }, { ext: { customAnnotation: 42 }, future_ann_flag: 'yes' }),
+      ],
+      measurement_guides: [
+        withExtra({
+          id: 'guide-1',
+          locked: false,
+          start: { lon: 2.2944, lat: 48.8584 },
+          end: { lon: 2.2946, lat: 48.8584 },
+        }, { ext: { customGuide: 'm' }, future_guide_unit: 'metric' }),
+      ],
+      groups: [
+        withExtra({
+          id: 'group-1',
+          locked: false,
+          name: 'Guild',
+          members: [
+            withExtra({ kind: 'measurement_guide' as const, id: 'guide-1' }, { role: 'span' }),
+            withExtra({ kind: 'plant' as const, id: 'plant-1' }, { role: 'anchor', ext: { weight: 2 } }),
+          ],
+        }, { ext: { customGroup: ['a'] }, future_group_key: 'guild-v2' }),
+      ],
+    })
+
+    const { persisted, plane } = hydrateSceneFromDesign(input)
+    const cloned = cloneScenePersistedState(persisted)
+    // Simulate a real scene edit (moving the plant) before serializing + encoding through DesignCore.
+    cloned.plants[0]!.position = { x: cloned.plants[0]!.position.x + 2, y: cloned.plants[0]!.position.y - 1 }
+    const out = serializeScenePersistedState(cloned, plane)
+    const roundTripped = decodeCanopiDesign(encodeCanopiDesign(out))
+
+    const layer = roundTripped.layers[0]
+    const plant = roundTripped.plants[0]
+    const zone = roundTripped.zones[0]
+    const annotation = roundTripped.annotations[0]
+    const guide = roundTripped.measurement_guides?.[0]
+    const group = roundTripped.groups[0]
+    if (!layer || !plant || !zone || !annotation || !guide || !group) {
+      throw new Error('expected hydrated scene entities to serialize back')
+    }
+
+    expect(Reflect.get(layer, 'ext')).toEqual({ customLayer: 1 })
+    expect(Reflect.get(layer, 'future_layer_flag')).toBe(true)
+    expect(Reflect.get(plant, 'ext')).toEqual({ customPlant: true })
+    expect(Reflect.get(plant, 'future_plant_tag')).toBe('orchard')
+    expect(plant.canopy_spread_m).toBe(1.5)
+    expect(zone.stroke_color).toBe('#1E3A5F')
+    expect(zone.opacity).toBe(0.45)
+    expect(Reflect.get(zone, 'ext')).toEqual({ customZone: 'keep' })
+    expect(Reflect.get(zone, 'future_zone_meta')).toEqual({ slope: 5 })
+    expect(Reflect.get(annotation, 'ext')).toEqual({ customAnnotation: 42 })
+    expect(Reflect.get(annotation, 'future_ann_flag')).toBe('yes')
+    expect(Reflect.get(guide, 'ext')).toEqual({ customGuide: 'm' })
+    expect(Reflect.get(guide, 'future_guide_unit')).toBe('metric')
+    // Exact member order (measurement_guide first, then plant) AND per-member unknown flat keys preserved!
+    expect(group.members).toEqual([
+      { kind: 'measurement_guide', id: 'guide-1', role: 'span' },
+      { kind: 'plant', id: 'plant-1', role: 'anchor', ext: { weight: 2 } },
+    ])
+    expect(Reflect.get(group, 'ext')).toEqual({ customGroup: ['a'] })
+    expect(Reflect.get(group, 'future_group_key')).toBe('guild-v2')
+  })
+
+  it('#694 B1: real SceneMutationsController preserves {plant, measurement_guide} group on unrelated delete and prunes it when guide is deleted', () => {
+    const input = makeTestDesign({
+      layers: [
+        { name: 'plants', visible: true, locked: false, opacity: 1 },
+        { name: 'zones', visible: true, locked: false, opacity: 1 },
+        { name: 'measurement-guides', visible: true, locked: false, opacity: 1 },
+      ],
+      plants: [
+        withExtra({
+          id: 'plant-1',
+          locked: false,
+          canonical_name: 'Malus domestica',
+          common_name: 'Apple',
+          color: null,
+          symbol: null,
+          pinned_name: false,
+          position: { lon: 2.2945, lat: 48.8584 },
+          rotation: 0,
+          canopy_spread_m: 1.5,
+          notes: null,
+          planted_date: null,
+          quantity: 1,
+        }, { future_plant_tag: 'anchor' }),
+        {
+          id: 'plant-2',
+          locked: false,
+          canonical_name: 'Pyrus communis',
+          common_name: 'Pear',
+          color: null,
+          symbol: null,
+          pinned_name: false,
+          position: { lon: 2.2947, lat: 48.8584 },
+          rotation: 0,
+          canopy_spread_m: 1.2,
+          notes: null,
+          planted_date: null,
+          quantity: 1,
+        },
+      ],
+      zones: [
+        withExtra({
+          id: 'zone-1',
+          locked: false,
+          zone_type: 'polygon' as const,
+          name: 'Meadow',
+          points: [
+            { lon: 2.2944, lat: 48.8583 },
+            { lon: 2.2946, lat: 48.8583 },
+            { lon: 2.2945, lat: 48.8585 },
+          ],
+          fill_color: '#3A6EA5',
+          stroke_color: '#1E3A5F',
+          opacity: 0.45,
+          rotation: 0,
+          notes: null,
+        }, { future_zone_meta: { slope: 5 } }),
+      ],
+      measurement_guides: [
+        withExtra({
+          id: 'guide-1',
+          locked: false,
+          start: { lon: 2.2944, lat: 48.8584 },
+          end: { lon: 2.2946, lat: 48.8584 },
+        }, { future_guide_unit: 'metric' }),
+      ],
+      groups: [
+        withExtra({
+          id: 'group-1',
+          locked: false,
+          name: 'Guild',
+          members: [
+            withExtra({ kind: 'measurement_guide' as const, id: 'guide-1' }, { role: 'span' }),
+            withExtra({ kind: 'plant' as const, id: 'plant-1' }, { role: 'anchor' }),
+          ],
+        }, { future_group_key: 'guild-v2' }),
+      ],
+    })
+
+    const sceneStore = new SceneStore().hydrate(input)
+    const sceneSession = createDetachedSceneSessionAdapter()
+    const setSelection = (targets: Parameters<SceneStore['setSelection']>[0]) => {
+      sceneStore.setSelection(targets)
+    }
+    const sceneEdits = new SceneRuntimeEditCoordinator({
+      sceneStore,
+      sceneSession,
+      setSelection,
+      incrementSceneRevision: () => {},
+      syncCanvasSignalsFromScene: () => {},
+      invalidate: () => {},
+    })
+    sceneSession.bindReplay((command, direction) => sceneEdits.replayCommand(command, direction))
+    const controller = new SceneRuntimeMutationController({
+      sceneStore,
+      selection: { set: setSelection },
+      sceneEdits,
+      commandAdmission: sceneEdits,
+      settledReader: sceneEdits,
+      presentation: {
+        getViewportScale: () => 1,
+        createPlantPresentationContext: (viewportScale = 1) => ({
+          pixelsPerMetre: viewportScale,
+          speciesCache: new Map(),
+          localizedCommonNames: new Map(),
+        }),
+        getLocalizedCommonNames: () => new Map(),
+      },
+      invalidateScene: () => {},
+    })
+
+    // 1. Real rename through SceneRuntimeMutationController preserves all nested unknown keys and group members.
+    expect(controller.renameZone('zone-1', 'South Meadow')).toBe(true)
+    const afterRename = decodeCanopiDesign(encodeCanopiDesign(serializeScenePersistedState(sceneStore.persisted, sceneStore.sessionPlane)))
+    expect(afterRename.zones[0]?.name).toBe('South Meadow')
+    expect(Reflect.get(afterRename.zones[0]!, 'future_zone_meta')).toEqual({ slope: 5 })
+    expect(Reflect.get(afterRename.plants[0]!, 'future_plant_tag')).toBe('anchor')
+    expect(afterRename.groups[0]?.members).toEqual([
+      { kind: 'measurement_guide', id: 'guide-1', role: 'span' },
+      { kind: 'plant', id: 'plant-1', role: 'anchor' },
+    ])
+
+    // 2. Deleting an unrelated plant MUST NOT remove the {plant-1, guide-1} group.
+    sceneStore.setSelection([{ kind: 'plant', id: 'plant-2' }])
+    controller.deleteSelected()
+    const afterUnrelatedDelete = decodeCanopiDesign(encodeCanopiDesign(serializeScenePersistedState(sceneStore.persisted, sceneStore.sessionPlane)))
+    expect(afterUnrelatedDelete.plants.map((p) => p.id)).toEqual(['plant-1'])
+    expect(afterUnrelatedDelete.groups).toHaveLength(1)
+    expect(afterUnrelatedDelete.groups[0]?.members).toEqual([
+      { kind: 'measurement_guide', id: 'guide-1', role: 'span' },
+      { kind: 'plant', id: 'plant-1', role: 'anchor' },
+    ])
+    expect(Reflect.get(afterUnrelatedDelete.groups[0]!, 'future_group_key')).toBe('guild-v2')
+
+    // 3. Deleting group-1 removes the group and its first-class guide + plant members so DesignCore accepts the save.
+    sceneStore.setSelection([{ kind: 'group', id: 'group-1' }])
+    controller.deleteSelected()
+    const afterGroupDelete = decodeCanopiDesign(encodeCanopiDesign(serializeScenePersistedState(sceneStore.persisted, sceneStore.sessionPlane)))
+    expect(afterGroupDelete.measurement_guides).toEqual([])
+    expect(afterGroupDelete.groups).toEqual([])
+    expect(afterGroupDelete.plants).toEqual([])
+  })
+
+  const makeController = (design: ReturnType<typeof makeTestDesign>) => {
+    const store = new SceneStore().hydrate(design)
+    const session = createDetachedSceneSessionAdapter()
+    const setSelection = (targets: Parameters<SceneStore['setSelection']>[0]) => {
+      store.setSelection(targets)
+    }
+    const edits = new SceneRuntimeEditCoordinator({
+      sceneStore: store,
+      sceneSession: session,
+      setSelection,
+      incrementSceneRevision: () => {},
+      syncCanvasSignalsFromScene: () => {},
+      invalidate: () => {},
+    })
+    session.bindReplay((command, direction) => edits.replayCommand(command, direction))
+    const controller = new SceneRuntimeMutationController({
+      sceneStore: store,
+      selection: { set: setSelection },
+      sceneEdits: edits,
+      commandAdmission: edits,
+      settledReader: edits,
+      presentation: {
+        getViewportScale: () => 1,
+        createPlantPresentationContext: (viewportScale = 1) => ({
+          pixelsPerMetre: viewportScale,
+          speciesCache: new Map(),
+          localizedCommonNames: new Map(),
+        }),
+        getLocalizedCommonNames: () => new Map(),
+      },
+      invalidateScene: () => {},
+    })
+    return { store, controller }
+  }
+
+  it('#734 B1: duplicate and cross-Design paste of a group containing a measurement guide remap the cloned guide id and encode cleanly', () => {
+
+    const designA = makeTestDesign({
+      layers: [
+        { name: 'plants', visible: true, locked: false, opacity: 1 },
+        { name: 'zones', visible: true, locked: false, opacity: 1 },
+        { name: 'measurement-guides', visible: true, locked: false, opacity: 1 },
+      ],
+      plants: [{
+        id: 'plant-1',
+        locked: false,
+        canonical_name: 'Malus domestica',
+        common_name: 'Apple',
+        color: null,
+        symbol: null,
+        pinned_name: false,
+        position: { lon: 2.2945, lat: 48.8584 },
+        rotation: 0,
+        canopy_spread_m: 1.5,
+        notes: null,
+        planted_date: null,
+        quantity: 1,
+      }],
+      zones: [{
+        id: 'zone-1',
+        locked: false,
+        zone_type: 'polygon' as const,
+        name: 'Meadow',
+        points: [
+          { lon: 2.2944, lat: 48.8583 },
+          { lon: 2.2946, lat: 48.8583 },
+          { lon: 2.2945, lat: 48.8585 },
+        ],
+        fill_color: '#3A6EA5',
+        stroke_color: '#1E3A5F',
+        opacity: 0.45,
+        rotation: 0,
+        notes: null,
+      }],
+      measurement_guides: [{
+        id: 'guide-1',
+        locked: false,
+        start: { lon: 2.2944, lat: 48.8584 },
+        end: { lon: 2.2946, lat: 48.8584 },
+      }],
+      groups: [{
+        id: 'group-1',
+        locked: false,
+        name: 'Guild with guide',
+        members: [
+          withExtra({ kind: 'plant' as const, id: 'plant-1' }, { role: 'anchor' }),
+          { kind: 'zone' as const, id: 'zone-1' },
+          withExtra({ kind: 'measurement_guide' as const, id: 'guide-1' }, { role: 'span' }),
+        ],
+      }],
+    })
+
+    // 1. Same-Design duplicate: clone group must reference cloned plant, zone, and guide (never source guide-1).
+    const a = makeController(designA)
+    a.store.setSelection([{ kind: 'group', id: 'group-1' }])
+    a.controller.duplicateSelected()
+
+    const afterDuplicate = decodeCanopiDesign(encodeCanopiDesign(
+      serializeScenePersistedState(a.store.persisted, a.store.sessionPlane),
+    ))
+    expect(afterDuplicate.groups).toHaveLength(2)
+    expect(afterDuplicate.measurement_guides).toHaveLength(2)
+    const clonedGuide = afterDuplicate.measurement_guides!.find((g) => g.id !== 'guide-1')!
+    const clonedPlant = afterDuplicate.plants.find((p) => p.id !== 'plant-1')!
+    const clonedZone = afterDuplicate.zones.find((z) => z.id !== 'zone-1')!
+    const clonedGroup = afterDuplicate.groups.find((g) => g.id !== 'group-1')!
+    expect(clonedGroup.members).toEqual([
+      { kind: 'plant', id: clonedPlant.id, role: 'anchor' },
+      { kind: 'zone', id: clonedZone.id },
+      { kind: 'measurement_guide', id: clonedGuide.id, role: 'span' },
+    ])
+
+    // 2. Cross-Design paste: copy from Design A, hydrate empty Design B (new sessionPlane), paste -> DesignCore encode succeeds with B's guide id.
+    a.store.setSelection([{ kind: 'group', id: 'group-1' }])
+    a.controller.copy()
+    const designB = makeTestDesign({
+      layers: [
+        { name: 'plants', visible: true, locked: false, opacity: 1 },
+        { name: 'zones', visible: true, locked: false, opacity: 1 },
+        { name: 'measurement-guides', visible: true, locked: false, opacity: 1 },
+      ],
+    })
+    a.store.hydrate(designB)
+    a.controller.paste()
+
+    const afterCrossPaste = decodeCanopiDesign(encodeCanopiDesign(
+      serializeScenePersistedState(a.store.persisted, a.store.sessionPlane),
+    ))
+    expect(afterCrossPaste.groups).toHaveLength(1)
+    expect(afterCrossPaste.measurement_guides).toHaveLength(1)
+    expect(afterCrossPaste.plants).toHaveLength(1)
+    expect(afterCrossPaste.zones).toHaveLength(1)
+    const pastedGuide = afterCrossPaste.measurement_guides![0]!
+    expect(pastedGuide.id).not.toBe('guide-1')
+    expect(afterCrossPaste.groups[0]!.members).toEqual([
+      { kind: 'plant', id: afterCrossPaste.plants[0]!.id, role: 'anchor' },
+      { kind: 'zone', id: afterCrossPaste.zones[0]!.id },
+      { kind: 'measurement_guide', id: pastedGuide.id, role: 'span' },
+    ])
+  })
+
+  it('#755 SF1 & SF2: grouped measurement guide picks/highlights via its group, respects group lock, and regrouping preserves member unknown keys', () => {
+    const withExtra = <T extends Record<string, unknown>>(obj: T, extra: Record<string, unknown>): T => ({ ...obj, ...extra })
+    const design = makeTestDesign({
+      layers: [
+        { name: 'plants', visible: true, locked: false, opacity: 1 },
+        { name: 'measurement-guides', visible: true, locked: false, opacity: 1 },
+      ],
+      plants: [
+        {
+          id: 'plant-1',
+          canonical_name: 'Malus domestica',
+          common_name: 'Apple',
+          position: { lon: 2.2945, lat: 48.8584 },
+          canopy_spread_m: 1,
+          rotation: 0,
+          color: '#5E8B7E',
+          locked: false,
+          pinned_name: false,
+          notes: null,
+          planted_date: null,
+          quantity: 1,
+        },
+        {
+          id: 'plant-2',
+          canonical_name: 'Pyrus communis',
+          common_name: 'Pear',
+          position: { lon: 2.2948, lat: 48.8584 },
+          canopy_spread_m: 1,
+          rotation: 0,
+          color: '#5E8B7E',
+          locked: false,
+          pinned_name: false,
+          notes: null,
+          planted_date: null,
+          quantity: 1,
+        },
+      ],
+      measurement_guides: [{
+        id: 'guide-1',
+        locked: false,
+        start: { lon: 2.2944, lat: 48.8585 },
+        end: { lon: 2.2946, lat: 48.8585 },
+      }],
+      groups: [{
+        id: 'group-1',
+        locked: true,
+        name: 'Locked guild',
+        members: [
+          withExtra({ kind: 'plant' as const, id: 'plant-1' }, { role: 'anchor' }),
+          withExtra({ kind: 'measurement_guide' as const, id: 'guide-1' }, { role: 'span' }),
+        ],
+      }],
+    })
+
+    const { store, controller } = makeController(design)
+    const guide = store.persisted.measurementGuides[0]!
+    const midpoint = { x: (guide.start.x + guide.end.x) / 2, y: (guide.start.y + guide.end.y) / 2 }
+    const plantCtx = {
+      pixelsPerMetre: 20,
+      speciesCache: new Map(),
+      plants: store.persisted.plants,
+    } as unknown as PlantPresentationContext
+
+    // SF1: clicking a grouped guide picks its group, never the guide alone.
+    expect(hitTestTopLevel(store.persisted, midpoint, 20, 'mouse', new Map(), () => plantCtx)).toEqual({
+      kind: 'group',
+      id: 'group-1',
+    })
+
+    // SF1: selecting the grouped guide directly is structurally blocked (cannot bypass group or lock).
+    const directModel = getDesignObjectSelectionModel(store.persisted, [{ kind: 'measurement-guide', id: 'guide-1' }], {
+      annotationViewportScale: 20,
+      plantContext: plantCtx,
+    })
+    expect(directModel.editableTargets).toEqual([])
+    expect(directModel.blockedTargets).toEqual([{ target: { kind: 'measurement-guide', id: 'guide-1' }, reason: 'structural' }])
+
+    // SF1: selecting or hovering the group highlights its grouped guide.
+    const selectedIds = projectSceneSelectionEntityIds(store.persisted, [{ kind: 'group', id: 'group-1' }])
+    expect(selectedIds.selectedMeasurementGuideIds.has('guide-1')).toBe(true)
+    const hoverSnap = { scene: store.persisted, hoverTarget: { kind: 'group', id: 'group-1', state: 'hover' } } as unknown as Parameters<typeof hoverStateForTarget>[0]
+    expect(hoverStateForTarget(hoverSnap, 'measurement-guide', 'guide-1')).toBe('hover')
+
+    // SF2: unlocking and regrouping with plant-2 preserves per-member unknown keys.
+    store.setSelection([{ kind: 'group', id: 'group-1' }])
+    controller.unlockSelected()
+    store.setSelection([{ kind: 'group', id: 'group-1' }, { kind: 'plant', id: 'plant-2' }])
+    controller.groupSelected()
+    const afterRegroup = decodeCanopiDesign(encodeCanopiDesign(
+      serializeScenePersistedState(store.persisted, store.sessionPlane),
+    ))
+    expect(afterRegroup.groups).toHaveLength(1)
+    expect(afterRegroup.groups[0]!.members).toEqual([
+      { kind: 'plant', id: 'plant-1', role: 'anchor' },
+      { kind: 'measurement_guide', id: 'guide-1', role: 'span' },
+      { kind: 'plant', id: 'plant-2' },
+    ])
+  })
+})

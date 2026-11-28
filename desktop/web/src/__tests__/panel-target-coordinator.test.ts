@@ -4,25 +4,22 @@ import {
   clearPanelOriginTargets,
   clearSelectedPanelTargetsForOrigin,
   readPanelOriginTargets,
-  setCanvasHoveredTargets,
   subscribePanelOriginTargetChanges,
   setHoveredPanelTargets,
   setSelectedPanelTargets,
 } from "../app/panel-targets/presentation";
 import {
-  hoveredCanvasTargets,
   hoveredPanelTargets,
   selectedPanelTargetOrigin,
   selectedPanelTargets,
 } from "../app/panel-targets/state";
 import { setStoryPresentationOverrides } from "../app/story-presentation/overrides";
-import { mapLayers } from "../app/map-layers/state";
+import { mapLayers } from "../app/settings/state";
 import { speciesTarget } from "../target";
 
 describe("Target Presentation", () => {
   beforeEach(() => {
     hoveredPanelTargets.value = [];
-    hoveredCanvasTargets.value = [];
     selectedPanelTargets.value = [];
     selectedPanelTargetOrigin.value = null;
     setStoryPresentationOverrides(null);
@@ -83,16 +80,13 @@ describe("Target Presentation", () => {
     expect(selectedPanelTargetOrigin.value).toBe(null);
   });
 
-  it("keeps panel-origin and canvas-origin target state behind the presentation seam", () => {
+  it("keeps panel-origin target state behind the presentation seam", () => {
     const selected = speciesTarget("Selected");
     const hovered = speciesTarget("Hovered");
-    const canvasHovered = speciesTarget("Canvas hovered");
 
     setSelectedPanelTargets("timeline", [selected]);
     setHoveredPanelTargets([hovered]);
-    setCanvasHoveredTargets([canvasHovered]);
 
     expect(readPanelOriginTargets()).toEqual([selected, hovered]);
-    expect(hoveredCanvasTargets.value).toEqual([canvasHovered]);
   });
 });

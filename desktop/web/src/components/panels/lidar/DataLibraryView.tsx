@@ -4,16 +4,16 @@ import { currentDesign } from '../../../app/document-session/store'
 import {
   addToDesign, cancelAnalysisJob, cancelLibraryImport, deleteLibraryItem, dismissLibraryImport, fetchDeleteImpact,
   fetchLibraryDiskUsage, renameLibraryItem, rerunAnalysis, retryLibraryImport, showDataLibraryFolder,
-} from '../../../app/lidar/actions'
+} from '../../../app/data-library/actions'
 import { findAnalysis } from '../../../app/analyses/registry'
 import {
-  filterLibraryItems, libraryItems, selectionAfter, takenItemNames, type LibraryItem, type LibrarySort,
+  filterLibraryItems, libraryItems, selectionAfter, takenItemNames, uniqueItemName, type LibraryItem, type LibrarySort,
   type LibraryTypeFilter,
-} from '../../../app/lidar/library-items'
+} from '../../../app/data-library/library-items'
 import {
   installLidarLibraryObserver, lidarLibrary, lidarLibraryStale, lidarStatusMessage, noteImportCancel,
-} from '../../../app/lidar/library-store'
-import { analyzeItem, beginDataImport, closeDataLibrary, revealInSiteData } from '../../../app/lidar/library-navigation'
+} from '../../../app/data-library/library-store'
+import { analyzeItem, beginDataImport, closeDataLibrary, revealInSiteData } from '../../../app/data-library/library-navigation'
 import { storeStatus } from '../../../failures/health'
 import { locale } from '../../../app/settings/state'
 import { ANALYSIS_GROUPS } from '../../../generated/analysis-registry'
@@ -21,13 +21,15 @@ import type { LibraryDeleteImpact } from '../../../generated/contracts'
 import { t } from '../../../i18n'
 import { ButtonTooltip } from '../../shared/ButtonTooltip'
 import { Dropdown, type DropdownItem } from '../../shared/Dropdown'
+import { InlineRenameField } from '../../shared/InlineRenameField'
 import { Notice } from '../../shared/Notice'
 import { SurfaceSearch } from '../../shared/SurfaceSearch'
 import { WorkspaceDialog } from '../../shared/WorkspaceDialog'
+import { formatByteSize } from '../../../utils/format'
 import { ItemDetails } from './ItemDetails'
-import { formatDiskSize, isRunning, isStale, itemStatusLabel, itemSummary } from './item-text'
+import { isRunning, isStale, itemStatusLabel, itemSummary } from './item-text'
 import { LibraryPreview, usePreviewClient } from './LibraryPreview'
-import { LibraryItemNameField, isItemNameTaken } from './LibraryItemNameField'
+import { isItemNameTaken } from './LibraryItemNameField'
 import styles from './data-library.module.css'
 
 /** How long a selection rests before its details fetch their source files and history. */
@@ -59,7 +61,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
   const snapshot = lidarLibrary.value
   const [sort, setSort] = useState<LibrarySort>('name')
   const items = useMemo(() => libraryItems(snapshot, sort), [snapshot, sort, locale.value])
-  const references = currentDesign.value?.lidar?.entries ?? []
+  const references = currentDesign.value?.site_data?.entries ?? []
   const readOnly = storeStatus('library_catalogue').kind === 'newer_read_only'
   const [requestedId, setRequestedId] = useState<string | null>(focusId)
   const [pane, setPane] = useState<Pane>(focusId ? 'details' : 'list')
@@ -302,7 +304,7 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
       footer={<>
         <span className={styles.footerNote}>
           {t('canvas.lidar.library.itemCount', { count })}
-          {diskUsage !== null && ` · ${t('canvas.lidar.library.onThisComputer', { size: formatDiskSize(diskUsage, locale.value) })}`}
+          {diskUsage !== null && ` · ${t('canvas.lidar.library.onThisComputer', { size: formatByteSize(diskUsage, locale.value) })}`}
         </span>
         <button type="button" className={`${styles.dialogButton} ${styles.ghost}`} onClick={() => void run(showDataLibraryFolder)}>
           {t('canvas.lidar.library.showInFolder')}
@@ -377,8 +379,15 @@ export function DataLibraryView({ focusId }: { readonly focusId: string | null }
                   )}
                 </div>
                 {mode === 'rename' && (
-                  <RenameForm item={item} busy={busy} error={error} onCancel={() => endMode(['rename'])}
-                    onSubmit={(name) => void run(() => renameLibraryItem(item.id, name), () => endMode(['rename']))} />
+                  <RenameForm item={item} onCancel={() => endMode(['rename'])} onSubmit={async (name) => {
+                    setBusy(true); setError(null)
+                    try { await renameLibraryItem(item.id, name); endMode(['rename']); return null }
+                    catch (cause) {
+                      const message = cause instanceof Error ? cause.message : String(cause)
+                      setError(message)
+                      return { error: message }
+                    } finally { setBusy(false) }
+                  }} />
                 )}
                 {item.status === 'needs-newer' ? <p>{newerKind(item)} · {t('canvas.lidar.library.needsNewerNote')}</p> : <ItemDetails item={item}
                   nameOf={nameOf}
@@ -536,39 +545,28 @@ function SortChoice({ value, onChange }: { value: LibrarySort; onChange(next: Li
   )
 }
 
-/** Rename in place of the name; Esc cancels only the rename, never the sheet. */
-function RenameForm({ item, busy, error, onCancel, onSubmit }: {
+/** Rename in place via the shared inline rename rule (2.1-Q87): Enter/click-away commits, Esc cancels only the rename. */
+function RenameForm({ item, onCancel, onSubmit }: {
   item: LibraryItem
-  busy: boolean
-  error: string | null
   onCancel(): void
-  onSubmit(name: string): void
+  onSubmit(name: string): Promise<{ readonly error: string } | null>
 }) {
-  const [name, setName] = useState(item.name)
-  const form = useRef<HTMLFormElement>(null)
   const taken = takenItemNames(lidarLibrary.value, item.id)
-  const ready = name.trim() !== '' && !isItemNameTaken(name, taken)
-  // Focused as the form commits, not after a paint: the trigger it replaced has gone, and an Esc pressed meanwhile
-  // would reach the sheet instead (canopi-kprb).
-  useLayoutEffect(() => { form.current?.querySelector<HTMLInputElement>('input')?.focus() }, [])
   return (
-    <form
-      ref={form}
-      className={styles.form}
-      onSubmit={(event) => { event.preventDefault(); if (ready) onSubmit(name.trim()) }}
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape') return
-        event.preventDefault()
-        event.stopPropagation()
-        onCancel()
-      }}
-    >
-      <LibraryItemNameField value={name} taken={taken} onInput={setName} />
-      {error && <p className={styles.error} role="alert">{error}</p>}
-      <div className={styles.formActions}>
-        <button type="button" className={styles.dialogButton} onClick={onCancel}>{t('canvas.lidar.library.cancel')}</button>
-        <button type="submit" className={`${styles.dialogButton} ${styles.primary}`} disabled={busy || !ready}>{t('canvas.lidar.library.saveName')}</button>
-      </div>
+    <form className={styles.form} onSubmit={(event) => event.preventDefault()}>
+      <InlineRenameField
+        value={item.name}
+        unchangedName={item.name}
+        ariaLabel={t('canvas.lidar.library.name')}
+        errorClassName={styles.fieldError}
+        onCancel={onCancel}
+        onCommit={(name) => {
+          if (isItemNameTaken(name, taken)) {
+            return { error: t('canvas.lidar.import.nameTaken', { name, suggestion: uniqueItemName(name, taken) }) }
+          }
+          return onSubmit(name)
+        }}
+      />
     </form>
   )
 }
@@ -601,10 +599,7 @@ function DeleteConfirmation({ item, inCurrentDesign, busy, error, onKeep, onDele
       role="group"
       aria-labelledby="library-delete-title"
       onKeyDown={(event) => {
-        if (event.key !== 'Escape') return
-        event.preventDefault()
-        event.stopPropagation()
-        onKeep()
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onKeep() }
       }}
     >
       <p id="library-delete-title" className={styles.confirmTitle} tabIndex={-1} ref={title}>{t('canvas.lidar.library.deleteTitle', { name: item.name })}</p>

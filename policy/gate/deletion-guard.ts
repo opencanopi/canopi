@@ -5,14 +5,11 @@
 //
 // - a title gone at head that no changed file re-adds (a move, in any file, passes with no trailer) needs a route
 //   (routeLoss, which the Vitest pass in deletion-guard-vitest.ts shares, canopi-f47t.52.228.51): the message quotes
-//   ('…', "…", `…`) the title of a test the commit adds, which replaces that one deleted test (its own file first: pair),
-//   no assertion count compared (2.1-Q272); or it cites a merge-base Q row covering the file; or it carries
-//   `Retires-test: <title> — <why>` while the commit (in a PR, one of its commits: rangeDeletedCode) deletes code under
-//   test (codeUnderTest), or for a test whose only
-//   subject is a documentation file, which no user sees (docsOnly, 2.1-M329) (gate-test-deleted);
-// - `Rewords-test: <old> -> <new>` passes a reworded title in the same file, or a fold into a <new> kept in that file
-//   (2.1-M330), no assertion count compared (2.1-Q272); without it, or in another file, the reword is refused
-//   (gate-test-reworded);
+//   ('…', "…", `…`) the title of a test the commit adds (its own file first: pair) or keeps in the same file (a fold,
+//   many-to-one; canopi-jxlh), no assertion count compared (2.1-Q272); or it cites a merge-base Q row covering the file;
+//   or it carries `Retires-test: <title> — <why>` while the commit (in a PR, one of its commits: rangeDeletedCode)
+//   deletes code under test (codeUnderTest), or for a test whose only subject is a documentation file, which no user
+//   sees (docsOnly, 2.1-M329) (gate-test-deleted);
 // - in a kept test, unless the message cites a merge-base Q row: fewer assertions, a matcher swap from the closed list,
 //   or a new skip (gate-test-loosened). A Retires-test line never skips this: when routeLoss routes the retirement of
 //   some of a title's same-titled tests in a file, the edited bodies left meet every choice of base bodies left
@@ -30,7 +27,6 @@ const SKIPS = new RegExp(String.raw`(?<![\p{L}\p{N}_$])(?:it|test|describe)\.(?:
   + String.raw`|@unittest\.skip|@pytest\.mark\.skip`, 'gu')
 const FLAKE = /flake-quarantine:[ \t]*(canopi-[a-z0-9]+(?:\.[0-9]+)*)?/gu
 export const RETIRES = /^Retires-test:\s*(.+?)\s+(?:—|--)\s+\S/gmu
-const REWORDS = /^Rewords-test:\s*(.+?)\s+->\s+(.+?)\s*$/gmu
 const RUST_TEST_ITEM = new RegExp(String.raw`#\[cfg\(test\)\]|${RUST_TEST_SOURCE}`, 'gu')
 // A Playwright spec or a Rust integration test covers its package's src/, which it never imports relatively.
 const OUTSIDE = /^((?:.*\/)?)(?:e2e|e2e-release|tests)\//u
@@ -236,20 +232,18 @@ export interface Route {
   readonly read: Read
   /** The module names under scripts/, for docsOnly. */
   readonly pyModules: ReadonlySet<string>
-  /** Its Rewords-test new title (one head adds, or for a fold a test kept, M330), in the same file or not. */
-  readonly reword?: { readonly title: string, readonly sameFile: boolean }
-  /** The quoted replacement's title paired with this one: the quote is the route, no assertion count compared. */
+  /** The quoted replacement's title (added anywhere, or kept in the same file as a fold) paired with this loss. */
   readonly replacement?: string
 }
 
 export type Routed = { readonly kind: 'routed' } | { readonly kind: 'refused', readonly finding: Finding } | { readonly kind: 'none' }
 
 /**
- * The one loss router (canopi-f47t.52.228.51): whether a commit's message routes the loss of one test title, for the
- * static pass and the Vitest pass alike. A merge-base Q row covering the loss's file routes it; Retires-test needs the code under
- * test deleted, or a test of documentation only (M329); Rewords-test needs its new title, added or kept (a fold, M330),
- * in the same file; a quoted replacement routes it. Neither counts assertions: a kept test's loosening is the one
- * assertion check (2.1-Q272). `none`: the message offers no route.
+ * The one loss router (canopi-f47t.52.228.51, canopi-jxlh): whether a commit's message routes the loss of one test
+ * title, for the static pass and the Vitest pass alike. A merge-base Q row covering the loss's file routes it;
+ * Retires-test needs the code under test deleted, or a test of documentation only (M329); a quoted replacement
+ * (added anywhere, or kept in the same file as a fold) routes it. Neither counts assertions: a kept test's loosening
+ * is the one assertion check (2.1-Q272). `none`: the message offers no route.
  */
 export async function routeLoss(loss: Loss, route: Route): Promise<Routed> {
   if (route.authorised) return { kind: 'routed' }
@@ -259,12 +253,7 @@ export async function routeLoss(loss: Loss, route: Route): Promise<Routed> {
     return { kind: 'refused', finding: ['gate-test-deleted', `${loss.path}: Retires-test: ${loss.title} deletes no code `
       + 'of its own module or one it imports, and the test reads code'] }
   }
-  const { reword, replacement } = route
-  if (reword) {
-    return reword.sameFile ? { kind: 'routed' } : { kind: 'refused', finding: ['gate-test-reworded',
-      `'${loss.title}' -> '${reword.title}' moves it to another file; that is a deletion`] }
-  }
-  return replacement === undefined ? { kind: 'none' } : { kind: 'routed' }
+  return route.replacement === undefined ? { kind: 'none' } : { kind: 'routed' }
 }
 
 type Pairable = readonly [title: string, path: string]
@@ -286,24 +275,6 @@ function pair(lost: readonly Pairable[], free: readonly Pairable[]): Map<string,
   return out
 }
 
-/** The Rewords-test pairs of `text`, old -> new. With `chain` (a PR's messages, read together) a title renamed again is
- * followed to its last name: A -> B and B -> C give A -> C. */
-export function rewordPairs(text: string, chain: boolean): (readonly [string, string])[] {
-  const pairs = [...text.matchAll(REWORDS)].map((match) => [strip(match[1] ?? ''), strip(match[2] ?? '')] as const)
-  if (!chain) return pairs
-  const next = new Map(pairs)
-  const renamed = new Set(pairs.map(([, now]) => now))
-  return pairs.filter(([old]) => !renamed.has(old)).map(([old, now]) => {
-    const seen = new Set([old])
-    let end = now
-    while (next.has(end) && !seen.has(end)) {
-      seen.add(end)
-      end = next.get(end) ?? end
-    }
-    return [old, end] as const
-  })
-}
-
 /** A changed test file: base path or undefined, head path or undefined, base text, head text. */
 export type TestFile = readonly [old: string | undefined, now: string | undefined, oldText: string, newText: string]
 
@@ -313,9 +284,6 @@ export interface JudgeOptions {
   readonly authorised: (path: string) => boolean
   /** Why the route of a file's tests (its base path) cites no merge-base Q row, when it names one the merge base lacks. */
   readonly missingQ?: (path: string) => string | undefined
-  /** One commit's message (the hook): a Rewords-test line naming no deleted and added pair is refused. A PR's messages
-   * read together (pr mode) follow rename chains and pass over a line whose old title is no net loss. */
-  readonly strictRewords: boolean
   /** Base paths of the files the Vitest pass reads at both ends: it alone judges their lost titles (one reading). */
   readonly listed?: ReadonlySet<string>
   readonly deletedCode: DeletedCode
@@ -327,11 +295,11 @@ export interface JudgeOptions {
   readonly pyModules: ReadonlySet<string>
 }
 
-/** The refusal of a lost title no route reaches; `existing`: a title the message quotes that the change does not add;
- * `missing`: the route's Q rows the merge base lacks (Authority.missingQ). */
+/** The refusal of a lost title no route reaches; `existing`: a title in another file the message quotes that the change
+ * does not add; `missing`: the route's Q rows the merge base lacks (Authority.missingQ). */
 const noRoute = (path: string, title: string, existing: string | undefined, missing: string | undefined) => `${path}: '${title}' `
   + `is deleted with no route: quote its replacement test's title${existing === undefined ? ''
-    : ` (only a test the change adds replaces one: '${existing}' exists already)`}, cite a merge-base Q row${missing ? ` (${missing})` : ''}, `
+    : ` ('${existing}' is kept in another file; a fold targets a kept test in the same file)`}, cite a merge-base Q row${missing ? ` (${missing})` : ''}, `
   + 'or add Retires-test: <title> — <why> and delete its code'
 
 /** Findings for one commit's changed test files. */
@@ -365,37 +333,23 @@ export async function judge(files: readonly TestFile[], message: string, options
   const deleted = [...before.keys()].filter((t) => (after.get(t) ?? 0) < (before.get(t) ?? 0))
   const added = [...after.keys()].filter((t) => (before.get(t) ?? 0) < (after.get(t) ?? 0))
   const replacements = added.filter((t) => quoted(t, message))
-  // A quoted title the change does not add replaces nothing: the refusal names it.
-  const existing = [...after.keys()].filter((t) => !added.includes(t) && quoted(t, message))
+  // A quoted kept title in the same file routes a fold (many-to-one, canopi-jxlh); one in another file routes nothing.
+  const sameFile = (oldPath: string, newPath: string) => newPath === oldPath || files.some(([o, n]) => o === oldPath && n === newPath)
+  const keptQuoted = [...after.keys()].filter((t) => !added.includes(t) && quoted(t, message))
+  const foldTarget = (oldPath: string, title: string) => keptQuoted.find((t) => t !== title
+    && parsed.some((p) => p.old === oldPath && p.was.has(t) && p.is.has(t)))
   const retired = new Set([...message.matchAll(RETIRES)].map((m) => strip(m[1] ?? '')))
   const base = { authorised: false, retired: new Set<string>(), deletedCode: options.deletedCode, read: options.read, pyModules: options.pyModules }
   const findings: Finding[] = []
-  const reworded = new Set<string>()
-  for (const [oldTitle, newTitle] of rewordPairs(message, !options.strictRewords)) {
-    if (deleted.includes(oldTitle) && !lostAt.has(oldTitle)) continue
-    const was = lostAt.get(oldTitle) ?? whereBefore.get(oldTitle)
-    const fold = !added.includes(newTitle) && whereAfter.has(newTitle) && whereBefore.get(newTitle)?.path === was?.path
-    const is = whereAfter.get(newTitle)
-    if (!deleted.includes(oldTitle) || (!added.includes(newTitle) && !fold) || !was || !is) {
-      if (!options.strictRewords && !deleted.includes(oldTitle)) continue
-      findings.push(['gate-test-reworded', `Rewords-test: ${oldTitle} -> ${newTitle} names no deleted and added pair`])
-      continue
-    }
-    const sameFile = is.path === was.path || files.some(([o, n]) => o === was.path && n === is.path)
-    const routed = await routeLoss({ title: oldTitle, path: was.path, text: was.text, bodies: was.bodies },
-      { ...base, reword: { title: newTitle, sameFile } })
-    if (routed.kind === 'refused') findings.push(routed.finding)
-    reworded.add(oldTitle).add(newTitle)
-  }
-  const named = deleted.filter((t) => !reworded.has(t) && !retired.has(t) && lostAt.has(t) && !authorised(lostAt.get(t)?.path ?? ''))
+  const named = deleted.filter((t) => !retired.has(t) && lostAt.has(t) && !authorised(lostAt.get(t)?.path ?? '')
+    && foldTarget(lostAt.get(t)?.path ?? '', t) === undefined)
   const paired = pair(named.map((t) => [t, lostAt.get(t)?.path ?? ''] as const),
-    replacements.filter((t) => !reworded.has(t)).map((t) => [t, whereAfter.get(t)?.path ?? ''] as const))
+    replacements.map((t) => [t, whereAfter.get(t)?.path ?? ''] as const))
   const used = new Set(paired.values())
   for (const title of deleted) {
-    if (reworded.has(title)) continue
     const was = lostAt.get(title)
     if (!was || authorised(was.path)) continue
-    const pick = paired.get(title)
+    const pick = paired.get(title) ?? foldTarget(was.path, title)
     const routed = await routeLoss({ title, path: was.path, text: was.text, bodies: was.bodies }, {
       ...base, retired, ...(pick === undefined ? {} : { replacement: pick }),
     })
@@ -404,12 +358,12 @@ export async function judge(files: readonly TestFile[], message: string, options
       findings.push(routed.finding)
       continue
     }
-    const rewords = added.filter((t) => !reworded.has(t) && !used.has(t) && whereAfter.get(t)?.path === was.path)
+    const rewords = added.filter((t) => !used.has(t) && sameFile(was.path, whereAfter.get(t)?.path ?? ''))
     if (rewords.length) {
-      findings.push(['gate-test-reworded', `${was.path}: '${title}' looks reworded to '${rewords[0]}': add `
-        + `Rewords-test: ${title} -> ${rewords[0]}`])
+      findings.push(['gate-test-deleted', `${was.path}: '${title}' looks reworded to '${rewords[0]}': quote '${rewords[0]}' in the commit message`])
     } else {
-      findings.push(['gate-test-deleted', noRoute(was.path, title, existing.find((t) => t !== title), options.missingQ?.(was.path))])
+      const otherKept = keptQuoted.find((t) => t !== title && !sameFile(was.path, whereAfter.get(t)?.path ?? ''))
+      findings.push(['gate-test-deleted', noRoute(was.path, title, otherKept, options.missingQ?.(was.path))])
     }
   }
   for (const { old, now, oldText, newText, was, is } of parsed) {

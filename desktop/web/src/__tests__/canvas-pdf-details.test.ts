@@ -7,7 +7,7 @@ import { englishPdfLabels } from '../../scripts/pdf-validation/fixtures'
 const labels: PdfLabels = { ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Print at actual size' }
 const text = () => createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
 function garden(): PdfInput {
-  return { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas: {
+  return { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas: {
     layers: ['plants', 'zones'].map((name) => ({ name, visible: true, opacity: 1 })),
     zones: [{ name: 'Orchard', bounds: { x: 0, y: 0, width: 30, height: 20 }, path: 'M0 0 L30 0 L30 20 L0 20 Z', geometry: { kind: 'rect' as const, points: [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 30, y: 20 }, { x: 0, y: 20 }] }, fill: null }],
     plants: [[8.5, 'Overlap'], [31, 'Nearby'], [200, 'Distant']].map(([x, name]) => ({ id: String(name), canonicalName: String(name), position: { x: Number(x), y: 12 },

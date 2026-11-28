@@ -14,31 +14,33 @@ import type { CanvasDesignObjectSelectionModel } from '../../runtime'
 import { resolveSceneObjectGroupMembers } from '../../scene/group-members'
 import type { SceneDesignObjectTarget } from '../../scene/design-object-targets'
 import type { SceneZoneEntity } from '../../scene/types'
-import type { WorldPoint, WorldQuad, WorldVector } from '../../view/types'
-import { getRectangularZoneCorners } from '../../zone-geometry'
+import type { WorldPoint, WorldQuad } from '../../../../geo/view/types'
+import { dispatchZoneByShape, getRectangularZoneCorners } from '../../zone-geometry'
+import { screenBasisOf, screenCoordsToWorldDelta, worldDeltaToScreenCoords } from '../screen-basis'
 import type { ToolScene, ToolView } from '../tool'
 
 /** The view queries the hull needs: ToolView, and the session's ViewTransform for the menu. */
-type HullView = Pick<ToolView, 'metresPerPixelAt' | 'screenAxesInWorld'>
+type HullView = Pick<ToolView, 'metresPerPixelAt' | 'screenAxesInWorld' | 'worldDeltaToScreen' | 'screenDeltaToWorld'>
 
 /**
  * The selection's screen box as a world quad, its corners top-left, top-right, bottom-right and bottom-left on screen;
  * null when no selected target is drawn.
  */
 export function selectionScreenHull(scene: ToolScene, selection: CanvasDesignObjectSelectionModel, view: HullView): WorldQuad | null {
-  const { right, down } = view.screenAxesInWorld()
+  const basis = screenBasisOf(view)
+  const coordAcross = (v: { readonly x: number; readonly y: number }): number => worldDeltaToScreenCoords(basis, v).x
+  const coordDown = (v: { readonly x: number; readonly y: number }): number => worldDeltaToScreenCoords(basis, v).y
   const pixelsPerMetreAt = (point: WorldPoint): number => 1 / Math.max(view.metresPerPixelAt(point), 1e-9)
   const persisted = scene.persisted
   const revealedId = getRevealedAnnotationId(scene.selection())
   const extent = { minAcross: Infinity, maxAcross: -Infinity, minDown: Infinity, maxDown: -Infinity }
 
   const span = (centre: WorldPoint, halfAcross: number, halfDown: number): void => {
-    const across = dot(centre, right)
-    const downward = dot(centre, down)
-    extent.minAcross = Math.min(extent.minAcross, across - halfAcross)
-    extent.maxAcross = Math.max(extent.maxAcross, across + halfAcross)
-    extent.minDown = Math.min(extent.minDown, downward - halfDown)
-    extent.maxDown = Math.max(extent.maxDown, downward + halfDown)
+    const projected = worldDeltaToScreenCoords(basis, centre)
+    extent.minAcross = Math.min(extent.minAcross, projected.x - halfAcross)
+    extent.maxAcross = Math.max(extent.maxAcross, projected.x + halfAcross)
+    extent.minDown = Math.min(extent.minDown, projected.y - halfDown)
+    extent.maxDown = Math.max(extent.maxDown, projected.y + halfDown)
   }
   const points = (outline: readonly WorldPoint[]): void => {
     for (const point of outline) span(point, 0, 0)
@@ -54,20 +56,20 @@ export function selectionScreenHull(scene: ToolScene, selection: CanvasDesignObj
       case 'plant': {
         const plant = persisted.plants.find((entry) => entry.id === target.id)
         if (!plant) return
-        const radius = scene.plantPresentation(plant).radiusPx / pixelsPerMetreAt(plant.position)
-        span(plant.position, radius, radius)
+        const radiusPx = scene.plantPresentation(plant).radiusPx
+        span(plant.position, radiusPx, radiusPx)
         return
       }
       case 'zone': {
         const zone = persisted.zones.find((entry) => entry.id === target.id)
-        if (zone) addZone(zone, right, down, span, points)
+        if (zone) addZone(zone, coordAcross, coordDown, span, points)
         return
       }
       case 'annotation': {
         const annotation = persisted.annotations.find((entry) => entry.id === target.id)
         if (!annotation) return
         const pixelsPerMetre = pixelsPerMetreAt(annotation.position)
-        const textAllowed = getCanvasDetailLayout(persisted, pixelsPerMetre).annotationIds.has(annotation.id)
+        const textAllowed = getCanvasDetailLayout(persisted, pixelsPerMetre, scene.plantSymbolScale).annotationIds.has(annotation.id)
         points(getAnnotationVisualWorldCorners(
           annotation, pixelsPerMetre, revealable && annotation.id === revealedId, textAllowed,
         ))
@@ -83,10 +85,7 @@ export function selectionScreenHull(scene: ToolScene, selection: CanvasDesignObj
 
   for (const target of [...selection.editableTargets, ...selection.lockedTargets]) add(target, true)
   if (!Number.isFinite(extent.minAcross)) return null
-  const at = (across: number, downward: number): WorldPoint => ({
-    x: right.x * across + down.x * downward,
-    y: right.y * across + down.y * downward,
-  })
+  const at = (across: number, downward: number): WorldPoint => screenCoordsToWorldDelta(basis, { x: across, y: downward })
   return [
     at(extent.minAcross, extent.minDown),
     at(extent.maxAcross, extent.minDown),
@@ -97,29 +96,38 @@ export function selectionScreenHull(scene: ToolScene, selection: CanvasDesignObj
 
 function addZone(
   zone: SceneZoneEntity,
-  right: WorldVector,
-  down: WorldVector,
+  coordAcross: (v: { readonly x: number; readonly y: number }) => number,
+  coordDown: (v: { readonly x: number; readonly y: number }) => number,
   span: (centre: WorldPoint, halfAcross: number, halfDown: number) => void,
   points: (outline: readonly WorldPoint[]) => void,
 ): void {
-  if (zone.zoneType === 'rect' && zone.points.length >= 4) {
-    const corners = getRectangularZoneCorners(zone)
-    if (corners) points(corners)
-    return
-  }
-  if (zone.zoneType === 'ellipse' && zone.points.length >= 2) {
-    // The turned ellipse's half-extent along a unit axis u: |(a·e1·u, b·e2·u)| for its turned unit axes e1 and e2.
-    const centre = zone.points[0]!
-    const radii = zone.points[1]!
-    const radians = (zone.rotationDeg * Math.PI) / 180
-    const major = { x: Math.cos(radians) * Math.abs(radii.x), y: Math.sin(radians) * Math.abs(radii.x) }
-    const minor = { x: -Math.sin(radians) * Math.abs(radii.y), y: Math.cos(radians) * Math.abs(radii.y) }
-    span(centre, Math.hypot(dot(major, right), dot(minor, right)), Math.hypot(dot(major, down), dot(minor, down)))
-    return
-  }
-  points(zone.points)
-}
-
-function dot(point: { readonly x: number; readonly y: number }, axis: WorldVector): number {
-  return point.x * axis.x + point.y * axis.y
+  dispatchZoneByShape(zone, {
+    rect: () => {
+      if (zone.points.length >= 4) {
+        const corners = getRectangularZoneCorners(zone)
+        if (corners) points(corners)
+        return
+      }
+      points(zone.points)
+    },
+    ellipse: () => {
+      if (zone.points.length >= 2) {
+        // The turned ellipse's half-extent in the (right, down) dual basis: hypot of the two semi-axes' coordinates.
+        const centre = zone.points[0]!
+        const radii = zone.points[1]!
+        const radians = (zone.rotationDeg * Math.PI) / 180
+        const major = { x: Math.cos(radians) * Math.abs(radii.x), y: Math.sin(radians) * Math.abs(radii.x) }
+        const minor = { x: -Math.sin(radians) * Math.abs(radii.y), y: Math.cos(radians) * Math.abs(radii.y) }
+        span(
+          centre,
+          Math.hypot(coordAcross(major), coordAcross(minor)),
+          Math.hypot(coordDown(major), coordDown(minor)),
+        )
+        return
+      }
+      points(zone.points)
+    },
+    polygon: () => { points(zone.points) },
+    line: () => { points(zone.points) },
+  })
 }

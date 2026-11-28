@@ -18,7 +18,7 @@ import {
 import { formatShortcut } from '../../app/shell-commands/shortcut-text'
 import { singleKeyShortcuts } from '../../app/settings/state'
 import { currentDesign } from '../../app/document-session/store'
-import { desktopGeoJsonWorkflow as desktopGeoJson } from '../../platform/geojson.desktop'
+import { activeGeoJsonWorkflow as desktopGeoJson } from '../../app/geojson/workflow'
 import {
   closeDesign,
   designRevertAvailable,
@@ -29,12 +29,12 @@ import {
   saveCurrentDesign,
 } from '../../app/document-session/actions'
 import { openCommandPalette } from '../../app/shell/dialogs'
-import { activePanel, navigateTo, sidePanel, type Panel } from '../../app/shell/state'
+import { navigateTo, sidePanel, type Panel } from '../../app/shell/state'
 import { openProblemReportDialog } from '../../app/problem-report/submission'
 import { reportFailure } from '../../failures/report'
 import { exportCurrentBudgetCsv } from '../../app/budget/export'
-import { beginDataImport, openDataLibrary } from '../../app/lidar/library-navigation'
-import { armProfile, profileAvailable } from '../../app/lidar/profile'
+import { beginDataImport, openDataLibrary } from '../../app/data-library/library-navigation'
+import { armProfile, profileAvailable } from '../../app/data-library/profile'
 import { createWorkspaceShellCapabilities, designChangeable } from '../../app/workspace-commands/capabilities'
 import {
   readWorkspaceCanvasProjectionState,
@@ -106,7 +106,6 @@ export function readAppCommandState(): AppCommandState {
   return {
     hasDesign: currentDesign.value !== null,
     revertAvailable: designRevertAvailable.value,
-    activePanel: activePanel.value,
     sidePanel: sidePanel.value,
   }
 }
@@ -208,11 +207,12 @@ export const DESKTOP_SHELL_COMMAND_CATALOG = composeShellCommandCatalog({
   navigateSiteData: designPanel('site-data'),
   navigateSpeciesKey: designPanel('species-key'),
   navigatePlantDatabase: {
-    // The catalog runs from the start screen; the rail offers it with a Design.
+    // Catalog and Favorites open without a Design on both editions (2.1-Q130).
     execute: () => navigateTo('plant-db'),
-    isProjectionDisabled: (state) => !state.hasDesign && state.sidePanel !== 'plant-db',
   },
-  navigateFavorites: designPanel('favorites'),
+  navigateFavorites: {
+    execute: () => navigateTo('favorites'),
+  },
   navigateCalendar: designPanel('calendar'),
   navigateBudget: designPanel('budget'),
   navigateConsortium: designPanel('consortium'),

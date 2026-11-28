@@ -1,9 +1,18 @@
-use super::design::internal_load_failure;
 use crate::db::UserDb;
 use crate::native_operation::{NativeOperationClass, NativeOperationExecutor};
-use canopi_types::design::{CanopiFile, DesignLoadFailure};
+use canopi_types::design::v10::CanopiFileV10;
+use canopi_types::design::{DesignLoadFailure, DesignLoadFailureKind};
+use canopi_types::failure::{Failure, FailureCode};
 use canopi_types::saved_object_stamps::SavedObjectStamp;
 use tauri::State;
+
+fn internal_load_failure(message: String) -> DesignLoadFailure {
+    DesignLoadFailure {
+        kind: DesignLoadFailureKind::Internal,
+        message,
+        field_path: None,
+    }
+}
 
 #[tauri::command]
 pub async fn get_saved_object_stamps(
@@ -79,6 +88,27 @@ pub async fn delete_saved_object_stamp(
 }
 
 #[tauri::command]
+pub async fn restore_saved_object_stamp(
+    executor: State<'_, NativeOperationExecutor>,
+    user_db: State<'_, UserDb>,
+    stamp: SavedObjectStamp,
+) -> Result<SavedObjectStamp, Failure> {
+    let user_db = user_db.inner().clone();
+    executor
+        .run(
+            NativeOperationClass::UserData,
+            "saved object stamp restore",
+            move || {
+                crate::services::saved_object_stamps::restore_saved_object_stamp(&user_db, stamp)
+            },
+        )
+        .await
+        .map_err(|detail| {
+            Failure::new(FailureCode::Internal, "saved_object_stamp.restore").with_english(&detail)
+        })
+}
+
+#[tauri::command]
 pub async fn reorder_saved_object_stamps(
     executor: State<'_, NativeOperationExecutor>,
     user_db: State<'_, UserDb>,
@@ -100,7 +130,7 @@ pub async fn reorder_saved_object_stamps(
 pub async fn export_saved_object_stamp_canopi_file(
     executor: State<'_, NativeOperationExecutor>,
     path: String,
-    content: CanopiFile,
+    content: CanopiFileV10,
 ) -> Result<String, String> {
     executor
         .run(
@@ -117,7 +147,7 @@ pub async fn export_saved_object_stamp_canopi_file(
 pub async fn load_saved_object_stamp_canopi_file(
     executor: State<'_, NativeOperationExecutor>,
     path: String,
-) -> Result<CanopiFile, DesignLoadFailure> {
+) -> Result<CanopiFileV10, DesignLoadFailure> {
     executor
         .run(
             NativeOperationClass::Local,

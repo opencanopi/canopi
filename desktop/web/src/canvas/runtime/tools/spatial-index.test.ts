@@ -9,7 +9,7 @@ import {
 } from '../../../__tests__/support/tool-harness'
 import { buildPlantPresentationEntries } from '../plant-presentation'
 import type { SceneStore } from '../scene'
-import type { WorldPoint, WorldQuad } from '../view/types'
+import type { WorldPoint, WorldQuad } from '../../../geo/view/types'
 import { hitTestTopLevel, hitTestVisibleTopLevel } from './hit-testing'
 import { createToolScene } from './spatial-index'
 
@@ -167,16 +167,24 @@ describe('ToolScene over today\'s hit tests', () => {
     const store = sceneStoreWith({
       plants: [
         plantEntity('b', 'Malus domestica', { x: 3, y: 4 }),
-        plantEntity('a', 'Malus domestica', { x: -3, y: -4 }),
+        plantEntity('a', 'Malus domestica', { x: -3, y: 4 }),
         plantEntity('c', 'Malus domestica', { x: 10, y: 0 }),
       ],
     })
     const scene = createToolScene(createToolSceneSource(store))
 
-    expect(scene.nearestPlant({ x: 0, y: 0 })).toEqual({ plant: store.persisted.plants[0], distanceM: 5 })
+    expect(scene.nearestPlant({ x: 0, y: 0 })).toEqual({
+      plant: store.persisted.plants[0],
+      distanceM: store.sessionPlane.groundLength({ x: 0, y: 0 }, { x: 3, y: 4 }),
+    })
 
     store.updatePersisted((draft) => {
       draft.layers = draft.layers.map((layer) => layer.name === 'plants' ? { ...layer, visible: false } : layer)
+    })
+    expect(scene.nearestPlant({ x: 0, y: 0 })).toBeNull()
+
+    store.updatePersisted((draft) => {
+      draft.layers = draft.layers.map((layer) => layer.name === 'plants' ? { ...layer, visible: true, opacity: 0 } : layer)
     })
     expect(scene.nearestPlant({ x: 0, y: 0 })).toBeNull()
   })

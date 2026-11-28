@@ -459,4 +459,21 @@ describe('SessionStart prints a warning when the hooks would not run; nothing wh
     const run = runHook('session-start', 'garbage', repo ?? '')
     expect(run.status, run.stderr).toBe(0)
   })
+
+  it('canopi-vgfg: refuses bd update --notes without --append-notes and points to --append-notes', () => {
+    const payload = (command: string) => JSON.stringify({
+      hook_event_name: 'PreToolUse', tool_name: 'Bash', cwd: repo ?? '', tool_input: { command },
+    })
+    const denied = preToolUse(payload('bd update canopi-abc --notes "replaced"'), REPO_ROOT, hookEnv(repo ?? ''))
+    expect(denied).toContain('hook-bd-notes-overwrite')
+    expect(denied).toContain('--append-notes')
+    const deniedEq = preToolUse(payload('bd update canopi-abc --notes="replaced"'), REPO_ROOT, hookEnv(repo ?? ''))
+    expect(deniedEq).toContain('hook-bd-notes-overwrite')
+    const deniedGlobalC = preToolUse(payload('bd -C /tmp/work update canopi-abc --notes "replaced"'), REPO_ROOT, hookEnv(repo ?? ''))
+    expect(deniedGlobalC).toContain('hook-bd-notes-overwrite')
+    const deniedGlobalDb = preToolUse(payload('bd --db /tmp/db update canopi-abc --notes "replaced"'), REPO_ROOT, hookEnv(repo ?? ''))
+    expect(deniedGlobalDb).toContain('hook-bd-notes-overwrite')
+    const allowed = preToolUse(payload('bd update canopi-abc --append-notes "appended"'), REPO_ROOT, hookEnv(repo ?? ''))
+    expect(allowed.trim()).toBe('')
+  })
 })

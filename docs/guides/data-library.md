@@ -1,6 +1,6 @@
 # Data Library
 
-Covers: `desktop/src/services/lidar/`, `desktop/web/src/app/lidar/`, `desktop/web/src/app/analyses/`
+Covers: `desktop/src/services/lidar/`, `desktop/web/src/app/data-library/`, `desktop/web/src/app/analyses/`
 
 ## Purpose
 
@@ -34,10 +34,10 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 - The GeoLibre windowed lane stages with the exact `-2^127` sentinel (`STAGING_NODATA`, `analyses/windowed.rs`); non-finite outputs, the tool marker and the sentinel never reach a published raster. (`geolibre_slope_matches_the_analytic_surface_across_a_chunk_seam` in the `lidar-native` lane)
 - Display derivatives (`DISPLAY_PROFILE`, `display_cog.rs`) are regenerable, written in EPSG:3857 on one global lattice, nearest neighbour (`rust_engine/warp.rs`), staged outside the asset scope, renamed into `display-cog/` when complete; keys hold profile, generation and variant (`-relief`); startup prunes other profiles. (`display_cog.rs`, `warp.rs`, `rust-display-cog.test.ts`)
 - The WebView reaches only `$APPDATA/lidar/display-cog/*.tif` (asset scope in `desktop/tauri.conf.json`); originals, staging, scratch and numeric rasters stay out. (`__tests__/tauri-csp.test.ts` for CSP; scope is advice)
-- Styles and `displayVariant` dispatch on the quantity in `app/lidar/item-types.ts`, the only module knowing item types, in stored units (percent slope never draws as degrees). MNT, MNS and MNH open on Relief; Cut outliers is Colours-only. Blue is for water. (`__tests__/item-types.test.ts`, `app/lidar/display-legend.test.ts`)
+- Styles and `displayVariant` dispatch on the quantity in `app/data-library/item-types.ts`, the only module knowing item types, in stored units (percent slope never draws as degrees). MNT, MNS and MNH open on Relief; Cut outliers is Colours-only. Blue is for water. (`__tests__/item-types.test.ts`, `app/data-library/display-legend.test.ts`)
 - Delete everywhere is separate from Remove from Design; an item results depend on is refused with the count (`lidar_delete_impact`), rechecked in the transaction. It frees files no other item uses, now or, while a job runs, at next start (user, 2026-10-15). No Design references are tracked; the confirmation says so. (`mod.rs` tests, `__tests__/lidar-actions.test.ts`)
-- An import joins the Design session that asked; an analysis joins it when that Design shows the input (`pendingAttachments`, `app/lidar/actions.ts`); a switch, failure or cancel drops the attachment. (`__tests__/lidar-actions.test.ts`)
-- Add to Design is idempotent and keeps the camera; Fit uses the viewport command, 48 px padding, capped at zoom 18 (`app/lidar/camera-request.ts`). (`__tests__/lidar-camera-navigation.test.ts`)
+- An import joins the Design session that asked; an analysis joins it when that Design shows the input (`pendingAttachments`, `app/data-library/actions.ts`); a switch, failure or cancel drops the attachment. (`__tests__/lidar-actions.test.ts`)
+- Add to Design is idempotent and keeps the camera; Fit uses the viewport command, 48 px padding, capped at zoom 18 (`app/data-library/camera-request.ts`). (`__tests__/lidar-camera-navigation.test.ts`)
 - LiDAR commands are executor-backed except the bounded cancels: raster jobs on `Raster`; sampling (one at a time, ≤ 8 targets, ≤ 4,096 points) and disk scans on `Local`; catalogue work and Import's and Retry's header check (capped TIFF directories and tile index; hung mounts stall it) on `UserData`. (`native_command_policy::tests`)
 - Raster work runs in process on `rust_engine/`, the only production `RasterEngine`, checked by the test-only GDAL oracle `gdal_engine.rs` (comparison lane); probes read only headers. (`rust_engine` tests)
 - One CRS authority (ADR 0014): `rust_engine/crs.rs` on the `crs_table.rs` rows (`proj4rs`), every transform via WGS84, serves placement, extents, coverage, sampling and the display warp. References are `EPSG:n` in `crs_ref`; `crs_class` comes from the row; written keys are codes only; analysis stays native. A new code is a row, its reference points and its `ROW_DIGESTS` line. (`crs.rs` tests, `a_pixel_centre_shows_the_value_hover_reads_there`)
@@ -47,29 +47,16 @@ Boundaries for Canopi Desktop's store of LiDAR terrain rasters (imported and der
 
 ## Environment and commands
 
-- GeoLibre CLI: `CANOPI_GEOLIBRE_BIN`, beside the executable, then `PATH` (`geolibre.rs` tests); built by `scripts/build-geolibre-cli.sh` and bundled as a Tauri sidecar ([native and release](native-and-release.md)).
-- Engine lane: the CI job `lidar-native` runs the ignored `services::lidar` tests but the `local fixture: ` ones (`ci_lane_policy::tests`).
-- Comparison lane (local; GDAL tools via `CANOPI_LIDAR_GDAL_BIN` or `PATH`; skips without them): `cargo test -p canopi-desktop --lib rust_engine::comparison -- --ignored --nocapture`.
-- Fixture lanes (local; no fixtures is not a pass): `CANOPI_LIDAR_E2E_FIXTURE=<IGN MNT GeoTIFF>`, `CANOPI_LIDAR_MNH_DIR=<IGN MNH tiles>`, then `cargo test -p canopi-desktop --lib -- --ignored --test-threads=1 --nocapture` (`e2e.rs`).
+- GeoLibre CLI: `CANOPI_GEOLIBRE_BIN`, beside the binary, then `PATH` (`geolibre.rs` tests); built by `scripts/build-geolibre-cli.sh` ([native and release](native-and-release.md)).
+- Engine lane (`lidar-native` CI): runs ignored `services::lidar` tests except `local fixture: ` (`ci_lane_policy::tests`).
+- Comparison lane (`CANOPI_LIDAR_GDAL_BIN` or `PATH`; skips without GDAL): `cargo test -p canopi-desktop --lib rust_engine::comparison -- --ignored --nocapture`.
+- Fixture lanes (missing fixtures is not a pass): set `CANOPI_LIDAR_E2E_FIXTURE` and `CANOPI_LIDAR_MNH_DIR`, run `cargo test -p canopi-desktop --lib -- --ignored --test-threads=1 --nocapture` (`e2e.rs`).
 
 ## Do not
 
-- Add a catalogue migration or a reader of an older catalogue; bump `CATALOGUE_VERSION` and let the rebuild carry the data.
-- Transform coordinates outside `crs.rs`, through `wbprojection`, or from the GeoLibre CLI's WGS84 output.
-- Store a library path, pixel or runtime URL in a `.canopi`, log or Problem Report.
+- Add a catalogue migration or older-catalogue reader; bump `CATALOGUE_VERSION` and let rebuild carry data.
+- Transform coordinates outside `crs.rs`, via `wbprojection`, or from GeoLibre CLI WGS84 output.
+- Store library paths, pixels or runtime URLs in `.canopi`, logs or Problem Reports.
 - Materialise a merged raster, union grid or absent-coordinate walk.
-- Read raster pixels in the poll, in offers or on `UserData`.
+- Read raster pixels in the poll, offers or on `UserData`.
 - Add an analysis by code alone: registry entry, one executor, locale keys ([AGENTS.md](../../AGENTS.md)).
-
-## Where to look
-
-| Area | Module |
-|---|---|
-| Admission, import, publication | `admission.rs`, `import.rs`, `collection.rs`, `generation.rs` |
-| Catalogue, paths, sweep, recovery | `catalogue.rs`, `catalogue_reader.rs`, `paths.rs`, `mod.rs`, `recovery.rs`, `source_meta.rs` |
-| Display | `display_cog.rs`, `rust_engine/warp.rs`, `maplibre/raster-display/`, `app/lidar/display.ts`, `item-types.ts` |
-| Site data, library, dialogs | `components/panels/lidar/`, `components/panels/analyze/` |
-
-## Open decisions
-
-None tracked.

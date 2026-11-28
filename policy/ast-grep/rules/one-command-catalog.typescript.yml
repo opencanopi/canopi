@@ -1,0 +1,24 @@
+# one-command-catalog (ADR 0022, 2.1-M186): menus, the modal check and key routing read the one command table.
+id: one-command-catalog.typescript
+language: typescript
+severity: error
+message: "Only desktop/web/src/app/command-table/** may define the shell command catalog tables (ADR 0022, 2.1-M186); owner desktop/web/src/app/command-table; example desktop/web/src/app/command-table/commands.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/command-table/**"
+rule:
+  any:
+    - kind: variable_declarator
+      has:
+        field: name
+        kind: identifier
+        regex: ^(SHELL_COMMAND_REQUIRES|TOOL_ROWS|PANEL_ROWS|RESERVED_CHORDS)$
+    - kind: type_alias_declaration
+      has:
+        field: name
+        kind: type_identifier
+        regex: ^ShellCommandId$

@@ -19,7 +19,7 @@ function makePlant(canonicalName: string, commonName: string | null = null): Pla
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,
@@ -48,19 +48,11 @@ describe('Planning Projection', () => {
     const budget: BudgetItem[] = [
       {
         target: speciesBudgetTarget('Malus domestica'),
-        category: 'plants',
-        description: 'Malus domestica',
-        quantity: 0,
         unit_cost: 5,
-        currency: 'EUR',
       },
       {
         target: MANUAL_TARGET,
-        category: 'materials',
-        description: 'Mulch',
-        quantity: 1,
         unit_cost: 12,
-        currency: 'EUR',
       },
     ]
 
@@ -72,7 +64,6 @@ describe('Planning Projection', () => {
       ],
       localizedNames: new Map([['Malus domestica', 'Pommier']]),
       budget,
-      currency: 'EUR',
       locale: 'fr',
     })
 
@@ -110,10 +101,9 @@ describe('Planning Projection', () => {
       ],
       localizedNames: new Map([['Acer campestre', 'Érable champêtre']]),
       budget: [
-        { target: speciesBudgetTarget('Acer campestre'), category: 'plants', description: '', quantity: 0, unit_cost: 4, currency: 'EUR' },
-        { target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: '', quantity: 0, unit_cost: 0, currency: 'EUR' },
+        { target: speciesBudgetTarget('Acer campestre'), unit_cost: 4 },
+        { target: speciesBudgetTarget('Malus domestica'), unit_cost: 0 },
       ],
-      currency: 'EUR',
       locale: 'fr',
       speciesKey: [
         { canonicalName: 'Acer campestre', commonName: 'Érable champêtre', code: 'ACH', englishFallback: false, count: 1, appearances: [{ symbol: 'canopy', color: '#A06B1F' }] },

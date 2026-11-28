@@ -14,13 +14,15 @@
 // in a state a later test cannot start from, starts it again on the same profile in a new session (`relaunch`).
 import { execFileSync, spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { appendFileSync, chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { appendFileSync, chmodSync, copyFileSync, cpSync, createReadStream, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
+import { tmpdir } from 'node:os'
 import { basename, dirname, join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { $, $$, browser, expect } from '@wdio/globals'
 import { answerNextDialog, appFolders, currentPlatform, currentProfile, designFile, launchForAttach, openDesignButton, renameOpenDesign, savedName, waitForOpenDesign } from './support/app'
 import { logOutput } from './support/process-log'
-import { canopiProcesses, handProfileToRelaunch, msiUpdateClients, pendingRestartFiles, pendingUpdateMarkers, relaunchedWith, relaunchReport, withdrawProfileFromRelaunch } from './support/relaunch'
+import { canopiProcesses, handProfileToRelaunch, msiUpdateClients, pendingRestartFiles, pendingUpdateMarkers, relaunchedCleanly, relaunchReport, withdrawProfileFromRelaunch } from './support/relaunch'
 
 const PORT = Number(process.env.UPDATER_E2E_PORT ?? '47811')
 const CHANNELS = process.env.UPDATER_E2E_DIR ?? ''
@@ -191,15 +193,20 @@ async function waitForExit(what: string, timeout = 180_000): Promise<void> {
  * Starts the installed Canopi again on the session's profile in a new session, as a user starting it after it closed.
  * On Linux tauri-driver closes a running Canopi and launches it for the new session; on Windows the harness launches
  * it and the new session attaches (the harness's own launch is the first session's; this is every later one's).
+ * Pass `reopenedDesign` when `last_open_home` (2.1-Q127) will reopen that Design on boot instead of the start screen.
  */
-async function relaunch(): Promise<void> {
+async function relaunch(reopenedDesign?: string): Promise<void> {
   if (currentPlatform() === 'linux') {
     await browser.reloadSession()
   } else {
     const app = await launchForAttach(currentProfile())
     await browser.reloadSession({ ...browser.requestedCapabilities, 'ms:edgeOptions': { debuggerAddress: app.debuggerAddress } })
   }
-  await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
+  if (reopenedDesign === undefined) {
+    await $('[data-start-screen]').waitForDisplayed({ timeout: 90_000 })
+  } else {
+    await $(`button[aria-label="Rename Design: ${reopenedDesign}"]`).waitForDisplayed({ timeout: 90_000 })
+  }
 }
 
 /** Runs a Windows installer silently, as a user running a download by hand; it closes a running Canopi first. */
@@ -255,6 +262,8 @@ async function launchCheckSwitch(): Promise<ReturnType<typeof $>> {
 
 describe('the updater, from an installed N-1 to N', () => {
   let current = ''
+  let preRestartPids = new Set<number>()
+  let preRestartLastOpened: string | null = null
 
   before(async () => {
     if (CHANNELS === '' || BUNDLE === '') throw new Error('UPDATER_E2E_DIR and UPDATER_E2E_BUNDLE name the lane\'s channel files and installer')
@@ -411,8 +420,9 @@ describe('the updater, from an installed N-1 to N', () => {
     await new Promise((settle) => setTimeout(settle, 2_000))
     runInstaller(N1_SETUP)
     await waitForExit('N-1\'s installer, run by hand, did not close it')
-    await relaunch()
-    await openDesign(garden, 'Reinstalled garden')
+    // Durable last_open_home (2.1-Q127) reopens the continuous-saved Design directly on boot.
+    await relaunch('Reinstalled garden')
+    expect(savedName(garden)).toBe('Reinstalled garden')
     current = garden
   })
 
@@ -447,11 +457,11 @@ describe('the updater, from an installed N-1 to N', () => {
 
     runInstaller(N1_SETUP)
     expect(installedVersion()).toBe('9.0.0')
-    await relaunch()
+    // 2.0.3 never clears last_open_home, so the prior test's Design reopens on boot (2.1-Q127).
+    await relaunch(current === '' ? undefined : 'Reinstalled garden')
     const kept = await launchCheckSwitch()
     expect(await kept.isSelected()).toBe(false)
     await browser.keys('Escape')
-    current = ''
   })
 
   // Every row, the MSI's included: msiexec starts only after the update path's flush (canopi-f47t.52.244).
@@ -472,20 +482,64 @@ describe('the updater, from an installed N-1 to N', () => {
     await openAbout()
     // Windows: the installer relaunches N with an environment built from the user's profile; it must find this one.
     handProfileToRelaunch(currentProfile())
+    // Capture N-1's pids before restart so the next test proves a new process started (not a lingering N-1).
+    preRestartPids = new Set(canopiProcesses().map((running) => running.pid))
     await press('Install and restart')
     // Continuous save may write the edit 1.5 s after it; either way the file the relaunch opens must hold it: the
     // update path flushes before the installer starts. An installer run by hand has its own test above.
     await browser.waitUntil(windowGone, { timeout: 180_000, timeoutMsg: 'the app did not restart into the update' })
     expect(savedName(second)).toBe('Updated garden')
+    // Capture Second garden's recent_files.last_opened after N-1's update flush has completed (save_design also
+    // updates last_opened via try_record_recent) so the next test proves N itself reopened the Design.
+    preRestartLastOpened = resolvedLastOpenHome(currentProfile()).lastOpened
+    expect(preRestartLastOpened).not.toBeNull()
     current = second
   })
 
+  /**
+   * Reads durable `last_open_home` from `settings.json` (2e-2 file authority, falling back to legacy
+   * `user.db` if absent) and resolves a `file:<sha256>` token against a snapshot copy of `user.db`'s
+   * `recent_files` so we never contend with the running Canopi's WAL lock (2.1-Q127, 2.1-M523).
+   */
+  function resolvedLastOpenHome(profileRoot: string): { lastOpenHome: string | null, resolvedPath: string | null, resolvedName: string | null, lastOpened: string | null } {
+    const folders = appFolders(profileRoot)
+    const settingsFile = storeFiles(folders, 'settings.json').find((file) => basename(file) === 'settings.json')
+    let token: string | null = null
+    let fromSettingsJson = false
+    if (settingsFile) {
+      try {
+        const raw = (JSON.parse(readFileSync(settingsFile, 'utf8')) as { last_open_home?: unknown }).last_open_home
+        token = typeof raw === 'string' ? raw : null
+        fromSettingsJson = true
+      } catch { /* fall back to user.db if settings.json is mid-write */ }
+    }
+    const store = storeFiles(folders, 'user.db')
+    if (!store.some((file) => basename(file) === 'user.db')) return { lastOpenHome: token, resolvedPath: null, resolvedName: null, lastOpened: null }
+    const snapshotDir = mkdtempSync(join(tmpdir(), 'canopi-updater-db-'))
+    try {
+      for (const file of store) copyFileSync(file, join(snapshotDir, basename(file)))
+      const db = new DatabaseSync(join(snapshotDir, 'user.db'))
+      try {
+        if (!fromSettingsJson) {
+          const row = db.prepare("SELECT value FROM settings WHERE key = 'settings'").get() as { value?: string } | undefined
+          const raw = row?.value ? (JSON.parse(row.value) as { last_open_home?: unknown }).last_open_home : null
+          token = typeof raw === 'string' ? raw : null
+        }
+        if (!token?.startsWith('file:')) return { lastOpenHome: token, resolvedPath: null, resolvedName: null, lastOpened: null }
+        const recentId = token.slice('file:'.length)
+        const recent = db.prepare('SELECT path, name, last_opened FROM recent_files').all() as { path: string, name: string, last_opened: string }[]
+        const match = recent.find((row) => createHash('sha256').update(row.path, 'utf8').digest('hex') === recentId)
+        return { lastOpenHome: token, resolvedPath: match?.path ?? null, resolvedName: match?.name ?? null, lastOpened: match?.last_opened ?? null }
+      } finally { db.close() }
+    } finally { rmSync(snapshotDir, { recursive: true, force: true }) }
+  }
+
   it('restarts into N as the primary instance with the current Design', async () => {
-    // Without the update test's Design there is no path the relaunch must carry.
+    // Without the update test's Design there is no home the relaunch must reopen.
     if (current === '') throw new Error('no current Design: the update install test did not reach the restart')
-    // Exactly [exe, current] as the process reads its argv: a path split at its space still holds the whole path as a
-    // substring of the command line (canopi-f47t.52.228.53).
-    const relaunched = () => canopiProcesses().filter((running) => relaunchedWith(running, current))
+    // Exactly [exe] with no Design path argument, and a new pid (excluding N-1's): launch reopens the current Design
+    // via durable last_open_home (2.1-Q127, 2.1-M523, canopi-f47t.52.189).
+    const relaunched = () => canopiProcesses().filter((running) => !preRestartPids.has(running.pid) && relaunchedCleanly(running))
     // One budget for every wait below, kept under mocha's 180 s test timeout (wdio.desktop.conf.ts) so a slow wait
     // fails with its own message and report instead of mocha's bare timeout.
     const deadline = Date.now() + 165_000
@@ -493,7 +547,7 @@ describe('the updater, from an installed N-1 to N', () => {
       await browser.waitUntil(() => relaunched().length > 0, { timeout: 110_000 })
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error)
-      throw new Error(`no relaunched Canopi with argv [exe, ${current}] (${reason})\n${relaunchReport(currentProfile(), installedVersion)}`)
+      throw new Error(`no relaunched Canopi with argv [exe] (${reason})\n${relaunchReport(currentProfile(), installedVersion)}`)
     }
     // A relaunch that only forwarded to a lingering instance would exit; the primary stays.
     await new Promise((settle) => setTimeout(settle, 5_000))
@@ -512,6 +566,21 @@ describe('the updater, from an installed N-1 to N', () => {
     expect(pendingUpdateMarkers(currentProfile())).toEqual([])
     // And it is N: a relaunch of an N-1 the install left in place would pass every check above.
     expect(installedVersion()).toBe(announcedN().version)
+    // N reopens Second garden.canopi (renamed to Updated garden) through durable last_open_home rather than argv
+    // (2.1-Q127, 2.1-M523): openDesignFromPath upserts recent_files.last_opened, proving the reopen actually ran.
+    const expectedFile = basename(current)
+    const before = preRestartLastOpened
+    expect(before).not.toBeNull()
+    try {
+      await browser.waitUntil(() => {
+        const home = resolvedLastOpenHome(currentProfile())
+        const reopened = home.lastOpened !== null && before !== null && home.lastOpened > before
+        return reopened && home.resolvedPath !== null && basename(home.resolvedPath) === expectedFile && home.resolvedName === 'Updated garden'
+      }, { timeout: Math.max(deadline - Date.now(), 1_000) })
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new Error(`the relaunched Canopi did not reopen ${expectedFile} / Updated garden via last_open_home (before=${String(before)}, ${reason}): ${JSON.stringify(resolvedLastOpenHome(currentProfile()))}`)
+    }
   })
 
   // msiexec runs with /promptrestart: had Canopi still held a file the MSI replaces, Windows Installer would queue the

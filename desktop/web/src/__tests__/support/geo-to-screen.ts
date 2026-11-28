@@ -4,10 +4,11 @@
 // bearing about the screen centre). Production never projects a geographic point onto the screen (P3 keeps world-to-screen in
 // view-transform.ts); the fake maps do, through this copy.
 
-import { geoToMercator, MAPLIBRE_WORLD_TILE_SIZE } from '../../canvas/projection'
-import { bearingCosSin } from '../../canvas/runtime/view/navigation-policy'
-import type { GeoPoint } from '../../generated/contracts'
-import type { ScreenPoint, ViewCamera, ViewScreen } from '../../canvas/runtime/view/types'
+import { MAPLIBRE_WORLD_TILE_SIZE } from '../../geo/projection'
+import { geoToMercator } from '../../geo/web-mercator'
+import { bearingCosSin } from '../../geo/view/navigation-policy'
+import type { GeoPoint } from '../../types/design'
+import type { ScreenPoint, ViewCamera, ViewScreen } from '../../geo/view/types'
 
 export function geoToScreen(camera: ViewCamera, screen: ViewScreen, g: GeoPoint): ScreenPoint {
   const point = geoToMercator(g.lon, g.lat)

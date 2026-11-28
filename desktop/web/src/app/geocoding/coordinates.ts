@@ -5,17 +5,14 @@
 // the Site data pin share it, each at its own precision: 4 decimals for a place, 6 for a pin.
 
 import { t } from '../../i18n'
-
-const formatters = new Map<string, Intl.NumberFormat>()
+import { formatNumber } from '../../utils/format'
 
 function degrees(value: number, decimals: number, locale: string): string {
-  const key = `${locale}:${decimals}`
-  let formatter = formatters.get(key)
-  if (!formatter) {
-    formatter = new Intl.NumberFormat(locale, { minimumFractionDigits: decimals, maximumFractionDigits: decimals, useGrouping: false })
-    formatters.set(key, formatter)
-  }
-  return formatter.format(Math.abs(value))
+  return formatNumber(Math.abs(value), locale, {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: false,
+  })
 }
 
 export function formatCoordinates(lat: number, lon: number, decimals: number, locale: string): string {

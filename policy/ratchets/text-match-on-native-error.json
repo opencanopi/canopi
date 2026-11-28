@@ -1,21 +1,8 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "text-match-on-native-error",
-  "ledger": "2.1-M427",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/src/**",
-    "canopi-types/src/**",
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "text-match-on-native-error"
-  ],
   "entries": {
-    "desktop/web/src/app/lidar/display.ts": {
+    "desktop/web/src/app/data-library/display.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.61"
     },

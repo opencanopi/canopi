@@ -3,7 +3,7 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { speciesCatalogWorkbench } from '../app/plant-browser'
+import { speciesCatalogWorkbench, installSpeciesCatalogWorkbench as __installCatalog } from '../app/plant-browser'
 import { disposePlanningViewState } from '../app/planning-view/state'
 import { locale } from '../app/settings/state'
 import { sidePanel } from '../app/shell/state'
@@ -17,6 +17,8 @@ import type { CanopiFile, PlacedPlant } from '../types/design'
 import { designSessionFixture } from './support/design-session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
+import { speciesCatalogWorkbench as __desktopCatalog } from '../editions/desktop/species-catalog'
+__installCatalog(__desktopCatalog)
 
 // Stratum comes from the Design's Consortium; form from the catalog habit.
 const SPECIES = [
@@ -34,7 +36,7 @@ const placedPlants: PlacedPlant[] = SPECIES.flatMap((species) => Array.from({ le
   color: null,
   position: { lon: 13, lat: 23 },
   rotation: null,
-  scale: null,
+  canopy_spread_m: null,
   notes: null,
   planted_date: null,
   quantity: 1,

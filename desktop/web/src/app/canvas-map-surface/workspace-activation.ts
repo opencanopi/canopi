@@ -9,13 +9,13 @@ import {
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
 import {
   MAPLIBRE_SHARED_SCENE_LAYER_ID,
-  type SharedMapSceneLayer,
-  type SharedMapSceneMap,
-} from '../../maplibre/shared-scene-layer'
-import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+  type SceneHostMap,
+} from '../../maplibre/scene-host-layer'
+import type { LayerSlotId } from '../../maplibre/map-lifetime'
+import type { PixiSceneHostLayer, SceneLayerFactory } from './scene-layer-factory'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from '../../maplibre/camera-driver'
-import type { CameraDriverFailure, CameraDriverHost } from '../../canvas/runtime/view/camera-driver'
-import { createSessionPlane } from '../../canvas/session-plane'
+import type { CameraDriverFailure, CameraDriverHost } from '../../geo/view/camera-driver'
+import { createSessionPlane } from '../../geo/session-plane'
 
 /**
  * `map-unavailable`: WebGL2 or MapLibre could not start or failed later. No
@@ -66,6 +66,8 @@ export interface WorkspaceActivationMapControls {
   setAttributionCompact(compact: boolean): void
   /** The user's Retry for a Basemap that couldn't load: downloads it again on the live map. */
   retryBasemap(): void
+  /** The user's Retry for any failed layer slot on the live map (MAP-02). */
+  retryLayer?(slot: LayerSlotId): void
   /** Puts the shared scene layer in its band, above the basemap and LiDAR; called once, after the layer is added. */
   reconcileLayerStack(map: WorkspaceActivationMap): void
   /** Map/context failures that happen outside the custom layer. */
@@ -89,12 +91,14 @@ export interface WorkspaceActivationOptions {
   readonly runtime: WorkspaceActivationRuntime | SceneCanvasRuntime
   /** The runtime's one camera: the activation attaches each map to it as a camera driver (spec §1.1 Attachment). */
   readonly camera: CameraDriverHost
-  readonly composition: SharedMapSceneRendererComposition
+  readonly composition: SceneLayerFactory
   readonly map: WorkspaceActivationMapControls
   /** Live session plane origin of the runtime's open Design. */
   readonly readOrigin: () => { readonly lat: number; readonly lon: number }
-  /** Called when `canRetry()` may have changed, so a Retry already on screen can be withdrawn. */
-  readonly onRetryAvailabilityChange?: () => void
+  /** Reports map-failure handling transitions so the host's composeSurface updates Retry availability. */
+  readonly onMapFailureStateChange?: (state: 'none' | 'handling' | 'settled') => void
+  /** Reports when the scene runtime is destroyed (Retry is never offered afterwards). */
+  readonly onRuntimeDestroyed?: () => void
 }
 
 interface ActivationGeneration {
@@ -102,7 +106,7 @@ interface ActivationGeneration {
   readonly snapshot: WorkspaceActivationSnapshot
   presentation: MapBackgroundPresentation
   map: WorkspaceActivationMap | null
-  layer: SharedMapSceneLayer | null
+  layer: PixiSceneHostLayer | null
   unwatchFailure: (() => void) | null
   unsubscribeCameraFailure: (() => void) | null
   cameraAttached: boolean
@@ -229,7 +233,7 @@ export class WorkspaceActivationCoordinator {
       if (!context) throw new Error('MapLibre did not expose a WebGL2 context for shared rendering.')
 
       const finishLayerCreation = this.beginSetup(current)
-      let layer: SharedMapSceneLayer
+      let layer: PixiSceneHostLayer
       try {
         layer = this.options.composition.createLayer({
           id: MAPLIBRE_SHARED_SCENE_LAYER_ID,
@@ -245,7 +249,7 @@ export class WorkspaceActivationCoordinator {
       current.layer = layer
       finishLayerCreation()
       if (!this.isCurrent(current)) return 'cancelled'
-      await layer.initialize(map as unknown as SharedMapSceneMap, context)
+      await layer.initialize(map as unknown as SceneHostMap, context)
       if (!this.isCurrent(current)) return 'cancelled'
       if (current.failure) return current.failure
 
@@ -380,6 +384,7 @@ export class WorkspaceActivationCoordinator {
       })
     }
     this.mapUnavailable = false
+    this.notifyMapFailureState('none')
     return true
   }
 
@@ -516,6 +521,7 @@ export class WorkspaceActivationCoordinator {
 
     // Install the failure fence before invoking composition, runtime, or
     // cleanup code. Those boundaries may synchronously report another failure.
+    this.notifyMapFailureState('handling')
     current.failure = Promise.resolve().then(() => {
       if (!this.isCurrent(current)) return 'cancelled'
       current.terminalMapFailure = error
@@ -528,9 +534,7 @@ export class WorkspaceActivationCoordinator {
     })
     const settle = () => {
       current.failureSettled = true
-      // A Retry withheld while the failure was handled can now be offered, also when a Design
-      // replacement retired this generation meanwhile (the observer only recomputes canRetry()).
-      this.notifyRetryAvailability()
+      this.notifyMapFailureState('settled')
     }
     void current.failure.then(settle, settle)
     return current.failure
@@ -588,14 +592,13 @@ export class WorkspaceActivationCoordinator {
   private markMapUnavailable(cause: unknown): void {
     this.mapUnavailable = true
     if (cause instanceof WorkspaceWebGL2UnavailableError) this.webGL2Missing = true
-    this.notifyRetryAvailability()
   }
 
-  private notifyRetryAvailability(): void {
+  private notifyMapFailureState(state: 'none' | 'handling' | 'settled'): void {
     try {
-      this.options.onRetryAvailabilityChange?.()
+      this.options.onMapFailureStateChange?.(state)
     } catch (error) {
-      reportMapError('Shared workspace Retry availability observer failed:', error)
+      reportMapError('Shared workspace map-failure state observer failed:', error)
     }
   }
 
@@ -779,11 +782,11 @@ export class WorkspaceActivationCoordinator {
   private addSharedSceneLayer(
     current: ActivationGeneration,
     map: WorkspaceActivationMap,
-    layer: SharedMapSceneLayer,
+    layer: PixiSceneHostLayer,
   ): void {
     map.addLayer(layer.layer as unknown as Record<string, unknown>)
     if (!this.isCurrent(current)) return
-    if (layer.diagnostics.phase !== 'attached') {
+    if (layer.phase !== 'attached') {
       throw new Error('MapLibre did not attach the initialized shared scene layer.')
     }
   }
@@ -805,21 +808,19 @@ export class WorkspaceActivationCoordinator {
     } catch (error) {
       errors.push(error)
     }
-    this.notifyRetryAvailability()
-  }
-
-  private releaseStaleMap(map: WorkspaceActivationMap): void {
     try {
-      this.options.map.releaseMap(map)
+      this.options.onRuntimeDestroyed?.()
     } catch (error) {
-      reportMapError('Failed to release stale MapLibre workspace map:', error)
+      reportMapError('Shared workspace runtime-destroyed observer failed:', error)
     }
   }
 
-  /** The runtime's one camera. */
-  private cameraHost(): CameraDriverHost {
-    return this.options.camera
+  private releaseStaleMap(map: WorkspaceActivationMap): void {
+    try { this.options.map.releaseMap(map) }
+    catch (error) { reportMapError('Failed to release stale MapLibre workspace map:', error) }
   }
+
+  private cameraHost(): CameraDriverHost { return this.options.camera }
 
   private isCurrent(current: ActivationGeneration): boolean {
     return !current.cancelled && this.active === current && this.generation === current.id
@@ -827,6 +828,4 @@ export class WorkspaceActivationCoordinator {
 }
 
 /** A turned camera is never a failure: the map is unavailable only when its driver fails. */
-function cameraFailureError(failure: CameraDriverFailure): Error {
-  return new Error(failure.message)
-}
+function cameraFailureError(failure: CameraDriverFailure): Error { return new Error(failure.message) }

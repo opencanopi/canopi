@@ -1,5 +1,7 @@
+import type { GroundMeasure } from '../../geo/session-plane'
+import type { UnitSystem } from '../../utils/format'
 import type { SceneMeasurementGuideEntity, ScenePoint } from './scene'
-import type { ViewTransform } from './view/types'
+import type { ViewTransform } from '../../geo/view/types'
 import { formatMetricDistance, type ZoneMeasurementLabel } from './zone-measurements'
 
 export const MEASUREMENT_GUIDE_DASH_PX = 6
@@ -20,17 +22,21 @@ export interface MeasurementGuidePresentation {
 /** A guide's text and world geometry, or null for a guide too short to measure. */
 export function createMeasurementGuidePresentation(
   guide: SceneMeasurementGuideEntity,
+  measure?: Pick<GroundMeasure, 'groundLength'>,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): MeasurementGuidePresentation | null {
   const dx = guide.end.x - guide.start.x
   const dy = guide.end.y - guide.start.y
-  const lengthWorld = Math.hypot(dx, dy)
-  if (lengthWorld < 0.5) return null
+  const planeLength = Math.hypot(dx, dy)
+  const lengthWorld = measure ? measure.groundLength(guide.start, guide.end) : planeLength
+  if (lengthWorld < 0.5 || planeLength <= 0) return null
 
   return {
-    text: formatMetricDistance(lengthWorld),
+    text: formatMetricDistance(lengthWorld, system, activeLocale),
     normalWorld: {
-      x: dy / lengthWorld,
-      y: -dx / lengthWorld,
+      x: dy / planeLength,
+      y: -dx / planeLength,
     },
     lengthWorld,
   }
@@ -73,14 +79,17 @@ function normalizeUprightLabelRotation(angleRad: number): number {
 export function createMeasurementGuideDraftMeasurements(
   start: ScenePoint,
   end: ScenePoint,
+  measure?: Pick<GroundMeasure, 'groundLength'>,
+  system: UnitSystem = 'metric',
+  activeLocale = 'en',
 ): ZoneMeasurementLabel[] {
-  const lengthWorld = Math.hypot(end.x - start.x, end.y - start.y)
+  const lengthWorld = measure ? measure.groundLength(start, end) : Math.hypot(end.x - start.x, end.y - start.y)
   if (lengthWorld < 0.5) return []
 
   return [{
     id: 'measurement-guide-length',
     kind: 'dimension',
-    text: formatMetricDistance(lengthWorld),
+    text: formatMetricDistance(lengthWorld, system, activeLocale),
     worldPosition: {
       x: (start.x + end.x) / 2,
       y: (start.y + end.y) / 2,

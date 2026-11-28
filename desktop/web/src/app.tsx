@@ -2,13 +2,19 @@ import "./styles/global.css";
 import styles from "./App.module.css";
 import { TitleBar } from "./components/shared/TitleBar";
 import { CommandPalette } from "./components/shared/CommandPalette";
-import { AboutCanopiDialog, AboutUpdates } from "./components/shared/AboutCanopiDialog";
 import { SaveProblemDialog } from "./components/shared/SaveProblemDialog";
 import { NoticeRow } from "./components/shared/NoticeRow";
 import { ToastSlot } from "./components/shared/ToastSlot";
-import { ProblemReportDialog, openProblemReport } from "./components/shared/ProblemReportDialog";
-import { createLaunchCheckPort, LaunchCheckSwitch, SettingsDialog, type LaunchCheckPort, type SettingsFoldersAdapter } from "./components/shared/SettingsDialog";
-import { KeyboardShortcutsDialog } from "./components/shared/KeyboardShortcutsDialog";
+import {
+  createLaunchCheckPort,
+  LazyAboutCanopiDialog,
+  LazyKeyboardShortcutsDialog,
+  LazyProblemReportDialog,
+  LazySettingsDialog,
+  openProblemReport,
+  type LaunchCheckPort,
+  type SettingsFoldersAdapter,
+} from "./components/shared/LazyDialogs";
 import { detectPlatform } from "./canvas/runtime/input/platform";
 import { DesktopPanelRail } from "./components/panels/DesktopPanelRail";
 import { DesktopWorkspace } from "./components/workspace/DesktopWorkspace";
@@ -16,12 +22,12 @@ import { WorkspaceDialogs } from "./components/workspace/WorkspaceComposition";
 import { keyboardShortcutsDialogOpen } from "./app/shell/dialogs";
 import { appCommandGraphChromeProjection } from "./commands/registry";
 import { getAppFolders, showAppFolder } from "./ipc/settings";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useState } from "preact/hooks";
+import { installPhoneLayout, phoneLayout } from "./app/shell/phone-layout";
 import { raiseLaunchNotices, raiseUpdateNotice, raiseUpdateNotInstalledNotice, withdrawUpdateNoticeOnInstall } from "./components/workspace/launch-notices";
 import { installStoreNotices } from "./components/workspace/store-notices";
 import { createUpdateController, type UpdateController, type UpdaterPort } from "./app/updates/controller";
 import { blockEditsWhile, flushBeforeExit, holdCloseUntilSettled, reloadAfterExitFlush as reloadThroughExitFlush } from "./app/shell/close-guard";
-import { designPath } from "./app/document-session/store";
 import type { StoreId, UpdateOs } from "./generated/contracts";
 import updaterEndpoints from "../../updater-endpoints.json";
 
@@ -61,7 +67,6 @@ function useDesktopUpdates(ports: DesktopUpdatePorts): { readonly controller: Up
     flushBeforeExit,
     holdCloseUntilSettled,
     mintOperationId: ports.mintOperationId,
-    currentDesignPath: () => designPath.peek(),
     onUpdateAvailable: raiseUpdateNotice,
   }));
   // No Design edit is accepted from the update's close request until Canopi exits: the exit flush has run.
@@ -89,21 +94,23 @@ export function App({ updates: ports, dismissStoreNoticeOnHost }: {
   readonly dismissStoreNoticeOnHost: (store: StoreId) => Promise<void>;
 }) {
   const updates = useDesktopUpdates(ports);
+  useLayoutEffect(() => installPhoneLayout(window), []);
+  const phone = phoneLayout.value;
   useEffect(raiseLaunchNotices, []);
   // Report a problem opens the problem report; Update opens About, where the update installs.
   useEffect(() => installStoreNotices({ report: openProblemReport, updatesInAbout: true, dismissOnHost: dismissStoreNoticeOnHost }), [dismissStoreNoticeOnHost]);
   return (
-    <div className={styles.appRoot}>
+    <div className={styles.appRoot} data-layout={phone ?? undefined}>
       <DesktopWorkspace />
       <TitleBar />
-      <DesktopPanelRail />
+      {!phone && <DesktopPanelRail />}
       <CommandPalette />
       <WorkspaceDialogs />
-      <SettingsDialog folders={DESKTOP_FOLDERS} updates={<LaunchCheckSwitch port={updates.launchCheck} />} />
+      <LazySettingsDialog folders={DESKTOP_FOLDERS} launchCheckPort={updates.launchCheck} />
       <DesktopKeyboardShortcuts />
-      <AboutCanopiDialog updates={<AboutUpdates controller={updates.controller} downloadPage={updaterEndpoints.download_page} />} />
+      <LazyAboutCanopiDialog controller={updates.controller} downloadPage={updaterEndpoints.download_page} />
       <SaveProblemDialog />
-      <ProblemReportDialog />
+      <LazyProblemReportDialog />
       <NoticeRow />
       <ToastSlot />
     </div>
@@ -114,5 +121,5 @@ function DesktopKeyboardShortcuts() {
   if (!keyboardShortcutsDialogOpen.value) return null;
   // WebKitGTK delivers no trackpad pinch, so Linux gets the note.
   const platform = detectPlatform(navigator, window as unknown as { readonly GestureEvent?: unknown });
-  return <KeyboardShortcutsDialog menus={appCommandGraphChromeProjection.value.menus} platform={platform} linuxPinchNote={platform.os === "linux"} />;
+  return <LazyKeyboardShortcutsDialog menus={appCommandGraphChromeProjection.value.menus} platform={platform} linuxPinchNote={platform.os === "linux"} />;
 }

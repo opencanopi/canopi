@@ -1,4 +1,6 @@
 import type { CanvasPrintSnapshot, PrintBounds, PrintPlant, PrintPoint } from '../../canvas/print'
+import type { PrintScaleV10 } from '../../generated/contracts'
+import type { UnitSystem } from '../../utils/format'
 import type { GlyphOutline, TextLine } from './text'
 export type PdfPaper = 'A4' | 'Letter'
 type PdfOrientation = 'auto' | 'portrait' | 'landscape'
@@ -11,6 +13,10 @@ export const PDF_HABITS: readonly PdfHabit[] = ['tree', 'shrub', 'herbaceous', '
 export const PDF_ZOOM = { min: 1, max: 1000 } as const
 export interface PdfPageView {
   readonly zoom?: number
+  /** Persisted printed scale (`fit`, `ratio`, or `customary`, `2.1-Q356`); takes precedence over `zoom`. */
+  readonly scale?: PrintScaleV10
+  /** Per-page clockwise angle in degrees (`2.1-Q151`); used by overview (detail pages carry `angleDeg` on `PdfPrintArea`). */
+  readonly angleDeg?: number
   readonly orientation?: PdfOrientation
   /** Displacement from the fitted centre, in plan metres (independent of the layout angle). */
   readonly offset?: { readonly x: number; readonly y: number }
@@ -23,6 +29,10 @@ export interface PdfPrintArea {
   readonly name: string
   /** A box in plan metres whose sides lie along the page axes whatever the layout angle (`page-frame.ts`). */
   readonly bounds: PrintBounds
+  /** Per-page clockwise angle in degrees (`2.1-Q151`); falls back to setup `mapOrientation` when omitted. */
+  readonly angleDeg?: number
+  /** Stable split id shared by all sheets of one split (`2.1-M161`, contracts §10). */
+  readonly splitId?: string
   /** Split sheets: the plan point every sheet of the split turns about, so they keep tiling at any angle.
    *  Absent, the area turns about its own centre. */
   readonly pivot?: PrintPoint
@@ -46,6 +56,7 @@ export interface PdfSetup {
 export interface PdfInput {
   readonly name: string
   readonly locale: string
+  readonly unitSystem: UnitSystem
   readonly canvas: CanvasPrintSnapshot
   /** Display names by canonical name: the chosen language, else English. */
   readonly commonNames: Readonly<Record<string, string>>
@@ -55,6 +66,8 @@ export interface PdfInput {
   readonly habits?: Readonly<Record<string, PdfHabit>>
   /** The view's exact bearing at capture (`captureView().camera.bearingDeg`), the As on screen angle. */
   readonly viewBearingDeg: number
+  /** Saved views of the open Design, offered as per-page angle choices (`2.1-Q151`). */
+  readonly savedViews?: readonly { readonly id: string; readonly name: string; readonly bearingDeg: number }[]
 }
 /** Every printed word, localized by the caller (`live.ts`). */
 export interface PdfLabels {
@@ -103,6 +116,10 @@ export interface PdfPage {
   readonly frame: PrintBounds
   readonly ground: PrintBounds
   readonly pointsPerMeter: number
+  /** Clockwise map angle for this page in degrees (`2.1-Q151`); 0 for North up and legend pages. */
+  readonly angleDeg?: number
+  /** Active printed scale specification for this page (`2.1-Q356`). */
+  readonly scaleSpec?: PrintScaleV10
   readonly operations: readonly PdfOperation[]
   readonly legend: readonly PdfLegendEntry[]
   /** Symbol ids in the page 1 symbol legend, in printed order. */

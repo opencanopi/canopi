@@ -24,6 +24,7 @@ The words every locale uses for Canopi's core terms. A term keeps one translatio
 | zone | zone | zona | zona | zona | Zone |
 | plant | plante | planta | planta | pianta | Pflanze |
 | species | espèce | especie | espécie | specie | Art |
+| Codes | Codes | Códigos | Códigos | Codici | Kürzel |
 | stratum | strate | estrato | estrato | strato | Schicht |
 | consortium | consortium | consorcio | consórcio | consorzio | Konsortium |
 | stamp | tampon | sello | carimbo | timbro | Stempel |
@@ -46,6 +47,7 @@ The words every locale uses for Canopi's core terms. A term keeps one translatio
 | zone | zone | зона | 区域 | ゾーン | 구역 |
 | plant | plant | растение | 植物 | 植物 | 식물 |
 | species | soort | вид | 物种 | 種 | 종 |
+| Codes | Codes | Коды | 代码 | コード | 코드 |
 | stratum | etage | ярус | 层次 | 階層 | 층위 |
 | consortium | consortium | консорциум | 联合体 | コンソーシアム | 컨소시엄 |
 | stamp | stempel | штамп | 图章 | スタンプ | 스탬프 |

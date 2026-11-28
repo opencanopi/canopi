@@ -77,16 +77,36 @@ describe('canopi-f47t.52.270: the module is built for size', () => {
   })
 })
 
+/** Strip YAML comments so prose mentioning vitest or build scripts never triggers a job check. */
+function stripYamlComments(text: string): string {
+  return text.replace(/^\s*#.*$/gmu, '')
+}
+
+/** The jobs of a workflow that match `trigger` (outside comments) with no wasm32 target or no wasm-bindgen CLI
+ * installed before it. */
+function jobsMissingModuleTools(workflow: string, trigger: RegExp): string[] {
+  const jobs = workflow.split(/\njobs:\n/u)[1]?.split(/\n(?= {2}[a-z][\w-]*:\n)/u) ?? []
+  return jobs.flatMap((job) => {
+    const clean = stripYamlComments(job)
+    const hit = clean.search(trigger)
+    if (hit < 0) return []
+    const before = clean.slice(0, hit)
+    return /targets: wasm32-unknown-unknown/u.test(before) && /tool: wasm-bindgen@/u.test(before) ? [] : [job.trim().split(':')[0]!]
+  })
+}
+
 /** The jobs of a workflow that run a Web build (`npm run build:web`, `build:web:bundle`) with no wasm32 target or no
  * wasm-bindgen CLI installed before it. */
 function webBuildsWithoutModuleTools(workflow: string): string[] {
-  const jobs = workflow.split(/\njobs:\n/u)[1]?.split(/\n(?= {2}[a-z][\w-]*:\n)/u) ?? []
-  return jobs.flatMap((job) => {
-    const build = job.search(/npm run build:web(?::bundle)?\b/u)
-    if (build < 0) return []
-    const before = job.slice(0, build)
-    return /targets: wasm32-unknown-unknown/u.test(before) && /tool: wasm-bindgen@/u.test(before) ? [] : [job.trim().split(':')[0]!]
-  })
+  return jobsMissingModuleTools(workflow, /npm run build:web(?::bundle)?\b/u)
+}
+
+/** Commands that run Vitest in CI, where `vite.config.ts`'s `globalSetup` runs `prepare-format-wasm.mjs`. */
+const VITEST_JOB_TRIGGER = /\b(?:npm (?:test|run test(?::(?:coverage|seed-lane|mutation))?(?!:))|(?:npx\s+)?vitest\s+(?:run|list)|stryker\s+run|policy\/gate\/cli\.mjs\s+(?:full\s+--area\s+frontend|affected\b[^\n]*--only\s+vitest-lane|push\b|commit-gate\s+pr\b[^\n]*--vitest))\b/u
+
+/** The jobs of a workflow that run Vitest with no wasm32 target or no wasm-bindgen CLI installed before it. */
+function vitestJobsWithoutModuleTools(workflow: string): string[] {
+  return jobsMissingModuleTools(workflow, VITEST_JOB_TRIGGER)
 }
 
 describe('canopi-f47t.52.270: every CI Web build has the module tools', () => {
@@ -101,6 +121,51 @@ describe('canopi-f47t.52.270: every CI Web build has the module tools', () => {
     const workflows = path.join(CRATE_DIR, '..', '.github', 'workflows')
     const missing = fs.readdirSync(workflows).filter((name) => /\.ya?ml$/u.test(name)).flatMap((name) =>
       webBuildsWithoutModuleTools(fs.readFileSync(path.join(workflows, name), 'utf8')).map((job) => `${name} ${job}`))
+    expect(missing).toEqual([])
+  })
+
+  it('names a job that runs Vitest before installing the wasm32 target and the wasm-bindgen CLI', () => {
+    const planted = [
+      'on: push',
+      'jobs:',
+      '  ready:',
+      '    steps:',
+      '      - uses: ./.github/actions/setup-rust',
+      '        with:',
+      '          targets: wasm32-unknown-unknown',
+      '      - uses: taiki-e/install-action@v2',
+      '        with:',
+      '          tool: wasm-bindgen@0.2.130',
+      '      - run: npm run test:seed-lane',
+      '  bare-seed:',
+      '    steps:',
+      '      - run: npm run test:seed-lane',
+      '  bare-mutation:',
+      '    steps:',
+      '      - run: npm run test:mutation',
+      '  bare-affected:',
+      '    steps:',
+      '      - run: node policy/gate/cli.mjs affected --base "$BASE" --only vitest-lane',
+      '  bare-vitest:',
+      '    steps:',
+      '      - run: npx vitest run',
+      '  bare-commit-gate:',
+      '    steps:',
+      '      - run: node policy/gate/cli.mjs commit-gate pr "$BASE" "$HEAD" --body-env PR_BODY --vitest',
+      '  other:',
+      '    steps:',
+      '      # vitest is only mentioned in a comment here',
+      '      - run: npm run test:platform',
+      '      - run: npm run typecheck',
+      '',
+    ].join('\n')
+    expect(vitestJobsWithoutModuleTools(planted)).toEqual(['bare-seed', 'bare-mutation', 'bare-affected', 'bare-vitest', 'bare-commit-gate'])
+  })
+
+  it('installs both in every workflow job that runs Vitest (seed-lane, scripts vitest-lane, mutation stryker)', () => {
+    const workflows = path.join(CRATE_DIR, '..', '.github', 'workflows')
+    const missing = fs.readdirSync(workflows).filter((name) => /\.ya?ml$/u.test(name)).flatMap((name) =>
+      vitestJobsWithoutModuleTools(fs.readFileSync(path.join(workflows, name), 'utf8')).map((job) => `${name} ${job}`))
     expect(missing).toEqual([])
   })
 })

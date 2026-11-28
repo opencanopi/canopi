@@ -44,19 +44,21 @@ fn store_settings(user_db: &UserDb, record: &str) {
 #[test]
 fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never_written() {
     let user_db = user_db();
-    store_settings(&user_db, SETTINGS_RECORD_2);
+    // In 2.1 (2e-2), record 2 is current and version 3+ is newer-read-only (SETTINGS_CHAIN.current() == 2).
+    let record_v3 = SETTINGS_RECORD_2.replacen("\"version\": 2", "\"version\": 3", 1);
+    store_settings(&user_db, &record_v3);
     let before = settings_rows(&user_db);
 
-    let read = settings::get_settings(&user_db).expect("settings record 2 is read");
-    let mut known: serde_json::Value = serde_json::from_str(SETTINGS_RECORD_2).unwrap();
+    let read = settings::get_settings(&user_db).expect("newer settings record is read");
+    let mut known: serde_json::Value = serde_json::from_str(&record_v3).unwrap();
     let newer_only = ["version", "check_updates_at_launch", "unit_system"];
     let fields = known.as_object_mut().unwrap();
     fields.retain(|key, _| !newer_only.contains(&key.as_str()));
     let read_back = serde_json::to_value(&read).unwrap();
     assert_eq!(read_back, known, "every known field applies");
     assert!(
-        !settings::updater_check_at_launch(&user_db).unwrap(),
-        "the launch check reads record 2's field"
+        settings::record_is_newer(&user_db),
+        "record 3 is recognized as newer"
     );
     assert_eq!(settings_rows(&user_db), before, "reading writes no row");
 
@@ -67,7 +69,10 @@ fn r2_canopi_f47t_52_271_settings_record_2_applies_its_known_fields_and_is_never
         Err(REFUSED.to_owned()),
         "a settings change is refused, applied for the session only (2.1-Q320)"
     );
-    assert!(settings::set_updater_check_at_launch(&user_db, true).is_err());
+    assert!(
+        settings::record_is_newer(&user_db),
+        "record 3 remains newer after refused write"
+    );
     assert_eq!(settings_rows(&user_db), before, "never written");
     let reread = settings::get_settings(&user_db).unwrap();
     assert_eq!(reread.theme, Theme::Dark, "the change was not saved");
@@ -87,7 +92,7 @@ fn r2_canopi_f47t_52_271_an_unparseable_settings_record_inside_a_user_db_10_read
     let read = settings::get_settings(&user_db).expect("defaults, not a failure");
 
     assert_eq!(read.theme, Theme::Light, "the defaults");
-    assert!(settings::updater_check_at_launch(&user_db).unwrap());
+    assert!(!settings::record_is_newer(&user_db));
     drop(user_db);
     assert_eq!(
         user_db_files(&path),
@@ -97,17 +102,18 @@ fn r2_canopi_f47t_52_271_an_unparseable_settings_record_inside_a_user_db_10_read
 }
 
 #[test]
-fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_unchanged() {
+fn r2_canopi_f47t_52_271_a_v4_saved_stamp_needs_a_newer_canopi_and_its_row_is_unchanged() {
     let user_db = user_db();
     let older = saved_object_stamps::create_saved_object_stamp(
         &user_db,
         "Hedge".to_string(),
-        r#"{"version":2,"plants":[],"zones":[],"annotations":[],"groups":[]}"#.to_string(),
+        r#"{"version":2,"anchor":{"x":0,"y":0},"plants":[],"zones":[],"annotations":[],"groups":[]}"#
+            .to_string(),
     )
     .unwrap();
-    // The v3 row goes in as 2.1 leaves it, not through this build's writer, which a reader may refuse for a newer
-    // payload (contracts §11: a reader never writes a newer payload).
-    let newer_id = "stamp-apple-guild-v3";
+    // A v4 row goes in as a future release leaves it, not through this build's writer, which refuses newer
+    // payloads (contracts §11: a reader never writes a newer payload; canopi-f47t.52.49 bumped stamps to v3).
+    let newer_id = "stamp-apple-guild-v4";
     {
         let conn = user_db.acquire();
         conn.execute(
@@ -115,18 +121,17 @@ fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_un
              VALUES (?1, 'Apple guild', ?2, 1, '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z')",
             rusqlite::params![
                 newer_id,
-                r#"{"version":3,"plants":[],"zones":[],"annotations":[],"groups":[],"guides":[],"notes":[]}"#
+                r#"{"version":4,"plants":[],"zones":[],"annotations":[],"groups":[],"guides":[],"notes":[]}"#
             ],
         )
         .unwrap();
     }
     let before = saved_object_stamps::get_saved_object_stamps(&user_db).unwrap();
 
-    // Today needs_newer is never set and the v3 row renames, reorders and deletes like any other.
     let listed = before.iter().find(|stamp| stamp.id == newer_id).unwrap();
     assert!(
         listed.needs_newer,
-        "the v3 stamp lists as needing a newer Canopi"
+        "the v4 stamp lists as needing a newer Canopi"
     );
     assert!(
         !before
@@ -138,7 +143,7 @@ fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_un
     assert!(
         saved_object_stamps::rename_saved_object_stamp(&user_db, newer_id.to_string(), "x".into())
             .is_err(),
-        "a v3 row is never renamed"
+        "a v4 row is never renamed"
     );
     assert!(
         saved_object_stamps::reorder_saved_object_stamps(
@@ -146,11 +151,11 @@ fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_un
             vec![newer_id.to_string(), older.id.clone()]
         )
         .is_err(),
-        "a reorder naming a v3 row is refused"
+        "a reorder naming a v4 row is refused"
     );
     assert!(
         saved_object_stamps::delete_saved_object_stamp(&user_db, newer_id.to_string()).is_err(),
-        "a v3 row is never deleted"
+        "a v4 row is never deleted"
     );
     let after = saved_object_stamps::get_saved_object_stamps(&user_db).unwrap();
     let row = |stamps: &[canopi_types::saved_object_stamps::SavedObjectStamp]| {
@@ -166,7 +171,7 @@ fn r2_canopi_f47t_52_271_a_v3_saved_stamp_needs_a_newer_canopi_and_its_row_is_un
                 )
             })
     };
-    assert_eq!(row(&after), row(&before), "the v3 row is unchanged");
+    assert_eq!(row(&after), row(&before), "the v4 row is unchanged");
 }
 
 // User DB 10 (R2-2, canopi-f47t.52.271; contracts §11 Degraded stores): a newer user DB opens SQLITE_OPEN_READ_ONLY,

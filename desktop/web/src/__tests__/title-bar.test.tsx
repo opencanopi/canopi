@@ -18,7 +18,6 @@ vi.mock('@tauri-apps/api/window', () => ({
 
 
 import { locale, theme } from '../app/settings/state'
-import { activePanel } from '../app/shell/state'
 import { requestDesignRename } from '../app/shell/requests'
 import { settingsDialogOpen, keyboardShortcutsDialogOpen } from '../app/shell/dialogs'
 import {
@@ -66,8 +65,7 @@ describe('TitleBar', () => {
     document.body.appendChild(container)
     locale.value = 'en'
     theme.value = 'light'
-    activePanel.value = 'canvas'
-    replaceCurrentDesignState(makeDesign('Untitled'), null, 'Untitled')
+    replaceCurrentDesignState(makeDesign('Untitled'), '/designs/untitled.canopi', 'Untitled')
     resetDirtyBaselines()
     windowMocks.startDragging.mockClear()
     windowMocks.toggleMaximize.mockClear()
@@ -201,5 +199,22 @@ describe('TitleBar', () => {
     expect(windowMocks.toggleMaximize).toHaveBeenCalledOnce()
     container.querySelector('[role="menubar"] button')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, buttons: 1, detail: 1 }))
     expect(windowMocks.startDragging).toHaveBeenCalledOnce()
+  })
+
+  it('shows the Open a .canopi file button and runs file.open when clicked (2.1-Q128)', async () => {
+    const { appCommandGraphChromeProjection } = await import('../commands/registry')
+    const spy = vi.spyOn(appCommandGraphChromeProjection.value.titleBar.openDesign, 'action').mockImplementation(() => {})
+    try {
+      await act(async () => {
+        render(<TitleBar />, container)
+        await flushEffects()
+      })
+      const openButton = container.querySelector<HTMLButtonElement>('button[aria-label="Open a .canopi file"]')
+      expect(openButton).not.toBeNull()
+      await act(async () => { openButton!.click() })
+      expect(spy).toHaveBeenCalledOnce()
+    } finally {
+      spy.mockRestore()
+    }
   })
 })

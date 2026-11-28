@@ -160,7 +160,7 @@ export class RasterWorkerPool {
       releaseSources: (urls) => pool.releaseSources(state, urls),
       rgbaToPng: (rgba, width = 256, height = 256) => {
         const copy = new Uint8ClampedArray(rgba)
-        return pool.schedule<Uint8Array>(state, 'control', undefined, undefined, (lane) =>
+        return pool.schedule<Uint8Array>(state, 'tile', undefined, undefined, (lane) =>
           pool.post(lane, { id: 0, op: 'encode', rgba: copy, width, height }, [copy.buffer]))
       },
       renderPreview: (urls, bbox, size, render) => pool.renderPreview(state, urls, bbox, size, render),
@@ -238,7 +238,6 @@ export class RasterWorkerPool {
   }
 
   /** Start queued work while lanes have capacity: control first, then newest tiles. */
-  // upstream: W3
   private dispatch(): void {
     this.dropObsoleteTiles()
     for (;;) {
@@ -375,7 +374,6 @@ export class RasterWorkerPool {
     }
     const render = (encoding: 'png' | 'rgba', z: number, x: number, y: number, options: RasterRenderOptions = {}) =>
       this.schedule<Uint8Array | Uint8ClampedArray | null>(client, 'tile', { z, x, y }, undefined, async (lane) => {
-        // upstream: W1
         // A released source is closed in every lane; never reopen it.
         if (!client.handles.has(handle)) throw abortError('Raster source is released')
         await this.ensureOpen(lane, handle)

@@ -10,8 +10,8 @@ import {
   getCurrentCanvasSession,
   getCurrentCanvasViewportCommandSurface,
   setCurrentCanvasSession,
-  setCurrentCanvasTool,
 } from '../canvas/session'
+import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasRuntimeSurfaces,
@@ -20,7 +20,6 @@ import {
 describe('canvas session seam', () => {
   beforeEach(() => {
     setCurrentCanvasSession(null)
-    setCurrentCanvasTool('select')
   })
 
   it('stores explicit runtime surfaces for the live runtime', () => {
@@ -50,41 +49,44 @@ describe('canvas session seam', () => {
     disposeEffect()
   })
 
-  it('primes tool state before mount and delegates through the command surface after mount', () => {
-    setCurrentCanvasTool('rectangle')
-    expect(currentCanvasTool.value).toBe('rectangle')
+  it('derives currentCanvasTool from the mounted query surface and updates via commands.tools.arm', () => {
+    expect(currentCanvasTool.value).toBe('select')
 
-    const setTool = vi.fn((id: ToolId) => {
-      currentCanvasTool.value = id
-    })
+    const queries = createTestCanvasQuerySurface({ activeTool: 'rectangle' })
+    const arm = vi.fn((_id: ToolId) => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
     const surfaces = createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({
         tools: {
-          setTool,
+          arm,
         },
       }),
+      queries,
     })
     setCurrentCanvasSession(surfaces)
-    setCurrentCanvasTool('hand')
+    expect(currentCanvasTool.value).toBe('rectangle')
+
+    surfaces.commands.tools.arm('hand')
 
     expect(getCurrentCanvasCommandSurface()).toBe(currentCanvasSession.value?.commands)
     expect(getCurrentCanvasViewportCommandSurface()).toBe(currentCanvasSession.value?.commands.viewport)
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('hand')
   })
 
   it('does not pre-publish a mounted tool change that the command surface rejects', () => {
-    setCurrentCanvasTool('rectangle')
-    const setTool = vi.fn(() => {
+    const queries = createTestCanvasQuerySurface({ activeTool: 'rectangle' })
+    const arm = vi.fn(() => {
       throw new Error('tool transition failed')
     })
-    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-      commands: createTestCanvasCommandSurface({ tools: { setTool } }),
-    }))
+    const surfaces = createTestCanvasRuntimeSurfaces({
+      commands: createTestCanvasCommandSurface({ tools: { arm } }),
+      queries,
+    })
+    setCurrentCanvasSession(surfaces)
 
-    expect(() => setCurrentCanvasTool('hand')).toThrow('tool transition failed')
+    expect(() => surfaces.commands.tools.arm('hand')).toThrow('tool transition failed')
 
-    expect(setTool).toHaveBeenCalledWith('hand')
+    expect(arm).toHaveBeenCalledWith('hand', undefined, undefined)
     expect(currentCanvasTool.value).toBe('rectangle')
   })
 })

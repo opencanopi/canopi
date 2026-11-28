@@ -9,7 +9,7 @@ import {
   resolvePlantBaseColor,
   type PlantPresentationContext,
 } from '../canvas/runtime/plant-presentation'
-import { getStratumColor } from '../canvas/plants'
+import { DEFAULT_PLANT_COLOR } from '../canvas/plant-colors'
 
 /** The renderer's composition: entries, then the stack counts from them. */
 function buildPlantPresentationSnapshot(
@@ -112,9 +112,9 @@ describe('plant presentation service', () => {
     expect(presentation.color).toBe('#C44230')
   })
 
-  it('a plant without its own colour takes its stratum colour from the species cache', () => {
-    expect(resolvePlantBaseColor(createPlant(), new Map([['Malus domestica', { stratum: 'emergent' }]])))
-      .toBe(getStratumColor('emergent'))
+  it('a plant without its own colour takes the default plant colour', () => {
+    expect(resolvePlantBaseColor(createPlant()))
+      .toBe(DEFAULT_PLANT_COLOR)
   })
 
   it('resolves Plant Symbols without changing the Visual Footprint', () => {

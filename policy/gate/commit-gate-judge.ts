@@ -9,7 +9,6 @@
 //     present in the ledger at the merge base, both named in the message (gate-loosening-authority); an E row, or a row
 //     added on the branch, authorises nothing. An M row authorises an engineering loosening (2.1-Q272); a judge that
 //     guards a user decision keeps a Q row: the capability grants (PRODUCT_GUARDED) and the test guard;
-//   - a family's creating commit names its ledger id, E and M rows included (gate-first-baseline);
 //   - lowered, removed and renamed entries are free, but in guarded-files, where removing or renaming an entry needs a
 //     Q or M row (a Q row for a PRODUCT_GUARDED file) and adding one is free only with the file it guards, created in the
 //     same commit;
@@ -230,7 +229,7 @@ export function tiedRoutes(changed: (from: string, to: string) => readonly Chang
 
 /** The rules whose route tiedRoutes ties to the file they judge. */
 const TIED: ReadonlySet<string> = new Set(['gate-loosening-authority', 'gate-guarded-file', 'gate-inventory-demotion',
-  'gate-test-deleted', 'gate-test-reworded', 'gate-test-loosened'])
+  'gate-test-deleted', 'gate-test-loosened'])
 
 /** The line pr mode prints when a tied rule fails, so a route cited elsewhere in the range is explained; else ''. */
 export const tiedNote = (findings: readonly Finding[]): string => (findings.some(([rule]) => TIED.has(rule))
@@ -244,7 +243,7 @@ export function rowsOf(texts: readonly string[]): Set<string> {
 type Shape = 'budget' | 'floor' | 'ratchet'
 const shape = (doc: Json): Shape => ('budgets' in doc ? 'budget' : 'floors' in doc ? 'floor' : 'ratchet')
 const LOOSENING: Record<Shape, readonly string[]> = {
-  ratchet: ['added', 'raised', 'deleted'],
+  ratchet: ['added', 'raised', 'deleted', 'bead-stripped'],
   budget: ['raised', 'removed', 'deleted'],
   floor: ['lowered', 'removed', 'floor-globs', 'deleted'],
 }
@@ -268,37 +267,35 @@ export function numbers(message: string): number[] {
 /** Python's '%g' for the numbers a coverage refusal names. */
 const general = (value: number) => String(Number(value.toPrecision(6)))
 
-/**
- * gate-first-baseline, judged on each commit: the commit creating a family names the ledger id it carries there, so a
- * later commit may re-point the family to another row (a Q row until main writes the M row).
- */
-export async function judgeFirstBaseline(tree: string, message: string, changes: readonly FamilyChange[],
-  load: LoadJson): Promise<Finding[]> {
-  const findings: Finding[] = []
-  for (const { family, change: kind } of changes) {
-    if (kind !== 'created') continue
-    const doc = await load(tree, `${RATCHETS}/${family}.json`)
-    const ledger = isObject(doc) ? doc['ledger'] : undefined
-    if (!ledgerIds(message).includes(String(ledger))) {
-      findings.push(['gate-first-baseline', `${family}: ${kind}: the creating commit names the family's ledger id ${pyStr(ledger)}`])
-    }
-  }
-  return findings
-}
-
-/** The loosening judges of a change's family changes; a created family is judgeFirstBaseline's, on each commit. */
+/** The loosening judges of a change's family changes (and derived family header changes in rules.json/primitives.json). */
 export async function judgeFamilies(parent: string, tree: string, route: Route, auth: Authority,
   changes: readonly FamilyChange[], files: readonly Change[], load: LoadJson): Promise<Finding[]> {
   const findings: Finding[] = []
   const created = new Set(files.filter(([status]) => status === 'A').map(([, , path]) => path))
   for (const change of changes) {
     const { family, change: kind, key } = change
-    if (kind === 'created') continue
     const file = `${RATCHETS}/${family}.json`
     const at = await load(tree, file)
+    if (kind === 'created') {
+      const createdDoc = isObject(at) ? at : {}
+      if (shape(createdDoc) === 'ratchet' && createdDoc['standing'] !== true && !createdDoc['bead']) {
+        if (isObject(createdDoc['entries'])) {
+          for (const [entryKey, raw] of Object.entries(createdDoc['entries'])) {
+            if (!(isObject(raw) && raw['bead'])) {
+              findings.push(['gate-loosening-authority', `${family}: created ${entryKey} needs a bead on the entry or family (non-standing family; canopi-0kjje, 2.1-M78)`])
+            }
+          }
+        } else if (typeof createdDoc['count'] === 'number' && createdDoc['count'] > 0) {
+          findings.push(['gate-loosening-authority', `${family}: created needs a bead on the family (non-standing count family; canopi-0kjje, 2.1-M78)`])
+        }
+      }
+      continue
+    }
     const before = await load(parent, file)
     const doc = isObject(at) && Object.keys(at).length ? at : isObject(before) && Object.keys(before).length ? before : {}
     const baseDoc = isObject(before) ? before : {}
+    const baseHeader = isObject(change.from) ? change.from : baseDoc
+    const headHeader = isObject(change.to) ? change.to : doc
     const what = `${family}: ${kind}${key ? ` ${key}` : ''}`
     if (file === GUARDED) {
       const engineering = key === undefined || !PRODUCT_GUARDED.has(key)
@@ -318,8 +315,22 @@ export async function judgeFamilies(parent: string, tree: string, route: Route, 
       }
       continue
     }
-    if ((kind === 'header' && !headerFree(baseDoc, doc, change.fields ?? [])) || LOOSENING[shape(doc)].includes(kind)) {
-      const why = await auth.whyNot(route(file))
+    if (kind === 'bead-stripped') {
+      findings.push(['gate-loosening-authority', `${what} strips a bead from a non-standing family; keep or replace the bead, or mark the family standing (canopi-0kjje, 2.1-M78)`])
+      continue
+    }
+    if (kind === 'added' && shape(doc) === 'ratchet' && doc['standing'] !== true && !doc['bead']) {
+      const entries = isObject(doc['entries']) ? doc['entries'] : {}
+      const entry = key !== undefined && isObject(entries[key]) ? entries[key] : {}
+      if (!entry['bead']) {
+        findings.push(['gate-loosening-authority', `${what} needs a bead on the entry or family (non-standing family; canopi-0kjje, 2.1-M78)`])
+      }
+    }
+    if ((kind === 'header' && !headerFree(baseHeader, headHeader, change.fields ?? [])) || LOOSENING[shape(doc)].includes(kind)) {
+      const msg = kind === 'header'
+        ? [route(file), ...TABLES.map((t) => route(t))].filter(Boolean).join('\n\n')
+        : route(file)
+      const why = await auth.whyNot(msg)
       if (why) findings.push(['gate-loosening-authority', `${what} needs ${why}`])
     }
   }

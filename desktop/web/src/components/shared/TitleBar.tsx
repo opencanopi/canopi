@@ -1,6 +1,6 @@
 import { useEffect } from 'preact/hooks'
 import { setDesignName } from '../../app/design-edit'
-import { currentDesign, designName, designSessionStore, readOnlyOrigin } from '../../app/document-session/store'
+import { currentDesign, designName } from '../../app/document-session/store'
 import {
   designSaveFailureReason,
   designSaveStatus,
@@ -15,14 +15,13 @@ import {
   toggleMaximizeAppWindow,
 } from '../../app/shell/window-actions'
 import { designNotebookWorkbench } from '../../app/design-notebook'
-import { openAboutCanopiDialog } from '../../app/about/state'
 import { appCommandGraphChromeProjection } from '../../commands/registry'
 import { t } from '../../i18n'
 import { PlaceSearchField } from '../canvas/PlaceSearch'
 import { ControlIcon } from './ControlIcon'
 import { DesignNameField, visibleDesignName } from './DesignNameField'
 import { SaveStatusLabel } from './SaveStatusLabel'
-import { WorkspaceTitleBar } from './WorkspaceTitleBar'
+import { TitleBarIconButton, WorkspaceTitleBar } from './WorkspaceTitleBar'
 import styles from './WorkspaceTitleBar.module.css'
 
 /** Desktop title bar: the shared floating bar over the command graph, plus window controls. */
@@ -52,7 +51,7 @@ export function TitleBar() {
       }}
       design={hasDesign ? (
         <>
-          {/* A read-only Design (one a newer Canopi saved) is shown, never renamed (2.1-Q315). */}
+          {/* A read-only Design is shown, never renamed (2.1-Q315, Q347). */}
           {saveStatus === 'read-only'
             ? <span className={styles.nameText}>{visibleDesignName(designName.value)}</span>
             : <DesignNameField name={designName.value} onRename={setDesignName} />}
@@ -64,27 +63,30 @@ export function TitleBar() {
             saveElsewhere={{ label: t('saveStatus.saveAs'), run: saveAs }}
             onRetry={() => { void retryDesignSave() }}
             onResolveConflict={() => { void resolveDesignConflict().catch(logSaveCommandError) }}
-            readOnlyOrigin={readOnlyOrigin(designSessionStore.sessionKind.value)}
-            // Desktop updates in About, where the check for updates lives (2.1-Q317), as a store notice's Update does.
-            onUpdate={openAboutCanopiDialog}
           />
         </>
       ) : undefined}
+      fileActions={(
+        <TitleBarIconButton
+          command={{ ...projection.titleBar.openDesign, label: t('webShell.openCanopiFile') }}
+          icon="folder-open"
+        />
+      )}
       search={hasDesign ? <PlaceSearchField /> : undefined}
       help={projection.titleBar.help}
       settings={projection.titleBar.settings}
       onMouseDown={handleMouseDown}
       windowControls={(
         <>
-          <button type="button" className={styles.iconButton} onClick={() => void minimizeAppWindow()} aria-label={t('window.minimize')} tabIndex={-1}>
-            <ControlIcon name="window-minimize" />
-          </button>
-          <button type="button" className={styles.iconButton} onClick={() => void toggleMaximizeAppWindow()} aria-label={t('window.maximize')} tabIndex={-1}>
-            <ControlIcon name="window-maximize" />
-          </button>
-          <button type="button" className={styles.iconButton} onClick={() => void closeAppWindow()} aria-label={t('window.close')} tabIndex={-1}>
-            <ControlIcon name="close" />
-          </button>
+          {([
+            [minimizeAppWindow, 'window.minimize', 'window-minimize'],
+            [toggleMaximizeAppWindow, 'window.maximize', 'window-maximize'],
+            [closeAppWindow, 'window.close', 'close'],
+          ] as const).map(([run, label, icon]) => (
+            <button key={icon} type="button" className={styles.iconButton} onClick={() => void run()} aria-label={t(label)} tabIndex={-1}>
+              <ControlIcon name={icon} />
+            </button>
+          ))}
         </>
       )}
     />

@@ -1,23 +1,18 @@
+import type { GeoPoint } from '../../types/design'
 // __tests__/support/tool-harness.ts  (test support)
 //
 // The ToolHarness (spec §1.8): how tool and ToolHost tests build a scene and the ToolScene over it, and drive a real
 // ToolHost with gesture scripts (below). Scenes are real SceneStores in session-plane metres; the scene source reads the
 // frame scale, the species cache and the localised names through injected functions, as interaction-session.ts passes
 // the runtime's.
-
-import { signal, type ReadonlySignal } from '@preact/signals'
+import { type ReadonlySignal } from '@preact/signals'
+import { TOOL_ROWS } from '../../app/command-table'
 import type { CanvasToolGuidance } from '../../canvas/session-state'
-import { createSessionPlane, type GeoPosition } from '../../canvas/session-plane'
+import { createSessionPlane } from '../../geo/session-plane'
 import type { Gesture, MenuSource, NavigationSource, PressTarget } from '../../canvas/runtime/input/gestures'
 import { createInputRouter } from '../../canvas/runtime/input/input-router'
 import type { TargetClass } from '../../canvas/runtime/input/raw-input'
-import type {
-  ContextMenuPort,
-  GestureOutcome,
-  ToolHost,
-  ToolHostDeps,
-  ToolSceneSource,
-} from '../../canvas/runtime/interaction-ports'
+import type { ContextMenuPort, GestureOutcome, ToolHost, ToolHostDeps, ToolSceneSource } from '../../canvas/runtime/interaction-ports'
 import type {
   CancelReason,
   CanvasDropPayload,
@@ -39,20 +34,10 @@ import {
   type ScenePoint,
   type SceneZoneEntity,
 } from '../../canvas/runtime/scene'
-import { SceneHistory } from '../../canvas/runtime/scene-history'
-import {
-  applySceneDragDeltaToDraft,
-  captureSceneDragState,
-  createSceneDragState,
-  type SceneDragState,
-} from '../../canvas/runtime/scene-runtime/drag-state'
+import { applySceneDragDeltaToDraft, captureSceneDragState, createSceneDragState, type SceneDragState } from '../../canvas/runtime/scene-runtime/drag-state'
 import { getDesignObjectSelectionModel } from '../../canvas/runtime/scene-runtime/selection'
-import {
-  SceneRuntimeEditCoordinator,
-  type SceneCommandAdmission,
-  type SceneEditCoordinator,
-  type SceneEditTransaction,
-} from '../../canvas/runtime/scene-runtime/transactions'
+import type { CanvasRuntimeSceneSessionAdapter } from '../../canvas/runtime/app-adapter'
+import { createDetachedSceneSessionAdapter, SceneRuntimeEditCoordinator, type SceneCommandAdmission, type SceneEditCoordinator, type SceneEditTransaction } from '../../canvas/runtime/scene-runtime/transactions'
 import type { ToolHandle } from '../../canvas/runtime/tools/draft'
 import { TOOL_REGISTRY, type ToolFactory } from '../../canvas/runtime/tools/registry'
 import type { SnapSettings } from '../../canvas/runtime/tools/snapping'
@@ -66,7 +51,7 @@ import type {
   ToolSource,
 } from '../../canvas/runtime/tools/tool'
 import { createToolHost, createToolScene } from '../../canvas/runtime/tools/tool-host'
-import type { ScreenPoint, ViewCamera, ViewScreen, WorldPoint } from '../../canvas/runtime/view/types'
+import type { ScreenPoint, ViewCamera, ViewScreen, WorldPoint } from '../../geo/view/types'
 import { createRecordingRenderer, type RecordingRenderer } from './recording-renderer'
 import { createTestView, type TestView } from './test-view'
 
@@ -390,7 +375,7 @@ export interface ToolHarness {
   readonly toolState: ReadonlySignal<ToolId>
   readonly view: TestView
   readonly store: SceneStore
-  readonly history: SceneHistory
+  readonly history: CanvasRuntimeSceneSessionAdapter
   readonly edits: SceneEditCoordinator
   readonly renderer: RecordingRenderer
   readonly chrome: ToolHarnessChrome
@@ -399,8 +384,9 @@ export interface ToolHarness {
   readonly menuOpen: boolean
   /** Settings › Canvas snapping, read by the host at each point. */
   snapping: SnapSettings
-  /** The world point under a screen point of the current frame. */
+  /** The world point under a screen point, and the screen point of a world point, in the current frame. */
   world(at: ScreenPoint): WorldPoint
+  screen(at: WorldPoint): ScreenPoint
   /** Arms a tool as the session does: its tool signal, then ToolHost.setTool. */
   arm(id: ToolId, source?: ToolSource | null): void
   select(...targets: SceneDesignObjectTarget[]): void
@@ -427,7 +413,7 @@ export interface ToolHarness {
   /** A window blur: the recogniser ends the live session, then the session calls interrupted. */
   blur(): void
   /** A re-origin: the camera moves into the plane at `origin`, keeping its ground (the host sees the plane change). */
-  reorigin(origin: GeoPosition): void
+  reorigin(origin: GeoPoint): void
   /** Runs the host's manual clock: its due timers (double-click windows, the nudge series). */
   advance(ms: number): void
   /** Edit › Undo on the scene's history (not the transient history). */
@@ -460,15 +446,16 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     ...(options.screen ? { screen: options.screen } : {}),
   })
   const store = sceneStoreWith(options.scene ?? {})
-  const history = new SceneHistory()
+  const sceneSession = createDetachedSceneSessionAdapter()
   const coordinator = new SceneRuntimeEditCoordinator({
     sceneStore: store,
-    history,
+    sceneSession,
     setSelection: (targets) => store.setSelection(targets),
     incrementSceneRevision: () => {},
     syncCanvasSignalsFromScene: () => {},
     invalidate: () => {},
   })
+  sceneSession.bindReplay((command, direction, onApplied) => coordinator.replayCommand(command, direction, onApplied))
   const edits = options.edits ?? coordinator
   const renderer = createRecordingRenderer()
   const record: ToolHarnessRecord = {
@@ -499,7 +486,6 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
   let menuOpen = false
   let now = 0
   const timers = createHarnessTimers(() => now)
-  const toolState = signal<ToolId>(options.tool ?? 'select')
   const scene = createToolScene(createToolSceneSource(store, { pixelsPerMetre: () => view.view().pixelsPerMetre }))
   let snapping: SnapSettings = options.snapping ?? { grid: false }
 
@@ -567,12 +553,8 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     guidance: (guidance) => {
       record.guidance.push(guidance)
     },
-    toolState: {
-      active: toolState,
-      set(id) {
-        toolState.value = id
-      },
-    },
+    initialTool: options.tool ?? 'select',
+    toolRow: (id) => TOOL_ROWS[id],
     settings: options.settings ?? {
       plantSpacingIntervalM: () => 1,
       commitPlantSpacingIntervalM: () => {},
@@ -587,8 +569,6 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
       store.setHoveredTarget(target)
       record.hovers.push(target)
     },
-    ...(options.pin ? { pin: options.pin } : {}),
-    ...(options.finishProfile ? { finishProfile: options.finishProfile } : {}),
     lockedMoveRefused: () => {
       record.lockedMoveRefusals += 1
     },
@@ -611,6 +591,13 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
       tapped: () => { record.pinTaps += 1 },
     },
   })
+  if (options.finishProfile && options.tool === 'profile') {
+    host.arm<readonly WorldPoint[]>('profile', null, {
+      onSettled(outcome) {
+        if (outcome.kind === 'picked') options.finishProfile!(outcome.value)
+      },
+    })
+  }
   host.subscribePointerWorld((point) => {
     record.pointerWorld.push(point && point.world)
   })
@@ -646,10 +633,10 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
 
   const harness: ToolHarness = {
     host,
-    toolState,
+    toolState: host.activeTool,
     view,
     store,
-    history,
+    history: sceneSession,
     edits,
     renderer,
     chrome,
@@ -663,12 +650,18 @@ export function createToolHarness(options: ToolHarnessOptions = {}): ToolHarness
     set snapping(next) {
       snapping = next
     },
-    world(at) {
-      return view.view().screenToWorld(at)
-    },
+    world: (at) => view.view().screenToWorld(at),
+    screen: (at) => view.view().worldToScreen(at),
     arm(id, source = null) {
-      toolState.value = id
-      host.setTool(id, source)
+      if (id === 'profile' && options.finishProfile) {
+        host.arm<readonly WorldPoint[]>('profile', source, {
+          onSettled(outcome) {
+            if (outcome.kind === 'picked') options.finishProfile!(outcome.value)
+          },
+        })
+        return
+      }
+      host.arm(id, source)
     },
     select(...targets) {
       store.setSelection(targets)

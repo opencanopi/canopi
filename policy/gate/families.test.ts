@@ -18,16 +18,16 @@ describe('family selection (canopi-f47t.52.240)', () => {
   it('canopi-f47t.52.240: the affected lane runs the commit-lane families a changed path reaches, a policy change the whole check', () => {
     // 2.1-Q267: the whole commit-lane check took 227 s; push and CI keep it, the affected lane runs what the change reaches.
     repo.linkGlobEngine()
-    const scoped = (...families: string[]) => `cd desktop/web && npm run test:policies:family -- ${families.map((id) => `--family ${id}`).join(' ')}`
+    const scoped = (...families: string[]) => `node policy/check.mjs ${families.map((id) => `--family ${id}`).join(' ')}`
     const affected = repo.checks(['desktop/web/src/ipc/x.ts'])
     expect(affected).toContain(scoped('file-size', 'invoke-only-in-ipc'))
     expect(affected.join(' ; '), 'a source change leaves the planted violations alone').not.toContain('--self-test')
-    expect(affected).not.toContain('cd desktop/web && npm run test:policies:check')
+    expect(affected).not.toContain('node policy/check.mjs')
     expect(affected, 'the rest of the policy tooling still runs').toEqual(expect.arrayContaining(COMMIT_POLICIES_BUT_CHECK))
     repo.reset()
     const policy = repo.checks(['policy/rules.json'])
-    expect(policy).toContain('cd desktop/web && npm run test:policies:check')
-    expect(policy.join(' ; ')).not.toContain('--self-test --family')
+    expect(policy).toContain('node policy/check.mjs')
+    expect(policy.filter((c) => !c.includes('--self-test')).join(' ; ')).not.toContain('--family')
     repo.reset()
     expect(repo.checks(['README.md', 'scripts/x.sh']), 'a path no family scopes adds none').toContain(scoped('file-size'))
   })
@@ -47,7 +47,7 @@ describe('family selection (canopi-f47t.52.240)', () => {
     repo.linkGlobEngine()
     for (const path of ['desktop/web/knip.json', 'desktop/web/.oxlintrc.json', 'desktop/web/.dependency-cruiser.cjs',
       'desktop/web/tsconfig.json', 'sgconfig.yml']) {
-      expect(repo.checks([path]), path).toContain('cd desktop/web && npm run test:policies:check')
+      expect(repo.checks([path]), path).toContain('node policy/check.mjs')
       repo.reset()
     }
   })

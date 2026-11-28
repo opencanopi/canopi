@@ -16,12 +16,12 @@ import {
 } from '../app/tool-rail/learning'
 import { toolRailRoom, visibleMapFrame } from '../app/shell/visible-map-area'
 import { phoneLayout } from '../app/shell/phone-layout'
-import { toolNamesVisible, usedCanvasTools } from '../app/settings/state'
-import { setCurrentCanvasSession } from '../canvas/session'
-import { currentCanvasTool, currentCanvasSelection } from '../canvas/session-state'
-import { activePanel, sidePanel } from '../app/shell/state'
-import { gridVisible, snapToGridEnabled } from '../app/canvas-settings/signals'
-import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
+import { toolNamesVisible, usedCanvasTools, snapToGridEnabled } from '../app/settings/state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasSelection } from '../canvas/session-state'
+import { sidePanel } from '../app/shell/state'
+import { gridVisible } from '../app/canvas-settings/signals'
+import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import { appCommandGraphChromeProjection } from '../commands/graph/projections'
 import { flattenMenuActions } from '../app/shell-commands/menus'
 import { installDesktopKeys } from './support/desktop-key-router'
@@ -42,9 +42,10 @@ function Chip() {
 
 describe('ToolRail', () => {
   let container: HTMLDivElement
+  let queries: TestCanvasQuerySurface
   const canUndo = signal(false)
   const canRedo = signal(false)
-  const setTool = vi.fn()
+  const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
   const undo = vi.fn()
   const redo = vi.fn()
   const toggleGrid = vi.fn()
@@ -54,24 +55,23 @@ describe('ToolRail', () => {
     container = document.createElement('div')
     document.body.innerHTML = ''
     document.body.appendChild(container)
-    currentCanvasTool.value = 'select'
     canUndo.value = false
     canRedo.value = false
-    setTool.mockReset()
+    arm.mockClear()
     undo.mockReset()
     redo.mockReset()
     toggleGrid.mockReset()
     toggleSnapToGrid.mockReset()
     currentCanvasSelection.value = new Set()
-    activePanel.value = 'canvas'
     sidePanel.value = null
     gridVisible.value = true
     snapToGridEnabled.value = false
     usedCanvasTools.value = []
     toolNamesVisible.value = null
+    queries = createTestCanvasQuerySurface()
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({
-        tools: { setTool },
+        tools: { arm },
         history: {
           canUndo,
           canRedo,
@@ -83,7 +83,7 @@ describe('ToolRail', () => {
           toggleSnapToGrid,
         },
       }),
-      queries: createTestCanvasQuerySurface(),
+      queries,
     }))
   })
 
@@ -91,9 +91,7 @@ describe('ToolRail', () => {
     render(null, container)
     container.remove()
     phoneLayout.value = null
-    currentCanvasTool.value = 'select'
     currentCanvasSelection.value = new Set()
-    activePanel.value = 'canvas'
     sidePanel.value = null
     gridVisible.value = true
     snapToGridEnabled.value = false
@@ -131,9 +129,9 @@ describe('ToolRail', () => {
     const uninstall = installToolRailLearning()
     try {
       expect(usedCanvasTools.value).toEqual([])
-      await act(async () => { currentCanvasTool.value = 'polygon' })
-      await act(async () => { currentCanvasTool.value = 'select' })
-      await act(async () => { currentCanvasTool.value = 'polygon' })
+      await act(async () => { queries.setActiveTool('polygon') })
+      await act(async () => { queries.setActiveTool('select') })
+      await act(async () => { queries.setActiveTool('polygon') })
       expect(usedCanvasTools.value).toEqual(['polygon', 'select'])
     } finally {
       uninstall()
@@ -193,7 +191,7 @@ describe('ToolRail', () => {
   })
 
   it('presses the active tool and groups tools as the Menus board does', async () => {
-    currentCanvasTool.value = 'ellipse'
+    queries.setActiveTool('ellipse')
     await mount()
     const tools = [...container.querySelectorAll<HTMLButtonElement>('button[aria-pressed]')]
     expect(tools.map((button) => button.dataset.command)).toEqual([
@@ -211,10 +209,9 @@ describe('ToolRail', () => {
     sidePanel.value = 'plant-db'
     await mount()
     await act(async () => { railButton('canvas.tool.line').click() })
-    expect(setTool).toHaveBeenCalledWith('line')
+    expect(arm).toHaveBeenCalledWith('line', undefined, undefined)
     expect(currentCanvasTool.value).toBe('line')
     expect(sidePanel.value).toBe('plant-db')
-    expect(activePanel.value).toBe('canvas')
   })
 
   it('moves focus with the arrow keys without choosing a tool (one tab stop)', async () => {
@@ -228,7 +225,7 @@ describe('ToolRail', () => {
     })
     expect(document.activeElement).toBe(railButton('canvas.tool.plantStamp'))
     expect(railButton('canvas.tool.plantStamp').tabIndex).toBe(0)
-    expect(setTool).not.toHaveBeenCalled()
+    expect(arm).not.toHaveBeenCalled()
 
     await act(async () => {
       railButton('canvas.tool.plantStamp').dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }))
@@ -271,7 +268,7 @@ describe('ToolRail', () => {
     await mount()
     await act(async () => {
       phoneLayout.value = 'portrait'
-      currentCanvasTool.value = 'rectangle'
+      queries.setActiveTool('rectangle')
     })
     const rail = container.querySelector<HTMLElement>('[role="toolbar"]')!
     expect(rail.dataset.toolRail).toBe('phone')
@@ -290,7 +287,7 @@ describe('ToolRail', () => {
   })
 
   it('Pan is not on the main rail and stays in the phone strip', async () => {
-    currentCanvasTool.value = 'hand'
+    queries.setActiveTool('hand')
     await mount()
     const railItems = () => [...container.querySelectorAll<HTMLButtonElement>('[data-rail-item]')]
     expect(railButton('canvas.tool.hand')).toBeNull()
@@ -378,7 +375,7 @@ describe('ToolRail', () => {
       expect(items[1]!.textContent).toContain('R')
       expect(items[1]!.getAttribute('aria-keyshortcuts')).toBe('R')
       await act(async () => { items[1]!.dispatchEvent(new MouseEvent('click', { bubbles: true })) })
-      expect(setTool).toHaveBeenCalledWith('rectangle')
+      expect(arm).toHaveBeenCalledWith('rectangle', undefined, undefined)
       expect(currentCanvasTool.value).toBe('rectangle')
       // More shows that it holds the active tool.
       expect(container.querySelector('[data-tool-rail-more]')!.hasAttribute('data-holds-active')).toBe(true)
@@ -418,9 +415,9 @@ describe('ViewChip', () => {
   })
 
   it('the view chip and View menu show Grid and Snap to grid only, and Shift+R does nothing', async () => {
-    const setTool = vi.fn()
+    const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-      commands: createTestCanvasCommandSurface({ tools: { setTool }, chrome: { toggleGrid, toggleSnapToGrid } }),
+      commands: createTestCanvasCommandSurface({ tools: { arm }, chrome: { toggleGrid, toggleSnapToGrid } }),
     }))
     await act(async () => { render(<Chip />, container) })
     expect([...container.querySelectorAll('button')].map((button) => button.textContent)).toEqual(['Grid', 'Snap to grid'])
@@ -437,7 +434,7 @@ describe('ViewChip', () => {
         return event.defaultPrevented
       }
       expect(press('R')).toBe(false)
-      expect(setTool).not.toHaveBeenCalled()
+      expect(arm).not.toHaveBeenCalled()
       expect(toggleGrid).not.toHaveBeenCalled()
       expect(toggleSnapToGrid).not.toHaveBeenCalled()
       // The router is live: Shift+G still toggles the grid.

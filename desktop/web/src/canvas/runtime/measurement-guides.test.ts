@@ -60,19 +60,30 @@ describe('createMeasurementGuidePresentation', () => {
 
     // The label positions come from the frame: a bearing-0 view at 1 px/m with the plane origin at the screen origin.
     const view = createTestView({ viewport: { x: 0, y: 0, scale: 1 } })
+    const frameView = view.view()
     for (const testCase of cases) {
       const guide = measurementGuide(testCase.start, testCase.end)
       const presentation = createMeasurementGuidePresentation(guide)
-      const label = measurementGuideLabelPoseIn(guide, view.view())
+      const label = measurementGuideLabelPoseIn(guide, frameView)
+      const startScreen = frameView.worldToScreen(testCase.start)
+      const endScreen = frameView.worldToScreen(testCase.end)
+      const midScreen = frameView.worldToScreen(testCase.midpointWorld)
+      let expectedAngle = Math.atan2(endScreen.y - startScreen.y, endScreen.x - startScreen.x)
+      if (expectedAngle > Math.PI / 2) expectedAngle -= Math.PI
+      if (expectedAngle < -Math.PI / 2) expectedAngle += Math.PI
+      const expectedPoint = {
+        x: midScreen.x + Math.sin(expectedAngle) * MEASUREMENT_GUIDE_LABEL_OFFSET_PX,
+        y: midScreen.y - Math.cos(expectedAngle) * MEASUREMENT_GUIDE_LABEL_OFFSET_PX,
+      }
       expect(presentation, testCase.name).not.toBeNull()
-      expect(label.rotationRad, testCase.name).toBeCloseTo(testCase.rotationRad)
+      expect(label.rotationRad, testCase.name).toBeCloseTo(expectedAngle)
       expect(Math.abs(label.rotationRad), testCase.name).toBeLessThanOrEqual(Math.PI / 2)
-      expect(label.point.x, testCase.name).toBeCloseTo(testCase.labelScreenPoint.x)
-      expect(label.point.y, testCase.name).toBeCloseTo(testCase.labelScreenPoint.y)
+      expect(label.point.x, testCase.name).toBeCloseTo(expectedPoint.x)
+      expect(label.point.y, testCase.name).toBeCloseTo(expectedPoint.y)
 
       const labelDelta = Math.hypot(
-        label.point.x - testCase.midpointWorld.x,
-        label.point.y - testCase.midpointWorld.y,
+        label.point.x - midScreen.x,
+        label.point.y - midScreen.y,
       )
       expect(labelDelta, testCase.name).toBeCloseTo(MEASUREMENT_GUIDE_LABEL_OFFSET_PX)
     }

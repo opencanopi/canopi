@@ -1,8 +1,11 @@
-import { captureCurrentDesignObservation } from '../document-session/transition'
-import { encodeCanopiDesign } from '../contracts/canopi-design-wire'
+import { getLiveSessionCore } from '../document-session/live-core'
 
-/** The open Design as Desktop's report attaches it; null with none open or a newer Canopi's read view (canopi-v4kj). */
-export function buildCurrentDesignProblemReportAttachment(): string | null {
-  const file = captureCurrentDesignObservation()
-  return file ? `${JSON.stringify(encodeCanopiDesign(file), null, 2)}\n` : null
+/** The open Design as Desktop's report attaches it, encoded via the active SessionCore's DesignCore codec; null with none open. */
+export async function buildCurrentDesignProblemReportAttachment(): Promise<string | null> {
+  const core = getLiveSessionCore()
+  if (!core) return null
+  const bytes = await core.encodeSnapshot()
+  if (!bytes) return null
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  return text.endsWith('\n') ? text : `${text}\n`
 }

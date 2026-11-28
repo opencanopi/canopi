@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "Сохраните этот проект перед добавлением в блокнот.",
     "addCurrentDesign": "Добавить текущий проект в блокнот",
     "addCurrentButton": "Добавить текущий проект",
-    "openNow": "Сейчас открыт"
+    "openNow": "Сейчас открыт",
+    "renameSectionFailed": "Canopi не удалось переименовать эту секцию. Попробуйте ещё раз."
   },
   "plantDb": {
     "title": "Каталог растений",
@@ -73,7 +74,6 @@
     "addFavoriteNamed": "Добавить {{name}} в избранное",
     "favoriteNeedsNewer": "Сохранено более новой версией Canopi. Обновите Canopi, чтобы изменить избранное.",
     "removeFavoriteNamed": "Убрать {{name}} из избранного",
-    "factHeight": "{{height}} м",
     "factHardiness": "USDA {{zones}}",
     "factEdible": "Съедобность {{rating}}/5",
     "quickEdible": "Съедобные",
@@ -240,7 +240,6 @@
       "selectedCount_few": "Выбрано: {{count}}",
       "selectedCount_many": "Выбрано: {{count}}",
       "selectedCount_other": "Выбрано: {{count}}",
-      "suggested": "Подсказка по цвету цветка",
       "moreColors": "Свой цвет",
       "hue": "Оттенок",
       "saturationLightness": "Насыщенность и светлота",
@@ -312,7 +311,7 @@
       "placeholder": "Место или координаты",
       "searching": "Поиск…",
       "noResults": "Места не найдены",
-      "error": "Не удалось найти место",
+      "error": "Поиск мест недоступен. Введите широту и долготу.",
       "results": "Места",
       "placeholderShort": "Найти место",
       "east": "в. д.",
@@ -360,7 +359,9 @@
       "siteDataWeb_one": "{{count, number}} слой рельефа или высоты в этом проекте · Нужен Canopi Desktop",
       "siteDataWeb_few": "{{count, number}} слоя рельефа или высоты в этом проекте · Нужен Canopi Desktop",
       "siteDataWeb_many": "{{count, number}} слоёв рельефа или высоты в этом проекте · Нужен Canopi Desktop",
-      "siteDataWeb_other": "{{count, number}} слоя рельефа или высоты в этом проекте · Нужен Canopi Desktop"
+      "siteDataWeb_other": "{{count, number}} слоя рельефа или высоты в этом проекте · Нужен Canopi Desktop",
+      "webgl2Unavailable": "WebGL2 недоступен на этом устройстве. Canopi требуется WebGL2 для отрисовки карты.",
+      "layerFailed": "Не удалось загрузить"
     },
     "timeline": {
       "actionType": "Тип действия",
@@ -724,11 +725,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Ключ API Google Maps (необязательно)",
-      "saveKey": "Сохранить ключ",
-      "clearKey": "Очистить ключ",
-      "keySaved": "Ключ сохранён на этом устройстве.",
-      "keyLocalOnly": "Хранится только в настройках этого устройства. Никогда не записывается в проект, экспорт, журнал или отчёт.",
       "style": "Стиль",
       "styles": {
         "liberty": "Liberty",
@@ -736,9 +732,6 @@
         "bright": "Светлый",
         "dark": "Тёмный"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "Без ключа Canopi использует общедоступные спутниковые тайлы Google. Добавьте свой ключ API Google Maps, чтобы использовать официальный Map Tiles API."
     },
     "zoom": {
       "scaleBar": "Масштабная линейка: {{distance}}",
@@ -752,7 +745,7 @@
     },
     "myLocation": {
       "show": "Показать моё местоположение",
-      "blocked": "Доступ к местоположению заблокирован. Разрешите его для этого сайта в настройках браузера.",
+      "blocked": "Геолокация заблокирована. Разрешите её в настройках браузера или системы.",
       "unavailable": "Ваше местоположение сейчас недоступно; продолжаем попытки."
     },
     "selectionChip": {
@@ -792,7 +785,9 @@
       "clear": "Снять выделение",
       "rename": "Переименовать…",
       "sameSpeciesShort": "Тот же вид",
-      "clearShort": "Снять"
+      "clearShort": "Снять",
+      "dimensions": "Размеры",
+      "dimensionsShort": "Размер"
     },
     "viewChip": "Вид",
     "map": {
@@ -871,7 +866,8 @@
       "pathKeys": "Alt ставит острую точку · Shift держит углы 45° · {{mod}} отключает привязку",
       "pathTouchHint": "Перетащите точку, чтобы сдвинуть · перетащите метку, чтобы добавить точку · долгое нажатие на точку — другие действия",
       "pathFinish": "Посадить ряд",
-      "options": "Параметры"
+      "options": "Параметры",
+      "constrain": "Ограничить"
     },
     "placePreview": {
       "nearest": "{{distance}} до «{{name}}»",
@@ -898,18 +894,6 @@
       "point": "Точка ряда {{index}}",
       "dot": "Добавить точку на отрезке ряда {{index}}"
     }
-  },
-  "worldMap": {
-    "title": "Карта мира",
-    "discover": "Посмотреть проекты",
-    "featured": "Рекомендуемые",
-    "downloading": "Загрузка шаблона…",
-    "author": "Автор: {{author}}",
-    "noDesigns": "В этом районе пока нет проектов",
-    "zoomToExplore": "Приблизьте, чтобы исследовать проекты",
-    "filterByClimate": "Фильтр по климату",
-    "filterByStyle": "Фильтр по стилю",
-    "openTemplate": "Открыть как новый проект"
   },
   "theme": {
     "light": "Светлая",
@@ -1060,7 +1044,6 @@
     "fireResistant": "Огнестойкий",
     "fireTolerance": "Огнеустойчивость",
     "hedgeTolerance": "Устойчивость к стрижке",
-    "inchesUnit": "дюйм",
     "daysUnit": "дн",
     "pollinators": "Опылители",
     "salinityTolerance": "Солеустойчивость",
@@ -1381,7 +1364,11 @@
     "reorderNamed": "Переместить {{name}} (Alt ↑ или ↓)",
     "placeNamed": "Разместить штамп {{name}}",
     "deleteNamed": "Удалить штамп {{name}}",
-    "actionsFor": "Другие действия: {{name}}"
+    "actionsFor": "Другие действия: {{name}}",
+    "renameFailed": "Canopi не удалось переименовать штамп. Попробуйте ещё раз.",
+    "deletedToast": "«{{name}}» удалён",
+    "placedToast": "Штамп размещён ({{summary}})",
+    "undo": "Отменить"
   },
   "boundary": {
     "panelFailed": "Не удалось загрузить эту панель",
@@ -1530,7 +1517,11 @@
     "mapOrientationAsOnScreen": "Как на экране",
     "northArrow": "Стрелка севера и масштаб",
     "pageOptions": "Выбранная страница",
-    "findInKey": "Найти в легенде"
+    "findInKey": "Найти в легенде",
+    "scale": "Масштаб",
+    "pageAngle": "Угол страницы",
+    "angleDegrees": "Угол (°)",
+    "savedViewAngle": "Сохранённый вид"
   },
   "speciesKey": {
     "title": "Растения в этом проекте",
@@ -1598,7 +1589,8 @@
     "namesShown_one": "Названия показаны у {{shown, number}} из {{count, number}} растения в кадре",
     "namesShown_few": "Названия показаны у {{shown, number}} из {{count, number}} растений в кадре",
     "namesShown_many": "Названия показаны у {{shown, number}} из {{count, number}} растений в кадре",
-    "namesShown_other": "Названия показаны у {{shown, number}} из {{count, number}} растения в кадре"
+    "namesShown_other": "Названия показаны у {{shown, number}} из {{count, number}} растения в кадре",
+    "codeLabel": "Код вида для {{name}}"
   },
   "geojson": {
     "import": "Импорт GeoJSON…",
@@ -1639,10 +1631,7 @@
     "conflictAnotherTab": "Изменён в другой вкладке"
   },
   "readOnlyDesign": {
-    "label": "Только чтение",
-    "status": "Только чтение: сохранено более новой версией Canopi",
-    "details": "Этот проект сохранён более новой версией Canopi. Вы можете его просматривать, но не изменять и не сохранять. Обновите Canopi, чтобы редактировать его.",
-    "update": "Обновить"
+    "label": "Только чтение"
   },
   "saveProblem": {
     "flushFailedTitle": "Не удалось сохранить изменения",
@@ -1745,7 +1734,6 @@
       "ValuesNotMetres": "Требуются значения в метрах; эти данные в {{units}}.",
       "GridNotProjectedMetres": "Требуется проецированная сетка в метрах на местности, а не Web Mercator или долгота и широта.",
       "EngineMissing": "Недоступно: отсутствует движок GeoLibre.",
-      "NeedsDesktop": "Требуется Canopi Desktop.",
       "AlreadyInSiteData": "Уже в данных участка."
     },
     "stale": {
@@ -1867,7 +1855,6 @@
   "siteOnboarding": {
     "locateTitle": "Где ваш участок?",
     "locateIntro": "Найдите место или вставьте координаты. Карта переместится туда; пока ничего не размещается.",
-    "placeNamesCredit": "Названия мест © участники OpenStreetMap",
     "skip": "Пропустить, найду на карте",
     "startTitle": "Начните проект",
     "closeStart": "Закрыть «Начните проект»",
@@ -1981,7 +1968,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "О Canopi…",
     "mapStyle": "Стиль карты",
-    "googleKeyKept": "Ваш ключ Google остаётся сохранённым на этом устройстве, но не используется. Выберите «Мой ключ Google», чтобы снова его использовать."
+    "googleKeyKept": "Ваш ключ Google остаётся сохранённым на этом устройстве, но не используется. Выберите «Мой ключ Google», чтобы снова его использовать.",
+    "units": {
+      "label": "Единицы измерения",
+      "metric": "Метрические",
+      "usCustomary": "Американские"
+    }
   },
   "savedViews": {
     "defaultName": "Вид {{number}}",
@@ -2078,9 +2070,9 @@
     "imageRemove": "Удалить изображение {{number}}",
     "imagePreview": "Изображение {{number}}: {{alt}}",
     "imageType": "Выберите изображение PNG, JPEG, WebP или GIF.",
-    "imageTooLarge": "Размер изображения — {{size}}. Изображение может занимать не больше 1 МБ; выберите изображение поменьше.",
-    "imageDesignFull": "В этом проекте уже {{used}} изображений, а проект вмещает 10 МБ. Удалите изображение или выберите изображение поменьше.",
-    "imagesDoNotFit": "Эти изображения не помещаются: проект вмещает не более 10 МБ изображений. Удалите изображение и попробуйте снова.",
+    "imageTooLarge": "Размер изображения — {{size}}. Изображение может занимать не больше {{limit}}; выберите изображение поменьше.",
+    "imageDesignFull": "В этом проекте уже {{used}} изображений, а проект вмещает {{limit}}. Удалите изображение или выберите изображение поменьше.",
+    "imagesDoNotFit": "Эти изображения не помещаются: проект вмещает не более {{limit}} изображений. Удалите изображение и попробуйте снова.",
     "imageUnreadable": "Canopi не удалось прочитать это изображение. Попробуйте другой файл.",
     "imageResized": "Canopi уменьшил это изображение, чтобы оно поместилось: с {{from}} до {{to}}.",
     "imageShrinking": "Уменьшаем изображение…",
@@ -2199,7 +2191,13 @@
     "downloadFailedMessage": "Этого черновика больше нет в этом браузере, или его не удалось прочитать.",
     "uncheckedReadOnly": "Открыто только для чтения: Canopi не удалось проверить хранилище этого браузера, поэтому этот черновик может быть устаревшим. Скачайте копию, чтобы сохранить его.",
     "keepDrafts": "Сохранить мои черновики",
-    "keepDraftsMenu": "Сохранить мои черновики…"
+    "keepDraftsMenu": "Сохранить мои черновики…",
+    "storeBlockedTitle": "Черновики ожидают другую вкладку",
+    "storeBlockedMessage": "Закройте другие вкладки Canopi, чтобы продолжить.",
+    "pendingWriteTitle": "Последнее изменение может быть утеряно",
+    "pendingWriteMessage": "Canopi закрылся до сохранения последнего изменения в «{{name}}». Проверьте проект перед продолжением.",
+    "olderTabCopyTitle": "Скопировано из более старой вкладки",
+    "olderTabCopyMessage": "Изменения в «{{name}}» из более старой вкладки Canopi сохранены как отдельный черновик."
   },
   "webRelease": {
     "title": "Новая версия",
@@ -2264,5 +2262,39 @@
     "title": "Не удалось запустить Canopi",
     "desktopHint": "Возможно, ваша система слишком старая для этой версии Canopi. Обновите операционную систему и снова откройте Canopi.",
     "webHint": "Перезагрузите страницу. Если Canopi по-прежнему не запускается, возможно, этот браузер слишком старый: обновите его или откройте другой браузер."
+  },
+  "editionCapability": {
+    "needsDesktop": "Требуется Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "Не удалось сохранить под этим именем файла. Выберите другое имя или папку и попробуйте снова."
+  },
+  "geocoding": {
+    "credit": "Поиск через {{service}} · © участники OpenStreetMap"
+  },
+  "inspector": {
+    "title": "Изменить размеры",
+    "close": "Закрыть",
+    "empty": "Выберите редактируемый объект, чтобы изменить его размеры.",
+    "dimensions": "Размеры",
+    "width": "Ширина",
+    "height": "Высота",
+    "length": "Длина",
+    "rotation": "Поворот",
+    "angle": "Угол",
+    "centerLat": "Широта центра",
+    "centerLon": "Долгота центра",
+    "side": "Сторона {{index}}",
+    "cornerAngle": "Угол {{index}}",
+    "style": "Стиль зоны",
+    "fillColor": "Цвет заливки",
+    "strokeColor": "Цвет контура",
+    "opacity": "Непрозрачность",
+    "canopySpread": "Диаметр кроны",
+    "quantity": "Количество",
+    "plantedDate": "Дата посадки",
+    "notes": "Заметки",
+    "noteText": "Текст заметки",
+    "fontSize": "Размер текста"
   }
 }

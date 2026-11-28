@@ -10,9 +10,8 @@ import {
   SceneStore,
   type SceneDesignObjectTarget,
 } from '../scene'
-import { SceneHistory } from '../scene-history'
 import { SceneRuntimeMutationController } from './mutations'
-import { SceneRuntimeEditCoordinator } from './transactions'
+import { createDetachedSceneSessionAdapter, SceneRuntimeEditCoordinator } from './transactions'
 
 function makeFile(): CanopiFile {
   return {
@@ -33,7 +32,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(10, 10),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -46,7 +45,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(20, 20),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -101,15 +100,15 @@ function createController(file = makeFile()) {
   const setSelection = (targets: Iterable<SceneDesignObjectTarget>) => {
     sceneStore.setSelection(targets)
   }
-  const history = new SceneHistory()
-  const record = history.record.bind(history)
-  vi.spyOn(history, 'record').mockImplementation((command, transaction) => {
+  const sceneSession = createDetachedSceneSessionAdapter()
+  const record = sceneSession.recordSceneEdit.bind(sceneSession)
+  vi.spyOn(sceneSession, 'recordSceneEdit').mockImplementation((label, command) => {
     state.dirtyTypes.push(command.type)
-    return record(command, transaction)
+    return record(label, command)
   })
   const sceneEdits = new SceneRuntimeEditCoordinator({
     sceneStore,
-    history,
+    sceneSession,
     setSelection,
     incrementSceneRevision: () => {},
     syncCanvasSignalsFromScene: () => {
@@ -119,6 +118,7 @@ function createController(file = makeFile()) {
       state.invalidations += 1
     },
   })
+  sceneSession.bindReplay((command, direction) => sceneEdits.replayCommand(command, direction))
   const controller = new SceneRuntimeMutationController({
     sceneStore,
     selection: {
@@ -135,7 +135,6 @@ function createController(file = makeFile()) {
         localizedCommonNames: new Map(),
       }),
       getLocalizedCommonNames: () => new Map(),
-      getSuggestedPlantColor: (canonicalName) => canonicalName === 'Malus domestica' ? '#C44230' : null,
     },
     invalidateScene: () => {
       state.invalidations += 1
@@ -515,7 +514,8 @@ describe('scene runtime mutation controller', () => {
 
     controller.groupSelected()
 
-    expect(sceneStore.persisted.groups).toEqual([{
+    expect(sceneStore.persisted.groups).toHaveLength(1)
+    expect(sceneStore.persisted.groups[0]).toEqual({
       kind: 'group',
       id: 'group-1',
       name: 'Guild',
@@ -525,7 +525,7 @@ describe('scene runtime mutation controller', () => {
         { kind: 'zone', id: 'zone-1' },
         { kind: 'annotation', id: 'annotation-1' },
       ],
-    }])
+    })
     expect(sceneStore.session.selectedTargets).toEqual([{ kind: 'group', id: 'group-1' }])
   })
 
@@ -559,7 +559,8 @@ describe('scene runtime mutation controller', () => {
 
     controller.groupSelected()
 
-    expect(sceneStore.persisted.groups).toEqual([{
+    expect(sceneStore.persisted.groups).toHaveLength(1)
+    expect(sceneStore.persisted.groups[0]).toEqual({
       kind: 'group',
       id: 'group-top',
       name: 'Top',
@@ -570,7 +571,7 @@ describe('scene runtime mutation controller', () => {
         { kind: 'plant', id: 'plant-2' },
         { kind: 'annotation', id: 'annotation-1' },
       ],
-    }])
+    })
     expect(sceneStore.session.selectedTargets).toEqual([{ kind: 'group', id: 'group-top' }])
   })
 
@@ -585,7 +586,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(30, 30),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -598,7 +599,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(40, 40),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -611,7 +612,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(50, 50),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -648,7 +649,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(30, 30),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -661,7 +662,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(40, 40),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -1036,7 +1037,7 @@ describe('scene runtime mutation controller', () => {
         color: null,
         position: geoAt(30, 30),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -1092,9 +1093,7 @@ describe('scene runtime mutation controller', () => {
     const changed = controller.setPlantColorForSpecies('Malus domestica', '#C44230')
 
     expect(changed).toBe(0)
-    expect(sceneStore.persisted.plantSpeciesColors).toEqual({
-      'Malus domestica': '#C44230',
-    })
+    expect(sceneStore.persisted.plantSpeciesColors).toEqual({ 'Malus domestica': '#C44230' })
     expect(state.plantSpeciesColorSyncs).toBe(1)
     expect(state.dirtyTypes).toEqual(['set-plant-color-for-species'])
   })

@@ -51,7 +51,7 @@ classDiagram
     sentinels
   }
   class LibraryItemId {
-    <<2.1>>
+
     <<owner library repository>>
   }
   class LibraryItemSummary {
@@ -90,7 +90,7 @@ flowchart LR
   LIB[services/lidar/mod.rs: LidarLibrary owns catalogue, cancel flags, heavy lease]
   PRES[services/lidar/presentation.rs: LibrarySnapshot per poll]
   META[services/lidar/source_meta.rs: meta.json mirror]
-  STORE[app/lidar/library-store.ts: 1.5 s poll]
+  STORE[app/data-library/library-store.ts: 1.5 s poll]
   LIB --> CAT
   LIB --> META
   PRES --> CAT
@@ -116,7 +116,7 @@ flowchart LR
   EXR["executor(id) -> AnalysisExecutor over ENGINES (2.1)"]:::target
   QT[canopi-types quantity table (2.1)]:::target
   DESC[app/data-library/ item-type descriptor and lineage table (2.1)]:::target
-  IT[app/lidar/item-types.ts: TS-only facts]
+  IT[app/data-library/item-types.ts: TS-only facts]
   LAY[maplibre/library-layers.ts (2.1)]:::target
   JSON --> GEN
   GEN --> RS
@@ -144,14 +144,14 @@ Source: ADR 0025; contracts §1, §3
 classDiagram
   class OpSpec {
     <<2.1>>
-    <<owner canopi-support (2.1)>>
+    <<owner canopi-support>>
     lane
     priority
     deadline
   }
   class Deadline {
     <<2.1>>
-    <<owner canopi-support (2.1)>>
+    <<owner canopi-support>>
     value or Unbounded
   }
   class CancelToken {
@@ -229,9 +229,9 @@ flowchart LR
   GEN2[generated draft, normalisers, both runners (2.1)]:::target
   OWN[app/settings/: owner of every settings-backed signal]
   I18N[i18n/: owner of the active locale]
-  PORT[platform/settings.ts: settings store port (2.1)]:::target
-  DA[platform/settings.desktop.ts]
-  WA[platform/settings.browser.ts]
+  PORT[platform/settings.ts: settings store port]
+  DA[editions/desktop/settings.ts]
+  WA[editions/web/settings.ts]
   SVC[services/settings.rs]
   UDB[db/user_db.rs: settings row]
   LS[localStorage, new key (2.1)]:::target
@@ -252,7 +252,7 @@ flowchart LR
 
 - Owner: `app/settings/` (store states loading, ready with a notice, degraded); features write patches of one slice through `patchSettings`, and a patch policy says which feature writes which field. The port replaces today's `SettingsPlatformAdapter` whole-record load and save.
 - Invariant: the Google Maps key is a `secret` field, `Redacted<String>` in Rust, read only through `expose()`; its redaction names, report line and export exclusion are generated from the privacy column. A bad field resets alone, the original kept once as `settings.before-reset`; a degraded store is never written.
-- Tests: the settings fixture corpus through both runners; `settings-no-upward`; the `patchSettings` caller policy.
+- Tests: the settings fixture corpus through both runners; `layer-order`; the `patchSettings` caller policy.
 
 ### Object-action matrix and edition capabilities
 
@@ -261,12 +261,12 @@ Source: ADR 0022, ADR 0030; contracts §21; 2.1-Q147, 2.1-M86, 2.1-M164
 
 ```mermaid
 flowchart LR
-  OCM["app/command-table/object-capabilities.ts: rows id, backing: Backing; OBJECT_KINDS with requires x CAPABILITIES; cellOn adds lacking (2.1)"]:::target
-  OWNR["ownerOf(row) -> ObjectOwner: scene, document, data-library, map-layer-store, stamp-store, tool-session (2.1)"]:::target
-  CMD[app/command-table/ descriptors and availability (2.1)]:::target
-  ECJ[canopi-types/edition-capabilities.json: guarded rows (2.1)]:::target
+  OCM["app/command-table/object-capabilities.ts: rows id, backing: Backing; OBJECT_KINDS with requires x CAPABILITIES; cellOn adds lacking"]
+  OWNR["ownerOf(row) -> ObjectOwner: scene, document, data-library, map-layer-store, stamp-store, tool-session"]
+  CMD[app/command-table/ descriptors and availability]
+  ECJ[canopi-types/edition-capabilities.json: guarded rows]
   ECR[canopi-types EditionCapability, Rust (2.1)]:::target
-  ECT[generated/edition-capabilities.ts: gate and adapter rows; set by edition plus OS (2.1)]:::target
+  ECT[generated/edition-capabilities.ts: gate and adapter rows; set by edition plus OS]
   EP[EditionPorts: port bindings and capability set (2.1)]:::target
   ROOTS[editions/desktop/ and editions/web/ roots (2.1)]:::target
   FEAT[features read a capability id, never an edition]
@@ -328,7 +328,7 @@ Model: current
 flowchart LR
   STR[commands return Result with String: English text]
   PDB[ipc/plant-db-errors.ts: prefix match]
-  LF[app/lidar/lidar-failures.ts: refusal copy, generic text]
+  LF[app/data-library/lidar-failures.ts: refusal copy, generic text]
   DIAG[failures/ring.ts: ring of 50, read by app/problem-report/diagnostics.ts]
   RED[failures/redact.ts]
   STR --> PDB
@@ -337,7 +337,7 @@ flowchart LR
   RED --> DIAG
 ```
 
-Health is already the target's: `commands/health.rs` answers the `StoreId` map (`get_health`), `failures/health.ts` holds it with the TS adapters' writes, and `failures/health-notices.ts` tells each state once on the notice row.
+Health matches the target: `commands/health.rs` answers `StoreId` (`get_health`), `failures/health.ts` holds TS writes, and `failures/health-notices.ts` shows each state once.
 
 ### Store open status
 
@@ -361,6 +361,6 @@ stateDiagram-v2
   migrating --> unavailable
 ```
 
-- Owner: each store's runner on Desktop, each browser adapter on Web; one `SubsystemHealth` record from store id to status, read by `failures/ (2.1)`; the plant catalog row is read-only (ready or unavailable).
-- Invariant: opening never writes, per medium (ADR 0026); a refused or unavailable store is not written for the session; the Design stays saveable.
-- Test: a fixture per store from each release tag through the chain; the rollback lane.
+- Owner: each store's runner on Desktop, each browser adapter on Web; one `SubsystemHealth` record maps store ids to status for `failures/ (2.1)`; plant catalog is read-only (ready or unavailable).
+- Invariant: opening never writes (ADR 0026); refused or unavailable stores stay read-only for the session; the Design stays saveable.
+- Test: per-store fixtures from each release tag through the chain; rollback lane.

@@ -1,0 +1,18 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "edition-pairs",
+  "ledger": "2.1-M522",
+  "bead": "canopi-f47t.52.185",
+  "tool": "edition-pairs",
+  "scope": [
+    "desktop/web/src/**/*.{desktop,browser}.{ts,tsx}"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "entries": {
+    "desktop/web/src/app/geocoding/transport.browser.ts": {},
+    "desktop/web/src/app/geocoding/transport.desktop.ts": {},
+    "desktop/web/src/platform/draft-records.browser.ts": {}
+  }
+}

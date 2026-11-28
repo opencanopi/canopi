@@ -2,7 +2,8 @@ import { useMemo } from 'preact/hooks'
 import { currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/session'
 import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
 import { buildSpeciesKey, speciesDisplayNames, type SpeciesKeyEntry } from '../../canvas/runtime/species-key'
-import { locale } from '../settings/state'
+import { locale, unitSystem } from '../settings/state'
+import type { UnitSystem } from '../../utils/format'
 import { DEFAULT_BUDGET_CURRENCY } from '../contracts/document'
 import { currentDesign, designName } from '../document-session/store'
 import type { BudgetItem, Consortium, PlacedPlant, TimelineAction } from '../../types/design'
@@ -10,7 +11,8 @@ import { buildBudgetPlanningProjection, type BudgetPlanningProjection } from './
 import { buildConsortiumPlanningProjection, type ConsortiumPlanningProjection } from './consortium'
 import { buildTimelineSpeciesOptions, type TimelineSpeciesOption } from './timeline'
 import { buildCalendarPlanningProjection, type CalendarPlanningProjection, type PlanningZoneOption } from './calendar'
-import { zoneLabel } from '../map-selection/zone-label'
+import { zoneLabel, zoneTypeLabel } from '../map-selection/zone-label'
+import { zoneDisplayName } from '../../canvas/runtime/zone-identity'
 import type { CalendarCompletionFilter } from '../planning-view/state'
 
 const EMPTY_PLANTS: readonly PlacedPlant[] = []
@@ -57,6 +59,7 @@ export interface ConsortiumPlanningSurface {
 function readPlanningProjectionCanvasSnapshot(
   session: CanvasQuerySurface | null,
   activeLocale: string,
+  activeUnitSystem: UnitSystem,
 ): PlanningProjectionCanvasSnapshot {
   const localizedNames = session?.getLocalizedCommonNames() ?? EMPTY_NAMES
   const englishFallbackNames = session?.getEnglishFallbackNames() ?? EMPTY_ENGLISH_NAMES
@@ -65,9 +68,15 @@ function readPlanningProjectionCanvasSnapshot(
     localizedNames: speciesDisplayNames(localizedNames, englishFallbackNames),
     englishFallbackNames,
     speciesKey: session
-      ? buildSpeciesKey(session.getSceneSnapshot(), session.getSpeciesCache(), localizedNames, englishFallbackNames)
+      ? buildSpeciesKey(session.getSceneSnapshot(), localizedNames, englishFallbackNames, activeLocale)
       : [],
-    zones: session?.getSceneSnapshot().zones.map((zone) => ({ id: zone.id, label: zoneLabel(zone, activeLocale) })) ?? [],
+    zones: (() => {
+      const plane = session?.sessionPlane.peek() ?? null
+      return session?.getSceneSnapshot().zones.map((zone) => ({
+        id: zone.id,
+        label: plane ? zoneLabel(zone, activeLocale, plane, activeUnitSystem) : (zoneDisplayName(zone) ?? zoneTypeLabel(zone.zoneType)),
+      })) ?? []
+    })(),
     selectedPlantIds: session?.getSelectedPlantColorContext().plantIds ?? [],
   }
 }
@@ -78,20 +87,19 @@ function usePlanningProjectionCanvasSnapshot(): PlanningProjectionCanvasSnapshot
   const plantNamesRevision = session?.revision.plantNames.value ?? 0
   const selection = currentCanvasSelection.value
   const activeLocale = locale.value
+  const activeUnitSystem = unitSystem.value
 
   return useMemo(
-    () => readPlanningProjectionCanvasSnapshot(session, activeLocale),
-    [session, sceneRevision, plantNamesRevision, selection, activeLocale],
+    () => readPlanningProjectionCanvasSnapshot(session, activeLocale, activeUnitSystem),
+    [session, sceneRevision, plantNamesRevision, selection, activeLocale, activeUnitSystem],
   )
 }
 
 function useBudgetPlanningProjection({
   budget,
-  currency,
   locale,
 }: {
   readonly budget: readonly BudgetItem[]
-  readonly currency: string
   readonly locale: string
 }): BudgetPlanningProjection {
   const snapshot = usePlanningProjectionCanvasSnapshot()
@@ -101,10 +109,9 @@ function useBudgetPlanningProjection({
     localizedNames: snapshot.localizedNames,
     englishFallbackNames: snapshot.englishFallbackNames,
     budget,
-    currency,
     locale,
     speciesKey: snapshot.speciesKey,
-  }), [snapshot, budget, currency, locale])
+  }), [snapshot, budget, locale])
 }
 
 /**
@@ -115,14 +122,13 @@ export function readBudgetPlanningSurface(): BudgetPlanningSurface {
   const design = currentDesign.peek()
   const currency = design?.budget_currency ?? DEFAULT_BUDGET_CURRENCY
   const activeLocale = locale.peek()
-  const snapshot = readPlanningProjectionCanvasSnapshot(currentCanvasQuerySurface.peek(), activeLocale)
+  const snapshot = readPlanningProjectionCanvasSnapshot(currentCanvasQuerySurface.peek(), activeLocale, unitSystem.peek())
   return {
     projection: buildBudgetPlanningProjection({
       plants: snapshot.plants,
       localizedNames: snapshot.localizedNames,
       englishFallbackNames: snapshot.englishFallbackNames,
       budget: design?.budget ?? EMPTY_BUDGET,
-      currency,
       locale: activeLocale,
       speciesKey: snapshot.speciesKey,
     }),
@@ -139,7 +145,6 @@ export function useBudgetPlanningSurface(): BudgetPlanningSurface {
   const activeLocale = locale.value
   const projection = useBudgetPlanningProjection({
     budget,
-    currency,
     locale: activeLocale,
   })
 

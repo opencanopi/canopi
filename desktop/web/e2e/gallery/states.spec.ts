@@ -6,13 +6,13 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, openGallery, recordRasterTiles, settledRaster, test } from '../support/gallery'
 
-/** The memory backend's `invoke`, imported in the page from the module the app's Tauri alias resolves to. */
+/** The gallery's command transport, imported in the page from the gallery edition root. */
 async function invokeInPage(page: Page, command: string, args: Record<string, unknown>): Promise<{ ok: unknown } | { failed: true }> {
   return page.evaluate(async ({ command, args }) => {
-    const url = '/memory-backend.ts'
-    const backend = await import(url) as { invoke(command: string, args: Record<string, unknown>): Promise<unknown> }
+    const url = '/src/editions/gallery/command-adapter.ts'
+    const backend = await import(url) as { galleryCommandTransport(command: string, args: Record<string, unknown>, operation?: string): Promise<unknown> }
     try {
-      return { ok: await backend.invoke(command, args) }
+      return { ok: await backend.galleryCommandTransport(command, args) }
     } catch {
       return { failed: true as const }
     }

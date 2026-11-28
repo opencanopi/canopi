@@ -5,26 +5,20 @@
 // CancelToken instead.
 
 import { batch, computed, signal, type ReadonlySignal } from '@preact/signals'
-import type {
-  CanvasDesignObjectSelectionModel,
-  CanvasDesignObjectSelectionTarget,
-  CanvasQuerySurface,
-} from '../../canvas/runtime/runtime'
-import {
-  resolvePlantSymbolForPlant,
-  type SceneAnnotationEntity,
-  type SceneObjectGroupEntity,
-  type SceneObjectGroupMember,
-  type ScenePersistedState,
-  type ScenePlantEntity,
-  type SceneZoneEntity,
-} from '../../canvas/runtime/scene'
+import { buildDeliveryFileName } from '../../platform/file-delivery'
+import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
 import { currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/session'
 import type { CanvasRuntimeSavedObjectStampCapture } from '../../canvas/runtime/app-adapter'
-import { canSaveSelectionAsObjectStamp } from '../../canvas/runtime/interaction/contextual-selection-actions'
 import { armCanvasTool, type ArmFrom } from '../keyboard/arming'
-import { parseSavedObjectStampPayload, SAVED_OBJECT_STAMP_PAYLOAD_VERSION } from '../../canvas/saved-object-stamp-payload'
+import { normaliseObjectName } from '../contracts/object-name'
+import {
+  parseSavedObjectStampPayload,
+  serializeSavedObjectStampPayloadV3,
+} from '../../canvas/saved-object-stamp-payload'
 import { savedObjectStampRowState } from './row-state'
+import { showToast } from '../../failures/toasts'
+import { placeStampThroughCore } from './place'
+import { normalizeSelection, readSelectionModelView, type SavedObjectStampSelectionView } from './capture'
 import {
   createSavedObjectStamp as createSavedObjectStampIpc,
   deleteSavedObjectStamp as deleteSavedObjectStampIpc,
@@ -33,30 +27,30 @@ import {
   importSavedObjectStampCanopiFile,
   renameSavedObjectStamp as renameSavedObjectStampIpc,
   reorderSavedObjectStamps as reorderSavedObjectStampsIpc,
+  restoreSavedObjectStamp as restoreSavedObjectStampIpc,
 } from '../../ipc/saved-object-stamps'
-import { encodeCanopiDesign } from '../contracts/canopi-design-wire'
+import { flattenDocumentForJson, normalizeLoadedDocument } from '../contracts/document'
 import { designLoadFailureMessageKey, designLoadFailureOf } from '../contracts/canopi-design-errors'
 import type { CanopiFile } from '../../types/design'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
-import type {
-  SavedObjectStampAnnotation,
-  SavedObjectStampPayload,
-  SavedObjectStampPlant,
-  SavedObjectStampZone,
-} from '../../canvas/saved-object-stamp-payload'
 import {
   composeSavedObjectStampCanopiFile,
-  defaultSavedObjectStampName,
   importedSavedObjectStampName,
   savedObjectStampPayloadFromCanopiFile,
+  type SavedObjectStampCanopiDocument,
 } from './file'
 import { isCancelledFailure } from '../../failures/ipc-failure'
 import { createMutationQueue } from '../mutation-queue'
 import type { LocaleKey } from '../../generated/locale-keys'
 
+export type { SavedObjectStampSelectionView }
+
 /** Writes a stamp as a `.canopi` file in canonical wire form; the transport takes encoded JSON. */
-export function exportSavedObjectStampFile(file: CanopiFile, defaultName: string): Promise<string> {
-  return exportSavedObjectStampCanopiFile(encodeCanopiDesign(file), defaultName)
+export function exportSavedObjectStampFile(
+  file: Parameters<typeof flattenDocumentForJson>[0],
+  defaultName: string,
+): Promise<string> {
+  return exportSavedObjectStampCanopiFile(flattenDocumentForJson(file), defaultName)
 }
 
 export interface SavedObjectStampLibraryView {
@@ -78,12 +72,6 @@ type SavedObjectStampImportOutcome =
 
 const IMPORT_CANCELLED: SavedObjectStampImportOutcome = { status: 'cancelled' }
 
-export interface SavedObjectStampSelectionView {
-  readonly canSave: boolean
-  readonly reason: 'no-canvas' | 'empty-selection' | 'structural-blocker' | null
-  readonly selectedCount: number
-}
-
 export interface SavedObjectStampWorkbench {
   readonly library: ReadonlySignal<SavedObjectStampLibraryView>
   readonly selection: ReadonlySignal<SavedObjectStampSelectionView>
@@ -91,9 +79,11 @@ export interface SavedObjectStampWorkbench {
   saveSelection(capture: CanvasRuntimeSavedObjectStampCapture): Promise<SavedObjectStamp | null>
   renameStamp(id: string, name: string): Promise<SavedObjectStamp | null>
   deleteStamp(id: string): Promise<boolean>
+  restoreStamp(stamp: SavedObjectStamp): Promise<SavedObjectStamp | null>
   reorderStamps(ids: string[]): Promise<void>
   /** Arms Place a stamp with it on the live canvas (Favorites: 'panel'; the tool card's chooser: 'card'). */
   placeStamp(stamp: SavedObjectStamp, from: Extract<ArmFrom, 'panel' | 'card'>): boolean
+  commitStampPlacement: typeof placeStampThroughCore
   exportStamp(stamp: SavedObjectStamp): Promise<string | null>
   /** Rejects only when saving the imported stamp fails. */
   importStampFile(): Promise<SavedObjectStampImportOutcome>
@@ -105,16 +95,12 @@ interface SavedObjectStampWorkbenchOptions {
   readonly createSavedObjectStamp?: (name: string, payloadJson: string) => Promise<SavedObjectStamp>
   readonly renameSavedObjectStamp?: (id: string, name: string) => Promise<SavedObjectStamp>
   readonly deleteSavedObjectStamp?: (id: string) => Promise<boolean>
+  readonly restoreSavedObjectStamp?: (stamp: SavedObjectStamp) => Promise<SavedObjectStamp>
   readonly reorderSavedObjectStamps?: (ids: string[]) => Promise<SavedObjectStamp[]>
-  readonly exportSavedObjectStamp?: (content: CanopiFile, defaultName: string) => Promise<string>
+  readonly exportSavedObjectStamp?: (content: SavedObjectStampCanopiDocument, defaultName: string) => Promise<string>
   readonly importSavedObjectStampFile?: () => Promise<CanopiFile>
   readonly getCanvasQuerySurface?: () => CanvasQuerySurface | null
   readonly arm?: typeof armCanvasTool
-}
-
-interface NormalizedSelection {
-  readonly name: string
-  readonly payload: SavedObjectStampPayload
 }
 
 export function createSavedObjectStampWorkbench({
@@ -122,9 +108,10 @@ export function createSavedObjectStampWorkbench({
   createSavedObjectStamp = createSavedObjectStampIpc,
   renameSavedObjectStamp = renameSavedObjectStampIpc,
   deleteSavedObjectStamp = deleteSavedObjectStampIpc,
+  restoreSavedObjectStamp = restoreSavedObjectStampIpc,
   reorderSavedObjectStamps = reorderSavedObjectStampsIpc,
   exportSavedObjectStamp = exportSavedObjectStampFile,
-  importSavedObjectStampFile = importSavedObjectStampCanopiFile,
+  importSavedObjectStampFile = async () => normalizeLoadedDocument(await importSavedObjectStampCanopiFile()),
   getCanvasQuerySurface = () => currentCanvasQuerySurface.value,
   arm = armCanvasTool,
 }: SavedObjectStampWorkbenchOptions = {}): SavedObjectStampWorkbench {
@@ -192,7 +179,7 @@ export function createSavedObjectStampWorkbench({
     return queue.enqueue(null, async (admittedLifetime) => {
       const saved = await createSavedObjectStamp(
         normalized.name,
-        JSON.stringify(normalized.payload),
+        serializeSavedObjectStampPayloadV3(normalized.payload),
       )
       if (!queue.isCurrent(admittedLifetime)) return null
       batch(() => {
@@ -211,8 +198,9 @@ export function createSavedObjectStampWorkbench({
   }
 
   function renameStamp(id: string, name: string): Promise<SavedObjectStamp | null> {
-    const nextName = name.trim()
-    if (nextName.length === 0 || needsNewer(id)) return Promise.resolve(null)
+    const normalised = normaliseObjectName(name)
+    if (!normalised.ok || needsNewer(id)) return Promise.resolve(null)
+    const nextName = normalised.name
     return queue.enqueue(null, async (admittedLifetime) => {
       const renamed = await renameSavedObjectStamp(id, nextName)
       if (!queue.isCurrent(admittedLifetime)) return null
@@ -224,8 +212,22 @@ export function createSavedObjectStampWorkbench({
     })
   }
 
+  function restoreStamp(stamp: SavedObjectStamp): Promise<SavedObjectStamp | null> {
+    if (queue.disposed) return Promise.resolve(null)
+    return queue.enqueue(null, async (admittedLifetime) => {
+      const restored = await restoreSavedObjectStamp(stamp)
+      if (!queue.isCurrent(admittedLifetime)) return null
+      batch(() => {
+        items.value = [...items.value.filter((entry) => entry.id !== restored.id), restored].sort(compareSavedObjectStamps)
+        revision.value += 1
+      })
+      return restored
+    })
+  }
+
   function deleteStamp(id: string): Promise<boolean> {
     if (needsNewer(id)) return Promise.resolve(false)
+    const removed = items.peek().find((stamp) => stamp.id === id) ?? null
     return queue.enqueue(false, async (admittedLifetime) => {
       const deleted = await deleteSavedObjectStamp(id)
       if (!queue.isCurrent(admittedLifetime)) return false
@@ -234,6 +236,17 @@ export function createSavedObjectStampWorkbench({
           items.value = items.value.filter((stamp) => stamp.id !== id)
           revision.value += 1
         })
+        if (removed) {
+          showToast({
+            key: `saved-object-stamp-deleted:${removed.id}`,
+            message: 'savedObjectStamps.deletedToast',
+            params: { name: removed.name },
+            actionLabel: 'savedObjectStamps.undo',
+            onAction: () => {
+              void restoreStamp(removed)
+            },
+          })
+        }
       }
       return deleted
     })
@@ -256,7 +269,10 @@ export function createSavedObjectStampWorkbench({
     if (queue.disposed || savedObjectStampRowState(stamp) !== 'ready') return false
     const payload = parseSavedObjectStampPayload(stamp.payload_json)
     if (!payload) return false
-    return arm('saved-object-stamp', { from, source: { kind: 'saved-stamp', stamp: payload, name: stamp.name.trim() || null } })
+    return arm('saved-object-stamp', {
+      from,
+      source: { kind: 'saved-stamp', stamp: payload, name: stamp.name.trim() || null },
+    })
   }
 
   async function exportStamp(stamp: SavedObjectStamp): Promise<string | null> {
@@ -334,8 +350,10 @@ export function createSavedObjectStampWorkbench({
     saveSelection,
     renameStamp,
     deleteStamp,
+    restoreStamp,
     reorderStamps,
     placeStamp,
+    commitStampPlacement: placeStampThroughCore,
     exportStamp,
     importStampFile,
     dispose,
@@ -343,169 +361,11 @@ export function createSavedObjectStampWorkbench({
 }
 
 function savedObjectStampFileName(name: string): string {
-  const base = name.trim() || 'Saved Object Stamp'
-  return `${base.replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ')}.canopi`
+  return buildDeliveryFileName('stamp', name.trim() || 'Saved Object Stamp')
 }
 
 function readSelectionView(query: CanvasQuerySurface): SavedObjectStampSelectionView {
   return readSelectionModelView(query.getDesignObjectSelection())
-}
-
-function readSelectionModelView(
-  selection: CanvasDesignObjectSelectionModel,
-): SavedObjectStampSelectionView {
-  const selectedCount = selection.editableTargets.length + selection.lockedTargets.length
-  if (canSaveSelectionAsObjectStamp(selection)) return { canSave: true, reason: null, selectedCount }
-  return {
-    canSave: false,
-    reason: selectedCount === 0 && selection.blockedTargets.length === 0
-      ? 'empty-selection'
-      : 'structural-blocker',
-    selectedCount,
-  }
-}
-
-function normalizeSelection(capture: CanvasRuntimeSavedObjectStampCapture): NormalizedSelection | null {
-  const selectionView = readSelectionModelView(capture.selection)
-  if (!selectionView.canSave) return null
-
-  const { scene, selection } = capture
-  const selectedTargets = [...selection.editableTargets, ...selection.lockedTargets]
-  const selected = collectSelectedConcreteTargets(scene, selectedTargets)
-  const selectedGroups = collectSelectedGroups(scene, selectedTargets)
-  const idMap = new Map<string, string>()
-
-  const plants = scene.plants
-    .filter((plant) => selected.plants.has(plant.id))
-    .map((plant, index) => {
-      const id = `plant-${index + 1}`
-      idMap.set(concreteKey({ kind: 'plant', id: plant.id }), id)
-      return savedPlantFromScene(plant, id, scene.plantSpeciesSymbols)
-    })
-  const zones = scene.zones
-    .filter((zone) => selected.zones.has(zone.id))
-    .map((zone, index) => {
-      const id = `zone-${index + 1}`
-      idMap.set(concreteKey({ kind: 'zone', id: zone.id }), id)
-      return savedZoneFromScene(zone, id)
-    })
-  const annotations = scene.annotations
-    .filter((annotation) => selected.annotations.has(annotation.id))
-    .map((annotation, index) => {
-      const id = `annotation-${index + 1}`
-      idMap.set(concreteKey({ kind: 'annotation', id: annotation.id }), id)
-      return savedAnnotationFromScene(annotation, id)
-    })
-  const groups = selectedGroups.map((group, index) => ({
-    id: `group-${index + 1}`,
-    name: group.name,
-    members: group.members
-      .map((member) => remapGroupMember(member, idMap))
-      .filter((member): member is SceneObjectGroupMember => member !== null),
-  }))
-
-  const payload: SavedObjectStampPayload = {
-    version: SAVED_OBJECT_STAMP_PAYLOAD_VERSION,
-    anchor: selection.bounds
-      ? {
-          x: (selection.bounds.minX + selection.bounds.maxX) / 2,
-          y: (selection.bounds.minY + selection.bounds.maxY) / 2,
-        }
-      : { x: 0, y: 0 },
-    plants,
-    zones,
-    annotations,
-    groups,
-  }
-  return {
-    name: defaultSavedObjectStampName(payload, capture.localizedCommonNames),
-    payload,
-  }
-}
-
-function collectSelectedConcreteTargets(
-  scene: ScenePersistedState,
-  targets: readonly CanvasDesignObjectSelectionTarget[],
-): { plants: Set<string>; zones: Set<string>; annotations: Set<string> } {
-  const plants = new Set<string>()
-  const zones = new Set<string>()
-  const annotations = new Set<string>()
-  const groupById = new Map(scene.groups.map((group) => [group.id, group]))
-
-  for (const target of targets) {
-    if (target.kind === 'plant') plants.add(target.id)
-    if (target.kind === 'zone') zones.add(target.id)
-    if (target.kind === 'annotation') annotations.add(target.id)
-    if (target.kind === 'group') {
-      for (const member of groupById.get(target.id)?.members ?? []) {
-        if (member.kind === 'plant') plants.add(member.id)
-        if (member.kind === 'zone') zones.add(member.id)
-        if (member.kind === 'annotation') annotations.add(member.id)
-      }
-    }
-  }
-
-  return { plants, zones, annotations }
-}
-
-function collectSelectedGroups(
-  scene: ScenePersistedState,
-  targets: readonly CanvasDesignObjectSelectionTarget[],
-): SceneObjectGroupEntity[] {
-  const selectedGroupIds = new Set(targets.filter((target) => target.kind === 'group').map((target) => target.id))
-  return scene.groups.filter((group) => selectedGroupIds.has(group.id))
-}
-
-function savedPlantFromScene(
-  plant: ScenePlantEntity,
-  id: string,
-  plantSpeciesSymbols: Readonly<Record<string, string>>,
-): SavedObjectStampPlant {
-  return {
-    id,
-    canonicalName: plant.canonicalName,
-    commonName: plant.commonName,
-    color: plant.color,
-    symbol: resolvePlantSymbolForPlant(plant, plantSpeciesSymbols),
-    position: { ...plant.position },
-    rotationDeg: plant.rotationDeg,
-    scale: plant.canopySpreadM,
-  }
-}
-
-function savedZoneFromScene(zone: SceneZoneEntity, id: string): SavedObjectStampZone {
-  return {
-    id,
-    name: zone.name,
-    zoneType: zone.zoneType,
-    points: zone.points.map((point) => ({ ...point })),
-    rotationDeg: zone.rotationDeg,
-    fillColor: zone.fillColor,
-  }
-}
-
-function savedAnnotationFromScene(annotation: SceneAnnotationEntity, id: string): SavedObjectStampAnnotation {
-  return {
-    id,
-    annotationType: annotation.annotationType,
-    position: { ...annotation.position },
-    text: annotation.text,
-    fontSize: annotation.fontSize,
-    rotationDeg: annotation.rotationDeg,
-  }
-}
-
-function remapGroupMember(
-  member: SceneObjectGroupMember,
-  idMap: ReadonlyMap<string, string>,
-): SceneObjectGroupMember | null {
-  const id = idMap.get(concreteKey(member))
-  if (!id) return null
-  return { kind: member.kind, id }
-}
-
-function concreteKey(member: SceneObjectGroupMember): string {
-  return `${member.kind}:${member.id}`
 }
 
 /**

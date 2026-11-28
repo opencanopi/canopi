@@ -1,24 +1,23 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
-import { t } from '../../i18n'
+import { STORY_IMAGES_MAX_TOTAL_BYTES } from '../../generated/canopi-design-format'
+import { currentLocale, t } from '../../i18n'
 import type { RichTextBlock, Story, StoryImage, StoryStep } from '../../types/design'
+import { formatByteSize } from '../../utils/format'
 import { createUuid } from '../../utils/ids'
 import {
   addSavedView,
   addStory,
   addStoryStep,
-  deleteStory,
-  deleteStoryStep,
   duplicateStoryStep,
   moveStoryStep,
   moveStoryStepToStory,
   recaptureSavedView,
   renameStory,
   reorderStorySteps,
-  restoreStory,
-  restoreStoryStep,
   updateStoryStep,
   type StoryEditOutcome,
 } from '../design-edit'
+import { getLiveSessionCore } from '../document-session/live-core'
 import { currentDesign, designSessionStore } from '../document-session/store'
 import { canShowSavedViews, captureCurrentView, goToSavedView } from '../saved-views/current-view'
 import type { KeyChord } from '../keyboard/key-chord'
@@ -126,7 +125,13 @@ function offerUndo(message: string, undo: () => void): void {
 /** Says why an edit changed nothing when its images would not fit in the Design. */
 function reportOutcome(outcome: StoryEditOutcome): void {
   if (outcome !== 'images-do-not-fit') return
-  undoState.value = { session: currentSession(), value: { message: t('stories.imagesDoNotFit'), undo: null } }
+  undoState.value = {
+    session: currentSession(),
+    value: {
+      message: t('stories.imagesDoNotFit', { limit: formatByteSize(STORY_IMAGES_MAX_TOTAL_BYTES, currentLocale()) }),
+      undo: null,
+    },
+  }
 }
 
 function findStory(storyId: string): Story | null {
@@ -153,12 +158,26 @@ export function createStory(): Story | null {
 export { renameStory }
 
 export function requestDeleteStory(storyId: string): void {
-  const deletion = deleteStory(storyId)
-  if (!deletion) return
-  offerUndo(t('stories.deleted', { name: deletion.story.name }), () => {
-    const outcome = restoreStory(deletion)
-    reportOutcome(outcome)
-    if (outcome === 'applied') selectStory(deletion.story.id)
+  const core = getLiveSessionCore()
+  const open = core?.currentDesign.peek()
+  if (!core || !open) return
+  const target = (open.document.stories ?? []).find((story) => story.id === storyId)
+  if (!target) return
+  const storyName = target.name
+  const entryId = core.document(
+    t('stories.deleted', { name: storyName }),
+    (doc) => {
+      const stories = doc.stories ?? []
+      if (!stories.some((story) => story.id === storyId)) return null
+      return { stories: stories.filter((story) => story.id !== storyId) }
+    },
+    { isDelete: true },
+  )
+  if (!entryId) return
+  offerUndo(t('stories.deleted', { name: storyName }), () => {
+    if (core.newestUndoable.peek()?.id !== entryId) return
+    const outcome = core.undo({ expect: entryId })
+    if (outcome.status === 'applied') selectStory(storyId)
   })
 }
 
@@ -257,11 +276,34 @@ export function moveStepToStory(storyId: string, stepId: string, toStoryId: stri
 }
 
 export function requestDeleteStep(storyId: string, stepId: string): void {
-  const deletion = deleteStoryStep(storyId, stepId)
-  if (!deletion) return
+  const core = getLiveSessionCore()
+  const open = core?.currentDesign.peek()
+  if (!core || !open) return
+  const story = (open.document.stories ?? []).find((entry) => entry.id === storyId)
+  const step = story?.steps.find((entry) => entry.id === stepId)
+  if (!story || !step) return
+  const stepName = step.title || t('stories.untitledStep')
+  const entryId = core.document(
+    t('stories.stepDeleted', { name: stepName }),
+    (doc) => {
+      const stories = doc.stories ?? []
+      const storyIndex = stories.findIndex((entry) => entry.id === storyId)
+      const currentStory = stories[storyIndex]
+      if (!currentStory || !currentStory.steps.some((entry) => entry.id === stepId)) return null
+      const nextStories = [...stories]
+      nextStories[storyIndex] = {
+        ...currentStory,
+        steps: currentStory.steps.filter((entry) => entry.id !== stepId),
+      }
+      return { stories: nextStories }
+    },
+    { isDelete: true },
+  )
+  if (!entryId) return
   if (selection.peek()?.stepId === stepId) selectStep(null)
-  offerUndo(t('stories.stepDeleted', { name: deletion.step.title || t('stories.untitledStep') }), () => {
-    reportOutcome(restoreStoryStep(deletion))
+  offerUndo(t('stories.stepDeleted', { name: stepName }), () => {
+    if (core.newestUndoable.peek()?.id !== entryId) return
+    core.undo({ expect: entryId })
   })
 }
 

@@ -1,0 +1,10 @@
+id: no-rust-settings-parsing
+valid:
+  - |
+    fn load(blob: &[u8]) -> &[u8] { blob }
+  - |
+    // get_settings in a comment only
+    fn f() {}
+invalid:
+  - |
+    fn f(db: &UserDb) { let _ = crate::services::settings::get_settings(db); }

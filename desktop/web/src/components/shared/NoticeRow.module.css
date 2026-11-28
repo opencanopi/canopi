@@ -64,13 +64,13 @@
 }
 
 /* Phones (the Web shell's phone layout): 44 px targets, clear of the notch's side insets. */
-[data-phone-layout] .belowTitleBar {
+[data-layout] .belowTitleBar {
   right: calc(var(--chrome-inset) + env(safe-area-inset-right));
   left: calc(var(--chrome-inset) + env(safe-area-inset-left));
 }
 
-[data-phone-layout] .belowTitleBar .action,
-[data-phone-layout] .belowTitleBar .dismiss {
+[data-layout] .belowTitleBar .action,
+[data-layout] .belowTitleBar .dismiss {
   min-height: var(--control-size-touch);
   min-width: var(--control-size-touch);
   justify-content: center;

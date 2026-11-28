@@ -3,7 +3,16 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { locale, singleKeyShortcuts, theme, toolNamesVisible, usedCanvasTools } from '../app/settings/state'
+import {
+  locale,
+  mapBackgroundOf,
+  mapLayers,
+  singleKeyShortcuts,
+  theme,
+  toolNamesVisible,
+  usedCanvasTools,
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+} from '../app/settings/state'
 import {
   closeKeyboardShortcutsDialog,
   closeSettingsDialog,
@@ -13,7 +22,6 @@ import {
   settingsDialogOpen,
 } from '../app/shell/dialogs'
 import { createWorkspaceShellCapabilities } from '../app/workspace-commands/capabilities'
-import { mapLayers, createDefaultMapLayers, mapBackgroundOf } from '../app/map-layers/state'
 import { aboutCanopiDialogOpen } from '../app/about/state'
 import { designRenameRequest } from '../app/shell/requests'
 import { sidePanel } from '../app/shell/state'
@@ -373,7 +381,7 @@ describe('Workspace shell capabilities', () => {
     aboutCanopiDialogOpen.value = false
 
     const rename = designRenameRequest.value
-    expect(capabilities.renameDesign.isExecutionDisabled({ hasDesign: false, revertAvailable: false, activePanel: 'canvas', sidePanel: null })).toBe(true)
+    expect(capabilities.renameDesign.isExecutionDisabled({ hasDesign: false, revertAvailable: false, sidePanel: null })).toBe(true)
     capabilities.renameDesign.execute()
     expect(designRenameRequest.value).toBe(rename + 1)
 

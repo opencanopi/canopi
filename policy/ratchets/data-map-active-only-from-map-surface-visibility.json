@@ -1,0 +1,5 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "data-map-active-only-from-map-surface-visibility",
+  "entries": {}
+}

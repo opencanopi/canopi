@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { setLidarEntryDisplay } from '../../../app/lidar/actions'
+import { setLidarEntryDisplay } from '../../../app/data-library/actions'
 import { parseLocaleNumber } from '../../../app/analyses/model'
-import { lidarDisplayStyle } from '../../../app/lidar/display'
-import { formatLegendValue, legendGradient } from '../../../app/lidar/display-legend'
-import { kindDisplayDefaults, kindRamps, unitSuffix } from '../../../app/lidar/item-types'
-import type { LidarPresentationItem } from '../../../app/lidar/library-store'
-import { locale } from '../../../app/settings/state'
+import { lidarDisplayStyle } from '../../../app/data-library/display'
+import { formatLegendValue, legendGradient } from '../../../app/data-library/display-legend'
+import { kindDisplayDefaults, kindRamps, unitSuffix } from '../../../app/data-library/item-types'
+import type { LidarPresentationItem } from '../../../app/data-library/library-store'
+import { locale, unitSystem } from '../../../app/settings/state'
 import type { LidarColourRange, LidarRamp } from '../../../generated/contracts'
 import { t } from '../../../i18n'
+import { formatNumber, formatPercent } from '../../../utils/format'
 import { SegmentedControl } from '../../shared/SegmentedControl'
 import { Slider } from '../../shared/Slider'
 import styles from './raster-display-controls.module.css'
@@ -29,7 +30,7 @@ type RangeMode = LidarColourRange['mode']
  */
 export function RasterDisplayControls({ item }: { readonly item: LidarPresentationItem }) {
   const style = lidarDisplayStyle(item)
-  const percent = new Intl.NumberFormat(locale.value, { style: 'percent' })
+  const activeLocale = locale.value
   const relief = style?.ramp === 'Relief'
   return (
     <div className={styles.controls}>
@@ -46,7 +47,7 @@ export function RasterDisplayControls({ item }: { readonly item: LidarPresentati
         min={0}
         max={100}
         value={Math.round(item.opacity * 100)}
-        format={(value) => percent.format(value / 100)}
+        format={(value) => formatPercent(value / 100, activeLocale)}
         onInput={(value) => setLidarEntryDisplay(item.id, { opacity: value / 100 })}
       />
     </div>
@@ -119,8 +120,8 @@ function Legend({ ramp, reversed, range, data, units }: {
   readonly units: string
 }) {
   const [low, high] = range
-  const lowText = formatLegendValue(low, units, locale.value)
-  const highText = formatLegendValue(high, units, locale.value)
+  const lowText = formatLegendValue(low, units, locale.value, unitSystem.value)
+  const highText = formatLegendValue(high, units, locale.value, unitSystem.value)
   return (
     <div className={styles.legend} aria-label={t('canvas.lidar.layers.legend')} role="group">
       <div className={styles.ramp} style={{ backgroundImage: legendGradient(ramp, reversed) }} />
@@ -180,7 +181,7 @@ function Range({ item, mode, values }: {
 function fieldNumber(value: number, localeTag: string): string {
   const magnitude = Number.isFinite(value) && value !== 0 ? Math.floor(Math.log10(Math.abs(value))) : 0
   const digits = Math.min(20, Math.max(2, 2 - magnitude))
-  return new Intl.NumberFormat(localeTag, { useGrouping: false, maximumFractionDigits: digits }).format(value)
+  return formatNumber(value, localeTag, { useGrouping: false, maximumFractionDigits: digits })
 }
 
 /**

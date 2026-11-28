@@ -8,6 +8,7 @@ import { join, relative, resolve } from 'node:path'
 import type * as TS from 'typescript'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { display, POLICY_COMMIT, TABLE, type Check, type Table } from './table.ts'
+import { CI_CALLED_AREAS, CI_CODE_AREAS, ciAreasOutputs } from './ci-areas.ts'
 import { tableFaults } from './table-faults.ts'
 import { cleanEnv, git, PlantedRepo, REPO_ROOT } from './planted-repo.ts'
 import { type Job, readActions, readWorkflows, type Step, type Workflow } from './workflows.ts'
@@ -91,11 +92,9 @@ describe('the table (canopi-f47t.52.228.10)', () => {
 
   it('canopi-f47t.52.228.10: gates name package scripts and the one typecheck', () => {
     const commands = TABLE.areas.flatMap((area) => checksOf(everyLane(area))).map((check) => check.command)
-    expect(commands.filter((command) => command.includes('check.mjs') && !command.includes('--closed-beads')),
-      '2.1-M223: package scripts, never check.mjs flags').toEqual([])
     expect(commands.filter((command) => /\btsc\b/.test(command)), '2.1-Q205: npm run typecheck is the one typecheck').toEqual([])
     const rust = TABLE.areas.find((area) => area.name === 'rust')!
-    expect(checksOf(rust.full).map(display)).toContain('cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push')
+    expect(checksOf(rust.full).map(display)).toContain('CANOPI_SKIP_BUNDLED_DB=1 node policy/check.mjs --lane push')
     expect(checksOf(rust.full).filter((check) => check.command.includes(' cargo ') && !check.cargo)).toEqual([])
   })
 
@@ -111,7 +110,7 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     expect(frontend.full.indexOf('typecheck')).toBeLessThan(frontend.full.indexOf('build'))
     for (const lane of [frontend.full, frontend.affected ?? [], frontend.commit ?? []]) {
       const projects = checksOf(lane).flatMap((check) => tscProjects(check.command))
-      expect(projects, lane.join(' ')).toContain('ui-gallery/tsconfig.json')
+      expect(projects, lane.join(' ')).toContain('tsconfig.json')
       expect(projects.filter((project, index) => projects.indexOf(project) !== index), lane.join(' ')).toEqual([])
     }
   })
@@ -154,10 +153,11 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     // desktop/build.rs refuses the missing resource unless CANOPI_SKIP_BUNDLED_DB=1. The commit lane's clippy families
     // read source only (canopi-f47t.52.228.54), so its policy checks need no cargo target and no SKIP_DB.
     for (const id of ['policy-check-push', 'policy-self-test-push']) {
-      expect(TABLE.checks[id]?.command, id).toMatch(/^CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push/)
+      expect(TABLE.checks[id]?.command, id).toMatch(/^CANOPI_SKIP_BUNDLED_DB=1 node policy\/check\.mjs .*--lane push/)
       expect(TABLE.checks[id]?.cargo, id).toBe(true)
     }
-    const commit = new Set(TABLE.areas.flatMap((area) => checksOf(area.commit)).filter((check) => check.command.includes('test:policies')))
+    const commit = new Set(TABLE.areas.flatMap((area) => checksOf(area.commit))
+      .filter((check) => check.command.includes('policy/check.mjs') || check.command.includes('test:policies')))
     expect([...commit].map((check) => check.command)).toEqual(POLICY_COMMIT.map((id) => TABLE.checks[id]?.command))
     expect([...commit].filter((check) => check.cargo || check.command.includes('SKIP_BUNDLED_DB')),
       'the commit lane never builds, so never refuses a linked worktree\'s default target').toEqual([])
@@ -177,21 +177,17 @@ describe('the table (canopi-f47t.52.228.10)', () => {
     // canopi-desktop) refuses a checkout with no bundled catalog DB unless CANOPI_SKIP_BUNDLED_DB=1. cargo fmt and fetch
     // build nothing; bindings-gen does not depend on the desktop crate.
     const builds = Object.values(TABLE.checks).filter((check) => /^(\w+=\S+ )*cargo (?!fmt\b|fetch\b|run -p bindings-gen\b)/.test(check.command)
-      || (check.command.includes('test:policies') && check.cargo) || check === TABLE.checks['cov'])
+      || (check.command.includes('policy/check.mjs') && check.cargo) || check === TABLE.checks['cov'])
     expect(builds.map((check) => check.command)).toContain('CANOPI_SKIP_BUNDLED_DB=1 node policy/gate/cli.mjs cov')
     expect(builds.filter((check) => !check.command.startsWith('CANOPI_SKIP_BUNDLED_DB=1 ')).map(display)).toEqual([])
   })
 
   it('canopi-f47t.52.228.10: the commit lane runs the policy tooling without the check self-test, each script one command', () => {
-    // Design check AR8 (amends 2.1-M223): each policy script is one checker or tool command, so the table names the
-    // self-test apart from the check and lane-unrun credits the script it reads.
-    const scripts = (JSON.parse(read('desktop/web/package.json')) as { scripts: Record<string, string> }).scripts
-    const policy = Object.entries(scripts).filter(([name]) => name.startsWith('test:policies'))
-    expect(policy.filter(([name, script]) => name !== 'test:policies:ast-grep' && /&&|\|\||[|;]/.test(script)), 'one command each').toEqual([])
+    // canopi-6a36: checker lanes call node policy/check.mjs directly; commit lane never runs check.mjs --self-test.
     const commit = TABLE.areas.flatMap((area) => checksOf(area.commit)).map((check) => check.command)
     expect(commit.filter((command) => command.includes('self-test') && !command.includes('generate')),
       '2.1-M201: the commit lane never runs check.mjs --self-test').toEqual([])
-    expect(scripts['test:policies:check']).toBe('node ../../policy/check.mjs')
+    expect(TABLE.checks['policy-check']?.command).toBe('node policy/check.mjs')
     expect(TABLE.areas.find((area) => area.name === 'rust')?.commit).toEqual(['fmt', ...POLICY_COMMIT])
   })
 })
@@ -310,12 +306,9 @@ describe('the updater area (canopi-f47t.52.228)', () => {
     // The notice row's key the spec waits for is raised by a file the area selects.
     const key = spec.match(/data-notice-key="([^"]+)"/u)?.[1]
     expect(key && read('desktop/web/src/components/workspace/launch-notices.ts').includes(`'${key}'`), key).toBe(true)
-    // A push to main selects the lane by its area too, so a merge that skipped it is still caught: the changes job turns
-    // the updater output on by area outside its pull-request-only block.
-    const diff = read(BUILD)
-    const turnedOn = diff.indexOf('if has updater; then updater=true; fi')
-    expect(turnedOn).toBeGreaterThan(0)
-    expect(turnedOn).toBeLessThan(diff.indexOf('if [ "$PR_RUN" = true ]; then\n              rust=false'))
+    // A push to main selects the lane by its area too, so a merge that skipped it is still caught (canopi-tazgx).
+    expect(ciAreasOutputs(REPO_ROOT, undefined, 'push', ['desktop/src/host/updater/x.rs'])['updater']).toBe('true')
+    expect(ciAreasOutputs(REPO_ROOT, undefined, 'push', ['desktop/src/services/lidar/x.rs'])['updater']).toBe('false')
   })
 })
 
@@ -338,7 +331,7 @@ describe('the release build inputs (canopi-f47t.52.228.54)', () => {
     // The packaging matrix widens to every platform for a packaging input only; the dry run runs every platform itself.
     const changes = jobs(read(BUILD)).get('changes') ?? ''
     expect(changes).toContain('EVERY_PLATFORM: ${{ steps.diff.outputs.packaging }}')
-    expect(changes).toContain('if has release-build; then release_build=true; fi')
+    expect(ciAreasOutputs(REPO_ROOT, undefined, 'pull_request', ['scripts/release_smoke.py'])['release_build']).toBe('true')
   })
 
   it('canopi-f47t.52.228.61: a version bump, a channel or an updater key change runs the dry run on its own PR', () => {
@@ -393,12 +386,11 @@ function ciHomes(table: Table): Map<string, Set<string>> {
   const actions = readActions(REPO_ROOT)
   const build = all.get('build.yml')?.jobs ?? {}
   const changes = build['changes']
-  const script = (changes?.steps ?? []).map((step) => step.run ?? '').join('\n')
-  // A job reads a changes output, which names the diff step's flag that `has <area>` turns on.
+  const allFlags: Record<string, string> = { ...CI_CODE_AREAS, ...CI_CALLED_AREAS, supply_chain: 'supply-chain' }
+  // A job reads a changes output, which names the diff step's flag mapped in plan.ts (canopi-tazgx).
   const turnedOn = (output: string) => {
     const flag = /steps\.\w+\.outputs\.(\w+)/.exec(changes?.outputs?.[output] ?? '')?.[1]
-    return [...script.matchAll(/if ((?:has [a-z0-9-]+(?: \|\| )?)+); then ([a-z_]+)=true/g)].filter((match) => match[2] === flag)
-      .flatMap((match) => (match[1] ?? '').split(' || ').map((term) => term.replace('has ', '')))
+    return flag && flag in allFlags ? [allFlags[flag]!] : []
   }
   const homes = new Map<string, Set<string>>()
   for (const area of table.areas.filter((row) => !row.every)) {
@@ -439,7 +431,9 @@ describe('where an area\'s CI job lives (canopi-f47t.52.228.54)', () => {
       ? { ...area, patterns: area.patterns.filter((pattern) => !pattern.includes('github')) } : area)) }
     expect(ciHomeFaults(narrow)).toEqual([".github/workflows/build.yml holds the real-app area's CI job, but does not select it",
       ".github/workflows/desktop-real-app.yml holds the real-app area's CI job, but does not select it",
-      ".github/actions/install-linux-deps/action.yml holds the real-app area's CI job, but does not select it"])
+      ".github/actions/install-linux-deps/action.yml holds the real-app area's CI job, but does not select it",
+      ".github/actions/setup-rust/action.yml holds the real-app area's CI job, but does not select it",
+      ".github/actions/setup-frontend/action.yml holds the real-app area's CI job, but does not select it"])
     const stale = { ...TABLE, areas: TABLE.areas.map((area) => (area.name === 'web-browsers' ? { ...area, actions: ['osv-advisories'] } : area)) }
     expect(ciHomeFaults(stale)).toEqual(['the web-browsers area lists action osv-advisories, which none of its CI jobs runs'])
   })

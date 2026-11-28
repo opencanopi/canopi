@@ -1,4 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { InlineRenameField } from './InlineRenameField'
 import {
   cancelDeleteView,
   closeManageViewsDialog,
@@ -153,56 +154,35 @@ function ManageViewsDialog() {
 
 function ManagedViewRow({ view }: { readonly view: SavedView }) {
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(view.name)
   const renameButton = useRef<HTMLButtonElement>(null)
-  const field = useRef<HTMLInputElement>(null)
   const wasEditing = useRef(false)
 
   // Focus follows the control that replaced the focused one as it commits, so an Esc at once is the rename's or the
   // dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
-    if (editing) {
-      field.current?.focus()
-      field.current?.select()
-    }
-    else if (wasEditing.current) renameButton.current?.focus()
+    if (!editing && wasEditing.current) renameButton.current?.focus()
     wasEditing.current = editing
   }, [editing])
 
   if (editing) {
-    const finish = (commit: boolean) => {
-      if (commit) renameView(view.id, draft)
-      setEditing(false)
-    }
     return (
       <li className={styles.row}>
-        <form
-          className={styles.rowField}
-          onSubmit={(event) => {
-            event.preventDefault()
-            finish(true)
-          }}
-        >
-          <input
-            ref={field}
+        <div className={styles.rowField}>
+          <InlineRenameField
+            value={view.name}
+            ariaLabel={t('savedViews.renameField', { name: view.name })}
             className={`${styles.input} ${styles.rowInput}`}
-            aria-label={t('savedViews.renameField', { name: view.name })}
-            value={draft}
-            onInput={(event) => setDraft(event.currentTarget.value)}
-            onKeyDown={(event) => {
-              // Esc cancels the rename, not the dialog.
-              if (event.key !== 'Escape') return
-              event.preventDefault()
-              event.stopPropagation()
-              finish(false)
+            unchangedName={view.name}
+            cancelOnFocusOutTarget={(target) => target instanceof HTMLElement && Boolean(target.closest('[data-view-rename-cancel="true"]'))}
+            onCommit={(name) => {
+              renameView(view.id, name)
+              setEditing(false)
             }}
+            onCancel={() => setEditing(false)}
           />
-        </form>
+        </div>
         <div className={styles.rowActions}>
-          <button type="button" className={`${styles.button} ${styles.primary}`} onClick={() => finish(true)}>
-            {t('savedViews.renameSave')}
-          </button>
-          <button type="button" className={styles.button} onClick={() => finish(false)}>
+          <button type="button" className={styles.button} data-view-rename-cancel="true" onClick={() => setEditing(false)}>
             {t('savedViews.cancel')}
           </button>
         </div>
@@ -235,7 +215,6 @@ function ManagedViewRow({ view }: { readonly view: SavedView }) {
           className={styles.button}
           aria-label={t('savedViews.renameAria', { name: view.name })}
           onClick={() => {
-            setDraft(view.name)
             setEditing(true)
           }}
         >
@@ -289,9 +268,9 @@ function SavedViewUndoToast() {
   return (
     <SlotToast
       message={undo.message}
-      icon={undo.deletion ? 'check' : 'alert'}
-      actionLabel={undo.deletion ? t('savedViews.undo') : undefined}
-      onAction={undo.deletion ? undoDeleteView : undefined}
+      icon={undo.undo ? 'check' : 'alert'}
+      actionLabel={undo.undo ? t('savedViews.undo') : undefined}
+      onAction={undo.undo ? undoDeleteView : undefined}
       onDismiss={() => dismissDeleteViewUndo(undo)}
     />
   )

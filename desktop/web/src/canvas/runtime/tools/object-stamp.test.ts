@@ -10,7 +10,7 @@ import {
 } from '../../../__tests__/support/tool-harness'
 import type { SceneArrangementTemplate } from '../scene-runtime/arrangement-placement'
 import type { ScenePersistedState, ScenePlantEntity } from '../scene/types'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
 import type { CanvasTool } from './tool'
 import '../../../__tests__/support/camera-tolerance'
@@ -85,6 +85,10 @@ function expectPoint(actual: WorldPoint, expected: WorldPoint): void {
   expect(actual.y).toBeCloseTo(expected.y, 6)
 }
 
+function closePoint(x: number, y: number): { readonly x: unknown; readonly y: unknown } {
+  return { x: expect.closeTo(x, 6), y: expect.closeTo(y, 6) }
+}
+
 function selected(h: ToolHarness) {
   return h.store.session.selectedTargets
 }
@@ -109,13 +113,13 @@ describe('object stamp tool', () => {
     const h = stampHarness({ plants: [APPLE] })
     const commits = committedEdits(h)
 
-    h.press({ x: 54, y: 63 })
+    h.press(h.screen({ x: 54, y: 63 }))
     expect(h.store.persisted.plants).toHaveLength(1)
     expect(commits).toEqual([])
     // The pick's ghost sits on the picked plant, anchored where it was pressed, level.
     expect(ghosts(h)).toHaveLength(1)
     expect(ghosts(h)[0]!.opacity).toBe(0.62)
-    expect(objectsGhost(ghosts(h)[0]).template.plants.map(({ entity }) => entity.position)).toEqual([{ x: 50, y: 60 }])
+    expect(objectsGhost(ghosts(h)[0]).template.plants.map(({ entity }) => entity.position)).toEqual([closePoint(50, 60)])
     expect(h.record.guidance.at(-1)).toMatchObject({
       stamp: { kind: 'plant', name: 'Apple', plants: 1, species: 1 },
       stampRotationDeg: 0,
@@ -126,10 +130,10 @@ describe('object stamp tool', () => {
     expect(h.record.guidance.at(-1)?.stamp).toMatchObject({ kind: 'plant', name: 'Apple' })
 
     // The ghost follows the pointer with the pick's offset.
-    h.hover({ x: 100, y: 120 })
-    expect(objectsGhost(ghosts(h)[0]).template.plants[0]!.entity).toMatchObject({ position: { x: 96, y: 117 }, pinnedName: false })
+    h.hover(h.screen({ x: 100, y: 120 }))
+    expect(objectsGhost(ghosts(h)[0]).template.plants[0]!.entity).toMatchObject({ position: closePoint(96, 117), pinnedName: false })
 
-    h.press({ x: 100, y: 120 })
+    h.press(h.screen({ x: 100, y: 120 }))
 
     expect(h.store.persisted.plants).toHaveLength(2)
     const clone = h.store.persisted.plants[1]!
@@ -140,7 +144,7 @@ describe('object stamp tool', () => {
       color: '#C44230',
       symbol: 'triangle',
       canopySpreadM: 4,
-      position: { x: 96, y: 117 },
+      position: closePoint(96, 117),
       rotationDeg: 15,
       notes: 'Source plant',
       plantedDate: '2026-02-01',
@@ -149,11 +153,11 @@ describe('object stamp tool', () => {
     expect(selected(h)).toEqual([{ kind: 'plant', id: clone.id }])
     expect(commits).toEqual(['interaction-object-stamp'])
     // The ghost stands on the copy while the button is down; the release hides it.
-    expect(ghostPlant(h).position).toEqual({ x: 96, y: 117 })
+    expectPoint(ghostPlant(h).position, { x: 96, y: 117 })
     h.release()
     expect(ghosts(h)).toEqual([])
     // Each later click places again: the pick is still held.
-    h.click({ x: 140, y: 120 })
+    h.click(h.screen({ x: 140, y: 120 }))
     expect(h.store.persisted.plants).toHaveLength(3)
     expect(commits).toEqual(['interaction-object-stamp', 'interaction-object-stamp'])
   })
@@ -164,7 +168,7 @@ describe('object stamp tool', () => {
     // Nothing held: the keys are not the stamp's (they stay send to back and bring to front).
     expect(h.host.command({ kind: 'rotate-held', stepDeg: 15 })).toBe('pass')
 
-    h.click({ x: 54, y: 63 })
+    h.click(h.screen({ x: 54, y: 63 }))
     expect(h.host.command({ kind: 'rotate-held', stepDeg: 15 })).toBe('handled')
     expect(h.record.guidance.at(-1)?.stampRotationDeg).toBe(15)
     // The release hid the ghost; the turn draws it again where it stood, about the pick's anchor (today's rotateBy).
@@ -176,10 +180,10 @@ describe('object stamp tool', () => {
     expect(h.record.guidance.at(-1)?.stampRotationDeg).toBe(90)
 
     // The plant was picked 4 m east and 3 m south of its centre; at 90° that offset turns too.
-    h.hover({ x: 100, y: 120 })
+    h.hover(h.screen({ x: 100, y: 120 }))
     expectPoint(ghostPlant(h).position, { x: 103, y: 116 })
-    h.click({ x: 100, y: 120 })
-    expect(h.store.persisted.plants[1]?.position).toEqual({ x: 103, y: 116 })
+    h.click(h.screen({ x: 100, y: 120 }))
+    expectPoint(h.store.persisted.plants[1]!.position, { x: 103, y: 116 })
   })
 
   it('at bearing 30 an Object stamp pick starts at 0', () => {
@@ -224,17 +228,17 @@ describe('object stamp tool', () => {
   it('keeps the pick and its ghost when the pointer leaves the map or a press is cancelled', () => {
     const h = stampHarness({ plants: [smallApple({ x: 40, y: 40 })] })
 
-    h.click({ x: 40, y: 40 })
-    h.hover({ x: 90, y: 90 })
+    h.click(h.screen({ x: 40, y: 40 }))
+    h.hover(h.screen({ x: 90, y: 90 }))
     const shown = h.renderer.lastDraft()
     h.leave()
     expect(h.renderer.lastDraft()).toEqual(shown)
 
     // Today's stamp press let go of the pointer gesture, so a pointercancel or a lost capture after it cancelled nothing.
-    h.press({ x: 120, y: 120 })
+    h.press(h.screen({ x: 120, y: 120 }))
     expect(h.store.persisted.plants).toHaveLength(2)
     const placed = h.renderer.lastDraft()
-    expect(ghostPlant(h).position).toEqual({ x: 120, y: 120 })
+    expectPoint(ghostPlant(h).position, { x: 120, y: 120 })
     h.cancel('pointercancel')
     expect(h.renderer.lastDraft()).toEqual(placed)
   })
@@ -242,18 +246,18 @@ describe('object stamp tool', () => {
   it('hides the ghost on a release, a window blur or the tool armed again, until the next hover, and keeps the pick', () => {
     const h = stampHarness({ plants: [smallApple({ x: 40, y: 40 })] })
     const hoverShows = (at: { x: number; y: number }) => {
-      h.hover(at)
-      expect(ghostPlant(h).position).toEqual(at)
+      h.hover(h.screen(at))
+      expectPoint(ghostPlant(h).position, at)
     }
 
-    h.click({ x: 40, y: 40 })
+    h.click(h.screen({ x: 40, y: 40 }))
     expect(ghosts(h)).toEqual([])
     hoverShows({ x: 90, y: 90 })
 
     // A drag after a placing press: the ghost follows the pointer, and the release hides it.
-    h.press({ x: 90, y: 90 })
-    h.move({ x: 110, y: 100 })
-    expect(ghostPlant(h).position).toEqual({ x: 110, y: 100 })
+    h.press(h.screen({ x: 90, y: 90 }))
+    h.move(h.screen({ x: 110, y: 100 }))
+    expectPoint(ghostPlant(h).position, { x: 110, y: 100 })
     h.release()
     expect(ghosts(h)).toEqual([])
     hoverShows({ x: 100, y: 130 })
@@ -268,11 +272,11 @@ describe('object stamp tool', () => {
 
     // The pick outlived them all.
     hoverShows({ x: 150, y: 150 })
-    h.click({ x: 150, y: 150 })
+    h.click(h.screen({ x: 150, y: 150 }))
     expect(h.store.persisted.plants.map((plant) => plant.position)).toEqual([
       { x: 40, y: 40 },
-      { x: 90, y: 90 },
-      { x: 150, y: 150 },
+      closePoint(90, 90),
+      closePoint(150, 150),
     ])
   })
 
@@ -372,12 +376,12 @@ describe('object stamp tool', () => {
       { viewport: { x: 0, y: 0, scale: 4 }, snapping: { grid: true } },
     )
 
-    // Screen (44, 44) -> world (11, 11), so the sampled anchor is +1,+1 from the plant position.
-    h.click({ x: 44, y: 44 })
-    // Screen (93, 107) -> world (23.25, 26.75), snapped to (25, 25) at this zoom level.
-    h.click({ x: 93, y: 107 })
+    // World (11, 11), so the sampled anchor is +1,+1 from the plant position.
+    h.click(h.screen({ x: 11, y: 11 }))
+    // World (23.25, 26.75), snapped to (25, 25) at this zoom level.
+    h.click(h.screen({ x: 23.25, y: 26.75 }))
 
-    expect(h.store.persisted.plants[1]?.position).toEqual({ x: 24, y: 24 })
+    expectPoint(h.store.persisted.plants[1]!.position, { x: 24, y: 24 })
   })
 
   it('clears loaded Object Stamp source when changing tools', () => {
@@ -443,19 +447,19 @@ describe('object stamp tool', () => {
     })
     const commits = committedEdits(h)
 
-    h.click({ x: 10, y: 30 })
+    h.click(h.screen({ x: 10, y: 30 }))
     expect(h.store.persisted.zones).toHaveLength(2)
     expect(commits).toEqual([])
 
-    h.hover({ x: 120, y: 150 })
+    h.hover(h.screen({ x: 120, y: 150 }))
     expect(objectsGhost(ghosts(h)[0]).template.zones[0]!.entity.points).toEqual([
-      { x: 120, y: 140 },
-      { x: 160, y: 140 },
-      { x: 160, y: 180 },
-      { x: 120, y: 180 },
+      closePoint(120, 140),
+      closePoint(160, 140),
+      closePoint(160, 180),
+      closePoint(120, 180),
     ])
 
-    h.click({ x: 120, y: 150 })
+    h.click(h.screen({ x: 120, y: 150 }))
 
     expect(h.store.persisted.zones).toHaveLength(3)
     const clone = h.store.persisted.zones[2]!
@@ -464,10 +468,10 @@ describe('object stamp tool', () => {
       zoneType: 'rect',
       rotationDeg: 0,
       points: [
-        { x: 120, y: 140 },
-        { x: 160, y: 140 },
-        { x: 160, y: 180 },
-        { x: 120, y: 180 },
+        closePoint(120, 140),
+        closePoint(160, 140),
+        closePoint(160, 180),
+        closePoint(120, 180),
       ],
       fillColor: '#A06B1F',
       notes: 'Annuals',
@@ -487,16 +491,16 @@ describe('object stamp tool', () => {
     })
     const commits = committedEdits(h)
 
-    h.click({ x: 20, y: 30 })
-    h.hover({ x: 120, y: 150 })
+    h.click(h.screen({ x: 20, y: 30 }))
+    h.hover(h.screen({ x: 120, y: 150 }))
 
     // The preview is the stamp itself: the line zone's ghost under the pointer.
     expect(objectsGhost(ghosts(h)[0]).template.zones[0]!.entity).toMatchObject({
       zoneType: 'line',
-      points: [{ x: 110, y: 140 }, { x: 150, y: 180 }],
+      points: [closePoint(110, 140), closePoint(150, 180)],
     })
 
-    h.click({ x: 120, y: 150 })
+    h.click(h.screen({ x: 120, y: 150 }))
 
     expect(h.store.persisted.zones).toHaveLength(2)
     expect(h.store.persisted.zones[1]).toMatchObject({
@@ -504,8 +508,8 @@ describe('object stamp tool', () => {
       zoneType: 'line',
       rotationDeg: 0,
       points: [
-        { x: 110, y: 140 },
-        { x: 150, y: 180 },
+        closePoint(110, 140),
+        closePoint(150, 180),
       ],
       fillColor: '#A06B1F',
       notes: 'Boundary',
@@ -520,26 +524,26 @@ describe('object stamp tool', () => {
     })
     const commits = committedEdits(h)
 
-    h.click({ x: 26, y: 36 })
+    h.click(h.screen({ x: 26, y: 36 }))
     expect(h.store.persisted.annotations).toHaveLength(1)
     expect(commits).toEqual([])
 
-    h.hover({ x: 100, y: 110 })
+    h.hover(h.screen({ x: 100, y: 110 }))
     // A note's ghost is its own, a little less faint than zones and plants (today's 0.68).
     expect(ghosts(h).map((shape) => shape.opacity)).toEqual([0.68])
     expect(objectsGhost(ghosts(h)[0]).template.annotations[0]!.entity).toMatchObject({
-      position: { x: 94, y: 104 },
+      position: closePoint(94, 104),
       text: 'Guild note',
     })
 
-    h.click({ x: 100, y: 110 })
+    h.click(h.screen({ x: 100, y: 110 }))
 
     expect(h.store.persisted.annotations).toHaveLength(2)
     const clone = h.store.persisted.annotations[1]!
     expect(clone.id).not.toBe('annotation-1')
     expect(clone).toMatchObject({
       annotationType: 'text',
-      position: { x: 94, y: 104 },
+      position: closePoint(94, 104),
       text: 'Guild note',
       fontSize: 20,
       rotationDeg: 12,
@@ -554,12 +558,12 @@ describe('object stamp tool', () => {
       { viewport: { x: 0, y: 0, scale: 4 }, snapping: { grid: true } },
     )
 
-    // Screen (44, 44) -> world (11, 11), so the sampled anchor is +1,+1 from the annotation position.
-    h.click({ x: 44, y: 44 })
-    // Screen (93, 107) -> world (23.25, 26.75), snapped to (25, 25) at this zoom level.
-    h.click({ x: 93, y: 107 })
+    // World (11, 11), so the sampled anchor is +1,+1 from the annotation position.
+    h.click(h.screen({ x: 11, y: 11 }))
+    // World (23.25, 26.75), snapped to (25, 25) at this zoom level.
+    h.click(h.screen({ x: 23.25, y: 26.75 }))
 
-    expect(h.store.persisted.annotations[1]?.position).toEqual({ x: 24, y: 24 })
+    expectPoint(h.store.persisted.annotations[1]!.position, { x: 24, y: 24 })
   })
 
   it('preserves elliptical zone radii when stamping zones', () => {
@@ -567,8 +571,8 @@ describe('object stamp tool', () => {
       zones: [rectZone('Oval bed', [{ x: 50, y: 60 }, { x: 20, y: 10 }], { name: 'Oval bed', zoneType: 'ellipse' })],
     })
 
-    h.click({ x: 70, y: 60 })
-    h.click({ x: 100, y: 100 })
+    h.click(h.screen({ x: 70, y: 60 }))
+    h.click(h.screen({ x: 100, y: 100 }))
 
     expect(h.store.persisted.zones).toHaveLength(2)
     expect(h.store.persisted.zones[1]).toMatchObject({
@@ -576,8 +580,8 @@ describe('object stamp tool', () => {
       zoneType: 'ellipse',
       rotationDeg: 0,
       points: [
-        { x: 80, y: 100 },
-        { x: 20, y: 10 },
+        closePoint(80, 100),
+        closePoint(20, 10),
       ],
     })
   })
@@ -670,16 +674,16 @@ describe('object stamp tool', () => {
     })
     const commits = committedEdits(h)
 
-    h.click({ x: 40, y: 40 })
+    h.click(h.screen({ x: 40, y: 40 }))
     expect(h.record.guidance.at(-1)?.stamp).toEqual({ kind: 'group', name: 'Guild unit', plants: 1, species: 1 })
-    h.hover({ x: 100, y: 120 })
+    h.hover(h.screen({ x: 100, y: 120 }))
     // Zones and plants in one ghost, the note in its own.
     expect(ghosts(h).map((shape) => shape.opacity)).toEqual([0.62, 0.68])
-    expect(objectsGhost(ghosts(h)[0]).template.plants.map(({ entity }) => entity.position)).toEqual([{ x: 100, y: 120 }])
+    expect(objectsGhost(ghosts(h)[0]).template.plants.map(({ entity }) => entity.position)).toEqual([closePoint(100, 120)])
     expect(objectsGhost(ghosts(h)[0]).template.zones).toHaveLength(1)
-    expect(objectsGhost(ghosts(h)[1]).template.annotations.map(({ entity }) => entity.position)).toEqual([{ x: 120, y: 110 }])
+    expect(objectsGhost(ghosts(h)[1]).template.annotations.map(({ entity }) => entity.position)).toEqual([closePoint(120, 110)])
 
-    h.click({ x: 100, y: 120 })
+    h.click(h.screen({ x: 100, y: 120 }))
 
     expect(h.store.persisted.groups).toHaveLength(2)
     expect(h.store.persisted.plants).toHaveLength(2)
@@ -694,34 +698,25 @@ describe('object stamp tool', () => {
     expect(clonePlant.id).not.toBe('plant-1')
     expect(clonePlant).toMatchObject({
       canonicalName: 'Malus domestica',
-      position: { x: 100, y: 120 },
+      position: closePoint(100, 120),
       rotationDeg: 15,
     })
     expect(cloneZone).toMatchObject({
       name: 'Kitchen bed',
-      points: [
-        { x: 70, y: 100 },
-        { x: 90, y: 100 },
-        { x: 90, y: 130 },
-        { x: 70, y: 130 },
-      ],
+      points: [closePoint(70, 100), closePoint(90, 100), closePoint(90, 130), closePoint(70, 130)],
       fillColor: '#A06B1F',
       notes: 'Bed',
     })
     expect(cloneAnnotation.id).not.toBe('annotation-1')
     expect(cloneAnnotation).toMatchObject({
-      position: { x: 120, y: 110 },
+      position: closePoint(120, 110),
       text: 'Guild',
       fontSize: 20,
       rotationDeg: 10,
     })
     expect(cloneGroup).toMatchObject({
       name: 'Guild unit',
-      members: [
-        { kind: 'plant', id: clonePlant.id },
-        { kind: 'zone', id: cloneZone.id },
-        { kind: 'annotation', id: cloneAnnotation.id },
-      ],
+      members: [{ kind: 'plant', id: clonePlant.id }, { kind: 'zone', id: cloneZone.id }, { kind: 'annotation', id: cloneAnnotation.id }],
     })
     expect(cloneGroup.id).not.toBe('group-1')
     expect(h.store.persisted.groups[0]?.members).toEqual([

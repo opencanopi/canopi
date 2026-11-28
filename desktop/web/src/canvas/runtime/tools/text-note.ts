@@ -15,7 +15,7 @@
 
 import { appendTextAnnotationToDraft } from './tool-actions'
 import type { CanvasTool, ToolContext, ToolReply } from './tool'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 
 const EDIT_TYPE = 'interaction-text'
 

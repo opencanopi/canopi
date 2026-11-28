@@ -7,6 +7,7 @@
 // time, the accuracy figure or the stale flag. Drawn by WorkspaceMapContributions.setUserLocation, outside the drain.
 
 import { USER_LOCATION_VISUAL } from '../canvas/runtime/scene-visuals'
+import { createSessionPlane } from '../geo/session-plane'
 import { clearMapOverlay, syncMapOverlay, type MapLibreOverlayMap } from './panel-target-overlay-sync'
 
 /**
@@ -64,19 +65,18 @@ const CORE_RADIUS_PX = 6
 const RING_RADIUS_PX = 9
 /** A stale core is an outline this wide in the cream ring. */
 const STALE_OUTLINE_PX = 2
-/** Ground metres per degree of latitude on the Web Mercator sphere. */
-const METRES_PER_DEGREE = Math.PI * 6_378_137 / 180
 
 function roleFilter(role: UserLocationRole): readonly unknown[] {
   return ['==', ['get', 'role'], role]
 }
 
-/** A closed ring of `ACCURACY_POLYGON_SIDES` vertices `radius` ground metres around [lon, lat]. */
+/** A closed ring of `ACCURACY_POLYGON_SIDES` vertices `radius` true WGS84 ground metres around [lon, lat]. */
 function accuracyRing(lon: number, lat: number, radius: number): (readonly [number, number])[] {
-  const metresPerDegreeLon = METRES_PER_DEGREE * Math.cos(lat * Math.PI / 180)
+  const plane = createSessionPlane({ lon, lat })
   const ring = Array.from({ length: ACCURACY_POLYGON_SIDES }, (_, index): readonly [number, number] => {
     const angle = (index / ACCURACY_POLYGON_SIDES) * 2 * Math.PI
-    return [lon + (radius * Math.cos(angle)) / metresPerDegreeLon, lat + (radius * Math.sin(angle)) / METRES_PER_DEGREE]
+    const point = plane.toGeo({ x: radius * Math.cos(angle), y: radius * Math.sin(angle) })
+    return [point.lon, point.lat]
   })
   return [...ring, ring[0]!]
 }

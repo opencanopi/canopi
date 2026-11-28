@@ -1,4 +1,7 @@
-use sha2::{Digest, Sha256};
+use canopi_support::durable::{
+    OsDurableFs, Precondition, PublishSource, TargetLocks, publish_durably,
+};
+use canopi_support::hash;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -25,8 +28,6 @@ const SPECIES_MEDIA_HOSTS: &[&str] = &[
     "commons.wikimedia.org",
     "upload.wikimedia.org",
 ];
-
-static NEXT_TEMP_ID: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageCacheError {
@@ -103,6 +104,8 @@ pub struct ImageCache {
     tracked_size: Arc<AtomicU64>,
     /// Paths currently being fetched and atomically published.
     in_flight: Arc<(Mutex<HashSet<PathBuf>>, Condvar)>,
+    /// Owned per-target lock table for durable image publishing (ADR 0023).
+    target_locks: Arc<TargetLocks>,
 }
 
 impl ImageCache {
@@ -124,6 +127,7 @@ impl ImageCache {
             cache_dir,
             tracked_size: Arc::new(AtomicU64::new(initial_size)),
             in_flight: Arc::new((Mutex::new(HashSet::new()), Condvar::new())),
+            target_locks: Arc::new(TargetLocks::new()),
         })
     }
 
@@ -150,7 +154,8 @@ impl ImageCache {
 
         // The frontend expects a path that exists, so a failed write is surfaced.
         let byte_len = bytes.len() as u64;
-        Self::write_bytes_atomically(&path, &bytes).map_err(ImageCacheError::Store)?;
+        self.write_bytes_atomically(&path, &bytes)
+            .map_err(ImageCacheError::Store)?;
         self.tracked_size.fetch_add(byte_len, Ordering::Relaxed);
         self.evict_if_needed();
 
@@ -224,37 +229,22 @@ impl ImageCache {
         }
     }
 
-    fn write_bytes_atomically(path: &Path, bytes: &[u8]) -> Result<(), String> {
-        let tmp_path = Self::temp_path_for(path);
-        fs::write(&tmp_path, bytes).map_err(|e| format!("Failed to cache image: {e}"))?;
-
-        if matches!(fs::metadata(path), Ok(meta) if meta.is_file() && meta.len() == 0) {
-            fs::remove_file(path)
-                .map_err(|e| format!("Failed to clear stale cached image: {e}"))?;
-        }
-
-        if let Err(e) = fs::rename(&tmp_path, path) {
-            let _ = fs::remove_file(&tmp_path);
-            return Err(format!("Failed to finalize cached image: {e}"));
-        }
-
-        Ok(())
-    }
-
-    fn temp_path_for(path: &Path) -> PathBuf {
-        let unique = NEXT_TEMP_ID.fetch_add(1, Ordering::Relaxed);
-        let file_name = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or("image");
-        path.with_file_name(format!("{file_name}.tmp-{}-{unique}", std::process::id()))
+    fn write_bytes_atomically(&self, path: &Path, bytes: &[u8]) -> Result<(), String> {
+        publish_durably(
+            &OsDurableFs,
+            &self.target_locks,
+            PublishSource::Bytes(bytes),
+            path,
+            "image",
+            Precondition::Any,
+        )
+        .map(|_| ())
+        .map_err(|e| format!("Failed to cache image: {e}"))
     }
 
     /// Convert URL to a safe filename using SHA256 hash prefix + extension.
     fn url_to_filename(url: &str) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(url.as_bytes());
-        let hash = format!("{:x}", hasher.finalize());
+        let hash = hash::sha256_hex(url.as_bytes());
 
         let url_path = url.split('?').next().unwrap_or(url);
         let ext = url_path
@@ -353,7 +343,6 @@ mod tests {
     };
     use crate::test_scratch::TestScratch;
     use std::fs;
-    use std::path::PathBuf;
     use std::sync::{Arc, Barrier};
     use std::thread;
     use std::time::{Duration, Instant};
@@ -487,15 +476,6 @@ mod tests {
     }
 
     #[test]
-    fn temporary_paths_are_unique_without_reading_the_clock() {
-        let path = PathBuf::from("/cache/image.jpg");
-        assert_ne!(
-            ImageCache::temp_path_for(&path),
-            ImageCache::temp_path_for(&path)
-        );
-    }
-
-    #[test]
     fn fetch_and_cache_returns_existing_path_without_requiring_network() {
         let temp_dir = TestDir::new();
         let cache = ImageCache::new(&temp_dir.path).expect("create cache");
@@ -513,10 +493,12 @@ mod tests {
     #[test]
     fn write_bytes_atomically_replaces_stale_zero_byte_file() {
         let temp_dir = TestDir::new();
+        let cache = ImageCache::new(&temp_dir.path).expect("create cache");
         let path = temp_dir.path.join("stale.jpg");
         fs::write(&path, b"").expect("seed zero-byte cached image");
 
-        ImageCache::write_bytes_atomically(&path, b"fresh-bytes")
+        cache
+            .write_bytes_atomically(&path, b"fresh-bytes")
             .expect("zero-byte cached image should be replaced");
 
         assert_eq!(fs::read(&path).expect("read cached image"), b"fresh-bytes");
@@ -542,7 +524,8 @@ mod tests {
                 .expect("writer should acquire slot");
             writer_barrier.wait();
             thread::sleep(Duration::from_millis(75));
-            ImageCache::write_bytes_atomically(&writer_path, b"cached-bytes")
+            writer_cache
+                .write_bytes_atomically(&writer_path, b"cached-bytes")
                 .expect("writer should publish cached bytes");
             drop(write_guard);
         });

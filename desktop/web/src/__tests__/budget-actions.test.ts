@@ -34,12 +34,12 @@ describe('setBudgetCurrency', () => {
     designSessionFixture.file = null
   })
 
-  it('sets budget_currency and updates all item currencies', () => {
+  it('sets budget_currency without rewriting item ext.currency', () => {
     designSessionFixture.file = makeDesign({
       budget_currency: 'EUR',
       budget: [
-        { target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: 'Malus domestica', quantity: 0, unit_cost: 5, currency: 'EUR' },
-        { target: speciesBudgetTarget('Prunus avium'), category: 'plants', description: 'Prunus avium', quantity: 0, unit_cost: 3, currency: 'EUR' },
+        { target: speciesBudgetTarget('Malus domestica'), unit_cost: 5, ext: { currency: 'EUR' } },
+        { target: speciesBudgetTarget('Prunus avium'), unit_cost: 3, ext: { currency: 'EUR' } },
       ],
     })
 
@@ -48,8 +48,8 @@ describe('setBudgetCurrency', () => {
     const design = currentDesign.value!
     const budget = design.budget!
     expect(design.budget_currency).toBe('USD')
-    expect(budget[0]!.currency).toBe('USD')
-    expect(budget[1]!.currency).toBe('USD')
+    expect(budget[0]!.ext?.['currency']).toBe('EUR')
+    expect(budget[1]!.ext?.['currency']).toBe('EUR')
   })
 
   it('sets budget_currency on a design with no budget items', () => {
@@ -64,7 +64,7 @@ describe('setBudgetCurrency', () => {
   it('does not convert unit costs', () => {
     designSessionFixture.file = makeDesign({
       budget: [
-        { target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: 'Malus domestica', quantity: 0, unit_cost: 5, currency: 'EUR' },
+        { target: speciesBudgetTarget('Malus domestica'), unit_cost: 5, ext: { currency: 'EUR' } },
       ],
     })
 
@@ -92,25 +92,26 @@ describe('setPlantBudgetPrice', () => {
 
     const budget = currentDesign.value!.budget!
     expect(budget).toHaveLength(1)
-    expect(budget[0]!.description).toBe('Malus domestica')
     expect(budget[0]!.target).toEqual(speciesBudgetTarget('Malus domestica'))
     expect(budget[0]!.unit_cost).toBe(7.5)
-    expect(budget[0]!.currency).toBe('USD')
+    expect(currentDesign.value!.budget_currency).toBe('USD')
   })
 
   it('defaults to EUR and sets budget_currency when absent', () => {
-    designSessionFixture.file = makeDesign()
+    const file = makeDesign()
+    delete (file as { budget_currency?: string }).budget_currency
+    designSessionFixture.file = file
 
     setPlantBudgetPrice('Malus domestica', 5)
 
-    expect(currentDesign.value!.budget![0]!.currency).toBe('EUR')
+    expect(currentDesign.value!.budget![0]!.unit_cost).toBe(5)
     expect(currentDesign.value!.budget_currency).toBe('EUR')
   })
 
   it('updates an existing item', () => {
     designSessionFixture.file = makeDesign({
       budget: [
-        { target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: 'Malus domestica', quantity: 0, unit_cost: 5, currency: 'EUR' },
+        { target: speciesBudgetTarget('Malus domestica'), unit_cost: 5 },
       ],
     })
 
@@ -124,7 +125,7 @@ describe('setPlantBudgetPrice', () => {
   it('does not overwrite non-plant species-targeted budget items', () => {
     designSessionFixture.file = makeDesign({
       budget: [
-        { target: speciesBudgetTarget('Malus domestica'), category: 'materials', description: 'Apple stakes', quantity: 2, unit_cost: 12, currency: 'EUR' },
+        { target: { kind: 'materials', canonical_name: 'Malus domestica' }, unit_cost: 12, ext: { description: 'Apple stakes', quantity: 2 } },
       ],
     })
 
@@ -132,20 +133,20 @@ describe('setPlantBudgetPrice', () => {
 
     const budget = currentDesign.value!.budget!
     expect(budget).toHaveLength(2)
-    expect(budget[0]).toMatchObject({ category: 'materials', description: 'Apple stakes', quantity: 2, unit_cost: 12 })
-    expect(budget[1]).toMatchObject({ category: 'plants', description: 'Malus domestica', quantity: 0, unit_cost: 10 })
+    expect(budget[0]).toMatchObject({ target: { kind: 'materials', canonical_name: 'Malus domestica' }, unit_cost: 12, ext: { description: 'Apple stakes', quantity: 2 } })
+    expect(budget[1]).toEqual({ target: speciesBudgetTarget('Malus domestica'), unit_cost: 10 })
   })
 
   it('preserves existing quantity when updating price', () => {
     designSessionFixture.file = makeDesign({
       budget: [
-        { target: speciesBudgetTarget('Malus domestica'), category: 'plants', description: 'Malus domestica', quantity: 3, unit_cost: 5, currency: 'EUR' },
+        { target: speciesBudgetTarget('Malus domestica'), unit_cost: 5, ext: { quantity: 3 } },
       ],
     })
 
     setPlantBudgetPrice('Malus domestica', 10)
 
-    expect(currentDesign.value!.budget![0]!.quantity).toBe(3)
+    expect(currentDesign.value!.budget![0]!.ext?.['quantity']).toBe(3)
     expect(currentDesign.value!.budget![0]!.unit_cost).toBe(10)
   })
 

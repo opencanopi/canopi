@@ -1,7 +1,11 @@
 import { effect } from '@preact/signals'
 import { describe, expect, it } from 'vitest'
-import { createDefaultMapLayers, mapLayers, type MapLayersState } from '../map-layers/state'
-import { locale } from '../settings/state'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  type MapLayersState,
+  locale,
+} from '../settings/state'
 import type { Locale } from '../../generated/contracts'
 import { readWorkspaceActivationSnapshot, readWorkspaceBackgroundPresentation } from './workspace-activation-snapshot'
 

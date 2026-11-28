@@ -1,10 +1,10 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type { PlantLabelMode } from '../../canvas/runtime/plant-display'
 import type { PanelTarget } from '../../types/design'
-import { mapLayers, type MapLayersState } from '../map-layers/state'
+import { mapLayers, type MapLayersState } from '../map-layers/read'
 
 // What the map shows while a story is presented, laid over the user's own
-// state for the session only: the map layer store, the Design's site data, its
+// state for the session only: the map-layer settings slice, the Design's site data, its
 // label choice, its layers and the grid setting stay as they are, so nothing is
 // saved, dirtied or undone, and clearing the overrides shows the user's state
 // exactly. The presentation controller (controller.ts) is the

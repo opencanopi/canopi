@@ -15,9 +15,14 @@ import type { SavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import type { SceneAnnotationEntity, ScenePlantEntity, SceneZoneEntity } from '../scene/types'
 import { createSceneArrangementPlacement, type SceneArrangementTemplate } from '../scene-runtime/arrangement-placement'
 import type { SceneEditCoordinator } from '../scene-runtime/transactions'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
-import { stampGhostShapes, stampTemplateAt, turnStampRotation } from './stamp-rotation'
+import {
+  screenAlignedTemplateCenter,
+  stampGhostShapes,
+  stampTemplateAt,
+  turnStampRotation,
+} from './stamp-rotation'
 import type { CanvasTool, ToolContext, ToolScene, ToolSource } from './tool'
 
 const ORIGIN: WorldPoint = Object.freeze({ x: 0, y: 0 })
@@ -62,8 +67,8 @@ export function createSavedObjectStampTool(): CanvasTool {
 
   function showGhostAt(at: WorldPoint): void {
     lastAnchor = at
-    const { effects, scene } = context()
-    const shapes = stamp ? savedObjectStampGhostShapes(scene, stamp, at, rotationDeg()) : null
+    const { effects, scene, view } = context()
+    const shapes = stamp ? savedObjectStampGhostShapes(scene, stamp, at, rotationDeg(), view.bearingDeg) : null
     ghostShown = shapes !== null
     effects.setDraft(shapes ? { shapes } : null)
   }
@@ -76,9 +81,10 @@ export function createSavedObjectStampTool(): CanvasTool {
   function place(at: WorldPoint): void {
     const held = stamp
     if (!held) return
-    const { effects, scene } = context()
+    const { effects, scene, view } = context()
     placeSavedObjectStamp(effects.edits, scene, held, at, {
       rotationDeg: rotationDeg(),
+      bearingDeg: view.bearingDeg,
       onCommitted: () => {
         // One placement, then Select: leaving the tool drops the stamp from the read model (the session's).
         stamp = null
@@ -160,7 +166,7 @@ export function createSavedObjectStampTool(): CanvasTool {
 
 /** Whether the saved stamp can be placed now: it holds an object, and every layer it adds to is visible and unlocked. */
 export function canPlaceSavedObjectStamp(scene: StampScene, stamp: SavedObjectStampPayload): boolean {
-  if (stamp.plants.length + stamp.zones.length + stamp.annotations.length === 0) return false
+  if (stamp.plants.length + stamp.zones.length + stamp.annotations.length + (stamp.measurementGuides?.length ?? 0) === 0) return false
   return requiredLayers(stamp).every((layer) => scene.isLayerOpenForCreation(layer))
 }
 
@@ -173,9 +179,12 @@ export function savedObjectStampGhostShapes(
   stamp: SavedObjectStampPayload,
   at: WorldPoint,
   rotationDeg: number,
+  bearingDeg: number,
 ): DraftShape[] | null {
   if (!canPlaceSavedObjectStamp(scene, stamp)) return null
-  return stampGhostShapes(stampTemplateAt(savedObjectStampArrangementTemplate(stamp), stamp.anchor, at, rotationDeg))
+  const template = savedObjectStampArrangementTemplate(stamp)
+  const pivot = savedObjectStampPivot(stamp, template, rotationDeg, bearingDeg)
+  return stampGhostShapes(stampTemplateAt(template, pivot, at, rotationDeg))
 }
 
 /**
@@ -188,15 +197,67 @@ export function placeSavedObjectStamp(
   scene: StampScene,
   stamp: SavedObjectStampPayload,
   at: WorldPoint,
-  options: { readonly rotationDeg: number; readonly onCommitted: () => void },
+  options: { readonly rotationDeg: number; readonly bearingDeg: number; readonly onCommitted: () => void },
 ): void {
   if (!canPlaceSavedObjectStamp(scene, stamp)) return
+  const template = savedObjectStampArrangementTemplate(stamp)
+  const pivot = savedObjectStampPivot(stamp, template, options.rotationDeg, options.bearingDeg)
   createSceneArrangementPlacement({ sceneEdits: edits }).place({
-    template: stampTemplateAt(savedObjectStampArrangementTemplate(stamp), stamp.anchor, at, options.rotationDeg),
+    template: stampTemplateAt(template, pivot, at, options.rotationDeg),
     translateBy: ORIGIN,
     historyType: 'interaction-saved-object-stamp',
     onCommitted: options.onCommitted,
+    preserveLocks: true,
+    savedStamp: stamp,
+    mergeSpecies: (draft) => {
+      if (stamp.plantSpeciesColors) {
+        for (const [species, color] of Object.entries(stamp.plantSpeciesColors)) {
+          if (!draft.plantSpeciesColors[species]) draft.plantSpeciesColors[species] = color
+        }
+      }
+      if (stamp.plantSpeciesSymbols) {
+        for (const [species, symbol] of Object.entries(stamp.plantSpeciesSymbols)) {
+          if (!draft.plantSpeciesSymbols[species]) draft.plantSpeciesSymbols[species] = symbol
+        }
+      }
+      if (stamp.plantSpeciesCodes && Object.keys(stamp.plantSpeciesCodes).length > 0) {
+        draft.plantSpeciesCodes = mergeIncomingSpeciesCodes(draft.plantSpeciesCodes, stamp.plantSpeciesCodes)
+      }
+    },
   })
+}
+
+/**
+ * 2.1-Q89: On a turned map, saved stamps pivot and anchor on the centre of the turned template's
+ * screen-aligned box at `bearingDeg` (equivalently, the unturned template's box at
+ * `bearingDeg - rotationDeg`, which returns `stamp.anchor` when the stamp is level to the screen).
+ */
+function savedObjectStampPivot(
+  stamp: SavedObjectStampPayload,
+  template: SceneArrangementTemplate,
+  rotationDeg: number,
+  bearingDeg: number,
+): WorldPoint {
+  const relativeBearing = turnStampRotation(bearingDeg, -rotationDeg)
+  if (relativeBearing <= 1e-6 || Math.abs(relativeBearing - 360) <= 1e-6) return stamp.anchor
+  return screenAlignedTemplateCenter(template, relativeBearing) ?? stamp.anchor
+}
+
+function mergeIncomingSpeciesCodes(
+  existing: Readonly<Record<string, string>>,
+  incoming: Readonly<Record<string, string>>,
+): Record<string, string> {
+  const next: Record<string, string> = { ...existing }
+  const used = new Set(Object.values(next))
+  for (const [species, code] of Object.entries(incoming)) {
+    if (next[species]) continue
+    let candidate = code
+    let n = 2
+    while (used.has(candidate)) candidate = `${code}${n++}`
+    next[species] = candidate
+    used.add(candidate)
+  }
+  return next
 }
 
 function requiredLayers(stamp: SavedObjectStampPayload): string[] {
@@ -204,6 +265,7 @@ function requiredLayers(stamp: SavedObjectStampPayload): string[] {
   if (stamp.plants.length > 0) layers.push('plants')
   if (stamp.zones.length > 0) layers.push('zones')
   if (stamp.annotations.length > 0) layers.push('annotations')
+  if ((stamp.measurementGuides?.length ?? 0) > 0) layers.push('measurement-guides')
   return layers
 }
 
@@ -221,7 +283,16 @@ function savedObjectStampArrangementTemplate(stamp: SavedObjectStampPayload): Sc
       sourceId: annotation.id,
       entity: sceneAnnotationFromSavedAnnotation(annotation),
     })),
-    measurementGuides: [],
+    measurementGuides: (stamp.measurementGuides ?? []).map((guide) => ({
+      sourceId: guide.id,
+      entity: {
+        kind: 'measurement-guide',
+        id: guide.id,
+        locked: guide.locked === true,
+        start: { ...guide.start },
+        end: { ...guide.end },
+      },
+    })),
     groups: stamp.groups.map((group) => ({
       sourceId: group.id,
       entity: {
@@ -241,7 +312,7 @@ function scenePlantFromSavedPlant(
   return {
     kind: 'plant',
     id: plant.id,
-    locked: false,
+    locked: plant.locked === true,
     canonicalName: plant.canonicalName,
     commonName: plant.commonName,
     color: plant.color,
@@ -249,10 +320,10 @@ function scenePlantFromSavedPlant(
     canopySpreadM: plant.scale,
     position: { ...plant.position },
     rotationDeg: plant.rotationDeg,
-    notes: null,
-    plantedDate: null,
-    quantity: null,
-    pinnedName: false,
+    notes: plant.notes ?? null,
+    plantedDate: plant.plantedDate ?? null,
+    quantity: plant.quantity ?? 1,
+    pinnedName: plant.pinnedName === true,
   }
 }
 
@@ -263,12 +334,14 @@ function sceneZoneFromSavedZone(
     kind: 'zone',
     id: zone.id,
     name: zone.name,
-    locked: false,
+    locked: zone.locked === true,
     zoneType: zone.zoneType,
     points: zone.points.map((point) => ({ ...point })),
     rotationDeg: zone.rotationDeg,
     fillColor: zone.fillColor,
-    notes: null,
+    ...(zone.strokeColor !== undefined ? { strokeColor: zone.strokeColor } : {}),
+    ...(zone.opacity !== undefined ? { opacity: zone.opacity } : {}),
+    notes: zone.notes ?? null,
   }
 }
 
@@ -278,11 +351,12 @@ function sceneAnnotationFromSavedAnnotation(
   return {
     kind: 'annotation',
     id: annotation.id,
-    locked: false,
+    locked: annotation.locked === true,
     annotationType: annotation.annotationType,
     position: { ...annotation.position },
     text: annotation.text,
     fontSize: annotation.fontSize,
     rotationDeg: annotation.rotationDeg,
+    ...(annotation.color !== undefined ? { color: annotation.color } : {}),
   }
 }

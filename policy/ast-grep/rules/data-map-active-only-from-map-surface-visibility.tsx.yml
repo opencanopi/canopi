@@ -1,0 +1,25 @@
+# data-map-active-only-from-map-surface-visibility (ADR 0024, 2.1-M144, Q26): data-map-active
+# comes only from mapSurfaceVisible (never from raw map or surface status).
+id: data-map-active-only-from-map-surface-visibility.tsx
+language: tsx
+severity: error
+message: "data-map-active must be derived from mapSurfaceVisible (ADR 0024, 2.1-M144, Q26); owner desktop/web/src/components/panels/CanvasPanel.tsx; example desktop/web/src/components/panels/CanvasPanel.tsx"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.tsx"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+rule:
+  kind: jsx_attribute
+  all:
+    - has:
+        kind: property_identifier
+        regex: ^data-map-active$
+    - not:
+        has:
+          stopBy: end
+          any:
+            - kind: property_identifier
+            - kind: identifier
+          regex: ^mapSurfaceVisible$

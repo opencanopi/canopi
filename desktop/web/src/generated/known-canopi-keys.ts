@@ -57,20 +57,22 @@ export const KNOWN_CANOPI_KEYS = [
   "timeline",
   "budget",
   "budget_currency",
-  "lidar",
+  "budget_ext",
+  "site_data",
+  "plant_display",
+  "print_setup",
   "views",
   "stories",
   "map_view",
   "created_at",
   "updated_at",
-  "extra",
 ] as const
 
 export type KnownCanopiKey = (typeof KNOWN_CANOPI_KEYS)[number]
-export type DocumentFileFieldOwner = 'document' | 'scene'
+export type DocumentFileFieldOwner = 'document' | 'scene' | 'format'
 
 export const DOCUMENT_FILE_FIELD_OWNERS = {
-  version: "scene",
+  version: "format",
   name: "document",
   description: "document",
   plant_species_colors: "scene",
@@ -86,11 +88,13 @@ export const DOCUMENT_FILE_FIELD_OWNERS = {
   timeline: "document",
   budget: "document",
   budget_currency: "document",
-  lidar: "document",
+  budget_ext: "document",
+  site_data: "document",
+  plant_display: "document",
+  print_setup: "document",
   views: "document",
   stories: "document",
-  map_view: "scene",
+  map_view: "format",
   created_at: "document",
-  updated_at: "scene",
-  extra: "document",
+  updated_at: "format",
 } as const satisfies Record<KnownCanopiKey, DocumentFileFieldOwner>

@@ -208,7 +208,7 @@
    up under a panel. */
 .canvasArea :global(.maplibregl-ctrl-bottom-right) {
   right: calc(var(--zoom-group-width, 0px) + var(--chrome-inset) + var(--space-2));
-  bottom: var(--chrome-inset);
+  bottom: calc(var(--chrome-inset) + var(--notice-row-clearance, 0px));
   max-width: calc(100% - var(--zoom-group-width, 0px) - var(--view-chip-width, 0px) - 2 * var(--chrome-inset) - 2 * var(--space-2));
 }
 
@@ -233,7 +233,7 @@
 
 /* Web on phones: the credits keep above the panel sheet, left of the side
    sheet and of the floating zoom column, clear of the home indicator. */
-:global([data-phone-layout]) .canvasArea :global(.maplibregl-ctrl-bottom-right) {
+:global([data-layout]) .canvasArea :global(.maplibregl-ctrl-bottom-right) {
   right: calc(max(var(--map-inset-right, 0px), env(safe-area-inset-right)) + var(--chrome-inset) + var(--zoom-group-width, 0px) + var(--space-2));
   bottom: max(calc(var(--map-inset-bottom, 0px) + var(--space-2)), calc(var(--chrome-inset) + env(safe-area-inset-bottom)));
   max-width: calc(100% - var(--map-inset-left, 0px) - var(--map-inset-right, 0px) - var(--zoom-group-width, 0px) - 2 * var(--chrome-inset) - var(--space-2));

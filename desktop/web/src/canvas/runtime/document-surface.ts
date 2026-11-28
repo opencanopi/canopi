@@ -1,7 +1,7 @@
 import type { ReadonlySignal } from '@preact/signals'
 import type { CanopiFile, SavedViewCamera } from '../../types/design'
 import { savedViewCameraOf, savedViewZoom } from '../saved-view-framing'
-import { geographicViewOfCamera } from '../session-plane'
+import { geographicViewOfCamera } from '../../geo/session-plane'
 import {
   CanvasAuthorityBusyError,
   CanvasDocumentReplacementNotAdmittedError,
@@ -11,20 +11,21 @@ import {
   type CanvasPersistenceCapture,
   type CanvasRuntimeDocumentMetadata,
 } from './runtime'
+import type { SceneCommand } from './scene-commands'
 import type { SceneRuntimeDocumentBridge } from './scene-runtime/document'
 import type { SceneRuntimeRenderScheduler } from './scene-runtime/render-scheduler'
 import { runCanvasRuntimeCleanups } from './cleanup'
 import type { CanvasInspectionHandle } from '../inspection'
 import type { SceneCanvasInspectionOwner } from './inspection-lens'
-import type { CameraDriverHost } from './view/camera-driver'
-import type { ViewNavigation } from './view/navigation'
-import type { ViewCamera } from './view/types'
+import type { CameraDriverHost } from '../../geo/view/camera-driver'
+import type { ViewNavigation } from '../../geo/view/navigation'
+import type { ViewCamera } from '../../geo/view/types'
 
 interface SceneCanvasDocumentSurfaceOptions {
   readonly inspection: Pick<SceneCanvasInspectionOwner, 'mount' | 'reset' | 'dispose'>
   readonly documents: Pick<
     SceneRuntimeDocumentBridge,
-    'loadDocument' | 'replaceDocument' | 'captureForPersistence'
+    'loadDocument' | 'replaceDocument' | 'captureForPersistence' | 'serializeSceneFields' | 'replaySceneCommand'
   >
   /** The runtime's camera: a resize reaches its live driver; a save reads its live frame. */
   readonly cameraHost: Pick<CameraDriverHost, 'current' | 'frames'>
@@ -192,6 +193,17 @@ class SceneCanvasDocumentRole implements SceneCanvasDocumentSurface {
       throw new CanvasAuthorityBusyError('document-settlement')
     }
     return this.options.documents.captureForPersistence(metadata, doc, this._mapViewForSave())
+  }
+
+  serializeSceneFields(): Partial<CanopiFile> {
+    if (this._documentState === 'settling') {
+      throw new CanvasAuthorityBusyError('document-settlement')
+    }
+    return this.options.documents.serializeSceneFields(this._mapViewForSave())
+  }
+
+  replaySceneCommand(command: SceneCommand, direction: 'undo' | 'redo'): boolean {
+    return this.options.documents.replaySceneCommand(command, direction)
   }
 
   /** The camera takes the new screen; its frame repaints the layer, which MapLibre has already resized. */

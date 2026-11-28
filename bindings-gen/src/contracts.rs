@@ -8,16 +8,11 @@ use specta_typescript::{BigIntExportBehavior, SerdeMode, Typescript};
 )]
 pub(crate) fn contract_types() -> TypeCollection {
     TypeCollection::default()
-        .register::<canopi_types::design::Annotation>()
         .register::<canopi_types::design::LoadedDesign>()
-        .register::<canopi_types::design::ReadOnlyDesign>()
         .register::<canopi_types::design::DesignLoadFailure>()
         .register::<canopi_types::design::DesignSaveOutcome>()
         .register::<canopi_types::design::DesignDraftSummary>()
         .register::<canopi_types::design::DesignDraftAccess>()
-        .register::<canopi_types::design::BudgetItem>()
-        .register::<canopi_types::design::CanopiFile>()
-        .register::<canopi_types::design::Consortium>()
         .register::<canopi_types::design::DesignNotebookEntry>()
         .register::<canopi_types::design::DesignNotebookSection>()
         .register::<canopi_types::design::DesignNotebookSnapshot>()
@@ -27,15 +22,61 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::design::DesignSketchZone>()
         .register::<canopi_types::design::RecentDesignPreview>()
         .register::<canopi_types::design::RecentDesignSummary>()
-        .register::<canopi_types::design::Layer>()
-        .register::<canopi_types::design::ObjectGroup>()
-        .register::<canopi_types::design::PanelTarget>()
-        .register::<canopi_types::design::PlacedPlant>()
-        .register::<canopi_types::design::GeoPoint>()
-        .register::<canopi_types::design::SpeciesPanelTarget>()
-        .register::<canopi_types::design::SpeciesPanelTargetKind>()
-        .register::<canopi_types::design::TimelineAction>()
-        .register::<canopi_types::design::Zone>()
+        .register::<canopi_types::design::v10::CanopiFileV10>()
+        .register::<canopi_types::design::v10::FormatLoadRefusalKind>()
+        .register::<canopi_types::design::v10::FormatRefusal>()
+        .register::<canopi_types::design::v10::OpenedDesignContract>()
+        .register::<canopi_types::design::v10::NewDesignInputContract>()
+        .register::<canopi_types::design::v10::DraftSummaryOutcome>()
+        .register::<canopi_types::design::v10::FormatDecodeAnswer>()
+        .register::<canopi_types::design::v10::FormatEncodeAnswer>()
+        .register::<canopi_types::design::v10::GeoPointV10>()
+        .register::<canopi_types::design::v10::LayerV10>()
+        .register::<canopi_types::design::v10::SpeciesPanelTargetV10>()
+        .register::<canopi_types::design::v10::ConsortiumV10>()
+        .register::<canopi_types::design::v10::PanelTargetV10>()
+        .register::<canopi_types::design::v10::LidarColourRangeV10>()
+        .register::<canopi_types::design::v10::SavedViewV10>()
+        .register::<canopi_types::design::v10::SavedViewCameraV10>()
+        .register::<canopi_types::design::v10::SavedViewGroundSizeV10>()
+        .register::<canopi_types::design::v10::SavedViewLayersV10>()
+        .register::<canopi_types::design::v10::SavedViewBackgroundV10>()
+        .register::<canopi_types::design::v10::SavedViewTerrainV10>()
+        .register::<canopi_types::design::v10::SavedViewHighlightV10>()
+        .register::<canopi_types::design::v10::SavedViewObjectV10>()
+        .register::<canopi_types::design::v10::RichTextBlockV10>()
+        .register::<canopi_types::design::v10::RichTextListItemV10>()
+        .register::<canopi_types::design::v10::RichTextSpanV10>()
+        .register::<canopi_types::design::v10::StoryV10>()
+        .register::<canopi_types::design::v10::StoryStepV10>()
+        .register::<canopi_types::design::v10::StoryImageV10>()
+        .register::<canopi_types::design::v10::PrintSetupV10>()
+        .register::<canopi_types::design::v10::PrintSplitV10>()
+        .register::<canopi_types::design::v10::PrintPageV10>()
+        .register::<canopi_types::design::v10::PrintAreaV10>()
+        .register::<canopi_types::design::v10::PrintScaleV10>()
+        .register::<canopi_types::design::v10::PrintFramingV10>()
+        .register::<canopi_types::design::v10::PrintSizeM>()
+        .register::<canopi_types::design::v10::AlongPageM>()
+        .register::<canopi_types::design::v10::PrintBoxFallback>()
+        .register::<canopi_types::design::v10::PlacedPlantV10>()
+        .register::<canopi_types::design::v10::ZoneV10>()
+        .register::<canopi_types::design::v10::AnnotationV10>()
+        .register::<canopi_types::design::v10::MeasurementGuideV10>()
+        .register::<canopi_types::design::v10::ObjectGroupV10>()
+        .register::<canopi_types::design::v10::ObjectGroupMemberV10>()
+        .register::<canopi_types::design::v10::TimelineActionV10>()
+        .register::<canopi_types::design::v10::BudgetLineV10>()
+        .register::<canopi_types::design::v10::BudgetTargetV10>()
+        .register::<canopi_types::design::v10::BudgetExtV10>()
+        .register::<canopi_types::design::v10::SiteDataSectionV10>()
+        .register::<canopi_types::design::v10::SiteDataEntryV10>()
+        .register::<canopi_types::design::v10::PlantDisplayV10>()
+        .register::<canopi_types::design_home::FileHomeGrant>()
+        .register::<canopi_types::design_home::HomeRead>()
+        .register::<canopi_types::design_home::HomeWrite>()
+        .register::<canopi_types::design_home::LastOpenHome>()
+        .register::<canopi_types::dialog::FileKind>()
         .register::<canopi_types::dialog::DialogKind>()
         .register::<canopi_types::dialog::PickOpenOutcome>()
         .register::<canopi_types::dialog::PickSaveOutcome>()
@@ -56,6 +97,19 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::health::StoreNotice>()
         .register::<canopi_types::health::StoreOpenStatus>()
         .register::<canopi_types::health::SubsystemHealth>()
+        .register::<canopi_types::ids::AnnotationId>()
+        .register::<canopi_types::ids::DraftId>()
+        .register::<canopi_types::ids::FileGrantId>()
+        .register::<canopi_types::ids::GroupId>()
+        .register::<canopi_types::ids::HomeVersion>()
+        .register::<canopi_types::ids::LayerId>()
+        .register::<canopi_types::ids::LibraryItemId>()
+        .register::<canopi_types::ids::NotebookSectionId>()
+        .register::<canopi_types::ids::PlantId>()
+        .register::<canopi_types::ids::SavedViewId>()
+        .register::<canopi_types::ids::StampId>()
+        .register::<canopi_types::ids::StoryId>()
+        .register::<canopi_types::ids::ZoneId>()
         .register::<canopi_types::library::AnalysisInputBinding>()
         .register::<canopi_types::library::AnalysisJobState>()
         .register::<canopi_types::library::AnalysisOffer>()
@@ -105,7 +159,6 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::lidar::LidarSampleSeries>()
         .register::<canopi_types::lidar::LidarSampleTarget>()
         .register::<canopi_types::lidar::LidarSampleUnavailableReason>()
-        .register::<canopi_types::location::GeoResult>()
         .register::<canopi_types::report::ReportConsent>()
         .register::<canopi_types::report::ReportManifest>()
         .register::<canopi_types::report::ReportManifestEntry>()
@@ -113,20 +166,17 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::report::ReportSectionId>()
         .register::<canopi_types::report::ReportSectionStatus>()
         .register::<canopi_types::saved_object_stamps::SavedObjectStamp>()
-        .register::<canopi_types::views::RichTextBlock>()
-        .register::<canopi_types::views::RichTextListItem>()
-        .register::<canopi_types::views::RichTextSpan>()
-        .register::<canopi_types::views::SavedView>()
-        .register::<canopi_types::views::SavedViewBackground>()
-        .register::<canopi_types::views::SavedViewCamera>()
-        .register::<canopi_types::views::SavedViewGroundSize>()
-        .register::<canopi_types::views::SavedViewHighlight>()
-        .register::<canopi_types::views::SavedViewLayers>()
-        .register::<canopi_types::views::SavedViewObject>()
-        .register::<canopi_types::views::SavedViewTerrain>()
-        .register::<canopi_types::views::Story>()
-        .register::<canopi_types::views::StoryImage>()
-        .register::<canopi_types::views::StoryStep>()
+        .register::<canopi_types::saved_object_stamps::SavedObjectStampPayload>()
+        .register::<canopi_types::saved_object_stamps::StampPoint>()
+        .register::<canopi_types::saved_object_stamps::StampPlant>()
+        .register::<canopi_types::saved_object_stamps::StampZone>()
+        .register::<canopi_types::saved_object_stamps::StampAnnotation>()
+        .register::<canopi_types::saved_object_stamps::StampGuide>()
+        .register::<canopi_types::saved_object_stamps::StampGroup>()
+        .register::<canopi_types::saved_object_stamps::StampGroupMember>()
+        .register::<canopi_types::saved_object_stamps::StampConsortium>()
+        .register::<canopi_types::saved_object_stamps::StampBudgetLine>()
+        .register::<canopi_types::saved_object_stamps::StampCareAction>()
         .register::<canopi_types::settings::AppFolder>()
         .register::<canopi_types::settings::AppFolderLocations>()
         .register::<canopi_types::settings::LastView>()
@@ -143,7 +193,6 @@ pub(crate) fn contract_types() -> TypeCollection {
         .register::<canopi_types::species::FilterOp>()
         .register::<canopi_types::species::FilterOptions>()
         .register::<canopi_types::species::FilterValue>()
-        .register::<canopi_types::species::FlowerColorResolution>()
         .register::<canopi_types::species::PaginatedResult<canopi_types::species::SpeciesListItem>>(
         )
         .register::<canopi_types::species::Sort>()
@@ -160,7 +209,21 @@ pub(crate) fn contract_types() -> TypeCollection {
 }
 
 /// The newtypes rendered as branded strings.
-const BRANDED_STRINGS: [&str; 2] = ["OperationId", "RedactedText"];
+const BRANDED_STRINGS: [&str; 13] = [
+    "AnnotationId",
+    "DraftId",
+    "GroupId",
+    "LayerId",
+    "LibraryItemId",
+    "NotebookSectionId",
+    "OperationId",
+    "PlantId",
+    "RedactedText",
+    "SavedViewId",
+    "StampId",
+    "StoryId",
+    "ZoneId",
+];
 
 pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error::Error>> {
     let types = contract_types();
@@ -195,6 +258,11 @@ pub(crate) fn render_typescript_contracts() -> Result<String, Box<dyn std::error
             &format!("export type {brand} = string & {{ readonly __brand: \"{brand}\" }};\n"),
         );
     }
+    // The geocoder host allowlist (2.1-M142, contracts §18 R16): Rust and TS read one list.
+    normalized.push_str(&format!(
+        "\nexport const GEOCODER_IDENTIFIED_HOSTS = {} as const\n",
+        serde_json::to_string(canopi_types::location::GEOCODER_IDENTIFIED_HOSTS)?,
+    ));
     // The problem report's sections (ADR 0025, 2.1-M421): the one TS builder
     // reads the rows Rust declares.
     normalized.push_str(&format!(

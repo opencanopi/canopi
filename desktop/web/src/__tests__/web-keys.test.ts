@@ -2,18 +2,18 @@
 
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { setCurrentCanvasSession } from '../canvas/session'
-import { currentCanvasSelection, currentCanvasTool } from '../canvas/session-state'
+import { currentCanvasTool, setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasSelection } from '../canvas/session-state'
 import { placeSearchFocusRequest } from '../app/geocoding/place-search-ui'
 import { keyboardShortcutsDialogOpen } from '../app/shell/dialogs'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { singleKeyShortcuts } from '../app/settings/state'
 import { t } from '../i18n'
 import {
   createBrowserShellCatalog,
   installWebKeyRouter,
   type BrowserShellCatalog,
-} from '../web/browser-shell-commands'
+} from '../editions/web/browser-shell-commands'
 import type { KeyRouterHandle } from '../app/keyboard/key-router'
 import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
 import { registerPlantFinder } from '../app/plant-finder/focus'
@@ -30,7 +30,7 @@ let keys: KeyRouterHandle | null = null
 function installWebKeys(catalog: BrowserShellCatalog = [], os: 'linux' | 'mac' = 'linux'): KeyRouterHandle {
   keys = installWebKeyRouter({
     catalog,
-    readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),
+    readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: null }),
   }, { os, gestureEvents: false })
   return keys
 }
@@ -39,12 +39,11 @@ function webCatalog(newDesign = vi.fn()): BrowserShellCatalog {
   return createBrowserShellCatalog({
     newDesign, openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
     importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),
-  }, { templatesEnabled: false, canvasReady: () => true })
+  }, { canvasReady: () => true })
 }
 
 describe('Web keys', () => {
   beforeEach(() => {
-    currentCanvasTool.value = 'select'
     setCurrentCanvasSession(null)
   })
 
@@ -53,9 +52,7 @@ describe('Web keys', () => {
     keys = null
     setCurrentCanvasSession(null)
     currentCanvasSelection.value = new Set()
-    activePanel.value = 'canvas'
     sidePanel.value = null
-    currentCanvasTool.value = 'select'
     document.body.innerHTML = ''
     setShortcutPlatform({ os: 'linux' })
     vi.restoreAllMocks()
@@ -161,12 +158,12 @@ describe('Web keys', () => {
   })
 
   it('dispatches tool and history shortcuts with exact Ctrl (Cmd on a Mac), Shift and Alt semantics', () => {
-    const setTool = vi.fn()
+    const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
     const undo = vi.fn()
     const redo = vi.fn()
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({
-        tools: { setTool },
+        tools: { arm },
         history: {
           canUndo: signal(true),
           canRedo: signal(true),
@@ -199,8 +196,8 @@ describe('Web keys', () => {
       altKey: true,
     }).defaultPrevented).toBe(false)
 
-    expect(setTool).toHaveBeenCalledOnce()
-    expect(setTool).toHaveBeenCalledWith('ellipse')
+    expect(arm).toHaveBeenCalledOnce()
+    expect(arm).toHaveBeenCalledWith('ellipse', undefined, undefined)
     expect(currentCanvasTool.value).toBe('ellipse')
     expect(undo).toHaveBeenCalledTimes(2)
     expect(redo).toHaveBeenCalledTimes(2)
@@ -209,11 +206,11 @@ describe('Web keys', () => {
   it('suppresses Canvas shortcuts from editable targets', () => {
     const input = document.createElement('input')
     document.body.appendChild(input)
-    const setTool = vi.fn()
+    const arm = vi.fn(() => ({ settled: new Promise<never>(() => {}), cancel: () => {} }))
     const undo = vi.fn()
     setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
       commands: createTestCanvasCommandSurface({
-        tools: { setTool },
+        tools: { arm },
         history: { canUndo: signal(true), undo },
       }),
     }))
@@ -222,7 +219,7 @@ describe('Web keys', () => {
     input.dispatchEvent(shortcutEvent({ key: 'e', bubbles: true }))
     input.dispatchEvent(shortcutEvent({ key: 'z', ctrlKey: true, bubbles: true }))
 
-    expect(setTool).not.toHaveBeenCalled()
+    expect(arm).not.toHaveBeenCalled()
     expect(undo).not.toHaveBeenCalled()
     expect(currentCanvasTool.value).toBe('select')
   })

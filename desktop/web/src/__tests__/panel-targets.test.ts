@@ -9,11 +9,7 @@ import type { BudgetItem } from '../types/design'
 function makeBudgetItem(overrides: Partial<BudgetItem> = {}): BudgetItem {
   return {
     target: speciesBudgetTarget('Malus domestica'),
-    category: 'plants',
-    description: 'Malus domestica',
-    quantity: 0,
     unit_cost: 5,
-    currency: 'EUR',
     ...overrides,
   }
 }
@@ -23,7 +19,7 @@ describe('panel target hover helpers', () => {
     const target = { kind: 'placed_plant', plant_id: 'plant-1' } as const
     const item = makeBudgetItem({ target })
 
-    expect(getBudgetHoverTarget(item, 'Malus domestica')).toBe(target)
+    expect(getBudgetHoverTarget(item, 'Malus domestica')).toEqual(target)
   })
 
   it('falls back to a species budget target for grouped plant rows without budget items', () => {
@@ -32,6 +28,6 @@ describe('panel target hover helpers', () => {
 
   it('only returns species targets for plant budget items', () => {
     expect(getBudgetSpeciesTarget(makeBudgetItem())).toEqual(speciesBudgetTarget('Malus domestica'))
-    expect(getBudgetSpeciesTarget(makeBudgetItem({ category: 'materials' }))).toBeNull()
+    expect(getBudgetSpeciesTarget(makeBudgetItem({ target: { kind: 'materials', canonical_name: 'Malus domestica' } }))).toBeNull()
   })
 })

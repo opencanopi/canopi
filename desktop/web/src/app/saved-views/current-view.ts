@@ -1,14 +1,14 @@
 // The current-view seam shared by saved views and stories: whether views can
 // be shown, what the map shows now as a view, and going to a view (camera only).
 
-import { geographicViewOfCamera } from '../../canvas/session-plane'
+import { geographicViewOfCamera } from '../../geo/session-plane'
 import {
   currentCanvasQuerySurface,
   getCurrentCanvasCommandSurface,
 } from '../../canvas/session'
 import type { CanopiFile, SavedView } from '../../types/design'
 import { currentDesign } from '../document-session/store'
-import { mapLayers } from '../map-layers/state'
+import { mapLayers } from '../settings/state'
 import { currentPlantDisplay } from '../plant-display/state'
 import { savedViewZoom } from '../../canvas/saved-view-framing'
 import { composeSavedView } from './model'
@@ -50,7 +50,7 @@ export function captureCurrentView({ id, name, title = '' }: {
     screen: capture.screen,
     mapLayers: mapLayers.value,
     sceneLayers: queries.getSceneSnapshot().layers,
-    siteData: shownSiteData(design.lidar),
+    siteData: shownSiteData(design.site_data),
     focusedSpecies: queries.getSpeciesFocus().canonicalName,
     selection: queries.getSelection(),
     labels: currentPlantDisplay.peek().labels,
@@ -62,7 +62,7 @@ export function captureCurrentView({ id, name, title = '' }: {
  * Site data eye folded as the presentation join folds them
  * (`readLidarPresentation`'s `shown`), which shared Web code may not import.
  */
-function shownSiteData(section: CanopiFile['lidar']): { id: string; visible: boolean }[] {
+function shownSiteData(section: CanopiFile['site_data']): { id: string; visible: boolean }[] {
   return section ? section.entries.map((entry) => ({ id: entry.id, visible: entry.visible && section.visible })) : []
 }
 

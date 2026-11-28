@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact'
 import { useId, useLayoutEffect, useRef } from 'preact/hooks'
-import { placeSearch } from '../../app/geocoding/place-search-session'
+import { NOMINATIM_PROVIDER } from '../../app/geocoding/registry'
 import { PLACE_SEARCH_ZOOM } from '../../app/geocoding/place-search-ui'
 import { armCanvasTool } from '../../app/keyboard/arming'
 import { focusOwner } from '../../app/keyboard/focus-owner'
@@ -49,7 +49,6 @@ export function SiteOnboarding({ children }: { readonly children?: ComponentChil
 
 function SiteLocateDialog() {
   const titleId = useId()
-  const attribution = placeSearch.attribution.value
 
   return (
     <section
@@ -75,7 +74,7 @@ function SiteLocateDialog() {
         }}
       />
       <div className={styles.locateFooter}>
-        <span className={styles.attribution}>{attribution ?? t('siteOnboarding.placeNamesCredit')}</span>
+        <span className={styles.attribution}>{t('geocoding.credit', { service: NOMINATIM_PROVIDER.service })}</span>
         <button type="button" className={styles.link} onClick={() => answerSiteLocate(null)}>
           {t('siteOnboarding.skip')}
         </button>

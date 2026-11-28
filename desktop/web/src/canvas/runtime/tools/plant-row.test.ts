@@ -9,7 +9,7 @@ import {
 import type { CanvasPlantRowGuidance } from '../../session-state'
 import type { ToolHandleId } from '../interaction-types'
 import type { ScenePlantEntity } from '../scene/types'
-import type { ScreenPoint, WorldPoint } from '../view/types'
+import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
 import type { DraftShape } from './draft'
 import { createPlantRowTool } from './plant-row'
 import type { CanvasTool, ToolSettingsPort } from './tool'
@@ -84,6 +84,15 @@ function finish(h: ToolHarness): void {
 
 function added(h: ToolHarness): WorldPoint[] {
   return h.store.persisted.plants.filter((plant) => plant.id !== 'source').map((plant) => plant.position)
+}
+
+function closePoint(x: number, y: number): { readonly x: unknown; readonly y: unknown } {
+  return { x: expect.closeTo(x, 6), y: expect.closeTo(y, 6) }
+}
+
+function steppedPoint(h: ToolHarness, start: WorldPoint, end: WorldPoint, distanceM: number): { readonly x: unknown; readonly y: unknown } {
+  const ratio = distanceM / h.store.sessionPlane.groundLength(start, end)
+  return closePoint(start.x + (end.x - start.x) * ratio, start.y + (end.y - start.y) * ratio)
 }
 
 describe('Plant a row tool', () => {
@@ -171,48 +180,34 @@ describe('Plant a row tool', () => {
   })
 
   it('a hover previews the row and a press commits it as one Scene Edit', () => {
-    const { h } = rowHarness({
-      intervalM: 2,
-      plants: [sourcePlant({ x: 20, y: 30 }, {
-        color: '#884422',
-        canopySpreadM: 3,
-        rotationDeg: 15,
-        notes: 'Do not copy',
-        plantedDate: '2026-03-01',
-        quantity: 4,
-      })],
-    })
-    h.click({ x: 20, y: 30 })
-
-    h.hover({ x: 26, y: 30 })
+    const { h } = rowHarness({ intervalM: 2, plants: [sourcePlant({ x: 20, y: 30 }, {
+      color: '#884422', canopySpreadM: 3, rotationDeg: 15, notes: 'Do not copy', plantedDate: '2026-03-01', quantity: 4,
+    })] })
+    h.click(h.screen({ x: 20, y: 30 }))
 
     const start = { x: 20, y: 30 }
     const end = { x: 26, y: 30 }
+    h.hover(h.screen(end))
+
     expect(row(h)).toMatchObject({ phase: 'row', plantName: 'Apple', count: 3, density: 'normal' })
     expect(shapesOf(h, 'circle-px')).toMatchObject([{ center: start, style: { token: 'selection', widthPx: 2 } }])
-    expect(shapesOf(h, 'polyline')).toEqual([{ kind: 'polyline', points: [start, end], style: { token: 'selection', widthPx: 2, dash: [6, 6] } }])
-    expect(ghostPositions(h)).toEqual([{ x: 22, y: 30 }, { x: 24, y: 30 }, { x: 26, y: 30 }])
-    expect(shapesOf(h, 'label')).toEqual([{ kind: 'label', anchor: { x: 23, y: 30 }, offsetPx: { x: 0, y: 0 }, text: '6 m', tone: 'hint-primary' }])
+    expect(shapesOf(h, 'polyline')).toEqual([{ kind: 'polyline', points: [start, closePoint(26, 30)], style: { token: 'selection', widthPx: 2, dash: [6, 6] } }])
+    const expectedRow = [2, 4, 6].map((distanceM) => steppedPoint(h, start, end, distanceM))
+    expect(ghostPositions(h)).toEqual(expectedRow)
+    expect(shapesOf(h, 'label')).toEqual([{ kind: 'label', anchor: closePoint(23, 30), offsetPx: { x: 0, y: 0 }, text: '6 m', tone: 'hint-primary' }])
     // The ring and the guide under the discs, the length on top; the row replaces the hover restyle.
     expect(h.renderer.lastDraft()!.shapes.map((shape) => shape.kind)).toEqual(['circle-px', 'polyline', 'ghost', 'ghost', 'ghost', 'label'])
     expect(h.chrome.tooltip).toBeNull()
 
     // The click adds the row's second point; Enter plants it (U58).
-    h.click(end)
+    h.click(h.screen(end))
     expect(added(h)).toEqual([])
     finish(h)
 
-    expect(added(h)).toEqual([{ x: 22, y: 30 }, { x: 24, y: 30 }, { x: 26, y: 30 }])
+    expect(added(h)).toEqual(expectedRow)
     expect(h.store.persisted.plants[1]).toMatchObject({
-      canonicalName: 'Malus domestica',
-      commonName: 'Apple',
-      color: '#884422',
-      canopySpreadM: 3,
-      rotationDeg: 15,
-      notes: null,
-      plantedDate: null,
-      quantity: 1,
-      pinnedName: false,
+      canonicalName: 'Malus domestica', commonName: 'Apple', color: '#884422', canopySpreadM: 3,
+      rotationDeg: 15, notes: null, plantedDate: null, quantity: 1, pinnedName: false,
     })
     expect(h.store.persisted.groups).toEqual([])
     expect(h.store.session.selectedTargets.map((target) => target.id)).toEqual(h.store.persisted.plants.map((plant) => plant.id))
@@ -277,9 +272,9 @@ describe('Plant a row tool', () => {
 
   it('a dense row previews at most 250 discs and counts them all', () => {
     const { h } = rowHarness({ intervalM: 0.001 })
-    h.click({ x: 20, y: 30 })
+    h.click(h.screen({ x: 20, y: 30 }))
 
-    h.hover({ x: 22, y: 30 })
+    h.hover(h.screen({ x: 22, y: 30 }))
 
     expect(row(h)).toMatchObject({ count: 2000, density: 'dense' })
     expect(ghostPositions(h)).toHaveLength(250)
@@ -287,11 +282,11 @@ describe('Plant a row tool', () => {
 
   it('a row above 5000 plants is blocked', () => {
     const { h } = rowHarness({ intervalM: 0.001, plants: [sourcePlant({ x: 10, y: 10 })] })
-    h.click({ x: 10, y: 10 })
-    h.hover({ x: 20, y: 10 })
+    h.click(h.screen({ x: 10, y: 10 }))
+    h.hover(h.screen({ x: 20, y: 10 }))
     expect(row(h)).toMatchObject({ count: 10000, density: 'blocked' })
 
-    h.click({ x: 20, y: 10 })
+    h.click(h.screen({ x: 20, y: 10 }))
     finish(h)
 
     expect(added(h)).toEqual([])
@@ -302,15 +297,15 @@ describe('Plant a row tool', () => {
 
   it('a row of exactly 5000 plants commits', () => {
     const { h } = rowHarness({ intervalM: 0.001, plants: [sourcePlant({ x: 10, y: 10 })] })
-    h.click({ x: 10, y: 10 })
-    h.hover({ x: 15, y: 10 })
+    h.click(h.screen({ x: 10, y: 10 }))
+    h.hover(h.screen({ x: 15, y: 10 }))
     expect(row(h)).toMatchObject({ count: 5000, density: 'dense' })
 
-    h.click({ x: 15, y: 10 })
+    h.click(h.screen({ x: 15, y: 10 }))
     finish(h)
 
     expect(h.store.persisted.plants).toHaveLength(5001)
-    expect(added(h).at(-1)).toEqual({ x: 15, y: 10 })
+    expect(added(h).at(-1)).toEqual(steppedPoint(h, { x: 10, y: 10 }, { x: 15, y: 10 }, 5))
   })
 
   it('the row\'s discs take their size from the source\'s presentation', () => {
@@ -333,12 +328,12 @@ describe('Plant a row tool', () => {
 
   it('a row with no room for a plant previews and commits nothing', () => {
     const { h } = rowHarness({ intervalM: 2 })
-    h.click({ x: 20, y: 30 })
-    h.hover({ x: 21.5, y: 30 })
+    h.click(h.screen({ x: 20, y: 30 }))
+    h.hover(h.screen({ x: 21.5, y: 30 }))
     expect(lengthLabel(h)).toBe('1.5 m')
     expect(ghostPositions(h)).toEqual([])
 
-    h.click({ x: 21, y: 30 })
+    h.click(h.screen({ x: 21, y: 30 }))
     finish(h)
 
     expect(added(h)).toEqual([])
@@ -349,9 +344,9 @@ describe('Plant a row tool', () => {
 
   it('a zero-length row reads 0 cm and keeps the interval', () => {
     const { h } = rowHarness()
-    h.click({ x: 20, y: 30 })
+    h.click(h.screen({ x: 20, y: 30 }))
 
-    h.hover({ x: 20, y: 30 })
+    h.hover(h.screen({ x: 20, y: 30 }))
 
     expect(row(h)).toMatchObject({ interval: '50 cm', count: 0 })
     expect(lengthLabel(h)).toBe('0 cm')
@@ -376,21 +371,23 @@ describe('Plant a row tool', () => {
 
     h.press(source)
     // 31 px right and 12 px down on screen: Shift lays the row level on screen, not level with the world.
-    h.move({ x: source.x + 31, y: source.y + 12 }, { shift: true })
+    const pointer = { x: source.x + 31, y: source.y + 12 }
+    h.move(pointer, { shift: true })
 
-    const end = h.view.view().worldToScreen(shapesOf(h, 'polyline')[0]!.points[1]!)
+    const endWorld = shapesOf(h, 'polyline')[0]!.points[1]!, end = h.view.view().worldToScreen(endWorld), rawEnd = h.world(pointer)
     expect(end.y).toBeCloseTo(source.y, 6)
-    expect(end.x - source.x).toBeCloseTo(Math.hypot(31, 12), 6)
+    expect(end.x).toBeGreaterThan(source.x)
+    expect(Math.hypot(endWorld.x - 20, endWorld.y - 30)).toBeCloseTo(Math.hypot(rawEnd.x - 20, rawEnd.y - 30), 6)
   })
 
   it('Ctrl or Cmd turns snapping off', () => {
     for (const mods of [{ ctrl: true }, { meta: true }]) {
       const { h } = rowHarness({ intervalM: 2, snapping: { grid: true } })
-      h.click({ x: 20, y: 30 })
+      h.click(h.screen({ x: 20, y: 30 }))
 
       // Scale 1: the grid is 20 m, so a snapped end would sit at (80, 40); the held key leaves it at the pointer.
       h.hover({ x: 73, y: 37 }, mods)
-      expect(shapesOf(h, 'polyline')[0]!.points[1]).toEqual({ x: 73, y: 37 })
+      expect(shapesOf(h, 'polyline')[0]!.points[1]).toEqual(h.world({ x: 73, y: 37 }))
       h.hover({ x: 73, y: 37 })
       expect(shapesOf(h, 'polyline')[0]!.points[1]).toEqual({ x: 80, y: 40 })
     }
@@ -399,23 +396,24 @@ describe('Plant a row tool', () => {
   it('a Ctrl or Cmd change at the release applies at the next move, so the row commits as its last preview drew it (B3, A17)', () => {
     const { h } = rowHarness({ intervalM: 2, snapping: { grid: true } })
     // Scale 1: the grid is 20 m, so a snapped end would sit at (80, 40); the preview, with Ctrl held, ended at the pointer.
-    h.press({ x: 20, y: 30 })
+    h.press(h.screen({ x: 20, y: 30 }))
     h.move({ x: 73, y: 37 }, { ctrl: true })
-    expect(shapesOf(h, 'polyline')[0]!.points[1]).toEqual({ x: 73, y: 37 })
+    const rawEnd = h.world({ x: 73, y: 37 })
+    expect(shapesOf(h, 'polyline')[0]!.points[1]).toEqual(rawEnd)
     h.release({ x: 73, y: 37 })
 
     expect(added(h).at(-1)).not.toEqual({ x: 80, y: 40 })
     const last = added(h).at(-1)!
-    expect(Math.hypot(last.x - 20, last.y - 30)).toBeLessThanOrEqual(Math.hypot(53, 7))
+    expect(Math.hypot(last.x - 20, last.y - 30)).toBeLessThanOrEqual(Math.hypot(rawEnd.x - 20, rawEnd.y - 30))
   })
 
   it('a row of 100 plants commits without confirmation', () => {
     const { h } = rowHarness({ intervalM: 1, plants: [sourcePlant({ x: 10, y: 10 })] })
-    h.click({ x: 10, y: 10 })
-    h.hover({ x: 110, y: 10 })
+    h.click(h.screen({ x: 10, y: 10 }))
+    h.hover(h.screen({ x: 110, y: 10 }))
     expect(row(h)).toMatchObject({ count: 100, density: 'normal' })
 
-    h.click({ x: 110, y: 10 })
+    h.click(h.screen({ x: 110, y: 10 }))
     finish(h)
 
     expect(h.store.persisted.plants).toHaveLength(101)
@@ -423,36 +421,34 @@ describe('Plant a row tool', () => {
 
   it('a row above 100 plants reads dense and commits directly', () => {
     const { h } = rowHarness({ intervalM: 1, plants: [sourcePlant({ x: 10, y: 10 })] })
-    h.click({ x: 10, y: 10 })
-    h.hover({ x: 111, y: 10 })
+    h.click(h.screen({ x: 10, y: 10 }))
+    h.hover(h.screen({ x: 111, y: 10 }))
     expect(row(h)).toMatchObject({ count: 101, density: 'dense' })
 
-    h.click({ x: 111, y: 10 })
+    h.click(h.screen({ x: 111, y: 10 }))
     finish(h)
 
     expect(h.store.persisted.plants).toHaveLength(102)
-    expect(added(h).at(-1)).toEqual({ x: 111, y: 10 })
+    expect(added(h).at(-1)).toEqual(steppedPoint(h, { x: 10, y: 10 }, { x: 111, y: 10 }, 101))
   })
 
   it('a drag commits the row at its release point', () => {
     const { h } = rowHarness({ intervalM: 2 })
 
-    h.press({ x: 20, y: 30 })
-    h.move({ x: 25, y: 30 })
-    h.release({ x: 26, y: 30 })
+    h.press(h.screen({ x: 20, y: 30 }))
+    h.move(h.screen({ x: 25, y: 30 }))
+    h.release(h.screen({ x: 26, y: 30 }))
 
-    expect(added(h)).toEqual([{ x: 22, y: 30 }, { x: 24, y: 30 }, { x: 26, y: 30 }])
+    expect(added(h)).toEqual([2, 4, 6].map((distanceM) => steppedPoint(h, { x: 20, y: 30 }, { x: 26, y: 30 }, distanceM)))
   })
 
   it('a dense drag commits directly', () => {
     const { h } = rowHarness({ intervalM: 1, plants: [sourcePlant({ x: 10, y: 10 })] })
 
-    h.press({ x: 10, y: 10 })
-    h.move({ x: 111, y: 10 })
-    h.release({ x: 111, y: 10 })
+    h.press(h.screen({ x: 10, y: 10 })); h.move(h.screen({ x: 111, y: 10 })); h.release(h.screen({ x: 111, y: 10 }))
 
     expect(h.store.persisted.plants).toHaveLength(102)
-    expect(added(h).at(-1)).toEqual({ x: 111, y: 10 })
+    expect(added(h).at(-1)).toEqual(steppedPoint(h, { x: 10, y: 10 }, { x: 111, y: 10 }, 101))
     expect(row(h).phase).toBe('pick')
   })
 
@@ -460,19 +456,19 @@ describe('Plant a row tool', () => {
     const { h } = rowHarness({ intervalM: 2 })
 
     // A fast press and drag: the field would take focus after the map did, and Esc, Enter and letters would go to it.
-    h.press({ x: 20, y: 30 })
+    h.press(h.screen({ x: 20, y: 30 }))
     expect(row(h)).toMatchObject({ phase: 'row', focusRequest: 0 })
     const focus = h.record.focus.length
-    h.move({ x: 25, y: 30 })
+    h.move(h.screen({ x: 25, y: 30 }))
     expect(h.record.focus.slice(focus)).toEqual(['map'])
-    h.release({ x: 26, y: 30 })
-    expect(added(h)).toEqual([{ x: 22, y: 30 }, { x: 24, y: 30 }, { x: 26, y: 30 }])
+    h.release(h.screen({ x: 26, y: 30 }))
+    expect(added(h)).toEqual([2, 4, 6].map((distanceM) => steppedPoint(h, { x: 20, y: 30 }, { x: 26, y: 30 }, distanceM)))
     expect(row(h).focusRequest).toBe(0)
 
     // A tap picks the source and the field takes focus on its release, as today.
-    h.press({ x: 20, y: 30 })
+    h.press(h.screen({ x: 20, y: 30 }))
     expect(row(h).focusRequest).toBe(0)
-    h.release({ x: 20, y: 30 })
+    h.release(h.screen({ x: 20, y: 30 }))
     expect(row(h)).toMatchObject({ phase: 'row', focusRequest: 1 })
   })
 
@@ -547,17 +543,19 @@ describe('Plant a row tool', () => {
 
   it('a clamped endpoint stays at the view\'s edge', () => {
     const { h } = rowHarness({ intervalM: 100 })
-    h.click({ x: 20, y: 30 })
+    const startScreen = h.screen({ x: 20, y: 30 })
+    h.click(startScreen)
 
-    h.hover({ x: 500, y: 30 })
+    h.hover({ x: 500, y: startScreen.y })
 
-    expect(lengthLabel(h)).toBe('380 m')
-    expect(shapesOf(h, 'polyline')[0]!.points[1]).toEqual({ x: 400, y: 30 })
+    const edge = h.world({ x: 400, y: startScreen.y })
+    expect(lengthLabel(h)).toBe(`${Math.round(h.store.sessionPlane.groundLength({ x: 20, y: 30 }, edge))} m`)
+    expect(shapesOf(h, 'polyline')[0]!.points[1]).toEqual(edge)
 
-    h.click({ x: 500, y: 30 })
+    h.click({ x: 500, y: startScreen.y })
     finish(h)
 
-    expect(added(h)).toEqual([{ x: 120, y: 30 }, { x: 220, y: 30 }, { x: 320, y: 30 }])
+    expect(added(h)).toEqual([100, 200, 300].map((distanceM) => steppedPoint(h, { x: 20, y: 30 }, edge, distanceM)))
   })
 
   it('a picked source holds re-origin until Esc drops it', () => {
@@ -688,8 +686,8 @@ describe('Plant a row along a path', () => {
 
   it('plants N plants evenly, the picked one included, and never writes the count as the device interval', () => {
     const { h, settings } = pathHarness()
-    h.click({ x: 20, y: 30 })
-    h.click({ x: 100, y: 30 })
+    h.click(h.screen({ x: 2, y: 3 }))
+    h.click(h.screen({ x: 10, y: 3 }))
     expect(h.host.command({ kind: 'spacing-mode', mode: 'count' })).toBe('handled')
     expect(row(h)).toMatchObject({ mode: 'count', countText: '9', countValid: true, count: 8 })
     h.host.command({ kind: 'spacing-input', text: '5' })
@@ -703,15 +701,15 @@ describe('Plant a row along a path', () => {
 
     finish(h)
 
-    expect(added(h)).toEqual([{ x: 4, y: 3 }, { x: 6, y: 3 }, { x: 8, y: 3 }, { x: 10, y: 3 }])
+    expect(added(h)).toEqual([closePoint(4, 3), closePoint(6, 3), closePoint(8, 3), closePoint(10, 3)])
   })
 
   // Answer 29: the 5000-plant guard is the tool's own: "N plants" counts the picked plant, so 5001 plants is the most a
   // row plants, as every N m plants 5000 beside the picked one; the switch from a row above it starts at that most.
   it('takes up to 5001 plants in "N plants", the picked one counted, and starts the switch from a longer row at 5001', () => {
     const { h } = rowHarness({ intervalM: 0.001, plants: [sourcePlant({ x: 10, y: 10 })] })
-    h.click({ x: 10, y: 10 })
-    h.click({ x: 20, y: 10 })
+    h.click(h.screen({ x: 10, y: 10 }))
+    h.click(h.screen({ x: 20, y: 10 }))
     expect(row(h)).toMatchObject({ count: 10000, density: 'blocked' })
     h.host.command({ kind: 'spacing-mode', mode: 'count' })
     expect(row(h)).toMatchObject({ countText: '5001', countValid: true, count: 5000, density: 'dense' })
@@ -724,33 +722,31 @@ describe('Plant a row along a path', () => {
     finish(h)
 
     expect(added(h)).toHaveLength(5000)
-    expect(added(h).at(-1)).toEqual({ x: 20, y: 10 })
+    expect(added(h).at(-1)).toEqual(closePoint(20, 10))
   })
 
   it('before planting, a point drags, a dot drag inserts, a dot double-click inserts in place and Alt deletes or sharpens', () => {
     const { h } = pathHarness()
-    h.click({ x: 20, y: 30 })
-    h.click({ x: 80, y: 30 })
-    h.click({ x: 140, y: 30 })
+    h.click(h.screen({ x: 2, y: 3 }))
+    h.click(h.screen({ x: 8, y: 3 }))
+    h.click(h.screen({ x: 14, y: 3 }))
 
     // A point drag moves it at the release; the draft follows it live.
-    const second = screenOf(h, 'point:draft:2')
+    const second = screenOf(h, 'point:draft:2'), movedSecond = h.screen({ x: 14, y: 1 })
     h.press(second, { target: { kind: 'handle', id: handleId('point:draft:2') } })
-    h.move({ x: second.x, y: second.y - 20 })
-    expect(pointAt(h, 2)).toEqual({ x: 14, y: 1 })
-    h.release({ x: second.x, y: second.y - 20 })
-    expect(pointAt(h, 2)).toEqual({ x: 14, y: 1 })
+    h.move(movedSecond); expect(pointAt(h, 2)).toEqual(closePoint(14, 1))
+    h.release(movedSecond); expect(pointAt(h, 2)).toEqual(closePoint(14, 1))
 
     // A still press on a dot inserts nothing; its drag inserts a point where it is released.
     const dot = screenOf(h, 'dot:draft:0')
     h.click(dot, { target: { kind: 'handle', id: handleId('dot:draft:0') } })
     // The picked plant and two points: from 3 points the picked plant has a handle too.
     expect(pointIds(h)).toHaveLength(3)
+    const inserted = h.screen({ x: 5, y: 6 })
     h.press(dot, { target: { kind: 'handle', id: handleId('dot:draft:0') } })
-    h.move({ x: 50, y: 60 })
-    h.release({ x: 50, y: 60 })
+    h.move(inserted); h.release(inserted)
     expect(pointIds(h)).toHaveLength(4)
-    expect(pointAt(h, 1)).toEqual({ x: 5, y: 6 })
+    expect(pointAt(h, 1)).toEqual(closePoint(5, 6))
 
     // A double-click on a dot inserts a point in place.
     const inPlace = h.chrome.handles.find((handle) => handle.id === 'dot:draft:2')!.anchor
@@ -822,8 +818,8 @@ describe('Plant a row along a path', () => {
       if (!h.host.transientHistory.redo()) throw new Error('Ctrl+Shift+Z reached the Design')
     }
 
-    h.click({ x: 20, y: 30 })
-    for (const x of [60, 100, 140]) h.click({ x, y: 30 })
+    h.click(h.screen({ x: 2, y: 3 }))
+    for (const x of [6, 10, 14]) h.click(h.screen({ x, y: 3 }))
     expect(row(h).points).toBe(4)
     expect(h.host.transientHistory.canRedo()).toBe(true)
 
@@ -837,7 +833,7 @@ describe('Plant a row along a path', () => {
 
     for (let step = 0; step < 3; step += 1) ctrlShiftZ()
     expect(row(h)).toMatchObject({ phase: 'row', points: 4 })
-    expect(pointAt(h, 3)).toEqual({ x: 14, y: 3 })
+    expect(pointAt(h, 3)).toEqual(closePoint(14, 3))
     // Nothing left to redo: Ctrl+Shift+Z is still the draft's, and does nothing.
     expect(h.host.transientHistory.canRedo()).toBe(true)
     ctrlShiftZ()
@@ -991,10 +987,10 @@ describe('Plant a row along a path', () => {
     expect(h.host.command({ kind: 'point-action', handle: handleId('point:draft:1'), action: 'delete-point' }), 'below the minimum').toBe('pass')
 
     // Delete takes the focused point, else the last-touched one.
-    h.click({ x: 140, y: 30 })
+    h.click(h.screen({ x: 14, y: 3 }))
     h.chrome.focusedHandle = handleId('point:draft:1')
     expect(h.host.command({ kind: 'delete-handle' })).toBe('handled')
-    expect(pointAt(h, 1)).toEqual({ x: 14, y: 3 })
+    expect(pointAt(h, 1)).toEqual(closePoint(14, 3))
     expect(added(h)).toEqual([])
   })
 
@@ -1013,18 +1009,19 @@ describe('Plant a row along a path', () => {
 
   it('turns the next point to 45 degree steps from the last one under Shift, never a point drag', () => {
     const { h } = pathHarness()
-    h.click({ x: 20, y: 30 })
-    h.click({ x: 80, y: 30 })
-    h.hover({ x: 140, y: 45 }, { shift: true })
+    h.click(h.screen({ x: 2, y: 3 }))
+    h.click(h.screen({ x: 8, y: 3 }))
+    h.hover(h.screen({ x: 14, y: 4.5 }), { shift: true })
     expect(shapesOf(h, 'polyline')[0]!.points.at(-1)!.y).toBeCloseTo(3, 6)
-    h.click({ x: 140, y: 45 }, { mods: { shift: true } })
+    h.click(h.screen({ x: 14, y: 4.5 }), { mods: { shift: true } })
     expect(pointAt(h, 2).y).toBeCloseTo(3, 6)
 
     const point = screenOf(h, 'point:draft:1')
+    const dragTarget = { x: point.x + 13, y: point.y + 31 }
     h.press(point, { target: { kind: 'handle', id: handleId('point:draft:1') }, mods: { shift: true } })
-    h.move({ x: point.x + 13, y: point.y + 31 }, { shift: true })
-    h.release({ x: point.x + 13, y: point.y + 31 }, { shift: true })
-    expect(pointAt(h, 1)).toEqual({ x: 9.3, y: 6.1 })
+    h.move(dragTarget, { shift: true })
+    h.release(dragTarget, { shift: true })
+    expect(pointAt(h, 1)).toEqual(h.world(dragTarget))
   })
 
   it('grows the points and dots to 44 px after a finger', () => {
@@ -1041,12 +1038,12 @@ describe('Plant a row along a path', () => {
 
   it('sets the length chip beside a dot that sits under it', () => {
     const { h } = pathHarness()
-    h.click({ x: 20, y: 30 })
-    h.hover({ x: 100, y: 30 })
+    h.click(h.screen({ x: 2, y: 3 }))
+    h.hover(h.screen({ x: 10, y: 3 }))
     expect(shapesOf(h, 'label')[0]).not.toHaveProperty('beside')
-    h.click({ x: 100, y: 30 })
+    h.click(h.screen({ x: 10, y: 3 }))
     const [label] = shapesOf(h, 'label')
-    expect(label).toMatchObject({ anchor: { x: 6, y: 3 }, text: '8 m', beside: { gapPx: 6 } })
+    expect(label).toMatchObject({ anchor: closePoint(6, 3), text: '8 m', beside: { gapPx: 6 } })
     expect(Math.abs(label!.beside!.normalPx.y)).toBeCloseTo(1, 9)
   })
 })

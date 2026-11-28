@@ -26,20 +26,6 @@ export const PLANT_COLOR_PALETTE: readonly PlantPaletteColor[] = [
   { name: 'Flint', hex: '#71716A' },
 ] as const
 
-const FLOWER_COLOR_HEX: Record<string, string> = {
-  Red: '#C44230',
-  Orange: '#D4822A',
-  Yellow: '#C8A51E',
-  Green: '#3E8E4E',
-  Blue: '#4A82C2',
-  Purple: '#7B5EA7',
-  Violet: '#6B4E9E',
-  Pink: '#C25B82',
-  White: '#B8B3AA',
-  Brown: '#7A5C30',
-  Black: '#4A4A46',
-}
-
 export function normalizeHexColor(value: string | null | undefined): string | null {
   if (typeof value !== 'string') return null
   const trimmed = value.trim().toUpperCase()
@@ -188,18 +174,4 @@ export function pointerPositionToSaturationLightness(
     s: xRatio * 100,
     l: (1 - yRatio) * 100,
   }
-}
-
-function pickPrimaryFlowerColorToken(value: string | null | undefined): string | null {
-  if (typeof value !== 'string') return null
-  const primary = value
-    .split(/[,/]/)[0]
-    ?.trim()
-  return primary ? primary : null
-}
-
-export function getFlowerColorHex(value: string | null | undefined): string | null {
-  const primary = pickPrimaryFlowerColorToken(value)
-  if (!primary) return null
-  return FLOWER_COLOR_HEX[primary] ?? null
 }

@@ -36,6 +36,7 @@ interface Command {
   id: AppCommandId
   label: () => string
   shortcut?: string
+  note?: string
   disabled: () => boolean
   action: () => void
 }
@@ -53,6 +54,7 @@ export interface AppCommandGraphChromeProjection {
   readonly menus: MenuDefinition[]
   readonly paletteCommands: Command[]
   readonly titleBar: {
+    readonly openDesign: AppCommandGraphTitleBarCommand
     readonly help: AppCommandGraphTitleBarCommand
     readonly settings: AppCommandGraphTitleBarCommand
   }
@@ -128,6 +130,7 @@ export const appCommandGraphChromeProjection = computed<AppCommandGraphChromePro
   }
   return {
     titleBar: {
+      openDesign: titleBarCommand('file.open'),
       help: titleBarCommand('help.shortcuts'),
       settings: titleBarCommand('app.settings'),
     },

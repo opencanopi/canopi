@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createBrowserCanvasRuntimeAppAdapter } from '../web/browser-canvas-runtime'
+import { createBrowserCanvasRuntimeAppAdapter } from '../editions/web/browser-canvas-runtime'
 
 describe('browser Canvas Runtime composition', () => {
   it('exposes browser-safe presentation without a no-op Saved Object Stamp capability', () => {

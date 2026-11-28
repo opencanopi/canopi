@@ -4,7 +4,7 @@
 // dialog is refused with dialog_already_open (2.1-Q284); ast-grep skips this file, so a hand-written cancel guard
 // added here goes uncounted and belongs to the catalogue's CancelToken instead.
 
-import { invokeCommand } from './transport'
+import { invokeTyped, mintOperationId } from './transport'
 import type { DialogKind, PickOpenOutcome, PickSaveOutcome } from '../generated/contracts'
 import { failureOf, IpcFailure } from '../failures/ipc-failure'
 
@@ -22,12 +22,12 @@ type OpenDialogKind = Extract<DialogKind, 'design-open' | 'stamp-import' | 'lida
 /** The kinds of Save dialog. */
 export type SaveDialogKind = Extract<
   DialogKind,
-  'design-save' | 'stamp-export' | 'geojson-export' | 'pdf-export' | 'budget-csv-export'
+  'design-save' | 'stamp-export' | 'geojson-export' | 'pdf-export' | 'budget-csv-export' | 'lidar-geotiff-export'
 >
 
 /** Show `kind`'s Open dialog. */
 export async function pickOpen(kind: OpenDialogKind): Promise<PickOpenOutcome> {
-  return invokeCommand<PickOpenOutcome>('pick_open', { kind }).catch(cancelIfAlreadyOpen)
+  return invokeTyped('pick_open', { kind }, mintOperationId('u')).catch(cancelIfAlreadyOpen)
 }
 
 /**
@@ -35,7 +35,7 @@ export async function pickOpen(kind: OpenDialogKind): Promise<PickOpenOutcome> {
  * that has none of the kind's, in the suggestion and the answer.
  */
 export async function pickSave(kind: SaveDialogKind, stem: string): Promise<PickSaveOutcome> {
-  return invokeCommand<PickSaveOutcome>('pick_save', { kind, stem }).catch(cancelIfAlreadyOpen)
+  return invokeTyped('pick_save', { kind, stem }, mintOperationId('u')).catch(cancelIfAlreadyOpen)
 }
 
 /**

@@ -47,6 +47,24 @@ export async function seedPointingDevice(page: Page, scrollWheel: 'zoom' | 'pan'
   }, scrollWheel)
 }
 
+/**
+ * Seeds the unit system before every navigation, so specs pinned to `locale: 'en-US'` (playwright.config.ts) keep
+ * their metric baselines and chip expectations even though a fresh `en-US` profile defaults to US customary (2.1-Q118).
+ * Adds `unit_system` to the Web settings record only where it has none, so a spec's own record and the app's later
+ * writes stay as they are.
+ */
+export async function seedUnitSystem(page: Page, unitSystem: 'metric' | 'us_customary' = 'metric'): Promise<void> {
+  await page.addInitScript((seed) => {
+    if (window.location.origin === 'null' || window.location.href === 'about:blank') return
+    const key = 'canopi:web-app-data:v3:settings'
+    const raw = localStorage.getItem(key)
+    const record = raw === null ? { version: 3, settings: {} } : JSON.parse(raw) as { settings?: Record<string, unknown> | null }
+    const settings = record.settings ?? {}
+    if ('unit_system' in settings) return
+    localStorage.setItem(key, JSON.stringify({ ...record, settings: { ...settings, unit_system: seed } }))
+  }, unitSystem)
+}
+
 /** The view's bearing in degrees clockwise from north, read from the compass needle (`rotate(-bearing 10 10)`). */
 export async function bearing(page: Page): Promise<number> {
   const transform = await page.locator('[data-compass] [data-needle]').first().getAttribute('transform')

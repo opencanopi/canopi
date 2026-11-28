@@ -1,7 +1,6 @@
 {
   "name": "canopi-web",
   "private": true,
-  "version": "2.1.0-beta.3",
   "type": "module",
   "engines": {
     "node": "^24.13.0"
@@ -15,7 +14,7 @@
     "build:web": "npm run typecheck && npm run build:web:bundle",
     "build:web:bundle": "npm run build:format-wasm && vite build --mode web && node scripts/check-web-build-boundaries.mjs && node scripts/check-css-cascade.mjs dist-web && node scripts/check-build-identifiers.mjs dist-web",
     "generate:web-catalog": "cd ../.. && python3 scripts/generate-web-catalog.py",
-    "typecheck": "node ./node_modules/typescript7/bin/tsc --noEmit -p ../../policy/tsconfig.json && node ./node_modules/typescript7/bin/tsc --noEmit -p e2e && node ./node_modules/typescript7/bin/tsc --noEmit -p e2e-release && node ./node_modules/typescript7/bin/tsc --noEmit -p e2e-rollback && node ./node_modules/typescript7/bin/tsc --noEmit -p e2e/platform && node ./node_modules/typescript7/bin/tsc --noEmit -p tsconfig.tooling.json && node ./node_modules/typescript7/bin/tsc --noEmit -p ui-gallery/tsconfig.json && node ./node_modules/typescript7/bin/tsc --noEmit",
+    "typecheck": "node ./node_modules/typescript7/bin/tsc --noEmit -p ../../policy/tsconfig.json && node ./node_modules/typescript7/bin/tsc --noEmit -p e2e && node ./node_modules/typescript7/bin/tsc --noEmit -p e2e-release && node ./node_modules/typescript7/bin/tsc --noEmit -p e2e-rollback && node ./node_modules/typescript7/bin/tsc --noEmit -p e2e/platform && node ./node_modules/typescript7/bin/tsc --noEmit -p tsconfig.tooling.json && node ./node_modules/typescript7/bin/tsc --noEmit",
     "preview": "vite preview",
     "test": "vitest run",
     "test:policies:check": "node ../../policy/check.mjs",
@@ -43,7 +42,7 @@
     "tauri": "cd ../.. && tauri",
     "prepare:pdf-fonts": "node scripts/prepare-pdf-fonts.mjs",
     "build:pdf-validation": "npm run typecheck -- -p scripts/pdf-validation/tsconfig.json && vite build --config scripts/pdf-validation/vite.config.mjs",
-    "dev:ui": "vite --config ui-gallery/vite.config.ts",
+    "dev:ui": "vite --mode gallery",
     "check:editions": "npm run typecheck && npm run build:desktop:bundle && npm run build:web:bundle",
     "generate:notices": "node ../../scripts/generate_notices.mjs",
     "check:notices": "node ../../scripts/generate_notices.mjs --check",
@@ -53,23 +52,13 @@
     "test:android": "node --experimental-strip-types e2e/phones/android/smoke.ts"
   },
   "dependencies": {
-    "@deck.gl/core": "9.4.0",
-    "@deck.gl/geo-layers": "9.4.0",
-    "@deck.gl/layers": "9.4.0",
-    "@deck.gl/mapbox": "9.4.0",
-    "@deck.gl/mesh-layers": "9.4.0",
     "@duckdb/duckdb-wasm": "1.33.1-dev57.0",
     "@fontsource/ibm-plex-mono": "5.3.0",
     "@fontsource/literata": "5.3.0",
     "@fontsource/source-sans-3": "5.3.0",
-    "@luma.gl/core": "9.4.1",
-    "@luma.gl/engine": "9.4.1",
-    "@luma.gl/shadertools": "9.4.1",
-    "@luma.gl/webgl": "9.4.1",
     "@preact/signals": "^2.11.3",
     "@tanstack/virtual-core": "^3.13.23",
     "@tauri-apps/api": "^2.12.4",
-    "@tauri-apps/plugin-dialog": "^2.8.3",
     "cog-tiler-wasm": "0.4.0",
     "fontkit": "2.0.4",
     "geotiff": "3.0.5",
@@ -77,7 +66,6 @@
     "i18next": "^26.5.4",
     "maplibre-contour": "0.1.1",
     "maplibre-gl": "6.10.0",
-    "maplibre-gl-raster": "0.14.15",
     "pdfkit": "0.20.2",
     "pixi.js": "^8.17.1",
     "preact": "^11.0.1",
@@ -109,6 +97,7 @@
     "oxlint": "1.89.0",
     "oxlint-tsgolint": "7.0.2004",
     "picomatch": "4.0.7",
+    "postcss": "8.5.31",
     "rolldown": "~1.2.15",
     "rollup-plugin-license": "3.7.1",
     "typescript": "npm:@typescript/typescript6@^6.0.2",
@@ -119,11 +108,7 @@
     "yaml": "2.9.1"
   },
   "overrides": {
-    "image-size": "^2.0.4",
     "fflate": "^0.8.3",
-    "texture-compressor": {
-      "argparse": "^2.0.1"
-    },
     "typed-rest-client": {
       "qs": "^6.16.1"
     }

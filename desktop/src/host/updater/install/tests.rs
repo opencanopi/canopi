@@ -176,7 +176,7 @@ fn the_deb_installs_through_pkexec_dpkg_and_its_exit_statuses_settle_as_their_co
             Ok(UpdateDownload::Verified)
         );
 
-        let installed = run(host.install(app.handle(), &executor, None));
+        let installed = run(host.install(app.handle(), &executor));
 
         assert_eq!(
             installed.map_err(|failure| failure.code),
@@ -274,7 +274,7 @@ fn the_deb_install_without_pkexec_on_path_is_admin_prompt_unavailable() {
     run(host.download(app.handle(), &executor, "download", progress)).unwrap();
     std::fs::remove_file(bin.join("pkexec")).unwrap();
     assert_eq!(
-        code(run(host.install(app.handle(), &executor, None))),
+        code(run(host.install(app.handle(), &executor))),
         FailureCode::UpdateAdminPromptUnavailable
     );
 }
@@ -339,7 +339,7 @@ fn staged_deb(bin: &Path, temp: &Path) -> StagedUpdate {
 
 impl StagedUpdate {
     fn install(&self) -> Result<(), canopi_types::failure::Failure> {
-        run(self.host.install(self.app.handle(), &self.executor, None))
+        run(self.host.install(self.app.handle(), &self.executor))
     }
 }
 

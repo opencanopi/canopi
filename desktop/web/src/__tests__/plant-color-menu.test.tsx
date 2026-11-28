@@ -5,7 +5,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PlantColorMenu } from '../components/canvas/PlantColorMenu'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { plantColorMenuOpen } from '../canvas/plant-color-menu-state'
+import { plantColorMenuOpen } from '../app/canvas-context-menu/state'
 import { currentCanvasSelection } from '../canvas/session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createLiveTestCanvasRuntimeHost } from './support/live-canvas-runtime'
@@ -69,7 +69,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: '#C8A51E',
-      suggestedColor: null,
       singleSpeciesDefaultColor: null,
     })
     await act(async () => render(<PlantColorMenu buttonRef={buttonRef} />, container))
@@ -101,34 +100,11 @@ describe('PlantColorMenu', () => {
     expect(setSelectedPlantColor).not.toHaveBeenCalled()
   })
 
-  it('previews the species suggestion without applying until confirmed', async () => {
-    getSelectedPlantColorContext.mockReturnValue({
-      plantIds: ['plant-1'],
-      singleSpeciesCanonicalName: 'Malus domestica',
-      singleSpeciesCommonName: 'Apple',
-      sharedCurrentColor: '#123ABC',
-      suggestedColor: '#C8A51E',
-      singleSpeciesDefaultColor: null,
-    })
-    await act(async () => render(<PlantColorMenu buttonRef={buttonRef} />, container))
-    const suggestion = [...document.querySelectorAll('button')].find(button =>
-      button.textContent?.includes('Suggested'),
-    )
-    expect(suggestion).toBeDefined()
-    await act(async () => suggestion!.click())
-    expect(setSelectedPlantColor).not.toHaveBeenCalled()
-    const apply = [...document.querySelectorAll('button')].find(button =>
-      button.textContent?.includes('Apply to'),
-    )!
-    await act(async () => apply.click())
-    expect(setSelectedPlantColor).toHaveBeenCalledWith('#C8A51E')
-  })
-
   it('adjusts custom color with the keyboard without applying it', async () => {
     getSelectedPlantColorContext.mockReturnValue({
       plantIds: ['plant-1'], singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple', sharedCurrentColor: '#C8A51E',
-      suggestedColor: null, singleSpeciesDefaultColor: null,
+      singleSpeciesDefaultColor: null,
     })
     await act(async () => render(<PlantColorMenu buttonRef={buttonRef} />, container))
     await act(async () => { [...document.querySelectorAll('button')].find(button => button.textContent === 'Custom color')!.click() })
@@ -148,7 +124,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -183,7 +158,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: commonName,
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     }))
 
@@ -209,8 +183,7 @@ describe('PlantColorMenu', () => {
       plantIds: ['plant-1'],
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
-      sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
+      sharedCurrentColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -238,7 +211,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: '#C8A51E',
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: '#C8A51E',
     })
 
@@ -264,7 +236,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: null,
       singleSpeciesCommonName: null,
       sharedCurrentColor: 'mixed',
-      suggestedColor: null,
       singleSpeciesDefaultColor: null,
     })
 
@@ -284,7 +255,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -314,7 +284,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -339,7 +308,6 @@ describe('PlantColorMenu', () => {
       singleSpeciesCanonicalName: 'Malus domestica',
       singleSpeciesCommonName: 'Apple',
       sharedCurrentColor: null,
-      suggestedColor: '#C8A51E',
       singleSpeciesDefaultColor: null,
     })
 
@@ -390,6 +358,87 @@ describe('PlantColorMenu', () => {
     expect(setSelectedPlantColor).toHaveBeenCalledWith('#123ABC')
   })
 
+  it('adjusts custom color with keyboard sliders and closes via Escape, header close, and outside pointerup', async () => {
+    getSelectedPlantColorContext.mockReturnValue({
+      plantIds: ['plant-1'],
+      singleSpeciesCanonicalName: 'Malus domestica',
+      singleSpeciesCommonName: 'Apple',
+      sharedCurrentColor: '#4CAF50',
+      suggestedColor: '#C8A51E',
+      singleSpeciesDefaultColor: null,
+    })
+
+    await act(async () => {
+      render(<PlantColorMenu buttonRef={buttonRef} />, container)
+      await Promise.resolve()
+    })
+
+    const moreColorsButton = [...document.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Custom color'),
+    ) as HTMLButtonElement
+    await act(async () => {
+      moreColorsButton.click()
+      await Promise.resolve()
+    })
+
+    const sliders = document.querySelectorAll<HTMLElement>('[role="slider"]')
+    expect(sliders).toHaveLength(2)
+    const [squareSlider, hueSlider] = sliders
+    const input = document.querySelector<HTMLInputElement>('input[placeholder="#C44230"]')!
+    const before = input.value
+
+    await act(async () => {
+      squareSlider!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true, bubbles: true, cancelable: true }))
+      hueSlider!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', shiftKey: true, bubbles: true, cancelable: true }))
+      hueSlider!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true, cancelable: true }))
+      await Promise.resolve()
+    })
+    expect(input.value).not.toBe(before)
+
+    const rect = { left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100, x: 0, y: 0, toJSON: () => ({}) } as DOMRect
+    vi.spyOn(squareSlider!, 'getBoundingClientRect').mockReturnValue(rect)
+    vi.spyOn(hueSlider!, 'getBoundingClientRect').mockReturnValue(rect)
+    const afterKeys = input.value
+    await act(async () => {
+      squareSlider!.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 80, clientY: 20, bubbles: true, cancelable: true }))
+      document.dispatchEvent(new MouseEvent('pointermove', { clientX: 60, clientY: 40, bubbles: true }))
+      document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+      hueSlider!.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 10, clientY: 50, bubbles: true, cancelable: true }))
+      document.dispatchEvent(new MouseEvent('pointermove', { clientX: 10, clientY: 75, bubbles: true }))
+      document.dispatchEvent(new MouseEvent('pointerup', { bubbles: true }))
+      await Promise.resolve()
+    })
+    expect(input.value).not.toBe(afterKeys)
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    await act(async () => {
+      dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await Promise.resolve()
+    })
+    expect(plantColorMenuOpen.value).toBe(false)
+
+    await act(async () => {
+      plantColorMenuOpen.value = true
+      await Promise.resolve()
+    })
+    const closeButton = document.querySelector<HTMLButtonElement>('[role="dialog"] button[aria-label="Close"]')!
+    await act(async () => {
+      closeButton.click()
+      await Promise.resolve()
+    })
+    expect(plantColorMenuOpen.value).toBe(false)
+
+    await act(async () => {
+      plantColorMenuOpen.value = true
+      await Promise.resolve()
+    })
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+      await Promise.resolve()
+    })
+    expect(plantColorMenuOpen.value).toBe(false)
+  })
+
 })
 
 describe('PlantColorMenu on a live Scene', () => {
@@ -401,7 +450,7 @@ describe('PlantColorMenu on a live Scene', () => {
     layers: [{ name: 'plants', visible: true, locked: false, opacity: 1 }],
     plants: [{
       id: 'plant-1', canonical_name: 'Malus domestica', common_name: 'Apple', color: null,
-      position: { lon: 0, lat: 0 }, rotation: null, scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+      position: { lon: 0, lat: 0 }, rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: 1, locked: false,
     }],
     zones: [],
     annotations: [],

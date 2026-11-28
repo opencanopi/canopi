@@ -1,7 +1,14 @@
 import type { SpeciesFocusCommands } from './species-key'
+import {
+  prepareEditAnnotationFields,
+  prepareEditGuideDimensions,
+  prepareEditPlantFields,
+  prepareEditZoneDimensions,
+  prepareSetSpeciesCode,
+  prepareSetZoneStyle,
+} from './dimension-math'
 import { computed, type ReadonlySignal } from '@preact/signals'
-import { setCanvasTool } from '../session-state'
-import type { ToolId } from './interaction-types'
+import type { MapInputHandle, MapInputRequest, ToolId, ToolSource } from './interaction-types'
 import type {
   CanvasRuntimeSavedObjectStampAdapter,
   CanvasRuntimeSettingsAdapter,
@@ -92,6 +99,7 @@ interface SceneCanvasCommandSurfaceOptions {
     | 'groupSelected'
     | 'ungroupSelected'
     | 'renameZone'
+    | 'runSettledMutation'
     | 'rotateSelected'
     | 'setSelectedPlantColor'
     | 'setSelectedPlantSymbol'
@@ -111,9 +119,7 @@ interface SceneCanvasCommandSurfaceOptions {
     CanvasRuntimeSettingsAdapter,
     'toggleGridVisible' | 'toggleSnapToGrid'
   >
-  readonly setInteractionTool: (id: ToolId) => void
-  /** The tool the interaction session has armed now, or null without a session. */
-  readonly readInteractionTool: () => ToolId | null
+  readonly armInteractionTool: <T = unknown>(id: ToolId, source?: ToolSource | null, request?: MapInputRequest<T>) => MapInputHandle<T>
   /** The active interaction session's Plant a row spacing field. */
   readonly plantRowSpacing: CanvasPlantRowSpacingField
   /** The active interaction session's Plant a row path commands (the tool card's check button and mode switch). */
@@ -164,7 +170,7 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
 
     this.speciesFocus = options.speciesFocus
     this.tools = {
-      setTool: (id) => this.setTool(id),
+      arm: (id, source, request) => this.options.armInteractionTool(id, source, request),
       plantRowSpacing: options.plantRowSpacing,
       plantRowPath: options.plantRowPath,
     }
@@ -203,6 +209,12 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
       groupSelected: () => this.runSpatialEdit(() => this.options.mutations.groupSelected()),
       ungroupSelected: () => this.runSpatialEdit(() => this.options.mutations.ungroupSelected()),
       renameZone: (zoneId, name) => this.options.mutations.renameZone(zoneId, name),
+      setZoneStyle: (zoneId, style) => this.options.mutations.runSettledMutation('set-zone-style', { layer: 'zones', target: { kind: 'zone', id: zoneId } }, (p) => prepareSetZoneStyle(p, zoneId, style)),
+      editZoneDimensions: (zoneId, edit) => this.options.mutations.runSettledMutation('edit-zone-dimensions', { layer: 'zones', target: { kind: 'zone', id: zoneId } }, (p, plane) => prepareEditZoneDimensions(p, plane, zoneId, edit)),
+      editMeasurementGuideDimensions: (guideId, edit) => this.options.mutations.runSettledMutation('edit-measurement-guide-dimensions', { layer: 'measurement-guides', target: { kind: 'measurement-guide', id: guideId } }, (p, plane) => prepareEditGuideDimensions(p, plane, guideId, edit)),
+      editPlantFields: (plantId, edit) => this.options.mutations.runSettledMutation('edit-plant-fields', { layer: 'plants', target: { kind: 'plant', id: plantId } }, (p) => prepareEditPlantFields(p, plantId, edit)),
+      editAnnotationFields: (annotationId, edit) => this.options.mutations.runSettledMutation('edit-annotation-fields', { layer: 'annotations', target: { kind: 'annotation', id: annotationId } }, (p) => prepareEditAnnotationFields(p, annotationId, edit)),
+      setSpeciesCode: (canonicalName, code) => this.options.mutations.runSettledMutation('set-species-code', null, (p) => prepareSetSpeciesCode(p, canonicalName, code)),
       rotateSelected: (degrees) => this.runSpatialEdit(() => this.options.mutations.rotateSelected(degrees)),
       nudgeSelected: (delta) => this.nudgeSelected(delta),
       endNudge: (options) => this.endNudge(options),
@@ -229,19 +241,6 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
       setPlantSymbolForSpecies: (canonicalName, symbol) =>
         this.options.mutations.setPlantSymbolForSpecies(canonicalName, symbol),
     }
-  }
-
-  private setTool(id: ToolId): void {
-    try {
-      this.options.setInteractionTool(id)
-    } catch (error) {
-      // A failed switch leaves the session on the tool it kept or fell back to (Select after a failed activation,
-      // the tool being left when leaving it failed): the app's own tool state follows the session, not the request.
-      const kept = this.options.readInteractionTool()
-      if (kept) setCanvasTool(kept)
-      throw error
-    }
-    setCanvasTool(id)
   }
 
   private nudgeSelected(delta: ScenePoint): boolean {

@@ -5,7 +5,7 @@
 id: no-currency-symbol-table.typescript
 language: typescript
 severity: error
-message: "no-currency-symbol-table (§18 F11): no hand-kept currency symbol: a currency is shown through Intl currency formatting in the locale number owner. ADR 0028; owner none; target desktop/web/src/utils/format.ts (2c); example none yet"
+message: "no-currency-symbol-table (§18 F11): no hand-kept currency symbol: a currency is shown through Intl currency formatting in the locale number owner. ADR 0028; owner desktop/web/src/utils/format.ts; target desktop/web/src/utils/format.ts (2c); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
@@ -14,6 +14,8 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/utils/format.ts"
 rule:
   kind: string
   regex: ^['"][^'"]{0,3}\p{Sc}[^'"]{0,3}['"]$

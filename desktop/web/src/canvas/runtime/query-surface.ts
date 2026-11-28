@@ -1,7 +1,8 @@
+import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import { buildCanvasPrintSnapshot } from './print-snapshot'
 import { getCanvasPlantNameLabels } from './automatic-detail'
 import { isPlantLayerShown } from './scene-visuals'
-import { isWorkspaceOverviewScale } from '../workspace-camera-policy'
+import { isWorkspaceOverviewScale } from '../../geo/workspace-camera-policy'
 import type { PlacedPlant } from '../../types/design'
 import type { SelectedPlantColorContext } from '../plant-color-context'
 import type { SelectedPlantSymbolContext } from '../plant-symbol-context'
@@ -19,17 +20,20 @@ import type {
   ScenePersistedState,
   SceneStateReader,
 } from './scene'
-import type { PointerWorld } from './interaction-ports'
+import type { PointerWorld, ToolHostState } from './interaction-ports'
+import type { ToolId } from './interaction-types'
 import type { SceneRuntimeMutationController } from './scene-runtime/mutations'
 import type { SceneRuntimePresentationController } from './scene-runtime/presentation'
 import { EMPTY_SELECTION_MODEL, getDesignObjectSelectionModel } from './scene-runtime/selection'
 import type { SettledSceneReader } from './scene-runtime/transactions'
-import { createViewReadSurface } from './view/frame-source'
-import type { ViewReadSurface } from './view/read-surface'
-import type { ViewFrameSource } from './view/types'
-import type { SpeciesCacheEntry } from './species-cache'
+import { createViewReadSurface } from '../../geo/view/frame-source'
+import type { ViewReadSurface } from '../../geo/view/read-surface'
+import type { ViewFrameSource, WorldPoint } from '../../geo/view/types'
+import type { SpeciesCacheEntry } from './presentation-data'
 
 type PointerWorldListener = (point: PointerWorld | null) => void
+type EmptyGroundTapListener = (world: WorldPoint) => void
+const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: null })
 
 interface SceneCanvasQuerySurfaceOptions {
   readonly revision: CanvasQueryRevision
@@ -60,6 +64,8 @@ interface SceneCanvasQuerySurfaceOptions {
  */
 export interface SceneCanvasQuerySurface extends CanvasQuerySurface {
   bindPointerWorld(source: ((listener: PointerWorldListener) => () => void) | null): void
+  bindEmptyGroundTap(source: ((listener: EmptyGroundTapListener) => () => void) | null): void
+  bindToolState(source: ReadonlySignal<ToolHostState> | null): void
 }
 
 export function createSceneCanvasQuerySurface(options: SceneCanvasQuerySurfaceOptions): SceneCanvasQuerySurface {
@@ -68,14 +74,23 @@ export function createSceneCanvasQuerySurface(options: SceneCanvasQuerySurfaceOp
 
 class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
   readonly view: ViewReadSurface
+  private readonly boundToolState = signal<ReadonlySignal<ToolHostState> | null>(null)
+  readonly toolState: ReadonlySignal<ToolHostState> = computed(() => this.boundToolState.value?.value ?? IDLE_TOOL_STATE)
+  readonly activeTool: ReadonlySignal<ToolId> = computed(() => this.toolState.value.id)
   private readonly pointerWorldListeners = new Set<PointerWorldListener>()
   private stopPointerWorld: (() => void) | null = null
+  private readonly emptyGroundTapListeners = new Set<EmptyGroundTapListener>()
+  private stopEmptyGroundTap: (() => void) | null = null
   /** The point last published; a session that ends with one live publishes null, so nothing reads a point no cursor is at. */
   private lastPointerWorld: PointerWorld | null = null
 
   constructor(private readonly options: SceneCanvasQuerySurfaceOptions) {
     // The frames place the Scene's metres; their ground is read on the Scene's plane.
     this.view = createViewReadSurface(options.frames)
+  }
+
+  bindToolState(source: ReadonlySignal<ToolHostState> | null): void {
+    this.boundToolState.value = source
   }
 
   subscribePointerWorld(listener: PointerWorldListener): () => void {
@@ -92,6 +107,21 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
     this.stopPointerWorld = source?.((point) => this.publishPointerWorld(point)) ?? null
   }
 
+  subscribeEmptyGroundTap(listener: EmptyGroundTapListener): () => void {
+    this.emptyGroundTapListeners.add(listener)
+    return () => {
+      this.emptyGroundTapListeners.delete(listener)
+    }
+  }
+
+  bindEmptyGroundTap(source: ((listener: EmptyGroundTapListener) => () => void) | null): void {
+    this.stopEmptyGroundTap?.()
+    this.stopEmptyGroundTap = null
+    this.stopEmptyGroundTap = source?.((world) => {
+      for (const listener of [...this.emptyGroundTapListeners]) listener(world)
+    }) ?? null
+  }
+
   private publishPointerWorld(point: PointerWorld | null): void {
     this.lastPointerWorld = point
     for (const listener of [...this.pointerWorldListeners]) listener(point)
@@ -106,6 +136,7 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
       return buildCanvasPrintSnapshot(
         scene,
         this.options.presentation.createPlantPresentationContext(1, scene.plants),
+        this.options.sceneStore.sessionPlane,
       )
     }, null)
   }

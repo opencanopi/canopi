@@ -1,22 +1,13 @@
 // .canopi Design files: admission, durable writes, fingerprints, drafts
 pub mod drafts;
 pub mod format;
-mod new_design_defaults;
 pub(crate) mod preview;
-mod schema_admission;
-use std::{
-    collections::HashMap,
-    path::{Path, PathBuf},
-    sync::{
-        Arc, Mutex, OnceLock, Weak,
-        atomic::{AtomicU64, Ordering},
-    },
+use canopi_support::durable::{
+    DurableError, OsDurableFs, Precondition, PublishOptions, PublishSource,
+    publish_durably_unlocked, sync_existing_file, sync_parent_directory as support_sync_parent_dir,
 };
-
-type WriteAdmissionRegistry = Mutex<HashMap<PathBuf, Weak<Mutex<()>>>>;
-
-static WRITE_ADMISSIONS: OnceLock<WriteAdmissionRegistry> = OnceLock::new();
-static NEXT_SIDECAR_ID: AtomicU64 = AtomicU64::new(0);
+use canopi_support::hash;
+use std::path::Path;
 
 /// Publish derived output with the same target admission and replacement safety
 /// as Design writes, without a Design backup or persistence acknowledgement.
@@ -24,263 +15,62 @@ pub(crate) fn write_derived_file(path: &Path, bytes: &[u8]) -> std::io::Result<(
     with_write_admission(path, || write_file_durably(path, bytes, "export"))
 }
 
-/// Durably replace `path` with `bytes`.
-///
-/// Writes an operation-owned temporary created with `create_new`, flushes it
-/// to stable storage, atomically replaces the target and, on Unix, flushes the
-/// parent directory so the rename itself survives a crash. On failure before
-/// the replace, the temporary is removed and the previous target is left in
-/// place; once the replace succeeds the write has succeeded, and a failed
-/// directory flush is only logged. Callers own write admission for the target.
+/// Durably replace `path` with `bytes`. Callers own write admission for `path`
+/// via [`with_write_admission`].
 pub(crate) fn write_file_durably(path: &Path, bytes: &[u8], role: &str) -> std::io::Result<()> {
-    use std::io::Write;
-    let temporary = operation_sidecar_path(path, role);
-    let result: std::io::Result<()> = (|| {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)?;
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        drop(file);
-        atomic_replace(&temporary, path)?;
-        // The new bytes are already in place under the target name. A failed
-        // directory flush only weakens crash durability of the rename; it is
-        // not a failed write, and reporting one would leave the caller with a
-        // stale fingerprint and false conflicts on the next save.
-        if let Err(error) = sync_parent_directory(path) {
-            tracing::warn!(
-                "Could not sync the folder after replacing a file ({:?})",
-                error.kind()
-            );
-        }
-        Ok(())
-    })();
-    if let Err(ref original) = result {
-        match std::fs::remove_file(&temporary) {
-            Ok(()) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => {
-                return Err(std::io::Error::new(
-                    original.kind(),
-                    format!("{original}; temporary cleanup also failed: {error}"),
-                ));
-            }
-        }
-    }
-    result
+    publish_durably_unlocked(
+        &OsDurableFs,
+        PublishSource::Bytes(bytes),
+        path,
+        role,
+        Precondition::Any,
+        &PublishOptions::default(),
+    )
+    .map(|_| ())
+    .map_err(DurableError::into_io_error)
 }
 
-/// Flush an existing file's contents to stable storage. Windows flushes only
-/// through a handle opened for writing (FlushFileBuffers needs write access),
-/// so a read-only handle fails there with "Access is denied"; the handle is
-/// opened for writing without truncating or changing the file.
+/// Flush an existing file's contents to stable storage.
 pub(crate) fn sync_file(path: &Path) -> std::io::Result<()> {
-    std::fs::OpenOptions::new()
-        .write(true)
-        .open(path)?
-        .sync_all()
+    sync_existing_file(&OsDurableFs, path)
 }
 
-#[cfg(unix)]
+/// Flush `path`'s parent directory to stable storage (no-op on Windows).
 pub(crate) fn sync_parent_directory(path: &Path) -> std::io::Result<()> {
-    let parent = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    match std::fs::File::open(parent).and_then(|directory| directory.sync_all()) {
-        Ok(()) => Ok(()),
-        // Some filesystems cannot sync a directory handle; the file itself is
-        // already on stable storage, so that is not a failed write.
-        Err(error)
-            if error.kind() == std::io::ErrorKind::InvalidInput
-                || error.kind() == std::io::ErrorKind::Unsupported =>
-        {
-            Ok(())
-        }
-        Err(error) => Err(error),
-    }
+    support_sync_parent_dir(&OsDurableFs, path)
 }
 
-#[cfg(not(unix))]
-pub(crate) fn sync_parent_directory(_path: &Path) -> std::io::Result<()> {
-    // Windows commits the rename with the file's metadata; there is no
-    // directory handle to flush.
-    Ok(())
-}
-
-fn operation_sidecar_path(dest: &Path, role: &str) -> PathBuf {
-    let parent = dest
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    loop {
-        let id = NEXT_SIDECAR_ID.fetch_add(1, Ordering::Relaxed);
-        let path = parent.join(format!(".canopi-{:x}-{id:x}.{role}", std::process::id()));
-        if !path.exists() {
-            return path;
-        }
-    }
-}
-
-/// Run one write operation at a time for a process-local storage resource.
-///
-/// The permit deliberately spans blocking file I/O: its invariant is that the
-/// complete check/write/replace sequence for one target is indivisible, so a
-/// fingerprint check and the write it admits cannot interleave with another
-/// write to the same file.
+/// Run one write operation at a time for a process-local storage resource,
+/// case-folded on case-insensitive volumes via [`TargetLocks`].
 fn with_write_admission<T>(resource: &Path, operation: impl FnOnce() -> T) -> T {
-    let key = write_admission_key(resource);
-    let registry = WRITE_ADMISSIONS.get_or_init(|| Mutex::new(HashMap::new()));
-    let admission = {
-        let mut admissions = registry.lock().unwrap_or_else(|poisoned| {
-            tracing::warn!("Recovering poisoned Design write admission registry");
-            poisoned.into_inner()
-        });
-        admissions.retain(|_, admission| admission.strong_count() > 0);
-        admissions
-            .get(&key)
-            .and_then(Weak::upgrade)
-            .unwrap_or_else(|| {
-                let admission = Arc::new(Mutex::new(()));
-                admissions.insert(key.clone(), Arc::downgrade(&admission));
-                admission
-            })
-    };
-    let _permit = admission.lock().unwrap_or_else(|poisoned| {
-        tracing::warn!("Recovering poisoned Design write admission");
-        poisoned.into_inner()
-    });
-    operation()
-}
-
-fn write_admission_key(resource: &Path) -> PathBuf {
-    let parent = resource
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let parent = parent
-        .canonicalize()
-        .unwrap_or_else(|_| absolute_path(parent));
-    resource
-        .file_name()
-        .map_or(parent.clone(), |name| parent.join(name))
+    crate::target_locks::temporary_target_locks().with_lock(resource, operation)
 }
 
 /// Fingerprint of a Design file's exact bytes: lowercase hex SHA-256.
-///
-/// A save that expects a fingerprint writes only while the file on disk still
-/// has it, so a change made outside Canopi is detected instead of overwritten.
 pub(crate) fn fingerprint(bytes: &[u8]) -> String {
-    crate::services::lidar::grid::sha256_hex(bytes)
+    hash::sha256_hex(bytes)
 }
 
 /// [`fingerprint`] of the file at `path`, streamed so an unexpectedly large
 /// replacement is never buffered whole. `None` when no file is there.
+#[cfg(test)]
 pub(crate) fn fingerprint_file(path: &Path) -> std::io::Result<Option<String>> {
-    use sha2::{Digest, Sha256};
-    let mut file = match std::fs::File::open(path) {
-        Ok(file) => file,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(error),
-    };
-    let mut hasher = Sha256::new();
-    std::io::copy(&mut file, &mut hasher)?;
-    Ok(Some(format!("{:x}", hasher.finalize())))
+    hash::sha256_file(path)
 }
 
-fn absolute_path(path: &Path) -> PathBuf {
-    if path.is_absolute() {
-        path.to_owned()
-    } else {
-        std::env::current_dir()
-            .unwrap_or_else(|_| PathBuf::from("."))
-            .join(path)
-    }
-}
-
-/// Atomic replace: rename `src` to `dest`, cross-platform safe.
-///
-/// On Unix, `rename` replaces an existing destination atomically.
-/// On Windows, `rename` can fail if the destination is held by another process.
-///
-/// Fallback strategy (preserves the original on failure):
-/// 1. Try direct rename (works on Unix, works on Windows if dest is unlocked).
-/// 2. If that fails and dest is a regular file, rename dest to an operation-owned
-///    rollback sidecar first, then rename src to dest. If that also fails, restore
-///    the destination from the sidecar. Only remove the rollback sidecar after
-///    success. Non-regular destinations are rejected without being moved.
+/// Atomic replace: publish an already-staged file `src` to `dest` through
+/// `canopi-support`'s [`publish_durably_unlocked`].
 pub fn atomic_replace(src: &Path, dest: &Path) -> std::io::Result<()> {
-    match std::fs::rename(src, dest) {
-        Ok(()) => Ok(()),
-        Err(first_err) if dest.exists() => atomic_replace_fallback(src, dest, first_err),
-        Err(first_err) => Err(first_err),
-    }
-}
-
-fn atomic_replace_fallback(
-    src: &Path,
-    dest: &Path,
-    first_err: std::io::Error,
-) -> std::io::Result<()> {
-    let destination_type = std::fs::symlink_metadata(dest).map_err(|metadata_error| {
-        std::io::Error::new(
-            metadata_error.kind(),
-            format!(
-                "atomic_replace: failed to inspect destination after direct rename failed: {metadata_error} (original: {first_err})"
-            ),
-        )
-    })?;
-    if !destination_type.file_type().is_file() {
-        return Err(std::io::Error::new(
-            first_err.kind(),
-            format!(
-                "atomic_replace: refusing to move non-regular destination {} after direct rename failed: {first_err}",
-                dest.display()
-            ),
-        ));
-    }
-
-    // Fallback: direct rename failed (common on Windows with file locks).
-    // The destination is a Design path (user content): log the kind only.
-    tracing::warn!(
-        "atomic_replace: direct rename failed ({:?}), entering fallback",
-        first_err.kind()
-    );
-    let old = operation_sidecar_path(dest, "old");
-    std::fs::rename(dest, &old).map_err(|e| {
-        std::io::Error::new(
-            e.kind(),
-            format!("atomic_replace: failed to move dest aside: {e} (original: {first_err})"),
-        )
-    })?;
-
-    match std::fs::rename(src, dest) {
-        Ok(()) => {
-            if let Err(e) = std::fs::remove_file(&old) {
-                // This sidecar still owns the only copy of the predecessor, so
-                // preserving it is safer than treating cleanup as destructive.
-                tracing::warn!(
-                    "atomic_replace: could not remove the rollback sidecar ({:?})",
-                    e.kind()
-                );
-            }
-            Ok(())
-        }
-        Err(e) => match std::fs::rename(&old, dest) {
-            Ok(()) => Err(std::io::Error::new(
-                e.kind(),
-                format!("atomic_replace: rename failed, original restored: {e}"),
-            )),
-            Err(restore_error) => Err(std::io::Error::new(
-                e.kind(),
-                format!(
-                    "atomic_replace: rename failed: {e}; failed to restore original from {}: {restore_error}",
-                    old.display()
-                ),
-            )),
-        },
-    }
+    publish_durably_unlocked(
+        &OsDurableFs,
+        PublishSource::StagedFile(src),
+        dest,
+        "replace",
+        Precondition::Any,
+        &PublishOptions::default(),
+    )
+    .map(|_| ())
+    .map_err(DurableError::into_io_error)
 }
 
 /// Format a Unix timestamp (seconds since epoch) as an ISO 8601 UTC string.
@@ -315,6 +105,7 @@ mod tests {
     use super::*;
     use crate::test_scratch::TestScratch;
     use std::fs;
+    use std::path::PathBuf;
     use std::sync::mpsc;
     use std::time::Duration;
 
@@ -448,41 +239,6 @@ mod tests {
         super::sync_file(&path).expect("a written file can be synced");
         assert_eq!(std::fs::read(&path).unwrap(), b"published bytes");
         assert!(super::sync_file(&root.join("missing.tif")).is_err());
-    }
-
-    #[test]
-    fn atomic_replace_fallback_does_not_claim_legacy_rollback_sidecar() {
-        let root = unique_root("atomic_owned_rollback");
-        let src = root.join("replacement.tmp");
-        let dest = root.join("garden.canopi");
-        let legacy_old = dest.with_extension("canopi.old");
-        fs::write(&src, "replacement").unwrap();
-        fs::write(&dest, "original").unwrap();
-        fs::write(&legacy_old, "another operation owns this").unwrap();
-
-        let ((), logs) = crate::services::design_files::capture_logs(|| {
-            atomic_replace_fallback(
-                &src,
-                &dest,
-                std::io::Error::other("forced fallback for test"),
-            )
-            .unwrap()
-        });
-
-        assert_eq!(fs::read_to_string(&dest).unwrap(), "replacement");
-        assert_eq!(
-            fs::read_to_string(&legacy_old).unwrap(),
-            "another operation owns this"
-        );
-        assert!(logs.contains("entering fallback"), "{logs}");
-        assert!(
-            !logs.contains(&*root.to_string_lossy()),
-            "the Design path is user content and stays out of the log: {logs}"
-        );
-        assert!(
-            operation_sidecars(&root, "old").is_empty(),
-            "successful fallback must clean its owned rollback sidecar"
-        );
     }
 
     #[test]

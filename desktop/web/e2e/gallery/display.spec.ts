@@ -1,6 +1,6 @@
 // An open Site data item's display in real engines (canopi-f47t.42, plan section 4, stream B, g4; architecture review
 // finding 15; Relief, canopi-2add). `state=lidar-raster` draws the Rust engine's display COGs through Desktop's raster
-// renderer (maplibre-gl-raster over the cog-tiler worker pool) on the real map, so a restyle is seen in pixels, not in
+// renderer (MapLibre addProtocol over the cog-tiler worker pool) on the real map, so a restyle is seen in pixels, not in
 // a fake layer manager: the ground elevation opens on its relief, and a Colours round trip draws its elevation COG,
 // which lies inside the relief, unlike both the relief and the empty map, and then the same relief again; on the
 // elevation, Reverse and a Custom range typed in the open item each repaint the raster in Chromium, WebKit and Firefox. The
@@ -11,9 +11,9 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, openGallery, recordRasterTiles, renderedRasterTiles as renderedTiles, settledRaster, test } from '../support/gallery'
 
-/** The map's pixels as PNG bytes, the dock panels over it masked (a pressed or focused control is not a repaint). */
+/** The map's pixels as PNG bytes, the chrome over it masked (a pressed, focused, or Undo-enabled control is not a repaint). */
 async function mapPixels(map: Locator): Promise<Buffer> {
-  return map.screenshot({ animations: 'disabled', mask: [map.page().locator('aside')] })
+  return map.screenshot({ animations: 'disabled', mask: [map.page().locator('aside'), map.page().locator('[role="toolbar"]')] })
 }
 
 /** Waits until the renderer has rendered tiles beyond `after` and the map's picture holds still. */
@@ -214,8 +214,12 @@ test.describe('an open Site data item\'s settings', () => {
 test.describe('the raster band after a map Retry', () => {
   // upstream: W19
   // Playwright's Firefox logs the Error argument by its name alone, without the message.
+  // MAP-03 (reportMapFailure) also logs the context-loss summary directly through the failure sink.
   test.use({
-    expectedConsoleErrors: async ({ browserName }, use) => use([browserName === 'firefox' ? 'Shared workspace map failed: Error' : 'Shared workspace map failed: Error: MapLibre WebGL context was lost']),
+    expectedConsoleErrors: async ({ browserName }, use) => use([
+      browserName === 'firefox' ? 'Shared workspace map failed: Error' : 'Shared workspace map failed: Error: MapLibre WebGL context was lost',
+      'MapLibre WebGL context was lost while preparing the shared workspace.',
+    ]),
   })
 
   /** The rebuilt map's layers, bottom first: each LiDAR raster as `lidar`, the scene and the Site data pin as named. */

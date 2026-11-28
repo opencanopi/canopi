@@ -4,7 +4,6 @@
 
 use crate::{
     AppHealth,
-    db::UserDb,
     native_operation::{NativeOperationClass, NativeOperationExecutor},
     services::lidar::LidarLibrary,
     services::problem_report::{CREATE_OP, ProblemReportContext, SHOW_OP},
@@ -14,14 +13,10 @@ use canopi_types::support::{ProblemReportRequest, ProblemReportResult};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State};
 
-/// The settings read the report's settings summary comes from.
-const SETTINGS_READ_OP: &str = canopi_types::failure::ops::PROBLEM_REPORT_READ_SETTINGS;
-
 #[tauri::command]
 pub async fn create_problem_report(
     app: AppHandle,
     executor: State<'_, NativeOperationExecutor>,
-    user_db: State<'_, UserDb>,
     health: State<'_, AppHealth>,
     library: State<'_, LidarLibrary>,
     request: ProblemReportRequest,
@@ -32,14 +27,6 @@ pub async fn create_problem_report(
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let user_db = user_db.inner().clone();
-    let settings = executor
-        .run_typed(
-            NativeOperationClass::UserData,
-            SETTINGS_READ_OP,
-            move || Ok::<_, Failure>(crate::services::settings::get_settings(&user_db)),
-        )
-        .await?;
     let context = ProblemReportContext {
         reports_folder,
         log_dir: app.path().app_log_dir().ok(),
@@ -48,7 +35,6 @@ pub async fn create_problem_report(
         app_version: env!("CARGO_PKG_VERSION").to_owned(),
         target: format!("{}/{}", std::env::consts::OS, std::env::consts::ARCH),
         webview_version: tauri::webview_version().ok(),
-        settings,
         health: crate::services::health::report_health(&health),
         settlements: crate::logging::recent_failures(),
         library: Err(String::new()),
@@ -182,7 +168,6 @@ mod tests {
                     app_version: "test".to_owned(),
                     target: "test/test".to_owned(),
                     webview_version: None,
-                    settings: Err(String::new()),
                     health: crate::services::health::all_ready(),
                     settlements: Vec::new(),
                     library: Err(String::new()),

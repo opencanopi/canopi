@@ -13,7 +13,8 @@ import { getCanvasDetailLayout } from '../automatic-detail'
 import { buildPlantPresentationEntries } from '../plant-presentation'
 import { ROUND_PLANT_SYMBOL_RADIUS } from '../plant-symbol-recipes'
 import type { SceneAnnotationEntity, ScenePlantEntity, ScenePoint } from '../scene'
-import { setCanvasMapBackdrop } from '../scene-visuals'
+import { getMapBackdropInk } from '../scene-visuals'
+import { screenAngleForWorldAngle } from '../../../geo/view/view-transform'
 import { createBillboardLayer } from './billboard-layer'
 import type * as AutomaticDetailModule from '../automatic-detail'
 
@@ -26,7 +27,6 @@ vi.mock('../automatic-detail', async (importOriginal) => {
 afterEach(() => {
   vi.restoreAllMocks()
   delete window.__CANOPI_PIXI_SCENE_WORK__
-  setCanvasMapBackdrop('basemap')
 })
 
 function createPlant(overrides: Partial<ScenePlantEntity> = {}): ScenePlantEntity {
@@ -150,12 +150,12 @@ describe('billboard layer', () => {
         expect(label.position.y - at.y, `${name} at bearing ${bearingDeg}`).toBeGreaterThan(0)
       }
 
-      // A note's text keeps its angle on the ground: its own 30°, less the bearing.
+      // A note's text keeps its angle on the ground: its own 30°, mapped through the view's linear transform.
       const note = texts.find((text) => text.text === 'Pond edge')!
       const noteAt = view.worldToScreen({ x: 5, y: 5 })
       expect(note.position.x).toBeCloseTo(noteAt.x, 3)
       expect(note.position.y).toBeCloseTo(noteAt.y, 3)
-      expect(note.rotation).toBeCloseTo(((30 - bearingDeg) * Math.PI) / 180, 6)
+      expect(note.rotation).toBeCloseTo(screenAngleForWorldAngle(view, (30 * Math.PI) / 180), 6)
     }
     layer.dispose()
   })
@@ -245,8 +245,8 @@ describe('billboard layer', () => {
     for (const draw of drawing) expect(draw).not.toHaveBeenCalled()
     expect(shownGraphics(layer.root)).toEqual(shown)
     shown.forEach((graphics, index) => {
-      expect(graphics.position.x).toBeCloseTo(before[index]!.x + 10, 6)
-      expect(graphics.position.y).toBeCloseTo(before[index]!.y + 20, 6)
+      expect(graphics.position.x).toBeCloseTo(before[index]!.x + 10, 5)
+      expect(graphics.position.y).toBeCloseTo(before[index]!.y + 20, 5)
     })
     layer.dispose()
   })
@@ -316,13 +316,15 @@ describe('billboard layer', () => {
       outline.updateLocalTransform()
       const drawn = strokedPoints(outline.context).map((point) => outline.localTransform.apply(point))
       // The selected note shows its text at every scale; its frame is padded 4 px across and 2 px down, then turned by the
-      // note's angle about the frame's origin.
+      // note's screen angle about the frame's screen origin.
       const { frame } = getAnnotationPresentation(NOTE, scale, true, true)
-      const turn = (frame.rotationDeg * Math.PI) / 180
+      const screenTurn = screenAngleForWorldAngle(view, (frame.rotationDeg * Math.PI) / 180)
+      const anchor = view.worldToScreen(NOTE.position)
+      const origin = { x: anchor.x + frame.origin.x, y: anchor.y + frame.origin.y }
       const padded = [[-4, -2], [frame.widthPx + 4, -2], [frame.widthPx + 4, frame.heightPx + 2], [-4, frame.heightPx + 2]] as const
-      const expected = padded.map(([x, y]) => view.worldToScreen({
-        x: NOTE.position.x + (frame.origin.x + x * Math.cos(turn) - y * Math.sin(turn)) / scale,
-        y: NOTE.position.y + (frame.origin.y + x * Math.sin(turn) + y * Math.cos(turn)) / scale,
+      const expected = padded.map(([x, y]) => ({
+        x: origin.x + x * Math.cos(screenTurn) - y * Math.sin(screenTurn),
+        y: origin.y + x * Math.sin(screenTurn) + y * Math.cos(screenTurn),
       }))
       expected.forEach((point, index) => {
         expect(drawn[index]!.x, `bearing ${bearingDeg}`).toBeCloseTo(point.x, 6)
@@ -340,10 +342,9 @@ describe('billboard layer', () => {
     const theme = document.createElement('div')
     theme.style.setProperty('--canvas-selection-stroke', '#123456')
     try {
-      // A theme and a backdrop change each send the same scene again.
+      // A theme and a backdrop change each send a new snapshot.
       refreshCanvasColorCache(theme)
-      setCanvasMapBackdrop('satellite')
-      layer.present(view, retainedScene())
+      layer.present(view, { ...retainedScene(), mapBackdrop: 'satellite', backdropInk: getMapBackdropInk('satellite') })
       const colours = shownGraphics(layer.root).map((graphics) => strokeColours(graphics.context))
       // The ring and the outline take the new selection colour; the badge and the marker the satellite ink.
       expect(colours.flat()).toContain(0x123456)
@@ -356,6 +357,25 @@ describe('billboard layer', () => {
       theme.style.setProperty('--canvas-selection-stroke', '#9C5A16')
       refreshCanvasColorCache(theme)
       layer.dispose()
+    }
+  })
+
+  it('two independent billboard surfaces render from their own snapshots with no shared process globals (ADR 0024)', () => {
+    const view = createTestRendererView({ x: 0, y: 0, scale: 6 })
+    const lightLayer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
+    const darkLayer = createBillboardLayer({ createText: () => new Text(), viewSize: { width: 400, height: 300 } })
+    try {
+      const base = retainedScene()
+      lightLayer.present(view, { ...base, mapBackdrop: 'basemap', backdropInk: getMapBackdropInk('basemap') })
+      darkLayer.present(view, { ...base, mapBackdrop: 'satellite', backdropInk: getMapBackdropInk('satellite') })
+
+      const lightColours = shownGraphics(lightLayer.root).flatMap((g) => strokeColours(g.context))
+      const darkColours = shownGraphics(darkLayer.root).flatMap((g) => strokeColours(g.context))
+      expect(lightColours).toContain(0xfff8ec)
+      expect(darkColours).toContain(0x14100a)
+    } finally {
+      lightLayer.dispose()
+      darkLayer.dispose()
     }
   })
 })

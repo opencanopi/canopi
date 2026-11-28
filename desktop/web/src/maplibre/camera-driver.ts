@@ -7,13 +7,13 @@
 // every flight frame.
 
 import { signal } from '@preact/signals'
-import type { SessionPlane } from '../canvas/session-plane'
-import type { CameraDriver, CameraDriverDeps, CameraDriverFailure, CameraMove } from '../canvas/runtime/view/camera-driver'
+import type { SessionPlane } from '../geo/session-plane'
+import type { CameraDriver, CameraDriverDeps, CameraDriverFailure, CameraMove } from '../geo/view/camera-driver'
 import {
   panCamera,
   rotateCameraAround,
   zoomCameraAround,
-} from '../canvas/runtime/view/camera-math'
+} from '../geo/view/camera-math'
 import {
   acceptsMove,
   driverFrame,
@@ -22,15 +22,15 @@ import {
   sameDriverFrameState,
   zoomFactorWithinRange,
   type DriverFrameState,
-} from '../canvas/runtime/view/driver-frame'
-import { createDriverFrameSource } from '../canvas/runtime/view/frame-source'
-import { constrainCamera, normaliseBearing } from '../canvas/runtime/view/navigation-policy'
-import type { GeoPoint } from '../generated/contracts'
+} from '../geo/view/driver-frame'
+import { createDriverFrameSource } from '../geo/view/frame-source'
+import { constrainCamera, normaliseBearing } from '../geo/view/navigation-policy'
+import type { GeoPoint } from '../types/design'
 import type {
   ScreenInsets,
   ViewCamera,
   ViewScreen,
-} from '../canvas/runtime/view/types'
+} from '../geo/view/types'
 import type { MapLibreLngLat, MapLibreMapInstance, MapLibreTransformConstrain } from './loader'
 import { redact } from '../failures/redact'
 

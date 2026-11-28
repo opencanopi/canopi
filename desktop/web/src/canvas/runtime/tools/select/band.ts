@@ -11,8 +11,9 @@
 
 import { isSceneDesignObjectLocked } from '../../scene/locks'
 import { sceneTargetKey, type SceneDesignObjectTarget } from '../../scene/design-object-targets'
-import type { WorldPoint, WorldQuad } from '../../view/types'
+import type { WorldPoint, WorldQuad } from '../../../../geo/view/types'
 import type { DraftPresentation } from '../draft'
+import { screenBasisOf, screenCoordsToWorldDelta, worldDeltaToScreenCoords } from '../screen-basis'
 import type { ToolContext, ToolView } from '../tool'
 
 export interface Band {
@@ -47,12 +48,13 @@ export function bandSelection(ctx: ToolContext, band: Band, end: WorldPoint): Sc
 
 /** The box with `a` and `b` as opposite corners, its sides along the screen's axes (the world's at bearing 0). */
 function screenAlignedQuad(view: ToolView, a: WorldPoint, b: WorldPoint): WorldQuad {
-  const { right } = view.screenAxesInWorld()
-  const across = (b.x - a.x) * right.x + (b.y - a.y) * right.y
+  const basis = screenBasisOf(view)
+  const screenDelta = worldDeltaToScreenCoords(basis, { x: b.x - a.x, y: b.y - a.y })
+  const acrossWorld = screenCoordsToWorldDelta(basis, { x: screenDelta.x, y: 0 })
   return [
     a,
-    { x: a.x + right.x * across, y: a.y + right.y * across },
+    { x: a.x + acrossWorld.x, y: a.y + acrossWorld.y },
     b,
-    { x: b.x - right.x * across, y: b.y - right.y * across },
+    { x: b.x - acrossWorld.x, y: b.y - acrossWorld.y },
   ]
 }

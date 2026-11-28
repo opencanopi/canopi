@@ -23,8 +23,10 @@ import { readFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Locator, Page } from '@playwright/test'
 import { designMap } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { pixel, pixelsAround, type Pixels } from '../support/pixels'
 import { expect, test } from '../support/offline'
+import { DRAFT_DATABASE, draftStoreDump } from '../support/web-storage'
 import { tooltipOf } from '../support/tooltip'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
@@ -286,11 +288,7 @@ async function openBaseFixture(page: Page, locale?: string): Promise<void> {
     }, locale)
   }
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.locator('[data-start-screen] button').filter({ hasText: /\.canopi/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   // The map host by role alone: its name follows the page's language.
   const map = page.getByRole('application').first()
   await expect(map).toBeVisible()
@@ -423,12 +421,12 @@ async function saveCurrentView(page: Page): Promise<string> {
   return name
 }
 
-/** Every Draft the browser holds, as stored. */
+/** Every Draft the browser holds in IndexedDB (`canopi-drafts`), as stored. */
 async function draftRecord(page: Page): Promise<string> {
-  return page.evaluate(() => Object.keys(localStorage)
-    .filter((key) => key.includes('drafts'))
-    .map((key) => localStorage.getItem(key) ?? '')
-    .join('\n'))
+  const dump = await page.evaluate(draftStoreDump, DRAFT_DATABASE)
+  if (!dump) return ''
+  const drafts = Array.isArray(dump.drafts) ? dump.drafts : []
+  return drafts.map((record) => JSON.stringify(record)).join('\n')
 }
 
 async function downloadCopy(page: Page): Promise<string> {

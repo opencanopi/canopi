@@ -1,6 +1,7 @@
-import { deliverBudgetCsv } from '#budget-export-platform'
-import { isCancelledFailure } from '../../failures/ipc-failure'
+import { editionPorts } from '../../platform/edition-ports'
+import { raiseNotice } from '../../failures/notices'
 import { t } from '../../i18n'
+import { currencyFractionDigits, formatFixed } from '../../utils/format'
 import { escapeBudgetCsvField } from './formatting'
 import { readBudgetPlanningSurface } from '../planning-projection'
 
@@ -15,7 +16,7 @@ export async function exportBudgetCsv(
   options: {
     currency: string
     designName: string
-    lineItemPriceMap: ReadonlyMap<string, { unit_cost: number; currency: string }>
+    lineItemPriceMap: ReadonlyMap<string, { unit_cost: number }>
     grandTotal: number
   },
 ): Promise<void> {
@@ -27,21 +28,31 @@ export async function exportBudgetCsv(
     t('canvas.budget.currency'),
   ].map(escapeBudgetCsvField).join(',')
 
+  const decimals = currencyFractionDigits(options.currency)
   const csvRows = [header]
   for (const row of rows) {
     const entry = options.lineItemPriceMap.get(row.canonical)
     const displayName = row.commonName || row.canonical
     const priceColumns = entry
-      ? `${entry.unit_cost.toFixed(2)},${(row.count * entry.unit_cost).toFixed(2)}`
+      ? `${formatFixed(entry.unit_cost, decimals)},${formatFixed(row.count * entry.unit_cost, decimals)}`
       : ','
     csvRows.push(`${escapeBudgetCsvField(displayName)},${row.count},${priceColumns},${escapeBudgetCsvField(options.currency)}`)
   }
-  csvRows.push(`${escapeBudgetCsvField(t('canvas.budget.grandTotal'))},,,${options.grandTotal.toFixed(2)},`)
+  csvRows.push(`${escapeBudgetCsvField(t('canvas.budget.grandTotal'))},,,${formatFixed(options.grandTotal, decimals)},`)
 
-  await deliverBudgetCsv(
-    csvRows.join('\n'),
-    `${options.designName || 'budget'}-budget.csv`,
+  const outcome = await editionPorts().fileDelivery.deliverFile(
+    'budget-csv',
+    options.designName || 'budget',
+    { text: csvRows.join('\n') },
   )
+  if (outcome === 'refused') {
+    raiseNotice({
+      key: 'budget.export.refused',
+      message: 'fileDelivery.refused',
+      tone: 'error',
+      kind: 'outcome',
+    })
+  }
 }
 
 /**
@@ -50,16 +61,10 @@ export async function exportBudgetCsv(
  */
 export async function exportCurrentBudgetCsv(): Promise<void> {
   const { projection, currency, designName } = readBudgetPlanningSurface()
-  try {
-    await exportBudgetCsv(projection.rows, {
-      currency,
-      designName,
-      lineItemPriceMap: projection.lineItemPriceMap,
-      grandTotal: projection.grandTotal,
-    })
-  } catch (error) {
-    // A dismissed Save dialog is the typed cancel, never matched by its text (canopi-f47t.52.172).
-    if (isCancelledFailure(error)) return
-    throw error
-  }
+  await exportBudgetCsv(projection.rows, {
+    currency,
+    designName,
+    lineItemPriceMap: projection.lineItemPriceMap,
+    grandTotal: projection.grandTotal,
+  })
 }

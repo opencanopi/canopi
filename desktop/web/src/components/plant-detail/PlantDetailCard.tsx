@@ -1,7 +1,8 @@
 import { useSignal, useSignalEffect } from '@preact/signals';
 import { useEffect, useMemo } from 'preact/hooks';
 import { t } from '../../i18n';
-import { locale } from '../../app/settings/state';
+import { locale, unitSystem } from '../../app/settings/state';
+import { formatCatalogSize } from '../../utils/format';
 import {
   closePlantDetail,
   createPlantDetailController,
@@ -234,7 +235,10 @@ function DetailSections({ d, expanded, onToggle }: { d: SpeciesDetail; expanded:
             <Attr label={t('plantDetail.moistureUse')} value={d.moisture_use} />
             <Attr label={t('plantDetail.anaerobicTolerance')} value={d.anaerobic_tolerance} />
             <Attr label={t('plantDetail.salinityTolerance')} value={d.salinity_tolerance} />
-            <NumAttr label={t('plantDetail.rootDepth')} value={d.root_depth_min_cm} unit=" cm" />
+            <Attr
+              label={t('plantDetail.rootDepth')}
+              value={d.root_depth_min_cm !== null ? formatCatalogSize(d.root_depth_min_cm / 100, unitSystem.value, locale.value, { trimTrailingZeros: true }) : null}
+            />
           </dl>
           <ul className={styles.boolRow}>
             <BoolChip label={t('plantDetail.wellDrained')} value={d.well_drained} />

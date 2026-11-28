@@ -25,6 +25,34 @@ export function logStart(at: Date): string {
   return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())}:${two(at.getSeconds())}`
 }
 
+/** Where the smoke reads the simulator's log, injected so the read's failure states are unit tested. */
+export interface LogSources {
+  /** `log show` from the tap on, filtered to the GPU and Safari processes; throws when it cannot run. */
+  readonly show: () => Promise<string>
+  /** The simulator's whole system.log, or undefined when it is absent or unreadable. */
+  readonly systemLog: () => string | undefined
+  /** Keeps a log in the job's artifacts. */
+  readonly save: (name: string, text: string) => void
+}
+
+/**
+ * The simulator's GPU and Safari log from the tap on (an earlier crash proves nothing about this one), kept in the
+ * artifacts. A read that fails gives no log, so the verdict is APP: system.log has neither the tap-time cut-off nor
+ * the process filter, so it is kept for a person (canopi-f47t.52.261) and never judged.
+ */
+export async function simulatorLog(sources: LogSources): Promise<{ log: string, problem: string }> {
+  try {
+    const log = await sources.show()
+    sources.save('simulator-gpu.log', log)
+    return { log, problem: '' }
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    const whole = sources.systemLog()
+    if (whole !== undefined) sources.save('simulator-system.log', whole)
+    return { log: '', problem: `the simulator log could not be read: ${reason}${whole === undefined ? '' : '; system.log kept in the artifacts'}` }
+  }
+}
+
 /** What the page shows once the Design opened, each read from the DOM. */
 export interface DesignShell {
   /** The start screen has left. */

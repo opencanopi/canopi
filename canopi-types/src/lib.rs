@@ -3,18 +3,24 @@
 #![deny(missing_docs)]
 
 pub mod analysis_registry;
+pub mod commands;
 pub mod design;
+pub mod design_home;
 pub mod dialog;
 pub mod failure;
 pub mod health;
+pub mod ids;
 pub mod library;
 pub mod lidar;
+pub mod locale;
 pub mod location;
+pub mod quantity;
 pub mod report;
 pub mod saved_object_stamps;
 pub mod sensitive;
 pub mod settings;
 pub mod species;
+pub mod store_chain;
 pub mod support;
 pub mod update;
 pub mod views;

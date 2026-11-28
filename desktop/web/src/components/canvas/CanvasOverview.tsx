@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef } from 'preact/hooks'
 import { designName } from '../../app/document-session/store'
 import { focusOwner } from '../../app/keyboard/focus-owner'
-import type { DesignPinExtent } from '../../canvas/runtime/view/types'
+import type { DesignPinExtent } from '../../geo/view/types'
 import { currentCanvasDesignPinHovered, currentCanvasQuerySurface, currentCanvasViewportCommandSurface } from '../../canvas/session'
 import { t } from '../../i18n'
 import { visibleDesignName } from '../shared/DesignNameField'

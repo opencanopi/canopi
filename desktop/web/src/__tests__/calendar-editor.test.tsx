@@ -31,7 +31,7 @@ function plant(id: string, canonicalName: string, commonName: string): PlacedPla
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,
@@ -118,7 +118,6 @@ describe('Calendar action editor', () => {
     locale.value = 'en'
     disposePlanningViewState()
     designSessionFixture.file = design()
-    designSessionFixture.nonCanvasRevision = 0
     // A new file starts a new session with fresh planning view state, so the
     // month is set after it; set before, it was discarded.
     readPlanningViewState().calendarMonth.value = '2026-09-01'
@@ -407,15 +406,15 @@ describe('Calendar action editor', () => {
     await act(async () => { render(<CalendarPanel />, container) })
 
     expect(container.textContent).not.toMatch(/zone-[0-9a-f]{8}/)
-    expect(container.textContent).toContain('Rectangle zone · 120\u00a0m²')
+    expect(container.textContent).toContain('Rectangle zone · 120 m²')
 
     const editor = await openEdit()
     const zoneTrigger = dropdownTrigger(editor, 'Zone')!
-    expect(zoneTrigger.textContent).toContain('Rectangle zone · 120\u00a0m²')
+    expect(zoneTrigger.textContent).toContain('Rectangle zone · 120 m²')
     await act(async () => { zoneTrigger.click() })
     const zoneMenu = document.querySelector<HTMLElement>('[role="listbox"][aria-label="Zone"]')!
     expect([...zoneMenu.querySelectorAll('button')].map((option) => option.textContent))
-      .toEqual(['Choose a zone', 'Rectangle zone · 120\u00a0m²', 'Herb spiral'])
+      .toEqual(['Choose a zone', 'Rectangle zone · 120 m²', 'Herb spiral'])
     expect(document.body.textContent).not.toMatch(/zone-[0-9a-f]{8}/)
   })
 })

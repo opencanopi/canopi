@@ -8,8 +8,8 @@ import {
   createEllipticalZoneMeasurements,
   createRectangularZoneMeasurements,
 } from '../canvas/runtime/zone-measurements'
-import { createSessionPlane } from '../canvas/session-plane'
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
+import { createSessionPlane } from '../geo/session-plane'
+import { decodeCanopiDesign } from './support/design-wire'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import type { CanopiFile } from '../types/design'
 import { geoAt } from './support/geo-design'
@@ -72,7 +72,7 @@ function currentDesign(overrides: Partial<CanopiFile> = {}): CanopiFile {
 function plant(id: string, position: { lon: number; lat: number }): CanopiFile['plants'][number] {
   return {
     id, locked: false, canonical_name: 'Malus domestica', common_name: null, color: null,
-    pinned_name: false, position, rotation: null, scale: null, notes: null, planted_date: null, quantity: null,
+    pinned_name: false, position, rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: null,
   }
 }
 
@@ -252,7 +252,7 @@ describe('geolocated design codec', () => {
   it('serializes with an explicit frame so saved content never depends on hidden state', () => {
     const { persisted, plane } = hydrateSceneFromDesign(currentDesign())
     const saved = serializeScenePersistedState(persisted, plane)
-    expect(saved.version).toBe(9)
+    expect(saved.version).toBe(10)
     expect('spatial_frame' in saved).toBe(false)
   })
 })

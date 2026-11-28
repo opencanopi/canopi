@@ -59,7 +59,7 @@ defaults:
 jobs:
   resolve:
     name: Reader and writer refs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 5
     outputs:
       mode: ${{ steps.refs.outputs.mode }}
@@ -67,9 +67,9 @@ jobs:
       writer: ${{ steps.refs.outputs.writer }}
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: ./.github/actions/setup-frontend
         with:
-          node-version: 24
+          install: 'false'
       # The tag names from the remote, which the shallow checkout lacks; a failed listing fails the step (pipefail).
       - name: Resolve the reader and writer refs
         id: refs
@@ -82,7 +82,7 @@ jobs:
   writer:
     name: Writer lays down every store form
     needs: resolve
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
@@ -113,23 +113,24 @@ jobs:
   reader-desktop:
     name: Desktop reader ${{ needs.resolve.outputs.reader }} writes no byte
     needs: [resolve, writer]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 60
     env:
       CANOPI_SKIP_BUNDLED_DB: "1"
       CARGO_TERM_COLOR: always
     steps:
-      # The reader tree at the root, so its toolchain file and its local actions are the ones used; this run's tree,
-      # whose fixture checks judge the readers, under lane/.
+      # The reader tree at the root, so its toolchain file and its install-linux-deps are the ones used; this run's
+      # tree, whose fixture checks judge the readers, under lane/. Setup actions come from lane/: no reader release has
+      # them (2.1-M535).
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve.outputs.reader }}
       - uses: actions/checkout@v7
         with:
           path: lane
-      - uses: actions/setup-node@v7
+      - uses: ./lane/.github/actions/setup-frontend
         with:
-          node-version: 24
+          install: 'false'
       - name: Install the reader tree's Rust toolchain
         run: rustup toolchain install
       - name: Install Linux dependencies
@@ -165,7 +166,7 @@ jobs:
   reader-web:
     name: Web reader ${{ needs.resolve.outputs.reader }} in ${{ matrix.engine }} writes no byte
     needs: [resolve, writer]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -188,7 +189,7 @@ jobs:
           path: lane
       - uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version-file: desktop/web/package.json
           cache: npm
           cache-dependency-path: |
             desktop/web/package-lock.json
@@ -201,7 +202,7 @@ jobs:
         run: |
           timeout 3m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 update -qq
           timeout 5m apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=60 install -y -qq --no-install-recommends gcc libc6-dev
-      - uses: dtolnay/rust-toolchain@1.97.1
+      - uses: ./lane/.github/actions/setup-rust
         with:
           targets: wasm32-unknown-unknown
       # With no argument rustup installs what the reader tree's rust-toolchain.toml pins, its targets included.

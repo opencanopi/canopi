@@ -35,7 +35,7 @@ describe('the Text tool', () => {
 
     h.press({ x: 24, y: 32 })
     expect(h.chrome.textEntry?.request).toEqual({
-      anchor: { x: 24, y: 32 },
+      anchor: h.world({ x: 24, y: 32 }),
       rotationDeg: 0,
       initialText: '',
       placeholderKey: 'canvas.textNote.placeholder',
@@ -48,7 +48,7 @@ describe('the Text tool', () => {
     expect(h.chrome.textEntry).toBeNull()
     expect(h.store.persisted.annotations).toEqual([expect.objectContaining({
       annotationType: 'text',
-      position: { x: 24, y: 32 },
+      position: h.world({ x: 24, y: 32 }),
       text: 'Guild note',
       fontSize: 16,
       // Level with the screen at bearing 0: 0, which draws as the null of older notes.
@@ -62,7 +62,7 @@ describe('the Text tool', () => {
 
     // The next click places a new note.
     h.click({ x: 60, y: 70 })
-    expect(h.chrome.textEntry?.request.anchor).toEqual({ x: 60, y: 70 })
+    expect(h.chrome.textEntry?.request.anchor).toEqual(h.world({ x: 60, y: 70 }))
   })
 
   it('a note created at 30 stores 30', () => {
@@ -84,11 +84,11 @@ describe('the Text tool', () => {
 
     h.click({ x: 80, y: 90 })
     expect(h.record.focus.at(-1)).toBe('map')
-    expect(h.store.persisted.annotations).toEqual([expect.objectContaining({ position: { x: 24, y: 32 }, text: 'Blurred note' })])
+    expect(h.store.persisted.annotations).toEqual([expect.objectContaining({ position: h.world({ x: 24, y: 32 }), text: 'Blurred note' })])
     expect(h.chrome.textEntry).toBeNull()
 
     h.click({ x: 80, y: 90 })
-    expect(h.chrome.textEntry?.request.anchor).toEqual({ x: 80, y: 90 })
+    expect(h.chrome.textEntry?.request.anchor).toEqual(h.world({ x: 80, y: 90 }))
   })
 
   it('Esc discards the note, and the next click opens a new one', () => {
@@ -101,7 +101,7 @@ describe('the Text tool', () => {
     expect(h.record.guidance.at(-1)?.gesture).toBe(false)
 
     h.click({ x: 48, y: 64 })
-    expect(h.chrome.textEntry?.request.anchor).toEqual({ x: 48, y: 64 })
+    expect(h.chrome.textEntry?.request.anchor).toEqual(h.world({ x: 48, y: 64 }))
     expect(h.record.guidance.at(-1)?.gesture).toBe(true)
   })
 
@@ -165,29 +165,30 @@ describe('the Text tool', () => {
     external.abort()
 
     h.click({ x: 80, y: 90 })
-    expect(h.store.persisted.annotations).toEqual([expect.objectContaining({ position: { x: 24, y: 32 }, text: 'Busy note' })])
+    expect(h.store.persisted.annotations).toEqual([expect.objectContaining({ position: h.world({ x: 24, y: 32 }), text: 'Busy note' })])
     expect(h.chrome.textEntry).toBeNull()
 
     h.click({ x: 80, y: 90 })
-    expect(h.chrome.textEntry?.request.anchor).toEqual({ x: 80, y: 90 })
+    expect(h.chrome.textEntry?.request.anchor).toEqual(h.world({ x: 80, y: 90 }))
   })
 
   it('a press on a note opens a new note there: Text never edits', () => {
     const h = harness({ scene: { annotations: [textNote('note', { x: 100, y: 150 }, 'Prune in March')] } })
 
     h.click({ x: 104, y: 154 }, { clickCount: 2 })
-    expect(h.chrome.textEntry?.request).toMatchObject({ anchor: { x: 104, y: 154 }, initialText: '' })
+    expect(h.chrome.textEntry?.request).toMatchObject({ anchor: h.world({ x: 104, y: 154 }), initialText: '' })
   })
 
   it('entering overview saves an in-place edit and commits a new note; a tool change discards an entry', () => {
     const h = harness()
+    const firstAnchor = h.world({ x: 24, y: 32 })
     h.click({ x: 24, y: 32 })
     h.typeText('Zoomed out')
 
     h.view.setViewport(OVERVIEW)
     h.advance(0)
     expect(h.chrome.textEntry).toBeNull()
-    expect(h.store.persisted.annotations).toEqual([expect.objectContaining({ position: { x: 24, y: 32 }, text: 'Zoomed out' })])
+    expect(h.store.persisted.annotations).toEqual([expect.objectContaining({ position: firstAnchor, text: 'Zoomed out' })])
     h.view.setViewport(SITE)
     h.advance(0)
 

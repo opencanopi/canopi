@@ -1,27 +1,16 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "no-module-effect",
-  "ledger": "2.1-M189",
-  "tool": "ast-grep",
-  "scope": [
-    "desktop/web/src/**"
-  ],
-  "lane": "commit",
-  "keys": "path",
-  "select": [
-    "no-module-effect"
-  ],
   "entries": {
     "desktop/web/src/app/canvas-pdf/live.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.205"
     },
-    "desktop/web/src/app/lidar/site-transients.ts": {
+    "desktop/web/src/app/data-library/site-transients.ts": {
       "count": 1,
       "bead": "canopi-f47t.52.205"
     },
-    "desktop/web/src/app/lidar/site-values.ts": {
+    "desktop/web/src/app/data-library/site-values.ts": {
       "count": 2,
       "bead": "canopi-f47t.52.205"
     },

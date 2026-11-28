@@ -12,30 +12,21 @@
 // window blur, follows a placed drop (the saved stamp's drag source, the map's focus on the next frame), owns the
 // navigation cursor, and passes on no draft or handles while a story is presented.
 
-import { effect, signal } from '@preact/signals'
-import { readPlantStampSource, clearPlantStampSource, selectPlantStampSource } from '../plant-stamp-source'
+import type { ReadonlySignal } from '@preact/signals'
+import type { UnitSystem } from '../../utils/format'
+import { TOOL_ROWS } from '../../app/command-table'
+import { clearSavedObjectStampDragSource, readSavedObjectStampDragName, recordRecentPlantStampSource } from '../stamp-drag-data'
 import {
-  clearSavedObjectStampDragSource,
-  clearSavedObjectStampSource,
-  readSavedObjectStampDragName,
-  readSavedObjectStampSource,
-  selectSavedObjectStampSource,
-} from '../saved-object-stamp-source'
-import {
-  currentCanvasTool,
+  currentCanvasTouchConstrain,
   IDLE_CANVAS_TOOL_GUIDANCE,
   noteCanvasLockedMoveRefused,
+  setCanvasTouchConstrain,
   type CanvasToolGuidance,
 } from '../session-state'
-import type {
-  CanvasContextMenuCommands,
-  CanvasFocusPort,
-  CanvasRuntimeContextMenuAdapter,
-  CanvasRuntimeTranslator,
-  CanvasScrollWheelSetting,
-} from './app-adapter'
+import type { CanvasContextMenuCommands, CanvasFocusPort, CanvasRuntimeContextMenuAdapter, CanvasRuntimeTranslator, CanvasScrollWheelSetting } from './app-adapter'
 import { createHandleLayer, type HandleLayer } from './chrome/handle-layer'
 import { createHoverTooltip, type HoverTooltipController } from './chrome/hover-tooltip'
+import { formatHoverTooltipContent } from './hover-tooltip-content'
 import { createTextEntryHost, type TextEntryHost } from './chrome/text-entry-host'
 import { runCanvasRuntimeCleanups, throwCanvasRuntimeCleanupErrors } from './cleanup'
 import { createDomInputSource, outcomeEffects } from './input/dom-input-source'
@@ -45,24 +36,18 @@ import { detectPlatform, modKeyIsCmd, type InputPlatform } from './input/platfor
 import type { AdapterEffect, RawInput, RecogniserConfig, RecogniserState, TargetClass } from './input/raw-input'
 import { initialRecogniserState, recognise } from './input/recognise'
 import { DEFAULT_THRESHOLDS } from './input/thresholds'
-import type { GestureOutcome, PointerWorld, ToolHost, ToolHostDeps } from './interaction-ports'
-import type { Modifiers, OverviewDropPayload, ToolId } from './interaction-types'
+import type { GestureOutcome, PointerWorld, ToolHost, ToolHostDeps, ToolHostState } from './interaction-ports'
+import type { MapInputHandle, MapInputRequest, Modifiers, OverviewDropPayload, ToolId, ToolSource } from './interaction-types'
 import { createCanvasKeyboardPort } from './keyboard-port'
 import type { PlantPresentationContext } from './plant-presentation'
 import type { SceneRenderTarget } from './renderers/scene-types'
-import type {
-  CanvasDesignObjectSelectionModel,
-  CanvasKeyboardPort,
-  CanvasPlantRowPathCommands,
-  CanvasPlantRowSpacingField,
-  CanvasSceneEditCommandSurface,
-} from './runtime'
-import { isSceneLayerEditable, type SceneDesignObjectSelection, type SceneDesignObjectTarget, type ScenePoint, type SceneStateReader } from './scene'
+import type { CanvasDesignObjectSelectionModel, CanvasKeyboardPort, CanvasPlantRowPathCommands, CanvasPlantRowSpacingField, CanvasSceneEditCommandSurface } from './runtime'
+import { isSceneLayerEditable, type SceneDesignObjectSelection, type SceneDesignObjectTarget, type SceneStateReader } from './scene'
 import type { SceneCommandAdmission, SceneEditCoordinator, SettledSceneReader } from './scene-runtime/transactions'
-import type { SpeciesCacheEntry } from './species-cache'
+import type { SpeciesCacheEntry } from './presentation-data'
 import { createContextMenuPort, createToolHost, createToolScene } from './tools/tool-host'
-import type { ViewNavigation } from './view/navigation'
-import type { ViewFrame, ViewFrameSource } from './view/types'
+import type { ViewNavigation } from '../../geo/view/navigation'
+import type { ViewFrame, ViewFrameSource, WorldPoint } from '../../geo/view/types'
 
 /** Attributes the session sets on the map host and restores when it ends. */
 const HOST_ATTRIBUTES = ['tabindex', 'role', 'aria-label', 'aria-describedby'] as const
@@ -74,14 +59,12 @@ const NO_DROP: readonly AdapterEffect[] = Object.freeze([{ kind: 'drop-effect', 
 const PREVENT_DEFAULT: readonly AdapterEffect[] = Object.freeze([{ kind: 'prevent-default' }])
 /** The host's types, read through it (P5b: this module imports nothing else from tools/). */
 type DraftPresentation = Parameters<ToolHostDeps['renderer']['setDraft']>[0]
-type ToolSource = Parameters<ToolHost['setTool']>[1]
 type HandleList = Parameters<ToolHostDeps['chrome']['setHandles']>[0]
 type HandleId = Parameters<ToolHostDeps['chrome']['setHandles']>[1]
 type PassiveHoverAt = NonNullable<Parameters<ToolHostDeps['chrome']['setTooltip']>[0]>
 
 const NO_HANDLES: HandleList = Object.freeze([])
-
-let descriptionSequence = 0
+const descriptionSequenceByDocument = new WeakMap<Document, number>()
 
 /** The session's dependencies: today's, which the host and the chrome run on, then the pipeline's own. */
 export interface SceneInteractionSessionDeps {
@@ -95,10 +78,6 @@ export interface SceneInteractionSessionDeps {
   sceneEdits: SceneEditCoordinator
   commandAdmission: SceneCommandAdmission
   settledReader: SettledSceneReader
-  /** The Site data pin (CanvasRuntimeAppAdapter.pinAt): ToolHostDeps.pin, called after a tap no tool uses. */
-  pinAt?: (world: ScenePoint) => void
-  /** The Site data profile (CanvasRuntimeAppAdapter.finishProfile): ToolHostDeps.finishProfile, Profile's finished line. */
-  finishProfile?: (points: readonly ScenePoint[]) => void
   getDesignObjectSelection: () => CanvasDesignObjectSelectionModel
   selectionCommands: CanvasContextMenuCommands
   contextualCommands?: {
@@ -106,13 +85,14 @@ export interface SceneInteractionSessionDeps {
   }
   /** Renders the right-click menu; absent in a detached runtime. */
   contextMenu?: CanvasRuntimeContextMenuAdapter
-  setTool: (id: ToolId) => void
   /** A scene render; a camera frame repaints on its own (the runtime's onCameraFrame). */
   render: () => void
   readSnapToGridEnabled: () => boolean
   /** Settings › Canvas › Pointing device (stored scrollWheel: 'zoom' is Mouse, 'pan' is Trackpad). Pinch and Ctrl wheel zoom either way. */
   readScrollWheel: () => CanvasScrollWheelSetting
   readPlantSpacingIntervalMeters: () => number
+  readUnitSystem?: () => UnitSystem
+  readLocale?: () => string
   commitPlantSpacingIntervalMeters: (meters: number) => void
   translate: CanvasRuntimeTranslator
   setHoveredTarget: (target: SceneDesignObjectTarget | null) => void
@@ -139,8 +119,12 @@ export interface SceneInteractionSessionDeps {
 export interface SceneInteractionSession {
   /** The tool the session has armed now (after a failed switch: the one it kept or fell back to). */
   readonly tool: ToolId
-
-  setTool(id: ToolId): void
+  /** Single authoritative tool state signal owned by ToolHost (L11, §18 F29). */
+  readonly toolState: ReadonlySignal<ToolHostState>
+  /** Live active tool signal owned by ToolHost (L11, §18 F29). */
+  readonly activeTool: ReadonlySignal<ToolId>
+  /** Arms a tool with optional source and map-input request; returns a handle that settles once. */
+  arm<T = unknown>(id: ToolId, source?: ToolSource | null, request?: MapInputRequest<T>): MapInputHandle<T>
   /** Plant a row's spacing field in the tool card; does nothing under another tool. */
   readonly plantRowSpacing: CanvasPlantRowSpacingField
   /** Plant a row's check button and mode switch in the tool card; nothing under another tool. */
@@ -157,6 +141,7 @@ export interface SceneInteractionSession {
   /** ToolHost.subscribePointerWorld: the pointer's world and screen points over the map, null when it leaves (the inspection
    *  lens). The session drops the point of a move made with any button held (its raw buttonMask), as today's lens skipped it. */
   subscribePointerWorld(listener: (point: PointerWorld | null) => void): () => void
+  subscribeEmptyGroundTap(listener: (world: WorldPoint) => void): () => void
   /** ToolHost.holdsReorigin: re-origin waits while a press, a tool transient or the text entry is open (spec §4.19). */
   holdsReorigin(): boolean
   dispose(): void
@@ -194,7 +179,6 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
   }
 
   private readonly _config: RecogniserConfig
-  private readonly _tool = signal<ToolId>(currentCanvasTool.peek())
   private readonly _frames: ViewFrameSource
   /** The view's mode as the session last heard it on a 'tools' frame: what the recogniser is configured with. */
   private _mode: ViewFrame['mode']
@@ -211,7 +195,6 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
   private readonly _source: ReturnType<typeof createDomInputSource>
   private readonly _renderer: Pick<SceneRenderTarget, 'setDraft'>
   private readonly _detachSource: () => void
-  private readonly _stopWatchingSources: () => void
   private readonly _storyObserver: MutationObserver | null
   private _recogniser: RecogniserState = initialRecogniserState()
   private _pointingDevice: 'mouse' | 'trackpad'
@@ -296,6 +279,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
       const hostDeps: ToolHostDeps = {
         frames: this._frames,
         scene,
+        touchConstrain: {
+          read: () => currentCanvasTouchConstrain.peek(),
+          reset: () => setCanvasTouchConstrain(false),
+        },
         edits: _deps.sceneEdits,
         admission: _deps.commandAdmission,
         settled: _deps.settledReader,
@@ -325,10 +312,15 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
         menu: this._menu,
         focus,
         guidance: (guidance) => _deps.publishToolGuidance(guidance ? { ...IDLE_CANVAS_TOOL_GUIDANCE, ...guidance } : IDLE_CANVAS_TOOL_GUIDANCE),
-        toolState: { active: this._tool, set: (id) => this._switchTool(id) },
+        toolRow: (id) => TOOL_ROWS[id],
+        onToolChanged: () => {
+          this._configure()
+        },
         settings: {
           plantSpacingIntervalM: _deps.readPlantSpacingIntervalMeters,
           commitPlantSpacingIntervalM: _deps.commitPlantSpacingIntervalMeters,
+          unitSystem: () => _deps.readUnitSystem?.() ?? 'metric',
+          locale: () => _deps.readLocale?.() ?? 'en',
         },
         snapping: () => ({ grid: _deps.readSnapToGridEnabled() }),
         translate: _deps.translate as ToolHostDeps['translate'],
@@ -337,8 +329,6 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
         timers: { ...timers, clock },
         initialPointer: platform.os === 'ios' || platform.os === 'android' ? 'touch' : 'mouse',
         hover: (target) => _deps.setHoveredTarget(target),
-        pin: _deps.pinAt,
-        finishProfile: _deps.finishProfile,
         lockedMoveRefused: noteCanvasLockedMoveRefused,
         capturePress: (pointerId) => this._capturePress(pointerId),
         transientHistoryChanged: () => _deps.notifyTransientHistoryChange(),
@@ -369,7 +359,7 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
           spaceHeld: () => this._recogniser.held.space,
           keyState: (state) => this._setKeyState(state.space, state.mods),
           escapeGesture: () => this._escapeGesture(),
-          requestTool: (id) => this._switchTool(id),
+          escapeTool: () => this._escapeTool(),
           clearSelection: () => {
             _deps.clearSelection()
             _deps.render()
@@ -386,10 +376,8 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
           clear: (id) => window.clearTimeout(id),
         },
       })
-      this._stopWatchingSources = own(this._watchToolSources(), (stop) => stop())
       this._storyObserver = own(this._observeStoryPresentation(), (observer) => observer?.disconnect())
-      this.setTool(this._tool.peek())
-      this._handInitialSource()
+      this._configure()
       this._detachSource = this._source.attach((input) => this._receive(input))
       rollback.length = 0
     } catch (error) {
@@ -404,41 +392,51 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     }
   }
 
+  get tool(): ToolId {
+    return this._toolHost.activeTool.peek()
+  }
+
+  get toolState(): ReadonlySignal<ToolHostState> {
+    return this._toolHost.state
+  }
+
+  get activeTool(): ReadonlySignal<ToolId> {
+    return this._toolHost.activeTool
+  }
+
   /**
    * Arms a tool on the host. Any failure leaves a fresh Select on the host (spec §1.4 "Faults"), drops the tool left's
    * source and still ends the live presses, as today's setTool had cleared the pointer gesture before the step that failed.
    */
-  get tool(): ToolId {
-    return this._tool.peek()
-  }
-
-  setTool(id: ToolId): void {
-    if (this._disposed) return
-    const previous = this._tool.peek()
-    this._tool.value = id
+  arm<T = unknown>(
+    id: ToolId,
+    source?: ToolSource | null,
+    request?: MapInputRequest<T>,
+  ): MapInputHandle<T> {
+    if (this._disposed) {
+      const detached = { kind: 'detached' } as const
+      request?.onSettled?.(detached)
+      return { settled: Promise.resolve(detached), cancel() {} }
+    }
     this._navigationCursor = null
+    let handle: MapInputHandle<T>
     try {
-      this._toolHost.setTool(id, toolSourceFor(id))
+      handle = this._toolHost.arm(id, source, request)
     } catch (error) {
-      this._tool.value = 'select'
       this._endPressesAfterFailedSwitch()
-      clearToolSource(previous)
       throw error
     }
-    // The tool left drops its pick once it is deactivated, as today's tools did (the next tool never hears it).
-    if (previous !== id) clearToolSource(previous)
     // The live presses belong to the tool left: they end on the host's path, which releases their capture.
     this._configure()
+    return handle
   }
 
   prepareForDocumentReplacement(): void {
     if (this._disposed) return
-    const tool = this._tool.peek()
     runCanvasRuntimeCleanups([
       () => this._cancelDropFocus(),
       () => this._toolHost.prepareForDocumentReplacement(),
       () => this._escapeGesture(),
-      () => clearToolSource(tool),
     ], 'Scene Interaction document replacement preparation failed')
   }
 
@@ -487,6 +485,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     })
   }
 
+  subscribeEmptyGroundTap(listener: (world: WorldPoint) => void): () => void {
+    return this._toolHost.subscribeEmptyGroundTap(listener)
+  }
+
   dispose(): void {
     if (this._disposed) return
     this._disposed = true
@@ -498,12 +500,9 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
         errors.push(error)
       }
     }
-    const tool = this._tool.peek()
     attempt(() => this._detachSource())
     attempt(() => this._storyObserver?.disconnect())
     attempt(() => this._stopHearingMode())
-    attempt(() => this._stopWatchingSources())
-    attempt(() => clearToolSource(tool))
     attempt(() => this._cancelDropFocus())
     attempt(() => this._toolHost.dispose())
     attempt(() => this._tooltip.dispose())
@@ -673,11 +672,14 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     if (this._disposed) return
     this._deps.viewNavigation.returnToDesign({ around: 'view-centre' })
     if (payload.kind === 'species') {
-      selectPlantStampSource(payload.species)
-      this._switchTool('plant-stamp')
+      recordRecentPlantStampSource(payload.species)
+      this.arm('plant-stamp', { kind: 'species', species: payload.species })
     } else {
-      selectSavedObjectStampSource(payload.stamp, readSavedObjectStampDragName())
-      this._switchTool('saved-object-stamp')
+      this.arm('saved-object-stamp', {
+        kind: 'saved-stamp',
+        stamp: payload.stamp,
+        name: readSavedObjectStampDragName(),
+      })
     }
     this._dropped(payload.kind)
   }
@@ -738,7 +740,7 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
       kind: 'configure',
       t: Date.now(),
       context: {
-        tool: this._tool.peek(),
+        tool: this._toolHost.activeTool.peek(),
         mode: this._mode,
         pointingDevice: this._pointingDevice,
       },
@@ -757,10 +759,10 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     return this._deps.readScrollWheel() === 'pan' ? 'trackpad' : 'mouse'
   }
 
-  /** Arms a tool as a tool's own request does: the runtime's setTool first, then the session if it did not follow. */
-  private _switchTool(id: ToolId): void {
-    this._deps.setTool(id)
-    if (this._tool.peek() !== id) this.setTool(id)
+  /** Esc on the 'tool' layer leaves the armed tool for Select, settling any pending map-input request as `'escape'`. */
+  private _escapeTool(): void {
+    this._navigationCursor = null
+    this._toolHost.escapeTool()
   }
 
   /**
@@ -795,7 +797,7 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     this._feed({ kind: 'key-state', t: Date.now(), space, mods })
     if (space) {
       // Today's grab: always in overview; otherwise not during a press, nor with the Pan tool's own grab.
-      if (this._mode === 'overview' || (!this._toolHost.hasLiveGesture() && this._tool.peek() !== 'hand')) {
+      if (this._mode === 'overview' || (!this._toolHost.hasLiveGesture() && this._toolHost.activeTool.peek() !== 'hand')) {
         this._setNavigationCursor(this._panning ? 'grabbing' : 'grab')
       }
     } else if (!this._panning) {
@@ -841,15 +843,24 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
 
   /** The plant tooltip names the hovered plant as today: its localised common name, else the stored one, and its species. */
   private _showTooltip(tooltip: PassiveHoverAt | null): void {
-    const plant = tooltip?.target.kind === 'plant'
-      ? this._deps.getSceneStore().persisted.plants.find((entry) => entry.id === tooltip.target.id)
-      : undefined
-    if (!tooltip || !plant) {
+    if (!tooltip) {
       this._tooltip.hide()
       return
     }
-    const commonName = this._deps.getLocalizedCommonNames().get(plant.canonicalName) ?? plant.commonName
-    this._tooltip.show(tooltip.at.x, tooltip.at.y, commonName, plant.canonicalName)
+    const store = this._deps.getSceneStore()
+    const content = formatHoverTooltipContent(
+      store.persisted,
+      tooltip.target,
+      store.sessionPlane,
+      this._deps.getLocalizedCommonNames(),
+      this._deps.readUnitSystem?.() ?? 'metric',
+      this._deps.readLocale?.() ?? 'en',
+    )
+    if (!content) {
+      this._tooltip.hide()
+      return
+    }
+    this._tooltip.show(tooltip.at.x, tooltip.at.y, content.title, content.subtitle, content.subtitleItalic)
   }
 
   /**
@@ -868,51 +879,6 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
     })
     observer.observe(document.documentElement, { attributes: true, attributeFilter: [STORY_PRESENTING_ATTRIBUTE] })
     return observer
-  }
-
-  // ── The plant and saved-stamp read models ──────────────────────────────────────────────────────────────────────
-
-  /**
-   * Place plants or the saved-stamp tool hears a new source while armed: the plant source after a microtask,
-   * inside the settled admission (a pick from the chooser leaves its own update first), the saved stamp at once.
-   */
-  private _watchToolSources(): () => void {
-    let plant = readPlantStampSource()
-    let saved = readSavedObjectStampSource()
-    const stopPlant = effect(() => {
-      const next = readPlantStampSource()
-      if (next === plant) return
-      plant = next
-      if (this._tool.peek() !== 'plant-stamp') return
-      queueMicrotask(() => {
-        if (this._disposed || this._tool.peek() !== 'plant-stamp') return
-        this._deps.commandAdmission.runWhenSettled(
-          () => this._toolHost.sourceChanged(toolSourceFor('plant-stamp')),
-          undefined,
-        )
-      })
-    })
-    const stopSaved = effect(() => {
-      const next = readSavedObjectStampSource()
-      if (next === saved) return
-      saved = next
-      if (this._tool.peek() !== 'saved-object-stamp') return
-      this._toolHost.sourceChanged(toolSourceFor('saved-object-stamp'))
-    })
-    return () => {
-      stopPlant()
-      stopSaved()
-    }
-  }
-
-  /**
-   * The host activated the first tool with no source, and the watchers start from the picks already made: a stamp tool
-   * armed with a pick when the map mounts (or mounts again) hears it now, as today's tools read it live.
-   */
-  private _handInitialSource(): void {
-    const tool = this._tool.peek()
-    const source = toolSourceFor(tool)
-    if (source) this._toolHost.sourceChanged(source)
   }
 
   private _spacing(run: () => void): void {
@@ -940,7 +906,8 @@ function prepareInteractionHost(
 ): InteractionHostController {
   const previous = HOST_ATTRIBUTES.map((name) => [name, container.getAttribute(name)] as const)
   const description = document.createElement('div')
-  description.id = `canopi-map-keys-${++descriptionSequence}`
+  const nextId = (descriptionSequenceByDocument.get(container.ownerDocument) ?? 0) + 1
+  descriptionSequenceByDocument.set(container.ownerDocument, nextId); description.id = `canopi-map-keys-${nextId}`
   description.hidden = true
   description.dataset.mapKeysDescription = 'true'
 
@@ -984,24 +951,6 @@ function liveStoreReader(deps: SceneInteractionSessionDeps): SceneStateReader {
     get sessionPlane() { return deps.getSceneStore().sessionPlane },
     get sessionPlaneSignal() { return deps.getSceneStore().sessionPlaneSignal },
   }
-}
-
-function toolSourceFor(tool: ToolId): ToolSource | null {
-  if (tool === 'plant-stamp') {
-    const species = readPlantStampSource()
-    return species ? { kind: 'species', species } : null
-  }
-  if (tool === 'saved-object-stamp') {
-    const stamp = readSavedObjectStampSource()
-    return stamp ? { kind: 'saved-stamp', stamp } : null
-  }
-  return null
-}
-
-/** Leaving a stamp tool (or ending the session) drops its pick, as today's tools did on deactivation. */
-function clearToolSource(tool: ToolId): void {
-  if (tool === 'plant-stamp') clearPlantStampSource()
-  else if (tool === 'saved-object-stamp') clearSavedObjectStampSource()
 }
 
 /** The end of a pan or turn that a pointer drove (middle, Space, overview, the Pan tool, Shift+middle or Shift+right), not

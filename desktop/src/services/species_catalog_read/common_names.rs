@@ -1,5 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::{Mutex, OnceLock};
 
+use canopi_types::locale::from_code as locale_from_code;
 use canopi_types::species::CommonNameEntry;
 use rusqlite::{Connection, OptionalExtension, types::ToSql};
 
@@ -210,32 +212,75 @@ pub fn translate_composite_value(
         .join(joiner)
 }
 
+fn log_missing_translation_once(locale: &str, field: &str, value_en: &str) {
+    static LOGGED: OnceLock<Mutex<HashSet<(String, String, String)>>> = OnceLock::new();
+    let seen = LOGGED.get_or_init(|| Mutex::new(HashSet::new()));
+    let key = (locale.to_owned(), field.to_owned(), value_en.to_owned());
+    let first_time = seen
+        .lock()
+        .map(|mut guard| guard.insert(key))
+        .unwrap_or(false);
+    if first_time {
+        tracing::debug!(
+            locale,
+            field,
+            value_en,
+            "Missing catalog value translation; falling back to English"
+        );
+    }
+}
+
 pub fn translate_value(conn: &Connection, field: &str, value_en: &str, locale: &str) -> String {
-    let column = match locale {
-        "fr" => "value_fr",
-        "es" => "value_es",
-        "pt" => "value_pt",
-        "it" => "value_it",
-        "zh" => "value_zh",
-        "de" => "value_de",
-        "ja" => "value_ja",
-        "ko" => "value_ko",
-        "nl" => "value_nl",
-        "ru" => "value_ru",
-        _ => return value_en.to_owned(),
+    let Some(parsed) = locale_from_code(locale) else {
+        return value_en.to_owned();
+    };
+    let Some(sql) = crate::db::query_builder::translate_value_sql(parsed) else {
+        return value_en.to_owned();
     };
 
-    let sql = format!(
-        "SELECT COALESCE({column}, value_en) FROM translated_values \
-         WHERE field_name = ?1 AND value_en = ?2 LIMIT 1"
-    );
-
-    conn.prepare_cached(&sql)
+    let translated = conn
+        .prepare_cached(sql)
         .and_then(|mut stmt| {
-            stmt.query_row([field, value_en], |row| row.get::<_, String>(0))
+            stmt.query_row([field, value_en], |row| row.get::<_, Option<String>>(0))
                 .optional()
         })
         .ok()
         .flatten()
-        .unwrap_or_else(|| value_en.to_owned())
+        .flatten()
+        .filter(|value| !value.is_empty());
+
+    if let Some(value) = translated {
+        value
+    } else {
+        log_missing_translation_once(locale, field, value_en);
+        value_en.to_owned()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::translate_value;
+    use rusqlite::Connection;
+
+    #[test]
+    fn translate_value_uses_static_locale_queries_and_falls_back_to_english() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE translated_values (
+                field_name TEXT NOT NULL,
+                value_en TEXT NOT NULL,
+                value_fr TEXT,
+                value_de TEXT
+            );
+            INSERT INTO translated_values (field_name, value_en, value_fr, value_de)
+            VALUES ('habit', 'Tree', 'Arbre', NULL);",
+        )
+        .unwrap();
+
+        assert_eq!(translate_value(&conn, "habit", "Tree", "fr"), "Arbre");
+        assert_eq!(translate_value(&conn, "habit", "Tree", "en"), "Tree");
+        assert_eq!(translate_value(&conn, "habit", "Tree", "de"), "Tree");
+        assert_eq!(translate_value(&conn, "habit", "Unknown", "fr"), "Unknown");
+        assert_eq!(translate_value(&conn, "habit", "Tree", "xx"), "Tree");
+    }
 }

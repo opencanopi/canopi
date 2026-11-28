@@ -1,12 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import {
-  clearCanvasMapSurfaceOverlays,
-  syncCanvasMapSurfaceOverlays,
   syncCanvasMapSurfaceSiteHover,
   syncCanvasMapSurfaceSiteOverlay,
-  type CanvasMapSurfaceOverlaySnapshot,
 } from '../app/canvas-map-surface/overlays'
+import { getMapBackdropInk, readCanvasPaintTokens } from '../canvas/runtime/scene-visuals'
 import type { MapLibreOverlayMap } from '../maplibre/panel-target-overlay-sync'
 import { siteMapOverlayIds } from '../maplibre/site-overlay'
 
@@ -31,101 +28,7 @@ class FakeOverlayMap implements MapLibreOverlayMap {
   readonly layers = new Set<string>()
 }
 
-function createOverlayScene() {
-  const scene = createDefaultScenePersistedState()
-  scene.plants = [
-    {
-      kind: 'plant',
-      locked: false,
-      id: 'plant-1',
-      canonicalName: 'Malus domestica',
-      commonName: 'Apple',
-      color: null,
-      canopySpreadM: null,
-      position: { x: 0, y: 0 },
-      rotationDeg: null,
-      notes: null,
-      plantedDate: null,
-      quantity: null,
-    },
-  ]
-  scene.zones = [
-    {
-      kind: 'zone',
-      locked: false,
-      id: 'orchard', name: 'orchard',
-      zoneType: 'polygon',
-      rotationDeg: 0,
-      points: [
-        { x: 0, y: 0 },
-        { x: 10, y: 0 },
-        { x: 10, y: 10 },
-      ],
-      fillColor: null,
-      notes: null,
-    },
-  ]
-  return scene
-}
-
-function createSnapshot(
-  overrides: Partial<CanvasMapSurfaceOverlaySnapshot> = {},
-): CanvasMapSurfaceOverlaySnapshot {
-  const scene = createOverlayScene()
-  return {
-    runtime: {
-      getSceneSnapshot: () => scene,
-    },
-    location: { lat: 48.8566, lon: 2.3522 },
-    hoveredTargets: [{ kind: 'zone', zone_id: 'orchard' }],
-    // The canvas rings plants; the map overlay draws zones only (canopi-rg4q).
-    selectedTargets: [{ kind: 'zone', zone_id: 'orchard' }],
-    site: null,
-    ...overrides,
-  }
-}
-
 describe('canvas map surface overlay sync', () => {
-  it('clears empty overlays without reading Scene geometry', () => {
-    const map = new FakeOverlayMap()
-    syncCanvasMapSurfaceOverlays(map, createSnapshot())
-    const read = vi.fn(() => createOverlayScene())
-    syncCanvasMapSurfaceOverlays(map, createSnapshot({
-      runtime: { getSceneSnapshot: read }, hoveredTargets: [], selectedTargets: [],
-    }))
-    expect(read).not.toHaveBeenCalled()
-    expect(map.removeSource).toHaveBeenCalledWith('panel-target-selection-source')
-    expect(map.removeSource).toHaveBeenCalledWith('panel-target-hover-source')
-  })
-
-  it('projects panel targets from the lifecycle snapshot into MapLibre overlay contracts', () => {
-    const map = new FakeOverlayMap()
-
-    syncCanvasMapSurfaceOverlays(map, createSnapshot())
-
-    expect(map.addSource).toHaveBeenCalledWith(
-      'panel-target-selection-source',
-      expect.objectContaining({ type: 'geojson' }),
-    )
-    expect(map.addSource).toHaveBeenCalledWith(
-      'panel-target-hover-source',
-      expect.objectContaining({ type: 'geojson' }),
-    )
-    expect(map.addLayer).toHaveBeenCalledWith(expect.objectContaining({ id: 'panel-target-selection-zones-line' }))
-    expect(map.addLayer).toHaveBeenCalledWith(expect.objectContaining({ id: 'panel-target-hover-zones-fill' }))
-  })
-
-  it('exposes explicit clearing for lifecycle teardown and pre-ready errors', () => {
-    const map = new FakeOverlayMap()
-    syncCanvasMapSurfaceOverlays(map, createSnapshot())
-    map.removeSource.mockClear()
-
-    clearCanvasMapSurfaceOverlays(map)
-
-    expect(map.removeSource).toHaveBeenCalledWith('panel-target-hover-source')
-    expect(map.removeSource).toHaveBeenCalledWith('panel-target-selection-source')
-  })
-
   it('paints the Site data pin and line through their contract, again on the map a Retry rebuilds, and clears with neither', () => {
     const ids = siteMapOverlayIds()
     const site = { pin: [2.35, 48.85] as const, profileLine: [[2.35, 48.85], [2.36, 48.86]] as const }
@@ -149,5 +52,35 @@ describe('canvas map surface overlay sync', () => {
     syncCanvasMapSurfaceSiteOverlay(map, { pin: null, profileLine: null })
     expect(map.layers.size).toBe(0)
     expect(map.sources.size).toBe(0)
+  })
+
+  it('uses the active map backdrop ink for site hover and snapshot paint tokens for the profile guide', () => {
+    const ids = siteMapOverlayIds()
+    const site = { pin: [2.35, 48.85] as const, profileLine: [[2.35, 48.85], [2.36, 48.86]] as const }
+    const customTokens = { ...readCanvasPaintTokens(), 'guide-line': '#123456', 'overlay-casing': '#654321' }
+    const map = new FakeOverlayMap()
+
+    syncCanvasMapSurfaceSiteOverlay(map, site, customTokens)
+    expect(map.addLayer).toHaveBeenCalledWith(expect.objectContaining({
+      id: ids.layerIds[1],
+      paint: expect.objectContaining({ 'line-color': '#123456' }),
+    }))
+    expect(map.addLayer).toHaveBeenCalledWith(expect.objectContaining({
+      id: ids.layerIds[0],
+      paint: expect.objectContaining({ 'line-color': '#654321' }),
+    }))
+
+    syncCanvasMapSurfaceSiteHover(map, [2.355, 48.855], 'basemap')
+    const lightInk = getMapBackdropInk('basemap')
+    expect(map.addLayer).toHaveBeenCalledWith(expect.objectContaining({
+      id: ids.hover.layerIds[0],
+      paint: expect.objectContaining({ 'circle-stroke-color': lightInk.text }),
+    }))
+
+    // Switching to satellite updates the hover ring ink on the live layer.
+    const darkInk = getMapBackdropInk('satellite')
+    expect(darkInk.text).not.toBe(lightInk.text)
+    syncCanvasMapSurfaceSiteHover(map, [2.355, 48.855], 'satellite')
+    expect(map.setPaintProperty).toHaveBeenCalledWith(ids.hover.layerIds[0], 'circle-stroke-color', darkInk.text)
   })
 })

@@ -9,6 +9,7 @@ export {
   appCommandGraphChromeProjection,
   appCommandGraphPanelProjection,
   appCommandGraphToolbarProjection,
+  DESKTOP_SHELL_COMMAND_CATALOG,
 } from './graph'
 export type {
   MenuAction,

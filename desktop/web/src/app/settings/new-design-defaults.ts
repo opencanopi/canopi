@@ -1,20 +1,23 @@
 import type { CanopiFile } from '../../types/design'
-import { withPlantDisplayOptions } from '../design-edit/plant-display'
-import { setMapBackground } from '../map-layers/actions'
+import { mutateSettingsProjection } from './projection'
 import { newDesignDefaults, type NewDesignDefaults } from './state'
 
-/**
- * Settings › New Designs, applied once, to a Design being created: its symbol
- * size and labels. An existing Design keeps its own display options.
- */
+/** Applies Settings › New Designs display defaults (symbol scale, labels) to a newly created Design. */
 export function withNewDesignDisplay(
   file: CanopiFile,
   defaults: NewDesignDefaults = newDesignDefaults.peek(),
-): CanopiFile {
-  return withPlantDisplayOptions(file, {
-    symbolScale: defaults.symbolScale,
-    labels: defaults.labels,
-  })
+) {
+  const prevExtra = file.extra && typeof file.extra === 'object' ? file.extra : {}
+  return {
+    ...file,
+    extra: {
+      ...prevExtra,
+      plant_display: {
+        symbol_scale: defaults.symbolScale,
+        labels: defaults.labels,
+      },
+    },
+  }
 }
 
 /**
@@ -23,5 +26,8 @@ export function withNewDesignDisplay(
  * setting, so an opened Design never changes it.
  */
 export function applyNewDesignBackground(defaults: NewDesignDefaults = newDesignDefaults.peek()): void {
-  if (defaults.satellite) setMapBackground('satellite')
+  if (!defaults.satellite) return
+  mutateSettingsProjection((s) => {
+    s.mapLayers = { ...s.mapLayers, satellite: { ...s.mapLayers.satellite, visible: true } }
+  })
 }

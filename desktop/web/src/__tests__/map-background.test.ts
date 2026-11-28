@@ -465,6 +465,66 @@ describe('map background band', () => {
     expect(map.controls[0]!.options.customAttribution).toBeUndefined()
   })
 
+  it('canopi-m6sm: keyless Satellite ignores 404/204 and single errors, fails on network error or 3 consecutive errors, and clears on tile success or Retry', async () => {
+    const statuses: string[] = []
+    const listeners = new Map<string, Set<(event?: unknown) => void>>()
+    const lifetime = {
+      on(type: string, listener: (event?: unknown) => void) {
+        let set = listeners.get(type)
+        if (!set) { set = new Set(); listeners.set(type, set) }
+        set.add(listener)
+      },
+      off(type: string, listener: (event?: unknown) => void) {
+        listeners.get(type)?.delete(listener)
+      },
+    }
+    const emit = (type: string, event?: unknown) => {
+      for (const listener of [...(listeners.get(type) ?? [])]) listener(event)
+    }
+
+    const background = mountMapBackground({
+      map: createMap(),
+      maplibre: { AttributionControl: FakeControl },
+      tileAuth: new BasemapTileAuth(),
+      readSatelliteConfig,
+      lifetime,
+      loadStyle: async () => STYLE,
+      onBasemapStatus: (status) => statuses.push(status),
+    })
+    background.update(presentation({ satelliteVisible: true }))
+    await settle()
+    expect(statuses.at(-1)).toBe('ok')
+
+    // 404 and 204 are blank coverage (2.1-Q350), never a failure.
+    expect(background.claimMapError({ sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, error: Object.assign(new Error('Not Found'), { status: 404 }) })).toBe(true)
+    expect(background.claimMapError({ sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, error: Object.assign(new Error('No Content'), { status: 204 }) })).toBe(true)
+    expect(statuses.at(-1)).toBe('ok')
+
+    // Fewer than 3 consecutive non-network errors do not fail Satellite, and a successful tile resets the counter.
+    expect(background.claimMapError({ sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, error: Object.assign(new Error('Server Error'), { status: 500 }) })).toBe(true)
+    expect(background.claimMapError({ sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, error: Object.assign(new Error('Server Error'), { status: 502 }) })).toBe(true)
+    expect(statuses.at(-1)).toBe('ok')
+    emit('sourcedata', { sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, tile: {} })
+    expect(background.claimMapError({ sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, error: Object.assign(new Error('Server Error'), { status: 503 }) })).toBe(true)
+    expect(statuses.at(-1)).toBe('ok')
+
+    // 3 consecutive errors trip failed, and a later successful tile clears it back to ok.
+    expect(background.claimMapError({ sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, error: Object.assign(new Error('Server Error'), { status: 503 }) })).toBe(true)
+    expect(background.claimMapError({ sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, error: Object.assign(new Error('Server Error'), { status: 503 }) })).toBe(true)
+    expect(statuses.at(-1)).toBe('failed')
+    emit('sourcedata', { sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, tile: {} })
+    expect(statuses.at(-1)).toBe('ok')
+
+    // A network error (status 0) fails immediately and Retry clears it.
+    expect(background.claimMapError({ sourceId: MAPLIBRE_SATELLITE_SOURCE_ID, error: Object.assign(new Error('Failed to fetch'), { status: 0 }) })).toBe(true)
+    expect(statuses.at(-1)).toBe('failed')
+
+    background.retry(presentation({ satelliteVisible: true }))
+    await settle()
+    expect(statuses.at(-1)).toBe('ok')
+    background.dispose()
+  })
+
   it('never puts the Google key into map state', async () => {
     satelliteSource.value = 'google_key'
     googleMapsApiKey.value = 'SECRET-KEY'

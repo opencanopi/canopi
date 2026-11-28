@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('../../../ipc/species', () => ({
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 
@@ -11,11 +10,17 @@ import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-fo
 import { geoAt } from '../../../__tests__/support/geo-design'
 import { SceneStore } from '../scene'
 import { CanvasPlantLabelResolver } from '../plant-labels'
-import { CanvasSpeciesCache } from '../species-cache'
+import { CanvasSpeciesCache, installSpeciesCacheLoader } from '../../../app/canvas-runtime/species-cache'
 import { createDetachedCanvasPlantLabelSource } from '../presentation-data'
 import { SceneRuntimePresentationController } from './presentation'
 import { projectScenePlantLabels } from '../selection-labels'
-import { getCommonNames, getFlowerColorBatch, getSpeciesBatch } from '../../../ipc/species'
+import { getCommonNames, getSpeciesBatch } from '../../../ipc/species'
+import { isPlantDbUnavailableError } from '../../../ipc/plant-db-errors'
+
+installSpeciesCacheLoader({
+  getSpeciesBatch,
+  isPlantDbUnavailableError,
+})
 
 function makeFile(): CanopiFile {
   return {
@@ -36,7 +41,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(10, 10),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -99,10 +104,8 @@ describe('scene runtime presentation controller', () => {
   beforeEach(() => {
     vi.mocked(getCommonNames).mockReset()
     vi.mocked(getSpeciesBatch).mockReset()
-    vi.mocked(getFlowerColorBatch).mockReset()
     vi.mocked(getCommonNames).mockResolvedValue({})
     vi.mocked(getSpeciesBatch).mockResolvedValue([])
-    vi.mocked(getFlowerColorBatch).mockResolvedValue([])
   })
 
   it('loads labels and species data as one plant-names revision, leaving the Scene as saved', async () => {
@@ -114,12 +117,6 @@ describe('scene runtime presentation controller', () => {
       locked: false,
       stratum: 'canopy',
       width_max_m: 4.5,
-    } as never])
-    vi.mocked(getFlowerColorBatch).mockResolvedValue([{
-      canonical_name: 'Malus domestica',
-      locked: false,
-      flower_color: 'white',
-      source: 'detail',
     } as never])
 
     const { controller, sceneStore, state } = createController()
@@ -134,7 +131,6 @@ describe('scene runtime presentation controller', () => {
     expect(controller.getLocalizedCommonNames().get('Malus domestica')).toBe('Pommier')
     expect(sceneStore.persisted).toEqual(saved)
     expect(controller.getSpeciesCache().get('Malus domestica')).toMatchObject({
-      resolved_flower_color: 'white',
       stratum: 'canopy',
       width_max_m: 4.5,
     })

@@ -1,5 +1,5 @@
 import type { CanvasStampGuidance, CanvasToolGuidance } from '../../canvas/session-state'
-import type { ToolId } from '../../canvas/runtime/tool-id'
+import type { ToolId } from '../command-table'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 type Translate = (key: LocaleKey, options?: Readonly<Record<string, unknown>>) => string

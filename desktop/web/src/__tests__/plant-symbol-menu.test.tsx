@@ -5,7 +5,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { PlantSymbolMenu } from '../components/canvas/PlantSymbolMenu'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { plantSymbolMenuOpen } from '../canvas/plant-symbol-menu-state'
+import { plantSymbolMenuOpen } from '../app/canvas-context-menu/state'
 import { currentCanvasSelection } from '../canvas/session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import {
@@ -350,6 +350,52 @@ describe('PlantSymbolMenu', () => {
     expect(document.body.textContent).not.toContain('Sets the default symbol')
     expect(actionButtons.some((label) => label?.includes('Clear symbol'))).toBe(false)
     expect(actionButtons.some((label) => label?.includes('Clear species default'))).toBe(false)
+  })
+
+  it('closes on Escape, header close button, and outside pointerup', async () => {
+    getSelectedPlantSymbolContext.mockReturnValue({
+      plantIds: ['plant-1'],
+      singleSpeciesCanonicalName: 'Malus domestica',
+      singleSpeciesCommonName: 'Apple',
+      sharedCurrentSymbol: 'conifer',
+      sharedEffectiveSymbol: 'conifer',
+      inheritedSymbol: 'round',
+      singleSpeciesDefaultSymbol: 'round',
+      canClearSelectedSymbol: false,
+    })
+
+    await act(async () => {
+      render(<PlantSymbolMenu buttonRef={buttonRef} />, container)
+      await Promise.resolve()
+    })
+
+    const dialog = document.querySelector<HTMLElement>('[role="dialog"]')!
+    await act(async () => {
+      dialog.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+      await Promise.resolve()
+    })
+    expect(plantSymbolMenuOpen.value).toBe(false)
+
+    await act(async () => {
+      plantSymbolMenuOpen.value = true
+      await Promise.resolve()
+    })
+    const closeButton = document.querySelector<HTMLButtonElement>('[role="dialog"] button[aria-label="Close"]')!
+    await act(async () => {
+      closeButton.click()
+      await Promise.resolve()
+    })
+    expect(plantSymbolMenuOpen.value).toBe(false)
+
+    await act(async () => {
+      plantSymbolMenuOpen.value = true
+      await Promise.resolve()
+    })
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true }))
+      await Promise.resolve()
+    })
+    expect(plantSymbolMenuOpen.value).toBe(false)
   })
 
 })

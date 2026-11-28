@@ -181,64 +181,26 @@ fn set_aside_user_db(path: &Path, base: &str) -> std::io::Result<PathBuf> {
 /// companion left behind would be applied to a fresh database at `path`.
 pub(crate) fn move_aside(
     path: &Path,
-    mut candidates: impl Iterator<Item = PathBuf>,
+    candidates: impl Iterator<Item = PathBuf>,
     companions: &[&str],
 ) -> std::io::Result<PathBuf> {
-    let companion = |target: &Path, suffix: &str| {
-        let mut name = target.as_os_str().to_owned();
-        name.push(suffix);
-        PathBuf::from(name)
-    };
-    let aside = candidates
-        .find(|candidate| {
-            !candidate.exists()
-                && companions
-                    .iter()
-                    .all(|suffix| !companion(candidate, suffix).exists())
-        })
-        .ok_or_else(|| {
+    canopi_support::durable::move_aside_durably(
+        &canopi_support::durable::OsDurableFs,
+        crate::target_locks::temporary_target_locks(),
+        path,
+        candidates,
+        companions,
+    )
+    .map_err(|error| {
+        if error.kind() == std::io::ErrorKind::AlreadyExists {
             std::io::Error::new(
                 std::io::ErrorKind::AlreadyExists,
                 format!("no free name to set {} aside", UserPath::from(path)),
             )
-        })?;
-
-    std::fs::rename(path, &aside)?;
-    let mut moved: Vec<(PathBuf, PathBuf)> = Vec::new();
-    for suffix in companions {
-        let from = companion(path, suffix);
-        if !from.exists() {
-            continue;
+        } else {
+            error
         }
-        let to = companion(&aside, suffix);
-        if let Err(error) = std::fs::rename(&from, &to) {
-            let mut rollback_errors = Vec::new();
-            for (original, renamed) in moved.iter().rev() {
-                if let Err(rollback) = std::fs::rename(renamed, original) {
-                    rollback_errors.push(rollback.to_string());
-                }
-            }
-            if let Err(rollback) = std::fs::rename(&aside, path) {
-                rollback_errors.push(rollback.to_string());
-            }
-            return Err(if rollback_errors.is_empty() {
-                std::io::Error::new(
-                    error.kind(),
-                    format!("could not move the {suffix} companion file: {error}"),
-                )
-            } else {
-                std::io::Error::new(
-                    error.kind(),
-                    format!(
-                        "could not move the {suffix} companion file: {error}; restoring the original files also failed: {}",
-                        rollback_errors.join("; ")
-                    ),
-                )
-            });
-        }
-        moved.push((from, to));
-    }
-    Ok(aside)
+    })
 }
 
 /// Locks `mutex`, recovering it once when a panicking command left it poisoned: the poison is

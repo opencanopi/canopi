@@ -4,7 +4,7 @@ import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { keyLike, TEST_KEY_PLATFORM } from '../../__tests__/support/key-router'
 import { DESKTOP_KEYMAP } from '../../commands/graph/shortcuts'
-import { createBrowserShellCatalog } from '../../web/browser-shell-commands'
+import { createBrowserShellCatalog } from '../../editions/web/browser-shell-commands'
 import { canvasCommandDefinitions } from '../canvas-commands'
 import type { CanvasKeyCommand } from '../../canvas/runtime/runtime'
 import { composeShellCommandCatalog } from '../shell-commands'
@@ -29,7 +29,7 @@ function webKeymap(): readonly KeymapRow[] {
   const catalog = createBrowserShellCatalog({
     newDesign: vi.fn(), openCanopi: vi.fn(), downloadCanopi: vi.fn(), revertDesign: vi.fn(),
     importGeoJson: vi.fn(), exportGeoJson: vi.fn(), exportBudgetCsv: vi.fn(), closeDesign: vi.fn(), navigate: vi.fn(),
-  }, { templatesEnabled: true, canvasReady: () => true })
+  }, { canvasReady: () => true })
   // Without the shortcuts a browser keeps, which the Web omits: a superset of its keymap.
   return [...shellKeymapRows(catalog), ...CANVAS_KEYMAP_ROWS]
 }

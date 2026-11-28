@@ -6,7 +6,7 @@ import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-que
 import { createTestCanvasRuntimeSurfaces } from '../../__tests__/support/canvas-runtime-surfaces'
 import { createTestView, type TestView } from '../../__tests__/support/test-view'
 import { setCurrentCanvasSession } from '../../canvas/session'
-import { createViewReadSurface, SETTLE_MS } from '../../canvas/runtime/view/frame-source'
+import { createViewReadSurface, SETTLE_MS } from '../../geo/view/frame-source'
 import { plantLabelCoverage } from './coverage'
 
 let view: TestView | null = null

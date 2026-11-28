@@ -14,21 +14,19 @@ import {
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import { installDesktopKeys } from '../../__tests__/support/desktop-key-router'
 import { TEST_KEY_PLATFORM } from '../../__tests__/support/key-router'
-import { readPlantStampSource, clearPlantStampSource, recentPlantStampSources } from '../../canvas/plant-stamp-source'
-import { clearSavedObjectStampSource, readSavedObjectStampName, readSavedObjectStampSource } from '../../canvas/saved-object-stamp-source'
+import { recentPlantStampSources } from '../../canvas/stamp-drag-data'
 import { parseSavedObjectStampPayload } from '../../canvas/saved-object-stamp-payload'
-import { setCurrentCanvasSession } from '../../canvas/session'
-import { currentCanvasTool } from '../../canvas/session-state'
+import { currentCanvasTool, currentCanvasToolState, setCurrentCanvasSession } from '../../canvas/session'
 import { appCommandGraphChromeProjection } from '../../commands/registry'
 import type { MenuAction, MenuEntry } from '../../commands/registry'
 import { SiteOnboarding } from '../../components/canvas/SiteOnboarding'
 import { ToolRail } from '../../components/canvas/ToolRail'
 import { placeSpeciesOnMap } from '../../components/plant-db/place-species'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
-import { installWebKeyRouter } from '../../web/browser-shell-commands'
+import { installWebKeyRouter } from '../../editions/web/browser-shell-commands'
 import { createSavedObjectStampWorkbench } from '../saved-object-stamps/workbench'
 import { singleKeyShortcuts } from '../settings/state'
-import { activePanel, sidePanel } from '../shell/state'
+import { sidePanel } from '../shell/state'
 import { workspaceCanvasCommandProjection } from '../workspace-commands/canvas-actions'
 import { armCanvasTool } from './arming'
 import { focusOwner } from './focus-owner'
@@ -79,12 +77,19 @@ const HAZEL = { canonical_name: 'Corylus avellana', common_name: 'European hazel
 let host: HTMLDivElement
 let elsewhere: HTMLButtonElement
 let mount: HTMLDivElement
-let setTool: ReturnType<typeof vi.fn<(name: string) => void>>
+let armSpy: ReturnType<typeof vi.fn<(...args: unknown[]) => void>>
 let releases: (() => void)[]
 
 function connectCanvas(): void {
   setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-    commands: createTestCanvasCommandSurface({ tools: { setTool } }),
+    commands: createTestCanvasCommandSurface({
+      tools: {
+        arm: (id, source, request) => {
+          armSpy(id, source, request)
+          return { settled: new Promise(() => {}), cancel() {} }
+        },
+      },
+    }),
     keyboard: createTestCanvasKeyboardPort({ host }),
   }))
 }
@@ -95,11 +100,9 @@ beforeEach(() => {
   elsewhere = document.createElement('button')
   mount = document.createElement('div')
   document.body.append(host, elsewhere, mount)
-  setTool = vi.fn<(name: string) => void>()
+  armSpy = vi.fn()
   releases = [focusOwner.registerRegion('map', host)]
-  activePanel.value = 'canvas'
   sidePanel.value = null
-  currentCanvasTool.value = 'select'
   singleKeyShortcuts.value = true
   connectCanvas()
   arm.mockClear()
@@ -109,8 +112,6 @@ afterEach(async () => {
   await act(async () => { render(null, mount) })
   for (const release of releases) release()
   setCurrentCanvasSession(null)
-  clearPlantStampSource()
-  clearSavedObjectStampSource()
   recentPlantStampSources.value = []
   onboarding.cardOpen.value = false
   document.body.innerHTML = ''
@@ -121,36 +122,33 @@ describe('armCanvasTool', () => {
     for (const from of ['rail', 'menu', 'palette', 'panel', 'card', 'start-card'] as const) {
       elsewhere.focus()
       expect(armCanvasTool('polygon', { from })).toBe(true)
-      expect(setTool).toHaveBeenLastCalledWith('polygon')
+      expect(armSpy).toHaveBeenLastCalledWith('polygon', undefined, undefined)
       expect(document.activeElement, from).toBe(host)
     }
     elsewhere.focus()
     expect(armCanvasTool('rectangle', { from: 'shortcut' })).toBe(true)
-    expect(setTool).toHaveBeenLastCalledWith('rectangle')
+    expect(armSpy).toHaveBeenLastCalledWith('rectangle', undefined, undefined)
     expect(document.activeElement).toBe(elsewhere)
   })
 
-  it('selects the canvas panel for the command and Start card callers, and primes the tool without a canvas', () => {
+  it('selects the canvas panel for the command and Start card callers, and drops the tool without a canvas (2.1-Q41)', () => {
     setCurrentCanvasSession(null)
-    activePanel.value = 'plant-db'
     elsewhere.focus()
     expect(armCanvasTool('polygon', { from: 'start-card' })).toBe(false)
-    expect(activePanel.value).toBe('canvas')
-    expect(currentCanvasTool.value).toBe('polygon')
-    expect(setTool).not.toHaveBeenCalled()
+    expect(currentCanvasTool.value).toBe('select')
+    expect(armSpy).not.toHaveBeenCalled()
     expect(document.activeElement).toBe(elsewhere)
 
-    // A species from a panel is kept (and offered again by Place plants' chooser) with nothing to arm.
-    currentCanvasTool.value = 'select'
+    // A species from a panel is recorded in recents (offered again by Place plants' chooser) with nothing to arm.
     expect(armCanvasTool('plant-stamp', { from: 'panel', source: { kind: 'species', species: HAZEL } })).toBe(false)
-    expect(readPlantStampSource()?.canonical_name).toBe('Corylus avellana')
     expect(recentPlantStampSources.value.map((entry) => entry.canonical_name)).toEqual(['Corylus avellana'])
     expect(currentCanvasTool.value).toBe('select')
+    expect(currentCanvasToolState.value.source).toBeNull()
 
     // A saved stamp needs a canvas: nothing is written.
     const stamp = parseSavedObjectStampPayload(PEAR.payload_json)!
     expect(armCanvasTool('saved-object-stamp', { from: 'panel', source: { kind: 'saved-stamp', stamp, name: 'Pear guild' } })).toBe(false)
-    expect(readSavedObjectStampSource()).toBeNull()
+    expect(currentCanvasToolState.value.source).toBeNull()
   })
 
   it('in overview a drawing tool fits the Design first, about the view centre when the Design is empty', () => {
@@ -206,15 +204,25 @@ describe('armCanvasTool', () => {
     expect(order, 'key').toEqual(['fit:view-centre', `arm:${toolId}`])
   })
 
-  it('writes the source before arming, and arms the same tool again', () => {
+  it('hands the source to ToolHost, and re-arming without a source preserves the armed species (#880 B2)', () => {
     const stamp = parseSavedObjectStampPayload(PEAR.payload_json)!
-    setTool.mockImplementation(() => {
-      expect(readSavedObjectStampSource()).not.toBeNull()
+    expect(armCanvasTool('saved-object-stamp', {
+      from: 'card',
+      source: { kind: 'saved-stamp', stamp, name: 'Pear guild' },
+    })).toBe(true)
+    expect(currentCanvasToolState.value).toEqual({
+      id: 'saved-object-stamp',
+      source: { kind: 'saved-stamp', stamp, name: 'Pear guild' },
     })
     expect(armCanvasTool('saved-object-stamp', { from: 'card', source: { kind: 'saved-stamp', stamp, name: 'Pear guild' } })).toBe(true)
-    expect(readSavedObjectStampName()).toBe('Pear guild')
-    expect(armCanvasTool('saved-object-stamp', { from: 'card', source: { kind: 'saved-stamp', stamp, name: 'Pear guild' } })).toBe(true)
-    expect(setTool).toHaveBeenCalledTimes(2)
+    expect(armSpy).toHaveBeenCalledTimes(2)
+
+    // Re-arming Place plants with no source passes undefined (not null) so ToolHost preserves the chosen species.
+    expect(armCanvasTool('plant-stamp', { from: 'panel', source: { kind: 'species', species: HAZEL } })).toBe(true)
+    expect(currentCanvasToolState.value.source).toEqual({ kind: 'species', species: HAZEL })
+    expect(armCanvasTool('plant-stamp', { from: 'shortcut' })).toBe(true)
+    expect(armSpy).toHaveBeenLastCalledWith('plant-stamp', undefined, undefined)
+    expect(currentCanvasToolState.value.source).toEqual({ kind: 'species', species: HAZEL })
   })
 
   it('every caller arms through armCanvasTool with its own from', async () => {
@@ -274,7 +282,7 @@ describe('armCanvasTool', () => {
 
     const web = installWebKeyRouter({
       catalog: [],
-      readState: () => ({ hasDesign: true, revertAvailable: false, activePanel: 'canvas', sidePanel: null }),
+      readState: () => ({ hasDesign: true, revertAvailable: false, sidePanel: null }),
     }, TEST_KEY_PLATFORM)
     try {
       elsewhere.dispatchEvent(new KeyboardEvent('keydown', { key: 't', code: 'KeyT', bubbles: true, cancelable: true }))
@@ -283,6 +291,43 @@ describe('armCanvasTool', () => {
     }
     expect(arm).toHaveBeenLastCalledWith('text', { from: 'shortcut' })
     expect(document.activeElement).toBe(elsewhere)
+  })
+
+  it('fits in overview for read-only Profile (worksInOverview absent), and refuses tools whose row.requires capability is missing (#880 S4)', async () => {
+    const { queries, order } = connectOverviewCanvas()
+    expect(armCanvasTool('profile', { from: 'panel' })).toBe(true)
+    expect(order).toEqual(['fit:view-centre', 'arm:profile'])
+
+    const { setToolCapabilityReader } = await import('./arming')
+    setToolCapabilityReader(() => new Set())
+    try {
+      queries.setPlacement({ x: 0, y: 0, scale: 3 })
+      order.length = 0
+      expect(armCanvasTool('profile', { from: 'panel' })).toBe(false)
+      expect(order).toEqual([])
+    } finally {
+      setToolCapabilityReader(null)
+    }
+  })
+
+  it('settles request once as detached when arm is refused by canArmTool or dropped with no canvas (#940)', () => {
+    const refusedSettled = vi.fn()
+    expect(armCanvasTool('profile', {
+      from: 'panel',
+      capabilities: new Set(),
+      request: { onSettled: refusedSettled },
+    })).toBe(false)
+    expect(refusedSettled).toHaveBeenCalledTimes(1)
+    expect(refusedSettled).toHaveBeenCalledWith({ kind: 'detached' })
+
+    setCurrentCanvasSession(null)
+    const droppedSettled = vi.fn()
+    expect(armCanvasTool('polygon', {
+      from: 'start-card',
+      request: { onSettled: droppedSettled },
+    })).toBe(false)
+    expect(droppedSettled).toHaveBeenCalledTimes(1)
+    expect(droppedSettled).toHaveBeenCalledWith({ kind: 'detached' })
   })
 })
 
@@ -294,9 +339,17 @@ function connectOverviewCanvas() {
     order.push(`fit:${options?.around}`)
     queries.setPlacement({ x: 0, y: 0, scale: 3 })
   })
-  setTool.mockImplementation((name) => { order.push(`arm:${name}`) })
+  armSpy.mockImplementation((name: unknown) => { order.push(`arm:${String(name)}`) })
   setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-    commands: createTestCanvasCommandSurface({ tools: { setTool }, viewport: { returnToDesign } }),
+    commands: createTestCanvasCommandSurface({
+      tools: {
+        arm: (id, source, request) => {
+          armSpy(id, source, request)
+          return { settled: new Promise(() => {}), cancel() {} }
+        },
+      },
+      viewport: { returnToDesign },
+    }),
     queries,
     keyboard: createTestCanvasKeyboardPort({ host }),
   }))

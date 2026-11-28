@@ -1,4 +1,4 @@
-// Browser text file picking and downloading shared by Web Edition file flows.
+// Browser text file picking shared by Web Edition file flows (downloads go through platform/file-delivery.ts).
 
 export interface BrowserPickedTextFile {
   readonly fileName: string;
@@ -42,22 +42,5 @@ export async function pickBrowserTextFile(accept: string): Promise<BrowserPicked
     });
   } finally {
     input.remove();
-  }
-}
-
-export function downloadBrowserTextFile(fileName: string, text: string, type: string): void {
-  const blob = new Blob([text], { type });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = fileName;
-  link.style.display = "none";
-  document.body.appendChild(link);
-
-  try {
-    link.click();
-  } finally {
-    link.remove();
-    URL.revokeObjectURL(url);
   }
 }

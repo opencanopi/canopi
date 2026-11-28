@@ -11,9 +11,9 @@ import type { KeyRouterHandle } from '../../app/keyboard/key-router'
 import { createCanvasKeyboardPort } from '../../canvas/runtime/keyboard-port'
 import type { ToolHost } from '../../canvas/runtime/interaction-ports'
 import type { CanvasKeyboardPort } from '../../canvas/runtime/runtime'
-import { createViewReadSurface } from '../../canvas/runtime/view/frame-source'
+import { createViewReadSurface } from '../../geo/view/frame-source'
 import { setCurrentCanvasSession } from '../../canvas/session'
-import { createSessionPlane } from '../../canvas/session-plane'
+import { createSessionPlane } from '../../geo/session-plane'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import {
   createTestCanvasCommandSurface,
@@ -373,6 +373,7 @@ function selectPort(host: HTMLElement, canvas: { selected: boolean, tool: string
     activeToolIsSelect: () => canvas.tool === 'select',
     activeToolHasEscapeTransient: () => false,
     textEntryOpen: () => false,
+    activeToolEscSteps: () => ['gesture', 'nudge-series', 'tool-transient', 'tool', 'selection'],
     interrupted: () => {},
   } as unknown as ToolHost
   return createCanvasKeyboardPort({
@@ -387,7 +388,7 @@ function selectPort(host: HTMLElement, canvas: { selected: boolean, tool: string
       spaceHeld: () => false,
       keyState: () => {},
       escapeGesture: () => {},
-      requestTool: (id) => { canvas.tool = id },
+      escapeTool: () => { canvas.tool = 'select' },
       clearSelection: () => { canvas.selected = false },
     },
   })

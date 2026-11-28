@@ -2,7 +2,6 @@ import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import {
   canAddStorySteps,
   designEmbeddedImageBytes,
-  formatImageBytes,
   goToStepView,
   readStoryImageFile,
   setStepImages,
@@ -14,8 +13,9 @@ import {
   useCurrentViewForStep,
   type StoryImageRead,
 } from '../../app/stories'
+import { formatByteSize } from '../../utils/format'
 import { currentDesign } from '../../app/document-session/store'
-import { STORY_IMAGE_MAX_BYTES } from '../../generated/canopi-design-format'
+import { STORY_IMAGES_MAX_TOTAL_BYTES, STORY_IMAGE_MAX_BYTES } from '../../generated/canopi-design-format'
 import { locale } from '../../app/settings/state'
 import { t } from '../../i18n'
 import type { SavedView, StoryImage, StoryStep } from '../../types/design'
@@ -56,8 +56,8 @@ export function StepEditor({ storyId, step, number, view }: {
       setPending({
         src: read.src,
         resized: read.resizedFrom === undefined ? null : t('stories.imageResized', {
-          from: formatImageBytes(read.resizedFrom, locale.peek()),
-          to: formatImageBytes(read.bytes, locale.peek()),
+          from: formatByteSize(read.resizedFrom, locale.peek()),
+          to: formatByteSize(read.bytes, locale.peek()),
         }),
       })
     }
@@ -268,11 +268,16 @@ function PendingImage({ src, resized, number, onKeep, onCancel }: {
 }
 
 function imageProblemText(read: Extract<StoryImageRead, { ok: false }>): string {
+  const activeLocale = locale.peek()
   switch (read.problem) {
     case 'type': return t('stories.imageType')
-    case 'tooLarge': return t('stories.imageTooLarge', { size: formatImageBytes(read.bytes, locale.peek()) })
+    case 'tooLarge': return t('stories.imageTooLarge', {
+      size: formatByteSize(read.bytes, activeLocale),
+      limit: formatByteSize(STORY_IMAGE_MAX_BYTES, activeLocale),
+    })
     case 'designFull': return t('stories.imageDesignFull', {
-      used: formatImageBytes(designEmbeddedImageBytes(currentDesign.peek()), locale.peek()),
+      used: formatByteSize(designEmbeddedImageBytes(currentDesign.peek()), activeLocale),
+      limit: formatByteSize(STORY_IMAGES_MAX_TOTAL_BYTES, activeLocale),
     })
     case 'unreadable': return t('stories.imageUnreadable')
   }

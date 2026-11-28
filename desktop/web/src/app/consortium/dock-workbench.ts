@@ -22,7 +22,7 @@ import {
 } from '../plant-finder/quick-filters'
 import { useMapSelectionSpecies } from '../plant-finder/selection'
 import { usePlantFinder } from '../plant-finder/use-plant-finder'
-import { CONSORTIUM_STRATA, SUCCESSION_PHASE_COUNT } from './time-model'
+import { CONSORTIUM_STRATA, SUCCESSION_PHASE_COUNT } from '../../planning/time-model'
 
 const consortiumTargetPresentation = createPanelTargetPresentationController('consortium')
 

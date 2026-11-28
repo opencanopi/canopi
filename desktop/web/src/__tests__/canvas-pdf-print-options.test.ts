@@ -17,7 +17,7 @@ const mark = [{ d: 'M-1 -1 H1 V1 H-1 Z', paint: 'symbol' as const }]
 const plant = (id: string, canonicalName: string, x: number, color = '#2f7d32', symbol = 'square'): PrintPlant =>
   ({ id, canonicalName, position: { x, y: 10 }, color, symbol, mark, pinnedName: false })
 function garden(extra: Partial<PdfInput> = {}): PdfInput {
-  return { name: 'Garden', locale: 'fr', viewBearingDeg: 0, commonNames: { 'Malus domestica': 'Pommier', 'Ribes nigrum': 'Blackcurrant', 'Mentha spicata': 'Menthe' }, canvas: {
+  return { name: 'Garden', locale: 'fr', unitSystem: 'metric', viewBearingDeg: 0, commonNames: { 'Malus domestica': 'Pommier', 'Ribes nigrum': 'Blackcurrant', 'Mentha spicata': 'Menthe' }, canvas: {
     layers: [{ name: 'plants', visible: true, opacity: 1 }], zones: [], annotations: [], measurements: [],
     plants: [plant('a', 'Malus domestica', 4, '#c0392b'), plant('b', 'Ribes nigrum', 10, '#2f7d32', 'round'), plant('c', 'Mentha spicata', 16, '#8e44ad', 'round'),
       plant('d', 'Unknown species', 22, '#f1c40f')],
@@ -86,7 +86,7 @@ describe('Canvas PDF name and habit resolution', () => {
       locale === 'fr' ? { 'Malus domestica': 'Pommier' } : Object.fromEntries(names.filter(name => name !== 'Unknown species').map(name => [name, `${name} (English)`]))))
     const workflow = createPdfWorkflow({ capture: () => ({ identity: input, isCurrent: () => true, input }), prepare, resolveDisplayNames,
       resolveHabits: async () => ({ 'Malus domestica': 'Tree', 'Ribes nigrum': 'Shrub', 'Mentha spicata': 'Woody' }),
-      delivery: { save: vi.fn(), dispose: vi.fn() }, labels: () => labels, namePrintArea: number => `Area ${number}` })
+      delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: () => labels, namePrintArea: number => `Area ${number}` })
     try {
       workflow.show()
       await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))

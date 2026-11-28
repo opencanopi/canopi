@@ -10,7 +10,6 @@ import type { ToolId } from '../canvas/runtime/interaction-types'
 import { locale } from '../app/settings/state'
 import { PhoneContextBar } from '../components/canvas/PhoneContextBar'
 import { ToolOptions } from '../components/canvas/ToolCard'
-import { clearPlantStampSource, selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { phoneLayout, phoneToolOptions } from '../app/shell/phone-layout'
 import { PLANT_LABELS_CHIP_MS } from '../components/canvas/PlantLabelsChip'
 import { plantFinderMapMatches } from '../app/plant-finder/map-matches'
@@ -21,7 +20,6 @@ import { SceneStore } from '../canvas/runtime/scene/store'
 import {
   currentCanvasSelection,
   IDLE_CANVAS_TOOL_GUIDANCE,
-  setCanvasTool,
   setCanvasToolGuidance,
   type CanvasPlantRowGuidance,
   type CanvasToolGuidance,
@@ -62,11 +60,9 @@ describe('Phone context bar', () => {
   afterEach(() => {
     render(null, container)
     container.remove()
-    setCanvasTool('select')
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     phoneToolOptions.value = null
     phoneLayout.value = null
-    clearPlantStampSource()
     currentCanvasSelection.value = new Set()
     plantFinderMapMatches.value = null
     designSessionFixture.file = null
@@ -82,7 +78,7 @@ describe('Phone context bar', () => {
 
   async function choose(tool: ToolId, guidance: Partial<CanvasToolGuidance> = {}): Promise<void> {
     await act(() => {
-      setCanvasTool(tool)
+      queries.setActiveTool(tool)
       setCanvasToolGuidance({ ...IDLE_CANVAS_TOOL_GUIDANCE, ...guidance })
     })
   }
@@ -121,7 +117,7 @@ describe('Phone context bar', () => {
     await choose('polygon')
     const shown = () => [...card()!.querySelectorAll('b, span, button')].filter((node) => node.children.length === 0
       && node.getAttribute('role') !== 'tooltip' && !node.closest('[role="tooltip"]')).map((node) => node.textContent)
-    expect(shown()).toEqual(['Polygon zone', 'Click to add corners. Click the first corner, double-click or press Enter to finish.', 'Options'])
+    expect(shown()).toEqual(['Polygon zone', 'Click to add corners. Click the first corner, double-click or press Enter to finish.', 'Constrain', 'Options'])
     expect(card()!.querySelector('[data-tool-options-button]')?.getAttribute('aria-expanded')).toBe('false')
 
     await choose('plant-spacing', { gesture: true, plantRow: PATH })
@@ -165,8 +161,13 @@ describe('Phone context bar', () => {
     await choose('select')
     expect(phoneToolOptions.value).toBeNull()
 
-    selectPlantStampSource({ canonical_name: 'Malus domestica', common_name: 'Apple', stratum: null, width_max_m: null })
-    await choose('plant-stamp')
+    await act(() => {
+      queries.setActiveTool('plant-stamp', {
+        kind: 'species',
+        species: { canonical_name: 'Malus domestica', common_name: 'Apple', stratum: null, width_max_m: null },
+      })
+      setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
+    })
     expect(phoneToolOptions.value, 'with a species chosen Place plants places at once').toBeNull()
   })
 

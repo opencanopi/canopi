@@ -14,9 +14,9 @@ import type { PresentedStep } from '../app/story-presentation'
 import { aboutCanopiDialogOpen } from '../app/about/state'
 import { createPdfWorkflow } from '../app/canvas-pdf/workflow'
 import { answerSaveProblem, requestSaveProblemDecision } from '../app/document-session/save-problem'
-import { closeDataDialog, closeDataLibrary, openDataLibrary } from '../app/lidar/library-navigation'
+import { closeDataDialog, closeDataLibrary, openDataLibrary } from '../app/data-library/library-navigation'
 import { problemReportDialogOpen } from '../app/problem-report/state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { commandPaletteOpen } from '../app/shell/dialogs'
 import { appCommandGraphPanelProjection } from '../commands/graph/projections'
 import { CanvasPdfDialog } from '../components/canvas-pdf/CanvasPdfDialog'
@@ -71,7 +71,7 @@ const pdf = createPdfWorkflow({
   prepare: vi.fn(),
   resolveDisplayNames: vi.fn(),
   resolveHabits: vi.fn(),
-  delivery: { save: vi.fn(), dispose: vi.fn() },
+  delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
   labels: vi.fn(),
   namePrintArea: (number) => `Print area ${number}`,
 })
@@ -114,7 +114,6 @@ beforeEach(() => {
   document.body.appendChild(container)
   resetFrontendDiagnosticsForTests()
   vi.spyOn(console, 'error').mockImplementation(() => {})
-  activePanel.value = 'canvas'
   sidePanel.value = null
 })
 

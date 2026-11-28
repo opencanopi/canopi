@@ -1,15 +1,7 @@
 {
   "$schema": "./ratchet.schema.json",
-  "version": 1,
   "family": "type-cycles",
-  "ledger": "2.1-M218",
-  "tool": "dependency-cruiser",
-  "scope": ["desktop/web/src/**"],
-  "lane": "commit",
-  "keys": "name",
-  "select": ["type-cycles"],
   "entries": {
-    "app/canvas-commands/edit-availability.ts -> app/canvas-commands/index.ts": { "count": 1 },
     "canvas/runtime/app-adapter.ts -> canvas/runtime/runtime.ts": { "count": 1 },
     "canvas/runtime/app-adapter.ts -> canvas/runtime/scene-visuals.ts": { "count": 1 },
     "canvas/runtime/input/gestures.ts -> canvas/runtime/input/raw-input.ts": { "count": 1 },

@@ -1,6 +1,8 @@
+import { readFileSync } from 'node:fs'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { locale } from '../app/settings/state'
+import { matchLocale, matchLocaleOrDefault } from '../generated/locale-registry'
 import { openSetText, t } from '.'
 
 describe('typed translation keys', () => {
@@ -64,5 +66,25 @@ describe('typed translation keys', () => {
     expect(openSetText('filters.habit_', 'Tre')).toBe('Tre')
     // @ts-expect-error a closed union is a typed table lookup (Record<Union, LocaleKey>); this directive fails typecheck if openSetText takes it
     expect(openSetText('filters.habit_', closed)).toBe('Tree')
+  })
+})
+
+interface MatchCorpusCase {
+  readonly tags: readonly string[]
+  readonly expected: string | null
+}
+
+const MATCH_CORPUS: readonly MatchCorpusCase[] = JSON.parse(
+  readFileSync(new URL('../../../../canopi-types/fixtures/locale-match-corpus.json', import.meta.url), 'utf8'),
+)
+
+describe('locale registry matcher (contracts §14, 2.1-Q345)', () => {
+  it('matches the shared Rust/TS tag corpus identically', () => {
+    expect(MATCH_CORPUS.length).toBeGreaterThan(0)
+    for (const testCase of MATCH_CORPUS) {
+      expect(matchLocale(testCase.tags), JSON.stringify(testCase.tags)).toBe(testCase.expected)
+      expect(matchLocaleOrDefault(testCase.tags), JSON.stringify(testCase.tags)).toBe(testCase.expected ?? 'en')
+    }
+    expect(matchLocale([null, undefined, 'ja-JP'])).toBe('ja')
   })
 })

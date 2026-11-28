@@ -1,3 +1,4 @@
+import type { TimelineAction, CanopiFile } from '../types/design'
 // @vitest-environment jsdom
 
 import { render } from 'preact'
@@ -8,7 +9,6 @@ import { disposePlanningViewState, readPlanningViewState } from '../app/planning
 import { locale } from '../app/settings/state'
 import { sidePanel } from '../app/shell/state'
 import { setCurrentCanvasSession } from '../canvas/session'
-import type { CanopiFile, TimelineAction } from '../types/design'
 import { designSessionFixture } from './support/design-session-state'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import { createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
@@ -37,7 +37,6 @@ describe('Calendar empty states', () => {
 
   async function mount(timeline: TimelineAction[]): Promise<void> {
     designSessionFixture.file = design(timeline)
-    designSessionFixture.nonCanvasRevision = 0
     await act(async () => { render(<CalendarPanel />, container) })
   }
 

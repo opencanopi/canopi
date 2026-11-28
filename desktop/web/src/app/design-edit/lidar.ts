@@ -1,14 +1,13 @@
 import type {
   LibraryItemRole,
-  LidarColourRange,
-  LidarPresentationEntry,
-  LidarPresentationSection,
+  LidarColourRangeV10,
   LidarRamp,
 } from '../../generated/contracts'
+import type { SiteDataEntry, SiteDataSection } from '../../types/design'
 
 import { editCurrentDesign, readCurrentDesign, reconcileCurrentDesign } from './core'
 
-function emptySection(): LidarPresentationSection {
+function emptySection(): SiteDataSection {
   return { visible: true, entries: [] }
 }
 
@@ -20,9 +19,9 @@ export interface LidarEntryPatch {
   visible?: boolean
   opacity?: number
   order?: number
-  ramp?: LidarRamp | null
+  ramp?: LidarRamp | string | null
   reversed?: boolean
-  range?: LidarColourRange | null
+  range?: LidarColourRangeV10 | null
 }
 
 /**
@@ -33,16 +32,15 @@ export interface LidarEntryPatch {
  * by name; an existing entry keeps its own (the name reconcile refreshes it).
  */
 export function upsertLidarEntry(
-  kind: LibraryItemRole,
+  _kind: LibraryItemRole,
   id: string,
   name: string,
   patch: LidarEntryPatch = {},
 ): void {
   editCurrentDesign((design) => {
-    const section = design.lidar ?? emptySection()
-    const existing = section.entries.find(
-      (entry) => entry.id === id && entry.kind === kind,
-    )
+    const section = design.site_data ?? emptySection()
+    // 2.1-M493: v10 Site data entries resolve by library id alone (kind is omitted).
+    const existing = section.entries.find((entry) => entry.id === id)
     if (existing) {
       const next = mergeEntry(existing, patch)
       if (next === existing) {
@@ -50,7 +48,7 @@ export function upsertLidarEntry(
       }
       return {
         ...design,
-        lidar: {
+        site_data: {
           ...section,
           entries: section.entries.map((entry) =>
             entry === existing ? next : entry,
@@ -58,8 +56,7 @@ export function upsertLidarEntry(
         },
       }
     }
-    const entry: LidarPresentationEntry = {
-      kind,
+    const entry: SiteDataEntry = {
       id,
       name,
       visible: patch.visible ?? true,
@@ -71,9 +68,9 @@ export function upsertLidarEntry(
     }
     return {
       ...design,
-      lidar: { ...section, entries: [...section.entries, entry] },
+      site_data: { ...section, entries: [...section.entries, entry] },
     }
-  })
+  }, 'lidar.upsert')
 }
 
 /**
@@ -82,7 +79,7 @@ export function upsertLidarEntry(
  */
 export function patchLidarEntryById(id: string, patch: LidarEntryPatch): void {
   editCurrentDesign((design) => {
-    const section = design.lidar ?? emptySection()
+    const section = design.site_data ?? emptySection()
     const existing = section.entries.find((entry) => entry.id === id)
     if (!existing) {
       return design
@@ -93,17 +90,17 @@ export function patchLidarEntryById(id: string, patch: LidarEntryPatch): void {
     }
     return {
       ...design,
-      lidar: {
+      site_data: {
         ...section,
         entries: section.entries.map((entry) => (entry === existing ? next : entry)),
       },
     }
-  })
+  }, 'lidar.patch')
 }
 
 export function removeLidarEntries(ids: string[]): void {
   editCurrentDesign((design) => {
-    const section = design.lidar
+    const section = design.site_data
     if (!section) {
       return design
     }
@@ -113,17 +110,17 @@ export function removeLidarEntries(ids: string[]): void {
       return design
     }
     if (nextEntries.length === 0) {
-      return { ...design, lidar: null }
+      return { ...design, site_data: null }
     }
-    return { ...design, lidar: { ...section, entries: nextEntries } }
-  })
+    return { ...design, site_data: { ...section, entries: nextEntries } }
+  }, 'lidar.remove')
 }
 
 function mergeEntry(
-  existing: LidarPresentationEntry,
+  existing: SiteDataEntry,
   patch: LidarEntryPatch,
-): LidarPresentationEntry {
-  const next: LidarPresentationEntry = {
+): SiteDataEntry {
+  const next: SiteDataEntry = {
     ...existing,
     visible: patch.visible ?? existing.visible,
     opacity: patch.opacity ?? existing.opacity,
@@ -146,7 +143,7 @@ function mergeEntry(
 }
 
 /** Whether two stored colour ranges are the same choice. */
-export function sameColourRange(left: LidarColourRange | null, right: LidarColourRange | null): boolean {
+export function sameColourRange(left: LidarColourRangeV10 | null, right: LidarColourRangeV10 | null): boolean {
   if (left === null || right === null) return left === right
   if (left.mode === 'Custom' && right.mode === 'Custom') {
     return left.min === right.min && left.max === right.max
@@ -161,15 +158,15 @@ export function sameColourRange(left: LidarColourRange | null, right: LidarColou
  */
 export function setSiteDataVisible(visible: boolean): void {
   editCurrentDesign((design) => {
-    const section = design.lidar
+    const section = design.site_data
     if (!section || section.visible === visible) {
       return design
     }
-    return { ...design, lidar: { ...section, visible } }
-  })
+    return { ...design, site_data: { ...section, visible } }
+  }, 'lidar.visibility')
 }
 
-function nextOrder(entries: LidarPresentationEntry[]): number {
+function nextOrder(entries: SiteDataEntry[]): number {
   return entries.reduce((max, entry) => Math.max(max, entry.order), -1) + 1
 }
 
@@ -184,7 +181,7 @@ function nextOrder(entries: LidarPresentationEntry[]): number {
  */
 export function setLidarEntryOrders(orders: ReadonlyMap<string, number>): void {
   editCurrentDesign((design) => {
-    const section = design.lidar
+    const section = design.site_data
     if (!section) {
       return design
     }
@@ -195,8 +192,8 @@ export function setLidarEntryOrders(orders: ReadonlyMap<string, number>): void {
     if (nextEntries.every((entry, position) => entry === section.entries[position])) {
       return design
     }
-    return { ...design, lidar: { ...section, entries: nextEntries } }
-  })
+    return { ...design, site_data: { ...section, entries: nextEntries } }
+  }, 'lidar.reorder')
 }
 
 /**
@@ -207,15 +204,15 @@ export function setLidarEntryOrders(orders: ReadonlyMap<string, number>): void {
  * Design untouched, so the effect calling it settles after one pass.
  */
 export function reconcileLidarEntryNames(names: ReadonlyMap<string, string>): void {
-  const renamed = (entry: LidarPresentationEntry): string | null => {
+  const renamed = (entry: SiteDataEntry): string | null => {
     const name = names.get(entry.id)
     return name !== undefined && name.trim() !== '' && name !== entry.name ? name : null
   }
-  if (!readCurrentDesign()?.lidar?.entries.some((entry) => renamed(entry) !== null)) {
+  if (!readCurrentDesign()?.site_data?.entries.some((entry) => renamed(entry) !== null)) {
     return
   }
   reconcileCurrentDesign((design) => {
-    const section = design.lidar
+    const section = design.site_data
     if (!section) {
       return design
     }
@@ -223,6 +220,6 @@ export function reconcileLidarEntryNames(names: ReadonlyMap<string, string>): vo
       const name = renamed(entry)
       return name === null ? entry : { ...entry, name }
     })
-    return { ...design, lidar: { ...section, entries } }
+    return { ...design, site_data: { ...section, entries } }
   })
 }

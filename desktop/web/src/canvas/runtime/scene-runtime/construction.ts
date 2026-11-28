@@ -1,14 +1,11 @@
 import type { SpeciesFocus } from '../species-key'
 import { effect, signal, untracked, type ReadonlySignal, type Signal } from '@preact/signals'
-import {
-  createDetachedCanvasRuntimeAppAdapter,
-  type CanvasRuntimeAppAdapter,
-} from '../app-adapter'
+import type { CanvasRuntimeAppAdapter } from '../app-adapter'
 import { createSceneCanvasCommandSurface } from '../command-surface'
 import { createSceneCanvasDocumentSurface, type SceneCanvasDocumentSurface } from '../document-surface'
 import { createSceneCanvasQuerySurface, type SceneCanvasQuerySurface } from '../query-surface'
 import { SceneCanvasInspectionOwner } from '../inspection-lens'
-import type { ToolId } from '../interaction-types'
+import type { MapInputHandle, MapInputRequest, ToolId, ToolSource } from '../interaction-types'
 import type {
   CanvasCommandSurface,
   CanvasPlantRowPathCommands,
@@ -22,7 +19,6 @@ import {
   type SceneSessionWriter,
   type SceneStateReader,
 } from '../scene'
-import { SceneHistory } from '../scene-history'
 import { SceneRuntimeDocumentBridge } from './document'
 import {
   createDetachedSceneRuntimePanelTargetAdapter,
@@ -30,8 +26,7 @@ import {
 } from './panel-target-adapter'
 import { SceneRuntimeMutationController } from './mutations'
 import { SceneRuntimeReoriginController } from './reorigin'
-import { DEFAULT_NEW_DESIGN_VIEW } from '../../session-plane'
-import { mapZoomToStageScale } from '../../projection'
+import { DEFAULT_NEW_DESIGN_VIEW } from '../../../geo/session-plane'
 import { SceneRuntimePresentationController } from './presentation'
 import { SceneRuntimeRenderScheduler } from './render-scheduler'
 import {
@@ -43,10 +38,10 @@ import {
 import { runCanvasRuntimeCleanups } from '../cleanup'
 import { getRevealedAnnotationId } from '../annotation-layout'
 import { sceneExtentPoints, selectionExtentPoints } from '../scene-extent'
-import { createViewNavigation, type ViewNavigation } from '../view/navigation'
-import type { CameraDriverHost } from '../view/camera-driver'
-import { createCameraDriverHost } from '../view/driver-host'
-import type { ViewFrameSource } from '../view/types'
+import { createViewNavigation, type ViewNavigation } from '../../../geo/view/navigation'
+import type { CameraDriverHost } from '../../../geo/view/camera-driver'
+import { createCameraDriverHost } from '../../../geo/view/driver-host'
+import type { ViewFrameSource } from '../../../geo/view/types'
 
 /** A detached runtime has no platform preference: it flies. */
 const NO_REDUCED_MOTION: ReadonlySignal<boolean> = signal(false)
@@ -54,7 +49,7 @@ const NO_REDUCED_MOTION: ReadonlySignal<boolean> = signal(false)
 const NEW_DESIGN_OVERVIEW_MAX_ZOOM = 5
 
 export interface SceneRuntimeConstructionOptions {
-  appAdapter?: CanvasRuntimeAppAdapter
+  appAdapter: CanvasRuntimeAppAdapter
   targetPresentation?: SceneRuntimePanelTargetAdapter
 }
 
@@ -65,7 +60,6 @@ export interface SceneRuntimeConstructionCallbacks {
   readonly incrementPlantNamesRevision: () => void
   readonly setSelection: (targets: Iterable<SceneDesignObjectTarget>) => void
   readonly prepareForDocumentReplacement: () => void
-  readonly syncHoveredCanvasTargets: (target: SceneDesignObjectTarget | null) => void
   readonly syncCanvasSignalsFromScene: () => void
   readonly invalidate: () => void
   readonly incrementSceneRevision: () => void
@@ -80,8 +74,11 @@ export interface SceneRuntimeConstructionCallbacks {
   readonly canRedoTransientHistory: () => boolean
   readonly undoTransientHistory: () => boolean
   readonly redoTransientHistory: () => boolean
-  readonly setInteractionTool: (id: ToolId) => void
-  readonly readInteractionTool: () => ToolId | null
+  readonly armInteractionTool: <T = unknown>(
+    id: ToolId,
+    source?: ToolSource | null,
+    request?: MapInputRequest<T>,
+  ) => MapInputHandle<T>
   readonly plantRowSpacing: CanvasPlantRowSpacingField
   readonly plantRowPath: CanvasPlantRowPathCommands
   readonly disposeInteraction: () => void
@@ -117,7 +114,10 @@ export function createSceneRuntimeConstruction(
   options: SceneRuntimeConstructionOptions,
   callbacks: SceneRuntimeConstructionCallbacks,
 ): SceneRuntimeConstruction {
-  const appAdapter = options.appAdapter ?? createDetachedCanvasRuntimeAppAdapter()
+  const { appAdapter } = options
+  if (!appAdapter) {
+    throw new Error('SceneCanvasRuntime requires an appAdapter.')
+  }
   // A new or empty Design opens at the last view's centre, zoomed out to at most country level, so "Where is your site?"
   // appears over an overview, never at the previous Design's site scale; the world default without a last view.
   const readEmptyDesignView = () => {
@@ -129,10 +129,9 @@ export function createSceneRuntimeConstruction(
     return { lon: view.lon, lat: view.lat }
   })
   // Fitting an empty Design shows the new-Design overview: its centre is the plane origin.
-  const readEmptySceneScale = () => mapZoomToStageScale(
+  const readEmptySceneScale = () => sceneStore.sessionPlane.pixelsPerMetre(
     readEmptyDesignView().zoom,
-    sceneStore.sessionPlane.origin.lat,
-  )
+  ).mean
   // The runtime's one camera, on the Scene's plane: the policy takes that plane's latitude.
   const cameraHost = createCameraDriverHost({
     reducedMotion: appAdapter.reducedMotion ?? NO_REDUCED_MOTION,
@@ -148,12 +147,9 @@ export function createSceneRuntimeConstruction(
     plantNames: plantNamesQueryRevision,
     transientHistory: transientHistoryRevision,
   }
-  const history = new SceneHistory({
-    reportCleanState: (clean) => appAdapter.cleanState.setCanvasClean(clean),
-  })
   const sceneEdits = new SceneRuntimeEditCoordinator({
     sceneStore,
-    history,
+    ...(appAdapter.sceneSession ? { sceneSession: appAdapter.sceneSession } : {}),
     setSelection: callbacks.setSelection,
     incrementSceneRevision: callbacks.incrementSceneRevision,
     syncCanvasSignalsFromScene: callbacks.syncCanvasSignalsFromScene,
@@ -169,6 +165,7 @@ export function createSceneRuntimeConstruction(
     sceneStore,
     readPixelsPerMetre: readViewScale,
     getLocale: () => appAdapter.settings.readLocale(),
+    getUnitSystem: () => appAdapter.settings.readUnitSystem?.() ?? 'metric',
     resolveHighlightedTargets: callbacks.resolveHighlightedTargets,
     onPlantNamesChanged: callbacks.incrementPlantNamesRevision,
     speciesCache: presentationData?.speciesCache,
@@ -229,7 +226,6 @@ export function createSceneRuntimeConstruction(
   const documents = new SceneRuntimeDocumentBridge({
     authority: sceneEdits,
     prepareForDocumentReplacement: callbacks.prepareForDocumentReplacement,
-    clearHoveredTargets: () => callbacks.syncHoveredCanvasTargets(null),
     clearPanelOriginTargets: () => panelTargetAdapter.clearPanelOriginTargets(),
     composeDocumentForSave: (input) => appAdapter.document.composeDocumentForSave(input),
   })
@@ -274,9 +270,8 @@ export function createSceneRuntimeConstruction(
       createPlantPresentationContext: (viewportScale) =>
         presentation.createPlantPresentationContext(viewportScale),
       getLocalizedCommonNames: () => presentation.getLocalizedCommonNames(),
-      getSuggestedPlantColor: (canonicalName) =>
-        presentation.getSuggestedPlantColor(canonicalName),
     },
+    getBearingDeg: () => cameraHost.frames.viewFrame.peek().view.camera.bearingDeg,
     invalidateScene: () => callbacks.invalidate(),
   })
   const reorigin = new SceneRuntimeReoriginController({
@@ -329,8 +324,7 @@ export function createSceneRuntimeConstruction(
     sceneEdits,
     presentation,
     settings: appAdapter.settings,
-    setInteractionTool: callbacks.setInteractionTool,
-    readInteractionTool: callbacks.readInteractionTool,
+    armInteractionTool: callbacks.armInteractionTool,
     plantRowSpacing: callbacks.plantRowSpacing,
     plantRowPath: callbacks.plantRowPath,
     invalidate: callbacks.invalidate,

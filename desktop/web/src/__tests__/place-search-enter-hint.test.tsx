@@ -5,7 +5,9 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const transport = vi.hoisted(() => vi.fn(async () => [] as unknown))
-vi.mock('#geocoding-transport', () => ({ geocodingTransport: transport }))
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
+let disposePorts: (() => void) | null = null
 
 import { resetPlaceSearchPacingForTests } from '../app/geocoding/place-search'
 import { placeSearch } from '../app/geocoding/place-search-session'
@@ -22,6 +24,7 @@ describe('Place search Enter hint', () => {
   let container: HTMLDivElement
 
   beforeEach(() => {
+    disposePorts = installEditionPorts(createTestEditionPorts({ geocoding: transport }))
     locale.value = 'en'
     container = document.createElement('div')
     document.body.appendChild(container)
@@ -31,6 +34,7 @@ describe('Place search Enter hint', () => {
   })
 
   afterEach(() => {
+    disposePorts?.(); disposePorts = null
     render(null, container)
     container.remove()
     setCurrentCanvasSession(null)

@@ -1,9 +1,8 @@
 import { resolvePlantSymbolForPlant, type PlantSymbolId } from './scene/plant-symbols'
 import type { ScenePersistedState } from './scene/types'
 import { resolvePlantBaseColor } from './plant-presentation'
-import { normalizeHexColor } from '../plant-colors'
-import { getStratumColor } from '../plants'
-import type { SpeciesCacheEntry } from './species-cache'
+import { DEFAULT_PLANT_COLOR, normalizeHexColor } from '../plant-colors'
+import { compareSpeciesByShownName } from '../../utils/species-sort'
 
 /** A species' symbol and colour on the map. */
 export interface SpeciesAppearance {
@@ -14,17 +13,15 @@ export interface SpeciesAppearance {
 /**
  * The symbol and colour a new plant of this species takes in this Design:
  * the Design's species symbol and colour, else the default symbol and the
- * stratum colour. The same rules as a placed plant without overrides. The
- * stratum is the species source's: a Favorite or recent pick has no entry in
- * the runtime's species cache, and a Design species' source reads it from there.
+ * default plant colour. The same rules as a placed plant without overrides.
  */
 export function speciesPlacementAppearance(
   scene: Pick<ScenePersistedState, 'plantSpeciesSymbols' | 'plantSpeciesColors'>,
-  species: { readonly canonicalName: string; readonly stratum: string | null },
+  canonicalName: string,
 ): SpeciesAppearance {
   return {
-    symbol: resolvePlantSymbolForPlant({ canonicalName: species.canonicalName }, scene.plantSpeciesSymbols),
-    color: normalizeHexColor(scene.plantSpeciesColors[species.canonicalName]) ?? getStratumColor(species.stratum),
+    symbol: resolvePlantSymbolForPlant({ canonicalName }, scene.plantSpeciesSymbols),
+    color: normalizeHexColor(scene.plantSpeciesColors[canonicalName]) ?? DEFAULT_PLANT_COLOR,
   }
 }
 
@@ -97,7 +94,6 @@ export function speciesFocusOpacity(
   return focus.canonicalName && focus.canonicalName !== canonicalName ? SPECIES_FOCUS_DIM_OPACITY : 1
 }
 
-const NO_ENGLISH_FALLBACKS: ReadonlyMap<string, string> = new Map()
 
 /**
  * The species names lists show: the name in the UI language, else the English
@@ -136,9 +132,9 @@ export interface SpeciesKeyEntry {
 
 export function buildSpeciesKey(
   scene: ScenePersistedState,
-  speciesCache: ReadonlyMap<string, SpeciesCacheEntry>,
   localizedNames: ReadonlyMap<string, string | null>,
-  englishFallbackNames: ReadonlyMap<string, string> = NO_ENGLISH_FALLBACKS,
+  englishFallbackNames: ReadonlyMap<string, string>,
+  locale: string,
 ): SpeciesKeyEntry[] {
   const entries = new Map<
     string,
@@ -169,7 +165,7 @@ export function buildSpeciesKey(
     }
     entry.count += 1
     const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)
-    const color = resolvePlantBaseColor(plant, speciesCache)
+    const color = resolvePlantBaseColor(plant)
     if (
       !entry.appearances.some(
         (appearance) =>
@@ -180,10 +176,10 @@ export function buildSpeciesKey(
     }
   }
   return [...entries.values()].sort((a, b) =>
-    a.canonicalName < b.canonicalName
-      ? -1
-      : a.canonicalName > b.canonicalName
-        ? 1
-        : 0,
+    compareSpeciesByShownName(
+      { shownName: a.commonName || a.canonicalName, canonicalName: a.canonicalName },
+      { shownName: b.commonName || b.canonicalName, canonicalName: b.canonicalName },
+      locale,
+    ),
   )
 }

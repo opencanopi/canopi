@@ -7,7 +7,7 @@ import type { Locator, Page } from '@playwright/test'
 import { expect, openGallery, test } from '../support/gallery'
 
 /** The Site data writer, imported in the page from the module the gallery itself loaded (Vite's /@fs/ path). */
-const ACTIONS = `/@fs${fileURLToPath(new URL('../../src/app/lidar/actions.ts', import.meta.url))}`
+const ACTIONS = `/@fs${fileURLToPath(new URL('../../src/app/data-library/actions.ts', import.meta.url))}`
 
 /** The Site data panel, in any locale: the side panel that lists site data lines. */
 function siteData(page: Page): Locator {

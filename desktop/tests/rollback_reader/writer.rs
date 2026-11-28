@@ -35,6 +35,22 @@ fn copy(source: &str, target: &Path) {
     std::fs::copy(repository().join(source), target).unwrap();
 }
 
+fn write_bytes(bytes: &[u8], target: &Path) {
+    std::fs::create_dir_all(target.parent().unwrap()).unwrap();
+    assert!(
+        !target.exists(),
+        "the writer never writes over {}",
+        target.display()
+    );
+    std::fs::write(target, bytes).unwrap();
+}
+
+fn encode_real_v10_fixture(source: &str) -> Vec<u8> {
+    let raw = std::fs::read(repository().join(source)).unwrap();
+    let opened = canopi_format::core::decode_design(&raw).expect("rollback source fixture decodes");
+    canopi_format::core::encode_design(&opened.design).expect("rollback source fixture encodes")
+}
+
 fn frozen_sql(name: &str) -> String {
     std::fs::read_to_string(
         repository()
@@ -56,28 +72,58 @@ pub(crate) fn write_frozen_fixtures(dest: &Path) -> Vec<String> {
     let mut desktop_settings = Vec::new();
     for form in &forms {
         let target = dest.join(&form.path);
-        match (form.edition.as_str(), form.store.as_str()) {
-            ("desktop", "canopi_file" | "desktop_draft") => {
-                copy("canopi-format/spec/v10/read-fixture.canopi", &target);
+        let build_written = match (form.edition.as_str(), form.store.as_str()) {
+            ("desktop", "canopi_file") => {
+                // Rich v10 output emitted by this build's DesignCore encoder (2b-5, B2).
+                let bytes = encode_real_v10_fixture("canopi-format/spec/v10/fixture.canopi");
+                write_bytes(&bytes, &target);
+                true
+            }
+            ("desktop", "desktop_draft") => {
+                // Migrated v9 -> v10 output emitted by this build's DesignCore encoder (2b-5, B2).
+                let bytes = encode_real_v10_fixture("canopi-format/spec/v9/fixture.canopi");
+                write_bytes(&bytes, &target);
+                true
             }
             ("desktop", "user_db") => {
                 drop(sqlite(&target, &frozen_sql("user-db-10.sql"), false));
+                false
             }
-            ("desktop", "settings") => desktop_settings.push(target.clone()),
+            ("desktop", "settings") => {
+                desktop_settings.push(target.clone());
+                false
+            }
             ("desktop", "library_catalogue") => {
                 drop(sqlite(&target, &frozen_sql("catalogue-26.sql"), true));
+                false
             }
-            ("web", "settings") => copy("spec/web/frozen/settings.json", &target),
-            ("web", "web_drafts") => copy("spec/web/frozen/drafts.json", &target),
-            ("web", "web_species_lists") => copy("spec/web/frozen/species-lists.json", &target),
+            ("web", "settings") => {
+                copy("spec/web/frozen/settings.json", &target);
+                false
+            }
+            ("web", "web_drafts") => {
+                copy("spec/web/frozen/drafts.json", &target);
+                false
+            }
+            ("web", "web_species_lists") => {
+                copy("spec/web/frozen/species-lists.json", &target);
+                false
+            }
             (edition, store) => {
                 panic!("the writer has no frozen form for the {edition} {store} row")
             }
+        };
+        if build_written {
+            report.push(format!(
+                "BUILD-WRITTEN {} {} {} {}: written by this build's DesignCore encoder",
+                form.edition, form.store, form.form_version, form.path
+            ));
+        } else {
+            report.push(format!(
+                "FIXTURES-ONLY {} {} {} {}: no build writes it yet, so the readers read its frozen form",
+                form.edition, form.store, form.form_version, form.path
+            ));
         }
-        report.push(format!(
-            "FIXTURES-ONLY {} {} {} {}: no build writes it yet, so the readers read its frozen form",
-            form.edition, form.store, form.form_version, form.path
-        ));
     }
     for user_db in desktop_settings {
         assert!(
@@ -132,12 +178,16 @@ fn r4_canopi_f47t_52_239_the_writer_lays_down_every_frozen_form_the_manifest_lis
     }
     for form in &forms {
         assert!(dest.join(&form.path).is_file(), "{} is written", form.path);
+        let expected_prefix = match (form.edition.as_str(), form.store.as_str()) {
+            ("desktop", "canopi_file" | "desktop_draft") => "BUILD-WRITTEN",
+            _ => "FIXTURES-ONLY",
+        };
         assert!(
             report.iter().any(|line| line.starts_with(&format!(
-                "FIXTURES-ONLY {} {} {} {}:",
+                "{expected_prefix} {} {} {} {}:",
                 form.edition, form.store, form.form_version, form.path
             ))),
-            "{} {} is reported fixtures only",
+            "{} {} is reported {expected_prefix}",
             form.edition,
             form.store
         );

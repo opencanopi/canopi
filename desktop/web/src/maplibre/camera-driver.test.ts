@@ -3,17 +3,17 @@
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { createTestView, type TestView } from '../__tests__/support/test-view'
-import { geoToMercator, mapZoomToStageScale, mercatorToGeo, stageScaleToMapZoom } from '../canvas/projection'
+import { geoToMercator, mercatorToGeo } from '../geo/web-mercator'
+import { conformalFixturePlaneForTests, createSessionPlane, type SessionPlane } from '../geo/session-plane'
 import type { ScenePersistedState } from '../canvas/runtime/scene'
-import type { CameraDriver, CameraDriverDeps } from '../canvas/runtime/view/camera-driver'
-import { createCameraDriverHost } from '../canvas/runtime/view/driver-host'
-import { createViewNavigation } from '../canvas/runtime/view/navigation'
-import { createNavigationPolicy, type NavigationPolicy } from '../canvas/runtime/view/navigation-policy'
-import { planarToViewCamera } from '../canvas/runtime/view/camera-math'
-import type { GeoPoint } from '../generated/contracts'
-import type { PlanarCamera, ViewCamera, ViewFrame, ViewScreen } from '../canvas/runtime/view/types'
-import { planarCameraOf } from '../canvas/runtime/view/view-transform'
-import { createSessionPlane, type SessionPlane } from '../canvas/session-plane'
+import type { CameraDriver, CameraDriverDeps } from '../geo/view/camera-driver'
+import { createCameraDriverHost } from '../geo/view/driver-host'
+import { createViewNavigation } from '../geo/view/navigation'
+import { createNavigationPolicy, type NavigationPolicy } from '../geo/view/navigation-policy'
+import { planarToViewCamera } from '../geo/view/camera-math'
+import type { GeoPoint } from '../types/design'
+import type { PlanarCamera, ViewCamera, ViewFrame, ViewScreen } from '../geo/view/types'
+import { planarCameraOf } from '../geo/view/view-transform'
 import { Camera as SourceCameraClass } from 'maplibre-gl-source/ui/camera.ts'
 import { createMapLibreCameraDriver, type MapLibreCameraDriverMap } from './camera-driver'
 import type { MapLibreLngLat, MapLibreTransformConstrain } from './loader'
@@ -503,7 +503,7 @@ describe('MapLibre camera driver', () => {
   // camera the plane gives for it), reaches the map as one explicit camera.
 
   it('a placement becomes the north-up camera over the plane point at the screen centre', () => {
-    const plane = createSessionPlane({ lon: -122.68, lat: 45.52 })
+    const plane = conformalFixturePlaneForTests({ lon: -122.68, lat: 45.52 })
     const map = new ConsistentMap({ center: plane.origin, zoom: 16 }, { width: 1000, height: 800 })
     const { driver, published } = attach(map, createNavigationPolicy(45.52, signal(false)), plane)
 
@@ -513,7 +513,7 @@ describe('MapLibre camera driver', () => {
     const [options] = map.jumpTo.mock.calls.at(-1)!
     expect(options.center[0]).toBeCloseTo(centre.lon, 8)
     expect(options.center[1]).toBeCloseTo(centre.lat, 8)
-    expect(options.zoom).toBeCloseTo(stageScaleToMapZoom(2, 45.52), 8)
+    expect(options.zoom).toBeCloseTo(createSessionPlane({ lon: 0, lat: 45.52 }).zoomForPixelsPerMetre(2), 8)
     expect(options.bearing).toBe(0)
     expect(published).toHaveLength(1)
     expect(published[0]!.view.camera.bearingDeg).toBe(0)
@@ -547,7 +547,7 @@ describe('MapLibre camera driver', () => {
   })
 
   it('the frame reads back the placed centre and the ground under the four corners', () => {
-    const plane = createSessionPlane({ lon: -122.68, lat: 45.52 })
+    const plane = conformalFixturePlaneForTests({ lon: -122.68, lat: 45.52 })
     const map = new ConsistentMap({ center: plane.origin, zoom: 16 }, { width: 1000, height: 800 })
     const { driver } = attach(map, createNavigationPolicy(45.52, signal(false)), plane)
 
@@ -600,8 +600,8 @@ describe('MapLibre camera driver', () => {
     const { driver } = attach(map, createNavigationPolicy(80, signal(false)), plane)
 
     const frame = driver.frames.viewFrame.peek()
-    expect(frame.view.pixelsPerMetre).toBe(mapZoomToStageScale(27, 80))
-    expect(frame.scaleBounds.max).toBe(mapZoomToStageScale(27, 80))
+    expect(frame.view.pixelsPerMetre).toBe(createSessionPlane({ lon: 0, lat: 80 }).pixelsPerMetre(27).mean)
+    expect(frame.scaleBounds.max).toBe(createSessionPlane({ lon: 0, lat: 80 }).pixelsPerMetre(27).mean)
     expect(frame.mode).toBe('site')
   })
 
@@ -908,7 +908,7 @@ describe('the runtime camera on an attached map', () => {
       expect(ground.lon).toBeCloseTo(groundAtCentre.lon, 9)
       expect(ground.lat).toBeCloseTo(groundAtCentre.lat, 9)
       // The new latitude's scale bounds.
-      expect(after.scaleBounds.max).toBeCloseTo(mapZoomToStageScale(27, next.origin.lat), 6)
+      expect(after.scaleBounds.max).toBeCloseTo(createSessionPlane({ lon: 0, lat: next.origin.lat }).pixelsPerMetre(27).mean, 6)
     } finally {
       camera.host.dispose()
     }
@@ -938,7 +938,7 @@ describe('the runtime camera on an attached map', () => {
       const landed = camera.host.frames.viewFrame.peek()
       expect(landed.view.camera.zoom).toBeCloseTo(17, 9)
       // The landed frame carries the new latitude's scale bounds and is expressed in the new plane.
-      expect(landed.scaleBounds.max).toBeCloseTo(mapZoomToStageScale(27, next.origin.lat), 6)
+      expect(landed.scaleBounds.max).toBeCloseTo(createSessionPlane({ lon: 0, lat: next.origin.lat }).pixelsPerMetre(27).mean, 6)
       const originPx = landed.view.worldToScreen({ x: 0, y: 0 })
       const shown = map.unproject([originPx.x, originPx.y])
       expect(shown.lng).toBeCloseTo(next.origin.lon, 9)
@@ -967,7 +967,7 @@ describe('screen-lock validation', () => {
   }
 
   function canvasPixelOf(viewport: { x: number; y: number; scale: number }, point: { x: number; y: number }) {
-    return { x: viewport.x + point.x * viewport.scale, y: viewport.y + point.y * viewport.scale }
+    return { x: viewport.x + plane.toView(point).x * viewport.scale, y: viewport.y + plane.toView(point).y * viewport.scale }
   }
 
   /** Today's fit of the scene on a fresh screen, through the navigation (at bearing 0, today's CameraController fit). */

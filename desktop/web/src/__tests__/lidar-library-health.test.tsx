@@ -11,7 +11,7 @@ vi.mock('../app/shell/modal-layer', () => ({
   registerModalInertRegion: () => () => {},
 }))
 
-vi.mock('../app/lidar/actions', () => ({
+vi.mock('../app/data-library/actions', () => ({
   addToDesign: vi.fn(),
   cancelAnalysisJob: vi.fn(),
   cancelLibraryImport: vi.fn(),
@@ -25,10 +25,10 @@ vi.mock('../app/lidar/actions', () => ({
   showDataLibraryFolder: vi.fn(),
 }))
 
-vi.mock('../app/lidar/library-store', async () => {
+vi.mock('../app/data-library/library-store', async () => {
   const { signal } = await import('@preact/signals')
   return {
-    ...(await vi.importActual<typeof LibraryStoreModule>('../app/lidar/library-store')),
+    ...(await vi.importActual<typeof LibraryStoreModule>('../app/data-library/library-store')),
     installLidarLibraryObserver: () => () => {},
     lidarLibrary: signal<LibrarySnapshot | null>(null),
     lidarStatusMessage: signal<string | null>(null),
@@ -45,14 +45,14 @@ vi.mock('../components/panels/lidar/LibraryPreview', () => ({
   LibraryPreview: () => <span data-preview="true" />,
 }))
 
-import { lidarLibrary } from '../app/lidar/library-store'
+import { lidarLibrary } from '../app/data-library/library-store'
 import { locale } from '../app/settings/state'
 import { DataLibraryView } from '../components/panels/lidar/DataLibraryView'
 import { NoticeRow } from '../components/shared/NoticeRow'
 import { applyHealthSnapshot, resetStoreHealthForTests } from '../failures/health'
 import { installHealthNotices } from '../failures/health-notices'
 import { resetNoticesForTests } from '../failures/notices'
-import type * as LibraryStoreModule from '../app/lidar/library-store'
+import type * as LibraryStoreModule from '../app/data-library/library-store'
 
 const RECOVERED = 'Canopi rebuilt its Data library from the files it keeps. Items marked failed can be prepared again with Retry.'
 const NEWER_READ_ONLY = 'The Data library was saved by a newer Canopi. Its items are listed, but changes won’t be saved. Update Canopi to use them.'

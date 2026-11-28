@@ -1,13 +1,12 @@
 //! The report writer's behaviour: one zip, every section, a manifest of every other entry,
 //! nothing private, and the failure states of contracts §13.
 
-use super::{ProblemReportContext, create_problem_report, create_problem_report_with_writer};
+use super::{ProblemReportContext, create_problem_report, create_problem_report_with_fs};
 use crate::test_scratch::TestScratch;
 use canopi_redact::Redactor;
 use canopi_types::failure::{FailureCode, IoFailureKind};
 use canopi_types::library::LibrarySnapshot;
 use canopi_types::report::{MANIFEST_FILE, REPORT_SECTIONS, ReportSectionId};
-use canopi_types::settings::Settings;
 use canopi_types::support::{ProblemReportRequest, ReportSectionText};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -25,7 +24,6 @@ fn context(scratch: &TestScratch, log_dir: Option<PathBuf>) -> ProblemReportCont
         app_version: "0.5.0".to_owned(),
         target: "test-os/test-arch".to_owned(),
         webview_version: None,
-        settings: Ok(Settings::default()),
         health: crate::services::health::all_ready(),
         settlements: Vec::new(),
         library: Ok(LibrarySnapshot {
@@ -115,15 +113,13 @@ fn a_report_is_one_zip_in_the_problem_reports_folder_named_by_its_file_name() {
     );
     let mut context = context(&scratch, Some(log_dir));
     context.webview_version = Some("2.44.0".to_owned());
-    context.settings = Ok(Settings {
-        plant_spacing_interval_m: 0.75,
-        // A recognizable fake credential: the settings hand list must never carry it.
-        google_maps_api_key: Some("FAKE-GOOGLE-MAPS-KEY-DO-NOT-EXPORT".to_owned()),
-        ..Settings::default()
-    });
 
-    let result =
-        create_problem_report(&request("Canvas froze after placing a species"), &context).unwrap();
+    let mut req = request("Canvas froze after placing a species");
+    req.sections.push(ReportSectionText {
+        id: ReportSectionId::SettingsSummary,
+        text: Redactor::generic().redact(r#"{"plant_spacing_interval_m":0.75}"#),
+    });
+    let result = create_problem_report(&req, &context).unwrap();
 
     assert_eq!(
         result.file_name, FIRST_NAME,
@@ -179,7 +175,6 @@ fn problem_report_always_carries_every_section() {
     let scratch = TestScratch::new("problem-report-every-section");
     // No log folder, no settings, no library and no frontend section: each still has its entry.
     let mut context = context(&scratch, None);
-    context.settings = Err("the settings store is closed".to_owned());
     context.library = Err("the library is closed".to_owned());
     context.library_disk_bytes = Err("the library is closed".to_owned());
     let empty = ProblemReportRequest {
@@ -200,7 +195,7 @@ fn problem_report_always_carries_every_section() {
     );
     assert_eq!(files, expected);
     assert_eq!(status_of(&entries, "description.txt"), "empty");
-    assert_eq!(status_of(&entries, "settings.json"), "unreadable");
+    assert_eq!(status_of(&entries, "settings.json"), "empty");
     assert_eq!(status_of(&entries, "jobs.json"), "unreadable");
     assert_eq!(status_of(&entries, "queues.json"), "not_collected");
     assert!(entry(&entries, "queues.json").contains("not collected before Phase 3"));
@@ -374,13 +369,13 @@ fn a_report_root_that_cannot_be_created_fails_without_naming_its_path() {
 fn a_disk_full_write_settles_as_no_space_and_leaves_no_half_written_zip() {
     let scratch = TestScratch::new("problem-report-disk-full");
     let context = context(&scratch, None);
+    let fs = canopi_support::fault_fs::FaultFs::new();
+    fs.inject(
+        canopi_support::fault_fs::FaultOp::StageBytes,
+        canopi_support::fault_fs::FaultAction::IoError(std::io::ErrorKind::StorageFull),
+    );
 
-    let failure =
-        create_problem_report_with_writer(&request("Disk full"), &context, |file, bytes| {
-            std::io::Write::write_all(file, &bytes[..bytes.len() / 2])?;
-            Err(std::io::ErrorKind::StorageFull.into())
-        })
-        .unwrap_err();
+    let failure = create_problem_report_with_fs(&request("Disk full"), &context, &fs).unwrap_err();
 
     assert_eq!(
         failure.code,
@@ -390,7 +385,7 @@ fn a_disk_full_write_settles_as_no_space_and_leaves_no_half_written_zip() {
     );
     assert!(!failure.detail.unwrap().as_str().contains("Problem reports"));
     assert_eq!(
-        std::fs::read_dir(&context.reports_folder).unwrap().count(),
+        fs.volatile_files_in(&context.reports_folder).len(),
         0,
         "the partial zip is removed"
     );

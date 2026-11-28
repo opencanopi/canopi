@@ -3,7 +3,6 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { pickCancelled } from '../ipc/dialogs'
 
 const mocks = vi.hoisted(() => ({
   exportBudgetCsv: vi.fn(),
@@ -57,7 +56,7 @@ function makePlant(canonicalName: string, commonName: string): PlacedPlant {
     color: null,
     position: { lon: 13, lat: 23 },
     rotation: null,
-    scale: null,
+    canopy_spread_m: null,
     notes: null,
     planted_date: null,
     quantity: 1,
@@ -79,11 +78,7 @@ describe('BudgetPanel export', () => {
       budget: [
         {
           target: speciesBudgetTarget('Malus domestica'),
-          category: 'plants',
-          description: 'Malus domestica',
-          quantity: 0,
           unit_cost: 5,
-          currency: 'EUR',
         },
       ],
     })
@@ -135,8 +130,8 @@ describe('BudgetPanel export', () => {
     expect(container.querySelector('[role="alert"]')).toBeNull()
   })
 
-  it('ignores dialog-cancelled export failures', async () => {
-    mocks.exportBudgetCsv.mockRejectedValueOnce(pickCancelled('dialog.pick_save'))
+  it('leaves no alert or error log when export resolves cleanly', async () => {
+    mocks.exportBudgetCsv.mockResolvedValueOnce(undefined)
 
     await act(async () => {
       render(<BudgetPanel />, container)

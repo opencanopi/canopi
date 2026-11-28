@@ -4,44 +4,33 @@ import { effect, signal } from '@preact/signals'
 import { h, render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import {
-  createToolHarness,
-  createToolSceneSource,
-  plantEntity,
-  rectZone,
-  sceneStoreWith,
-  stubTool,
-  useStubTools,
-  type StubTool,
-  type StubToolBehaviour,
-  type ToolHarness,
-  type ToolHarnessOptions,
-} from '../../../__tests__/support/tool-harness'
+import { createToolHarness, createToolSceneSource, plantEntity, rectZone, sceneStoreWith, stubTool, useStubTools, type StubTool, type StubToolBehaviour, type ToolHarness, type ToolHarnessOptions } from '../../../__tests__/support/tool-harness'
 import { createTestView } from '../../../__tests__/support/test-view'
 import { closeCanvasContextMenu, openCanvasContextMenu } from '../../../app/canvas-context-menu/state'
 import { CanvasContextMenu } from '../../../components/canvas/CanvasContextMenu'
 import { gridInterval, snapToGrid } from '../../grid'
 import { CanvasRuntimeCleanupError } from '../cleanup'
-import type { PlantStampSourceInput } from '../../plant-stamp-source'
-import { normalizeSavedObjectStampPayload } from '../../saved-object-stamp-payload'
+import type { PlantStampSourceInput } from '../../stamp-drag-data'
+import { parseSavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import type { CanvasContextMenuCommands, CanvasContextMenuRequest } from '../app-adapter'
 import type { CanvasDropPayload, ToolHandleId, ToolId } from '../interaction-types'
 import type { SceneDesignObjectTarget } from '../scene/design-object-targets'
 import type { SceneEditCoordinator, SceneEditTransaction } from '../scene-runtime/transactions'
-import type { WorldPoint } from '../view/types'
+import type { WorldPoint } from '../../../geo/view/types'
 import { getRectangularZoneCorners } from '../zone-geometry'
 import { applyToolConstraint } from './constraints'
 import type { DraftPresentation, DraftShape, ToolHandle } from './draft'
 import { measureLabelShapes, selectedZoneMeasurementLabels } from './measure-labels'
+import { screenBasisOf, type ScreenBasis } from './screen-basis'
 import type { ToolReply } from './tool'
 import { TOOL_REGISTRY, type ToolFactory } from './registry'
 import { contextMenuTargetAt, createContextMenuPort, createToolScene } from './tool-host'
 import { createPolygonTool } from './polygon'
 import '../../../__tests__/support/camera-tolerance'
 
-/** Shift at bearing 0: the nearest 45° direction from `origin` against the world axes, its length kept. */
-function constrainPointTo45Degrees(origin: WorldPoint, point: WorldPoint): WorldPoint {
-  return applyToolConstraint({ kind: 'direction', origin, stepDeg: 45 }, point, { right: { x: 1, y: 0 }, down: { x: 0, y: 1 } })
+/** Shift at bearing 0: the nearest 45° direction from `origin` against the screen axes, its length kept. */
+function constrainPointTo45Degrees(origin: WorldPoint, point: WorldPoint, basis: ScreenBasis): WorldPoint {
+  return applyToolConstraint({ kind: 'direction', origin, stepDeg: 45 }, point, basis)
 }
 
 vi.mock('./registry', () => ({ TOOL_REGISTRY: {} }))
@@ -157,7 +146,7 @@ describe('ToolHost', () => {
         const interval = gridInterval(10).interval
         const at = { x: 473, y: 191 }
         const raw = h.world(at)
-        const constrained = constrainPointTo45Degrees(origin, raw)
+        const constrained = constrainPointTo45Degrees(origin, raw, screenBasisOf(h.view.view()))
         const length = Math.hypot(constrained.x, constrained.y)
         const stepped = Math.round(length / interval) * interval
 
@@ -407,8 +396,9 @@ describe('ToolHost', () => {
     })
 
     it('interrupted and a document replacement forget the still pointer', () => {
+      const select = stubTool('select')
       const stamp = stubTool('plant-stamp')
-      useStubTools(stamp)
+      useStubTools(select, stamp)
       const h = harness({ tool: 'plant-stamp', scene: { plants: [appleAt({ x: 100, y: 100 })] } })
 
       h.hover({ x: 100, y: 100 })
@@ -426,7 +416,8 @@ describe('ToolHost', () => {
       h.host.prepareForDocumentReplacement()
       h.view.navigation.zoomOut()
       expect(stamp.count('hover')).toBe(2)
-      expect(stamp.calls.filter((call) => call === 'viewChanged')).toHaveLength(2)
+      expect(select.count('hover')).toBe(0)
+      expect(select.calls.filter((call) => call === 'viewChanged')).toHaveLength(1)
     })
 
     it('a pointer pan moves the resting pointer, re-emitted at once and on each camera frame', () => {
@@ -478,48 +469,39 @@ describe('ToolHost', () => {
   })
 
   describe('interceptors', () => {
-    it('J10: a Select tap on empty ground, inside a zone too, reaches Select, then pins its point; an object or a zone\'s outline selects only', () => {
-      const order: string[] = []
-      const select = stubTool('select', {
-        gesture: (g) => {
-          if (g.kind === 'tap') order.push('tap')
-          return 'pass'
-        },
-      })
-      useStubTools(select)
-      const pin = vi.fn(() => { order.push('pin') })
-      const h = harness({ pin, scene: { plants: [appleAt({ x: 200, y: 200 })], zones: [bed()] } })
+    it('subscribeEmptyGroundTap notifies on a Select tap on empty ground or any Pan tap in site mode; a hit on an object never notifies (2.1-M558)', () => {
+      const select = stubTool('select')
+      const hand = stubTool('hand')
+      useStubTools(select, hand)
+      const pin = vi.fn()
+      const h = harness({ scene: { plants: [appleAt({ x: 200, y: 200 })], zones: [bed()] } })
+      h.host.subscribeEmptyGroundTap(pin)
 
-      // Empty ground, with a little jitter inside the slop: the tool hears the tap first, and nothing is claimed.
-      expect(h.press({ x: 300, y: 100 })).toEqual({})
-      expect(h.release({ x: 301, y: 101 })).toEqual({})
-      expect(order).toEqual(['tap', 'pin'])
-      expect(pin).toHaveBeenCalledWith(h.world({ x: 301, y: 101 }))
-
-      // A plant, and a zone's outline: Select selects them, and nothing pins.
-      pin.mockClear()
+      // Select tap on a plant never notifies.
       h.click({ x: 200, y: 200 })
-      h.click({ x: 60, y: 12 })
-      expect(select.count('tap')).toBe(3)
       expect(pin).not.toHaveBeenCalled()
 
-      // (canopi-qd2k, the user's decision of 2026-10-14) Inside a zone, away from its outline, is empty ground: it pins.
-      h.click({ x: 60, y: 35 })
-      expect(pin).toHaveBeenCalledWith(h.world({ x: 60, y: 35 }))
-      pin.mockClear()
-
-      // A double-click on empty ground pins at each of its taps.
-      h.click({ x: 300, y: 100 }, { clickCount: 2 })
+      // Select tap on empty ground notifies with the tapped world point.
+      expect(h.press({ x: 300, y: 100 })).toEqual({})
+      expect(h.release({ x: 301, y: 101 })).toEqual({})
+      expect(select.count('tap')).toBe(2)
       expect(pin).toHaveBeenCalledTimes(1)
+      expect(pin).toHaveBeenLastCalledWith(h.world({ x: 301, y: 101 }))
+
+      // Any Pan tap in site mode notifies, even over a plant.
+      h.arm('hand')
+      h.click({ x: 200, y: 200 })
+      expect(pin).toHaveBeenCalledTimes(2)
+      expect(pin).toHaveBeenLastCalledWith(h.world({ x: 200, y: 200 }))
     })
 
-    it('J10: a drag, a handle, a lost capture, overview and the drawing tools never pin; any Pan-tool tap pins', () => {
+    it('a drag, a lost capture, overview and other tools never notify subscribeEmptyGroundTap (2.1-M558)', () => {
       const select = stubTool('select')
       const polygon = stubTool('polygon')
-      const hand = stubTool('hand')
-      useStubTools(select, polygon, hand)
+      useStubTools(select, polygon)
       const pin = vi.fn()
-      const h = harness({ pin, scene: { plants: [appleAt({ x: 200, y: 200 })] } })
+      const h = harness({ scene: { plants: [appleAt({ x: 200, y: 200 })] } })
+      h.host.subscribeEmptyGroundTap(pin)
 
       // A band from empty ground, and a drag of the rotate handle.
       h.drag({ x: 300, y: 100 }, { x: 350, y: 150 })
@@ -527,41 +509,36 @@ describe('ToolHost', () => {
       h.release()
       expect(select.last('handle-drag')).toMatchObject({ phase: 'end', handle: 'rotate' })
 
-      // Polygon adds its point and pins nothing.
+      // Polygon never notifies.
       h.arm('polygon')
       h.click({ x: 300, y: 100 })
       expect(polygon.count('tap')).toBe(1)
       expect(pin).not.toHaveBeenCalled()
 
-      // The Pan tool: any tap pins, on an object too.
-      h.arm('hand')
-      h.click({ x: 200, y: 200 })
-      expect(hand.count('tap')).toBe(1)
-      expect(pin).toHaveBeenCalledWith(h.world({ x: 200, y: 200 }))
-
-      // A press whose capture was lost while it was taken ends with the lost-capture outcome and pins nothing.
-      pin.mockClear()
-      const lost = harness({ pin, capturePress: () => false })
+      // A press whose capture was lost while it was taken ends with the lost-capture outcome and never notifies.
+      const lost = harness({ capturePress: () => false })
+      lost.host.subscribeEmptyGroundTap(pin)
       expect(lost.click({ x: 300, y: 100 })).toEqual({ rejectSession: true })
+      expect(pin).not.toHaveBeenCalled()
 
-      // Overview: a press pans in the recogniser (U36); one that reached the host would pin nothing.
-      const overview = harness({ tool: 'hand', viewport: OVERVIEW, pin })
+      // Overview: a tap in overview never notifies.
+      const overview = harness({ viewport: OVERVIEW })
+      overview.host.subscribeEmptyGroundTap(pin)
       overview.click({ x: 120, y: 80 })
       expect(pin).not.toHaveBeenCalled()
     })
 
-    it('Profile hands its finished line to the Site data profile, never pins, constrains with Shift and shows the crosshair', () => {
+    it('Profile settles its request with the finished line, constrains with Shift and shows the crosshair', () => {
       const line = [{ x: 1, y: 2 }, { x: 30, y: 40 }]
       const profile: StubTool = stubTool('profile', {
         gesture: (g) => {
-          if (g.kind === 'tap' && g.clickCount === 2) profile.ctx().effects.finishProfile(line)
+          if (g.kind === 'tap' && g.clickCount === 2) profile.ctx().effects.completeRequest(line)
           return 'pass'
         },
       })
       useStubTools(profile)
-      const pin = vi.fn()
       const finishProfile = vi.fn()
-      const h = harness({ tool: 'profile', pin, finishProfile })
+      const h = harness({ tool: 'profile', finishProfile })
       expect(h.chrome.cursor).toBe('crosshair')
 
       h.hover({ x: 50, y: 50 }, { shift: true })
@@ -571,23 +548,40 @@ describe('ToolHost', () => {
       h.click({ x: 300, y: 100 }, { clickCount: 2 })
 
       expect(finishProfile).toHaveBeenCalledWith(line)
-      expect(pin).not.toHaveBeenCalled()
     })
 
-    it('Profile finishing on empty ground and then requesting Select never pins: the tool that heard the tap decides', () => {
-      const line = [{ x: 1, y: 2 }, { x: 30, y: 40 }]
+    function setupFinishingProfile(line: { x: number; y: number }[]) {
       const profile: StubTool = stubTool('profile', {
         gesture: (g) => {
           if (g.kind === 'tap' && g.clickCount === 2) {
-            profile.ctx().effects.finishProfile(line)
+            profile.ctx().effects.completeRequest(line)
             profile.ctx().effects.requestTool('select')
           }
           return 'pass'
         },
       })
       useStubTools(profile, stubTool('select'))
+      const finishProfile = vi.fn()
+      const h = harness({ tool: 'profile', finishProfile })
+      return { h, finishProfile }
+    }
+
+    it('Profile completing its request and then requesting Select settles once and returns to Select', () => {
+      const line = [{ x: 1, y: 2 }, { x: 30, y: 40 }]
+      const { h, finishProfile } = setupFinishingProfile(line)
+
+      h.click({ x: 300, y: 100 })
+      h.click({ x: 300, y: 100 }, { clickCount: 2 })
+
+      expect(finishProfile).toHaveBeenCalledTimes(1)
+      expect(finishProfile).toHaveBeenCalledWith(line)
+      expect(h.host.activeToolIsSelect()).toBe(true)
+    })
+
+    it('Profile finishing on empty ground and then requesting Select never pins: the tool that heard the tap decides', () => {
+      const { h } = setupFinishingProfile([{ x: 1, y: 2 }, { x: 30, y: 40 }])
       const pin = vi.fn()
-      const h = harness({ tool: 'profile', pin, finishProfile: vi.fn() })
+      h.host.subscribeEmptyGroundTap(pin)
 
       h.click({ x: 300, y: 100 })
       h.click({ x: 300, y: 100 }, { clickCount: 2 })
@@ -596,10 +590,11 @@ describe('ToolHost', () => {
       expect(pin).not.toHaveBeenCalled()
     })
 
-    it('J10: a finger\'s Select tap on empty ground pins at the down point', () => {
+    it('a finger\'s tap on empty ground under Select notifies subscribeEmptyGroundTap at the down point', () => {
       useStubTools(stubTool('select'))
       const pin = vi.fn()
-      const h = harness({ pin })
+      const h = harness()
+      h.host.subscribeEmptyGroundTap(pin)
 
       // The recogniser resolves a finger's tap at its down point (input/recognise.ts).
       h.click({ x: 120, y: 90 }, { pointer: 'touch' })
@@ -816,7 +811,7 @@ describe('ToolHost', () => {
       h.click({ x: 90, y: 90 })
       // The click reached Text, which opened a new entry there: a press that found an entry open would place nothing.
       expect(h.record.focus.at(-1)).toBe('map')
-      expect(h.chrome.textEntry?.request.anchor.x).toBeCloseTo(90, 6)
+      expect(h.chrome.textEntry?.request.anchor.x).toBeCloseTo(h.world({ x: 90, y: 90 }).x, 6)
     })
 
     it('under Text, the click whose raw press finds the note entry open commits it and reaches no tool', () => {
@@ -1465,13 +1460,14 @@ describe('ToolHost', () => {
       const history = h.host.transientHistory
 
       expect(history.canUndo()).toBe(false)
+      const first = h.world({ x: 10, y: 10 })
       h.click({ x: 10, y: 10 })
       h.click({ x: 60, y: 10 })
       const changes = h.record.transientHistoryChanges
 
       expect(history.canUndo()).toBe(true)
       expect(history.undo()).toBe(true)
-      expect(corners).toEqual([{ x: 10, y: 10 }])
+      expect(corners).toEqual([first])
       expect(history.canRedo()).toBe(true)
       expect(h.record.transientHistoryChanges).toBeGreaterThan(changes)
 
@@ -1479,29 +1475,20 @@ describe('ToolHost', () => {
       expect(history.canUndo()).toBe(false)
       expect(history.undo()).toBe(false)
       expect(history.redo()).toBe(true)
-      expect(corners).toEqual([{ x: 10, y: 10 }])
+      expect(corners).toEqual([first])
     })
 
     it('the transient-history revision bumps after a deferred onCommitted', () => {
       let deferred: (() => void) | null = null
       const edits: SceneEditCoordinator = {
-        run(_type, _edit, options) {
-          deferred = options?.onCommitted ?? null
-          return true
-        },
-        begin() {
-          throw new Error('not used')
-        },
+        run(_type, _edit, options) { deferred = options?.onCommitted ?? null; return true },
+        begin() { throw new Error('not used') },
       }
       const corners = [{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 5 }]
       const polygon: StubTool = stubTool('polygon', {
         command: (c) => {
           if (c.kind !== 'confirm') return 'pass'
-          polygon.ctx().effects.edits.run('interaction-polygon', () => {}, {
-            onCommitted: () => {
-              corners.length = 0
-            },
-          })
+          polygon.ctx().effects.edits.run('interaction-polygon', () => {}, { onCommitted: () => { corners.length = 0 } })
           return 'handled'
         },
         canUndoTransient: () => corners.length > 0,
@@ -1550,20 +1537,23 @@ describe('ToolHost', () => {
       useStubTools(stubTool('select'))
       const h = harness({ camera: { bearingDeg: 30 }, scene: { plants: [appleAt({ x: 0, y: 0 })] } })
       h.select(P1)
-      const screenOfApple = () => h.view.view().worldToScreen(h.store.persisted.plants[0]!.position)
+      const applePosition = () => h.store.persisted.plants[0]!.position, screenOfApple = () => h.view.view().worldToScreen(applePosition())
       const before = screenOfApple()
-      const pixelsPerMetre = h.view.view().pixelsPerMetre
 
       expect(h.arrow('ArrowUp')).toBe('handled')
+      const afterWorld = applePosition()
       const after = screenOfApple()
       expect(after.x - before.x).toBeCloseTo(0, 6)
-      expect(after.y - before.y).toBeCloseTo(-0.1 * pixelsPerMetre, 6)
+      expect(after.y - before.y).toBeLessThan(0)
+      expect(Math.hypot(afterWorld.x, afterWorld.y)).toBeCloseTo(0.1, 6)
 
       // The large step (mod+arrow, chosen by the keymap) is 1 m along the screen.
       expect(h.arrow('ArrowRight', true)).toBe('handled')
+      const movedWorld = applePosition()
       const moved = screenOfApple()
-      expect(moved.x - after.x).toBeCloseTo(pixelsPerMetre, 6)
+      expect(moved.x - after.x).toBeGreaterThan(0)
       expect(moved.y - after.y).toBeCloseTo(0, 6)
+      expect(Math.hypot(movedWorld.x - afterWorld.x, movedWorld.y - afterWorld.y)).toBeCloseTo(1, 6)
     })
 
     it('a refused nudge answers refused, and without Select or a selection nudge answers pass', () => {
@@ -2090,20 +2080,12 @@ describe('ToolHost', () => {
     const PEAR_OVER: CanvasDropPayload = { kind: 'species', species: null }
     const PEAR_DROP: CanvasDropPayload = { kind: 'species', species: PEAR }
     /** A saved stamp of one bed and one apple, its anchor at the bed's corner. */
-    const GUILD = normalizeSavedObjectStampPayload({
-      version: 2,
-      anchor: { x: 0, y: 0 },
-      plants: [{
-        id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null,
-        position: { x: 4, y: 3 }, rotationDeg: null,
-      }],
-      zones: [{
-        id: 'zone-1', name: 'Bed', zoneType: 'rect', rotationDeg: 0, fillColor: null,
-        points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }],
-      }],
-      annotations: [],
-      groups: [],
-    })!
+    const GUILD = parseSavedObjectStampPayload(JSON.stringify({
+      version: 2, anchor: { x: 0, y: 0 },
+      plants: [{ id: 'plant-1', canonicalName: 'Malus domestica', commonName: 'Apple', color: null, symbol: null, position: { x: 4, y: 3 }, rotationDeg: null }],
+      zones: [{ id: 'zone-1', name: 'Bed', zoneType: 'rect', rotationDeg: 0, fillColor: null, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 6 }, { x: 0, y: 6 }] }],
+      annotations: [], groups: [],
+    }))!
     const GUILD_DRAG: CanvasDropPayload = { kind: 'saved-stamp', stamp: GUILD }
     /** Today's band select draft: the selection stroke at 2 px over the selection fill. */
     const BAND_STYLE = { style: { token: 'selection', widthPx: 2 }, fill: { token: 'selection-fill' } } as const
@@ -2197,18 +2179,19 @@ describe('ToolHost', () => {
 
       h.drop('drop', at, GUILD_DRAG)
 
-      // The bed and the apple sit on screen as they were saved, north up: the bed's top edge level, the apple 4 px
-      // right of and 3 px below its corner (scale 1).
+      // The bed and the apple sit rotated by the 30° bearing in ground metres: the bed's nw corner at the drop point,
+      // its 10 m top edge along 30°, and the apple 4 m along and 3 m perpendicular to it.
+      const anchor = h.world(at), rad = (30 * Math.PI) / 180, cos = Math.cos(rad), sin = Math.sin(rad)
       const bed = h.store.persisted.zones[0]!
       expect(bed.rotationDeg).toBeCloseTo(30, 6)
-      const [nw, ne] = getRectangularZoneCorners(bed)!.map(screenOf)
-      expect(nw!.x).toBeCloseTo(at.x, 6)
-      expect(nw!.y).toBeCloseTo(at.y, 6)
-      expect(ne!.y).toBeCloseTo(at.y, 6)
-      expect(ne!.x - nw!.x).toBeCloseTo(10, 6)
+      const [nwWorld, neWorld] = getRectangularZoneCorners(bed)!
+      const [nw, ne] = [screenOf(nwWorld!), screenOf(neWorld!)]
+      expect(nw.x).toBeCloseTo(at.x, 6); expect(nw.y).toBeCloseTo(at.y, 6)
+      const expectedNe = screenOf({ x: anchor.x + 10 * cos, y: anchor.y + 10 * sin })
+      expect(ne.x).toBeCloseTo(expectedNe.x, 6); expect(ne.y).toBeCloseTo(expectedNe.y, 6)
       const apple = screenOf(h.store.persisted.plants[0]!.position)
-      expect(apple.x).toBeCloseTo(at.x + 4, 6)
-      expect(apple.y).toBeCloseTo(at.y + 3, 6)
+      const expectedApple = screenOf({ x: anchor.x + 4 * cos - 3 * sin, y: anchor.y + 4 * sin + 3 * cos })
+      expect(apple.x).toBeCloseTo(expectedApple.x, 6); expect(apple.y).toBeCloseTo(expectedApple.y, 6)
     })
 
     it('dragover answers copy or none from the payload kind', () => {
@@ -2488,7 +2471,7 @@ describe('ToolHost', () => {
 
         // An entry of a tool since retired sends nothing, as Finish shape.
         const stale = h.record.menus[0]!.pointActions![0]!
-        h.host.setTool('rectangle', null)
+        h.host.arm('rectangle', null)
         stale.run()
         expect(select.commands).toHaveLength(1)
       })
@@ -2533,11 +2516,7 @@ describe('ToolHost', () => {
         h.chrome.focusedHandle = CORNER
         h.menu('selection', 'keyboard')
         const screen = h.view.view().worldToScreen(CORNER_HANDLE.anchor)
-        expect(h.record.menus.at(-1)).toEqual({
-          at: CORNER_HANDLE.anchor,
-          screen,
-          pointActions: [{ action: 'delete-point', disabled: false, run: expect.any(Function) }],
-        })
+        expect(h.record.menus.at(-1)).toEqual({ at: CORNER_HANDLE.anchor, screen, pointActions: [{ action: 'delete-point', disabled: false, run: expect.any(Function) }] })
 
         h.chrome.focusedHandle = null
         h.menu('selection', 'keyboard')
@@ -2572,12 +2551,8 @@ describe('ToolHost', () => {
     })
 
     it('the menu port rebuilds today\'s three menu states', () => {
-      const store = sceneStoreWith({
-        plants: [appleAt({ x: 50, y: 50 }), plantEntity('p2', 'Pyrus communis', { x: 150, y: 50 })],
-      })
-      store.updateSession((session) => {
-        session.selectedTargets = [P1]
-      })
+      const store = sceneStoreWith({ plants: [appleAt({ x: 50, y: 50 }), plantEntity('p2', 'Pyrus communis', { x: 150, y: 50 })] })
+      store.updateSession((session) => { session.selectedTargets = [P1] })
       const { port, opened, view, source, pickAt } = menuPortFor(store)
 
       port.open({ at: { x: 50, y: 50 }, screen: { x: 50, y: 50 }, pick: pickAt({ x: 50, y: 50 }) })
@@ -2607,9 +2582,7 @@ describe('ToolHost', () => {
       expect(opened.at(-1)!.selection).toBeNull()
       expect(opened.at(-1)!.anchor).toEqual({ left: 50, top: 50, right: 50, bottom: 50 })
 
-      store.updatePersisted((draft) => {
-        draft.layers = draft.layers.map((layer) => (layer.name === 'plants' ? { ...layer, locked: true } : layer))
-      })
+      store.updatePersisted((draft) => { draft.layers = draft.layers.map((layer) => (layer.name === 'plants' ? { ...layer, locked: true } : layer)) })
       port.open({ at: { x: 150, y: 50 }, screen: { x: 150, y: 50 }, pick: pickAt({ x: 150, y: 50 }) })
       expect(opened.at(-1)!.selection?.editableTargets).toEqual([])
 
@@ -2637,9 +2610,7 @@ describe('ToolHost', () => {
       expect(opened.at(-1)!.selection?.editableTargets).toEqual([Z1])
 
       // A locked Zones layer: the outline gets the zone's disabled menu, the inside the empty map's.
-      store.updatePersisted((draft) => {
-        draft.layers = draft.layers.map((layer) => (layer.name === 'zones' ? { ...layer, locked: true } : layer))
-      })
+      store.updatePersisted((draft) => { draft.layers = draft.layers.map((layer) => (layer.name === 'zones' ? { ...layer, locked: true } : layer)) })
       expect(pickAt({ x: 3, y: 70 })).toEqual({ visible: Z1, target: null })
       expect(pickAt({ x: 30, y: 70 })).toEqual({ visible: null, target: null })
       port.close()
@@ -2664,30 +2635,24 @@ describe('ToolHost', () => {
     it('the keyboard menu opens beside a shape drawn level at 45, not beside its world box', () => {
       const bed = rectZone('bed', [{ x: -50, y: -10 }, { x: 50, y: -10 }, { x: 50, y: 10 }, { x: -50, y: 10 }], { rotationDeg: 45 })
       const store = sceneStoreWith({ zones: [bed] })
-      store.updateSession((session) => {
-        session.selectedTargets = [{ kind: 'zone', id: 'bed' }]
-      })
+      store.updateSession((session) => { session.selectedTargets = [{ kind: 'zone', id: 'bed' }] })
       const source = createToolSceneSource(store)
       const opened: CanvasContextMenuRequest[] = []
       const view = createTestView({ screen: { width: 800, height: 600 }, camera: { bearingDeg: 45 } })
       const port = createContextMenuPort({
-        container: document.createElement('div'),
-        view: view.view,
+        container: document.createElement('div'), view: view.view,
         adapter: { open: (request) => opened.push(request), close: () => {} },
-        commands: {} as never,
-        returnFocus: () => {},
-        scene: createToolScene(source),
-        selectionModel: source.selectionModel,
+        commands: {} as never, returnFocus: () => {}, scene: createToolScene(source), selectionModel: source.selectionModel,
       })
 
       port.open({ at: 'selection', screen: null })
 
-      // The bed on screen: a level 100 × 20 px box (1 px/m).
+      // The bed on screen: a ~100 × 20 px box (within WGS84 ellipsoid flattening), not its ~85 × 85 px world box.
       const corners = getRectangularZoneCorners(bed)!.map((corner) => view.view().worldToScreen(corner))
       const xs = corners.map((corner) => corner.x)
       const ys = corners.map((corner) => corner.y)
-      expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(100, 6)
-      expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(20, 6)
+      expect(Math.max(...xs) - Math.min(...xs)).toBeCloseTo(100, 0)
+      expect(Math.max(...ys) - Math.min(...ys)).toBeCloseTo(20, 0)
       const anchor = opened.at(-1)!.anchor
       expect(anchor.left).toBeCloseTo(Math.min(...xs), 6)
       expect(anchor.right).toBeCloseTo(Math.max(...xs), 6)
@@ -2706,14 +2671,11 @@ describe('ToolHost', () => {
       const app = document.body.appendChild(document.createElement('div'))
       await act(async () => render(h(CanvasContextMenu, null), app))
       const port = createContextMenuPort({
-        container: document.createElement('div'),
-        view: view.view,
+        container: document.createElement('div'), view: view.view,
         adapter: { open: openCanvasContextMenu, close: closeCanvasContextMenu },
         // No command runs here: each one does nothing.
         commands: new Proxy({}, { get: () => () => false }) as CanvasContextMenuCommands,
-        returnFocus,
-        scene: createToolScene(source),
-        selectionModel: source.selectionModel,
+        returnFocus, scene: createToolScene(source), selectionModel: source.selectionModel,
       })
       const menu = () => document.querySelector<HTMLElement>('[role="menu"]')
       const openMenu = async () => {

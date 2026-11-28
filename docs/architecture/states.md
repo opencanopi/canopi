@@ -4,9 +4,9 @@ Which states each long-lived thing passes through and who moves it. Rules: ADR 0
 
 ### Design Session
 
-Model: target
+Model: current
 Source: ADR 0024, contracts §4, 2.1-Q66
-Enum: SessionState (2.1)
+Enum: DesignSessionState (2.1)
 
 ```mermaid
 stateDiagram-v2
@@ -64,34 +64,6 @@ stateDiagram-v2
 
 - Dirty is `rev > ackRev`; only `written` sets `ackRev` (2.1-Q68).
 - `quota` and `failed` keep the Design in memory and arm the Web leave prompt (contracts §4 case 6).
-
-### Design Session at HEAD (Desktop only)
-
-Model: current
-Enum: app/document-session/state-machine.ts::DesignSessionStateStatus
-
-```mermaid
-stateDiagram-v2
-  state "detached-empty" as detached_empty
-  state "detached-ready" as detached_ready
-  state "attached-empty" as attached_empty
-  state "attached-ready" as attached_ready
-  state "tearing-down" as tearing_down
-  [*] --> detached_empty
-  detached_empty --> loading: canvas start
-  loading --> attached_ready: Design applied
-  loading --> attached_empty: nothing to load
-  loading --> failed: load threw
-  attached_ready --> loading: transitionDocument
-  attached_ready --> saving: writeHome or Save as
-  saving --> attached_ready: settled
-  attached_ready --> tearing_down: canvas unmount
-  tearing_down --> detached_ready: handoff snapshot kept
-  tearing_down --> detached_empty: no Design
-```
-
-- Web has no state union: `web/browser-design-session.ts` orders work with a `replacementIntent` counter. Both are replaced by the Session core.
-- Only tests read `DesignSessionStateStatus`; both editions guard with hand counters (`replacementIntent`, `operationIntent`); 2b deletes both with `DesignSaveStatus`.
 
 ### Library jobs
 
@@ -205,7 +177,7 @@ stateDiagram-v2
   unreadable --> absent: deleteDraft from the Drafts list
 ```
 
-- Owner: one Draft store per edition behind `platform/design-home.ts` (2.1); only the Session core mints ids and writes.
+- Owner: one Draft store per edition behind `platform/design-home.ts`; only the Session core mints ids and writes.
 - `deleteDraft` refuses the open Design's Draft on both editions; a Web open from bytes stays absent until an edit.
 - Held by the Draft-store suite in Chromium, WebKit and Firefox and scenario cases 1, 2, 12, 13 and 16.
 
@@ -249,7 +221,7 @@ stateDiagram-v2
   preparing --> error: prepare-failed, prepare-timeout, coverage-too-large
   ready --> preparing: setup edited
   ready --> delivering: Save or Download
-  delivering --> saved: Desktop dialog and save_canvas_pdf
+  delivering --> saved: Desktop dialog and deliver_file
   delivering --> downloaded: Web download
   delivering --> ready: cancelled
   delivering --> error: delivery-failed
@@ -261,9 +233,9 @@ stateDiagram-v2
 
 ### Map surface lifetime
 
-Model: target
+Model: current
 Source: ADR 0024 Canvas surface, ADR 0004, contracts §6
-Enum: maplibre/map-lifetime.ts::MapLifetimeState (2.1)
+Enum: maplibre/map-lifetime.ts::MapLifetimeState
 
 ```mermaid
 stateDiagram-v2
@@ -279,12 +251,12 @@ stateDiagram-v2
   note right of ready: layers: LayerStatus per slot
 ```
 
-- Owner: `maplibre/map-lifetime.ts` (2.1), one per map, the snapshot map included. Held by `style-load-only-in-map-lifetime` and the map-lifetime model harness (F4).
+- Owner: `maplibre/map-lifetime.ts`, one per map, the snapshot map included. Held by `style-load-only-in-map-lifetime` and the map-lifetime model harness (F4).
 
-### Canvas surface (2.1)
+### Canvas surface
 
-Model: target
-Enum: app/canvas-map-surface/canvas-host.ts::CanvasSurfaceState (2.1)
+Model: current
+Enum: app/canvas-map-surface/host-view.ts::CanvasSurfaceState
 
 ```mermaid
 stateDiagram-v2
@@ -299,23 +271,6 @@ stateDiagram-v2
 ```
 
 - Computed by `composeSurface(lease, mapState)`; Retry offered only when the map failed, cleanup settled and the runtime alive.
-
-### Map surface at HEAD
-
-Model: current
-Enum: maplibre/canvas-surface-state.ts::MapLibreCanvasSurfaceStatus
-
-```mermaid
-stateDiagram-v2
-  [*] --> idle
-  idle --> loading: contributions mount
-  loading --> ready: style loaded
-  loading --> error: map unavailable
-  ready --> error: disposed with failure
-  error --> loading: Retry
-```
-
-- Published by `app/canvas-map-surface/workspace-map-contributions.ts`, beside `WorkspaceActivationOutcome` and the controls' admission states; the map lifetime absorbs all three.
 
 ### Design-core worker
 

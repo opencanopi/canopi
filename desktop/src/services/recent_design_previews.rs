@@ -13,10 +13,10 @@ use std::{
 };
 
 use canopi_types::design::{
-    ReadOnlyDesign, RecentDesignPreview, RecentDesignSummary, RecentDesignUnreadableReason,
+    RecentDesignPreview, RecentDesignSummary, RecentDesignUnreadableReason,
 };
 
-use crate::design::format::{self, DesignLoadError, OpenedDesign};
+use crate::design::format::{self, DesignLoadError};
 
 /// Files larger than this are not read for a preview; the row shows the name only.
 pub(crate) const RECENT_PREVIEW_MAX_BYTES: u64 = 16 * 1024 * 1024;
@@ -105,11 +105,7 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
         return too_large(path, len);
     }
     match format::open_within(path, RECENT_PREVIEW_MAX_BYTES) {
-        Ok(OpenedDesign::Editable(file)) => (crate::design::preview::preview_of(&file), true),
-        // A newer Design opens read-only (2.1-Q316): its row is read-only with what the read
-        // view shows. A newer file the read refuses says why as Open says (damaged at version
-        // 10, newer above it).
-        Ok(OpenedDesign::ReadOnly(design)) => (read_only_preview(&design), true),
+        Ok(file) => (crate::design::preview::preview_of(&file), true),
         // The file grew past the cap after its size was read.
         Err(DesignLoadError::TooLarge { .. }) => too_large(path, len),
         Err(error) => refused(error),
@@ -119,26 +115,8 @@ fn read_preview(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
 /// The row of a file Open refuses, saying why as Open says, and whether it may be cached.
 fn refused(error: DesignLoadError) -> (RecentDesignPreview, bool) {
     match error {
-        DesignLoadError::NewerRefused { source } => {
-            let reason = match source.kind {
-                canopi_types::design::DesignLoadFailureKind::NewerVersion => {
-                    RecentDesignUnreadableReason::NewerVersion
-                }
-                _ => RecentDesignUnreadableReason::Damaged,
-            };
-            tracing::info!(
-                ?reason,
-                "A newer Recent Design could not be read; no preview"
-            );
-            (unreadable(reason), true)
-        }
-        // Larger than Open reads: Open refuses it as too large, so it is never read-only.
-        DesignLoadError::TooLarge { .. } => (
-            RecentDesignPreview::TooLarge {
-                saved_by_newer: false,
-            },
-            true,
-        ),
+        // Larger than Open reads: Open refuses it as too large.
+        DesignLoadError::TooLarge { .. } => (RecentDesignPreview::TooLarge, true),
         DesignLoadError::Read { source, .. } => {
             tracing::warn!("A Recent Design could not be read for its preview");
             (unreadable(io_reason(&source)), false)
@@ -165,44 +143,21 @@ fn refused(error: DesignLoadError) -> (RecentDesignPreview, bool) {
 }
 
 /// A file over the preview cap shows its name only. Its root version is first streamed past
-/// in one sequential read, so a current Design is never parsed whole; a newer one goes
-/// through Open's whole read, so its row is read-only exactly when Open opens it read-only
-/// and otherwise says why Open refuses it (2.1-Q316). One larger than Open reads is refused
-/// by Open as too large, so it is never read-only.
+/// in one sequential read, so a current Design is never parsed whole; a newer one is refused
+/// as newer (2.1-Q347). One larger than Open reads is refused by Open as too large.
 fn too_large(path: &Path, len: u64) -> (RecentDesignPreview, bool) {
-    let name_only = |saved_by_newer| (RecentDesignPreview::TooLarge { saved_by_newer }, true);
+    let name_only = || (RecentDesignPreview::TooLarge, true);
     if len > format::MAX_CANOPI_FILE_BYTES {
-        return name_only(false);
+        return name_only();
     }
     let newer = std::fs::File::open(path).and_then(|file| {
         let bounded = std::io::Read::take(file, format::MAX_CANOPI_FILE_BYTES);
         canopi_format::read::saved_by_newer(std::io::BufReader::new(bounded))
     });
     match newer {
-        Ok(false) => name_only(false),
-        Ok(true) => match format::open_within(path, format::MAX_CANOPI_FILE_BYTES) {
-            Ok(opened) => name_only(matches!(opened, OpenedDesign::ReadOnly(_))),
-            Err(error) => refused(error),
-        },
+        Ok(false) => name_only(),
+        Ok(true) => (unreadable(RecentDesignUnreadableReason::NewerVersion), true),
         Err(error) => (unreadable(io_reason(&error)), false),
-    }
-}
-
-fn read_only_preview(design: &ReadOnlyDesign) -> RecentDesignPreview {
-    match crate::design::preview::preview_of(&design.view) {
-        RecentDesignPreview::Read {
-            plant_count,
-            zone_count,
-            bounds,
-            sketch,
-        } => RecentDesignPreview::ReadOnly {
-            saved_by_version: design.saved_by_version,
-            plant_count,
-            zone_count,
-            bounds,
-            sketch,
-        },
-        other => other,
     }
 }
 
@@ -222,13 +177,14 @@ fn io_reason(error: &std::io::Error) -> RecentDesignUnreadableReason {
 mod tests {
     use super::*;
     use crate::test_scratch::TestScratch;
-    use canopi_types::design::{CURRENT_CANOPI_FILE_VERSION, CanopiFile};
+    use canopi_types::design::CURRENT_CANOPI_FILE_VERSION;
+    use canopi_types::design::v10::CanopiFileV10;
 
     fn scratch(label: &str) -> TestScratch {
         TestScratch::new(&format!("recent-previews-{label}"))
     }
 
-    fn with_plants(count: usize) -> CanopiFile {
+    fn with_plants(count: usize) -> CanopiFileV10 {
         let mut file = format::create_new_design("Orchard", "2026-09-27T00:00:00Z");
         file.plants = (0..count)
             .map(|index| {
@@ -243,7 +199,7 @@ mod tests {
         file
     }
 
-    fn write(path: &Path, file: &CanopiFile) {
+    fn write(path: &Path, file: &CanopiFileV10) {
         std::fs::write(path, format::encode_design(file).unwrap()).unwrap();
     }
 
@@ -322,7 +278,7 @@ mod tests {
                 Damaged,
                 OlderVersion,
                 OlderVersion,
-                Damaged,
+                NewerVersion,
                 NewerVersion,
                 Missing,
                 Unknown
@@ -332,10 +288,10 @@ mod tests {
         assert!(!logs.contains(&*root.to_string_lossy()), "{logs}");
     }
 
-    /// canopi-f47t.52.270 (2.1-Q316): a Design a newer Canopi saved previews read-only with
-    /// what its read view shows, never as the 2.0.3 "update Canopi to open it" state.
+    /// canopi-f47t.52.270 (2.1-Q347): at v10 cutover, a Design a newer Canopi (v11+) saved
+    /// previews as `Unreadable { reason: NewerVersion }`, never read-only.
     #[test]
-    fn canopi_f47t_52_270_a_newer_recent_design_previews_read_only_never_the_update_state() {
+    fn canopi_f47t_52_270_a_newer_recent_design_previews_as_newer_version() {
         let root = scratch("newer");
         let newer = root.join("newer.canopi");
         std::fs::write(
@@ -352,13 +308,7 @@ mod tests {
 
         assert_eq!(
             result[0].preview,
-            RecentDesignPreview::ReadOnly {
-                saved_by_version: CURRENT_CANOPI_FILE_VERSION + 1,
-                plant_count: 0,
-                zone_count: 0,
-                bounds: None,
-                sketch: None,
-            }
+            unreadable(RecentDesignUnreadableReason::NewerVersion)
         );
     }
 
@@ -367,19 +317,16 @@ mod tests {
     #[test]
     fn designs_from_before_2_0_preview_as_older_version() {
         let root = scratch("before-2-0");
-        let paths: Vec<String> = [
-            CURRENT_CANOPI_FILE_VERSION - 2,
-            CURRENT_CANOPI_FILE_VERSION - 1,
-        ]
-        .into_iter()
-        .map(|version| {
-            let path = root.join(format!("v{version}.canopi"));
-            let mut value = serde_json::to_value(with_plants(2)).unwrap();
-            value["version"] = serde_json::json!(version);
-            std::fs::write(&path, serde_json::to_string(&value).unwrap()).unwrap();
-            path.to_string_lossy().into_owned()
-        })
-        .collect();
+        let paths: Vec<String> = [7u32, 8u32]
+            .into_iter()
+            .map(|version| {
+                let path = root.join(format!("v{version}.canopi"));
+                let mut value = serde_json::to_value(with_plants(2)).unwrap();
+                value["version"] = serde_json::json!(version);
+                std::fs::write(&path, serde_json::to_string(&value).unwrap()).unwrap();
+                path.to_string_lossy().into_owned()
+            })
+            .collect();
         let previews = RecentDesignPreviews::default();
 
         let result = previews.previews(&paths);
@@ -402,19 +349,13 @@ mod tests {
         let previews = RecentDesignPreviews::default();
 
         let result = previews.previews(&[path.to_string_lossy().into_owned()]);
-        assert_eq!(
-            result[0].preview,
-            RecentDesignPreview::TooLarge {
-                saved_by_newer: false
-            }
-        );
+        assert_eq!(result[0].preview, RecentDesignPreview::TooLarge);
     }
 
-    /// canopi-f47t.52.270 (2.1-Q316): a newer Design too large for a preview, which Open
-    /// still opens read-only, keeps its read-only row; one larger than Open reads does not,
-    /// and one Open's read refuses says why as Open says, whatever its size.
+    /// canopi-f47t.52.270 (2.1-Q347): at v10 cutover, a newer Design (v11+) over the preview cap
+    /// is refused as `Unreadable { reason: NewerVersion }`, never read-only.
     #[test]
-    fn canopi_f47t_52_270_a_newer_recent_design_over_the_preview_cap_keeps_its_read_only_row() {
+    fn canopi_f47t_52_270_a_newer_recent_design_over_the_preview_cap_previews_as_newer_version() {
         let root = scratch("large-newer");
         let padded = |name: &str, version: u32, fields: &str| {
             let path = root.join(name);
@@ -457,24 +398,17 @@ mod tests {
 
         assert_eq!(
             result[0].preview,
-            RecentDesignPreview::TooLarge {
-                saved_by_newer: true
-            }
+            unreadable(RecentDesignUnreadableReason::NewerVersion)
         );
         assert_eq!(
             result[1].preview,
-            unreadable(RecentDesignUnreadableReason::Damaged)
+            unreadable(RecentDesignUnreadableReason::NewerVersion)
         );
         assert_eq!(
             result[2].preview,
             unreadable(RecentDesignUnreadableReason::NewerVersion)
         );
-        assert_eq!(
-            result[3].preview,
-            RecentDesignPreview::TooLarge {
-                saved_by_newer: false
-            }
-        );
+        assert_eq!(result[3].preview, RecentDesignPreview::TooLarge);
     }
 
     #[test]

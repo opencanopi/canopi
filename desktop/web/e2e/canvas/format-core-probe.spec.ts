@@ -28,9 +28,13 @@ import { APP_ORIGIN } from '../support/storage-persistence'
 const ASSETS = fileURLToPath(new URL('../../dist-web/assets/', import.meta.url))
 const PROBE_URL = `${APP_ORIGIN}/format-core-probe.html`
 const PROBE_PAGE = '<!doctype html><html><body>format core probe</body></html>'
-/** The frozen v10 fixture, and the read view canopi-format gives for it (held equal by its Rust test). */
-const PROBE_TEXT = readFileSync(fileURLToPath(new URL('../../../../canopi-format/spec/v10/read-fixture.canopi', import.meta.url)), 'utf8')
-const EXPECTED_VALUE = { read: JSON.parse(readFileSync(fileURLToPath(new URL('../../../../canopi-format/spec/v10/read-expected.json', import.meta.url)), 'utf8')) as unknown }
+/** The frozen v10 fixture, and the decoded Design canopi-format gives for it (held equal by its Rust test). */
+const PROBE_TEXT = readFileSync(fileURLToPath(new URL('../../../../canopi-format/spec/v10/fixture.canopi', import.meta.url)), 'utf8')
+const EXPECTED_VALUE = {
+  ok: {
+    design: JSON.parse(readFileSync(fileURLToPath(new URL('../../../../canopi-format/spec/v10/expected.json', import.meta.url)), 'utf8')) as unknown,
+  },
+}
 
 /** The one built file of dist-web/assets whose name matches, as the URL the preview server serves it at. */
 function builtAsset(pattern: RegExp): string {
@@ -70,7 +74,7 @@ async function runProbe({ workerUrl, texts, between }: ProbeRun): Promise<unknow
       replies.push(await new Promise((resolve, reject) => {
         worker.onmessage = (event) => resolve(event.data)
         worker.onerror = (event) => reject(new Error(`worker error: ${event.message || 'no message'}`))
-        worker.postMessage({ id: index + 1, call: 'read', text })
+        worker.postMessage({ id: index + 1, call: 'decode', text })
       }))
     }
   } finally {

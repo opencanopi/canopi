@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "先保存此设计，再添加到笔记本。",
     "addCurrentDesign": "将当前设计添加到笔记本",
     "addCurrentButton": "添加当前设计",
-    "openNow": "当前打开"
+    "openNow": "当前打开",
+    "renameSectionFailed": "Canopi 无法重命名此分区，请重试。"
   },
   "plantDb": {
     "title": "植物目录",
@@ -73,7 +74,6 @@
     "addFavoriteNamed": "将{{name}}加入收藏",
     "favoriteNeedsNewer": "由更新版本的 Canopi 保存。请更新 Canopi 后再更改收藏。",
     "removeFavoriteNamed": "将{{name}}移出收藏",
-    "factHeight": "{{height}} 米",
     "factHardiness": "USDA {{zones}}",
     "factEdible": "可食 {{rating}}/5",
     "quickEdible": "可食",
@@ -240,7 +240,6 @@
       "selectedCount_few": "已选择 {{count}} 个",
       "selectedCount_many": "已选择 {{count}} 个",
       "selectedCount_other": "已选择 {{count}} 个",
-      "suggested": "根据花色推荐",
       "moreColors": "自定义颜色",
       "hue": "色相",
       "saturationLightness": "饱和度和明度",
@@ -312,7 +311,7 @@
       "placeholder": "地点或坐标",
       "searching": "正在搜索…",
       "noResults": "未找到地点",
-      "error": "地点搜索失败",
+      "error": "地点搜索不可用。请改为输入经纬度。",
       "results": "地点",
       "placeholderShort": "搜索地点",
       "east": "东经",
@@ -360,7 +359,9 @@
       "siteDataWeb_one": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop",
       "siteDataWeb_few": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop",
       "siteDataWeb_many": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop",
-      "siteDataWeb_other": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop"
+      "siteDataWeb_other": "此设计中有 {{count, number}} 个地形或高度图层 · 需要 Canopi Desktop",
+      "webgl2Unavailable": "此设备不支持 WebGL2。Canopi 需要 WebGL2 来绘制地图。",
+      "layerFailed": "无法加载"
     },
     "timeline": {
       "actionType": "任务类型",
@@ -724,11 +725,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Google Maps API 密钥（可选）",
-      "saveKey": "保存密钥",
-      "clearKey": "清除密钥",
-      "keySaved": "密钥已保存在此设备上。",
-      "keyLocalOnly": "仅保存在此设备的设置中。绝不会写入设计、导出、日志或报告。",
       "style": "样式",
       "styles": {
         "liberty": "Liberty",
@@ -736,9 +732,6 @@
         "bright": "明亮",
         "dark": "深色"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "没有密钥时，Canopi 使用 Google 的公开卫星瓦片。添加您的 Google Maps API 密钥即可使用官方 Map Tiles API。"
     },
     "zoom": {
       "scaleBar": "比例尺：{{distance}}",
@@ -752,7 +745,7 @@
     },
     "myLocation": {
       "show": "显示我的位置",
-      "blocked": "位置访问已被阻止。请在浏览器设置中允许此网站使用位置。",
+      "blocked": "位置权限已被阻止。请在浏览器或系统设置中允许。",
       "unavailable": "暂时无法获取您的位置，正在继续尝试。"
     },
     "selectionChip": {
@@ -792,7 +785,9 @@
       "clear": "清除选择",
       "rename": "重命名…",
       "sameSpeciesShort": "同一物种",
-      "clearShort": "清除"
+      "clearShort": "清除",
+      "dimensions": "尺寸",
+      "dimensionsShort": "尺寸"
     },
     "viewChip": "视图",
     "map": {
@@ -871,7 +866,8 @@
       "pathKeys": "Alt 放置尖角点 · Shift 保持 45° 角 · {{mod}} 关闭吸附",
       "pathTouchHint": "拖动点以移动 · 拖动标记以添加点 · 长按点查看更多",
       "pathFinish": "种下这一行",
-      "options": "选项"
+      "options": "选项",
+      "constrain": "约束"
     },
     "placePreview": {
       "nearest": "距 {{name}} {{distance}}",
@@ -898,18 +894,6 @@
       "point": "行上的点 {{index}}",
       "dot": "在行段 {{index}} 上添加点"
     }
-  },
-  "worldMap": {
-    "title": "世界地图",
-    "discover": "发现设计",
-    "featured": "精选",
-    "downloading": "正在下载模板…",
-    "author": "{{author}} 设计",
-    "noDesigns": "该区域暂无设计",
-    "zoomToExplore": "放大以探索设计",
-    "filterByClimate": "按气候筛选",
-    "filterByStyle": "按风格筛选",
-    "openTemplate": "作为新设计打开"
   },
   "theme": {
     "light": "浅色",
@@ -1060,7 +1044,6 @@
     "fireResistant": "抗火",
     "fireTolerance": "耐火性",
     "hedgeTolerance": "修剪耐受",
-    "inchesUnit": "英寸",
     "daysUnit": "天",
     "pollinators": "传粉者",
     "salinityTolerance": "耐盐性",
@@ -1381,7 +1364,11 @@
     "reorderNamed": "调整 {{name}} 的顺序（Alt ↑ 或 ↓）",
     "placeNamed": "放置图章 {{name}}",
     "deleteNamed": "删除图章 {{name}}",
-    "actionsFor": "{{name}} 的更多操作"
+    "actionsFor": "{{name}} 的更多操作",
+    "renameFailed": "Canopi 无法重命名此图章，请重试。",
+    "deletedToast": "已删除“{{name}}”",
+    "placedToast": "已放置图章（{{summary}}）",
+    "undo": "撤销"
   },
   "boundary": {
     "panelFailed": "无法加载此面板",
@@ -1530,7 +1517,11 @@
     "mapOrientationAsOnScreen": "与屏幕一致",
     "northArrow": "指北针和比例尺",
     "pageOptions": "所选页面",
-    "findInKey": "在图例中查找"
+    "findInKey": "在图例中查找",
+    "scale": "比例尺",
+    "pageAngle": "页面角度",
+    "angleDegrees": "角度 (°)",
+    "savedViewAngle": "已保存视图"
   },
   "speciesKey": {
     "title": "此设计中的植物",
@@ -1598,7 +1589,8 @@
     "namesShown_one": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称",
     "namesShown_few": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称",
     "namesShown_many": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称",
-    "namesShown_other": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称"
+    "namesShown_other": "视图中 {{count, number}} 株植物有 {{shown, number}} 株显示名称",
+    "codeLabel": "{{name}} 的物种代码"
   },
   "geojson": {
     "import": "导入 GeoJSON…",
@@ -1639,10 +1631,7 @@
     "conflictAnotherTab": "已在另一个标签页中更改"
   },
   "readOnlyDesign": {
-    "label": "只读",
-    "status": "只读：由更新版本的 Canopi 保存",
-    "details": "此设计由更新版本的 Canopi 保存。您可以查看，但无法更改或保存。请更新 Canopi 以进行编辑。",
-    "update": "更新"
+    "label": "只读"
   },
   "saveProblem": {
     "flushFailedTitle": "无法保存您的更改",
@@ -1745,7 +1734,6 @@
       "ValuesNotMetres": "需要以米为单位的数值；此数据的单位为 {{units}}。",
       "GridNotProjectedMetres": "需要以地面米为单位的投影格网，不能是 Web Mercator 或经纬度。",
       "EngineMissing": "不可用：缺少 GeoLibre 引擎。",
-      "NeedsDesktop": "需要 Canopi Desktop。",
       "AlreadyInSiteData": "已在场地数据中。"
     },
     "stale": {
@@ -1867,7 +1855,6 @@
   "siteOnboarding": {
     "locateTitle": "您的场地在哪里？",
     "locateIntro": "搜索地点或粘贴坐标。地图会移到那里，但还不会放置任何东西。",
-    "placeNamesCredit": "地名 © OpenStreetMap 贡献者",
     "skip": "跳过，我会在地图上找",
     "startTitle": "开始您的设计",
     "closeStart": "关闭“开始您的设计”",
@@ -1981,7 +1968,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "关于 Canopi…",
     "mapStyle": "地图样式",
-    "googleKeyKept": "你的 Google 密钥仍保存在此设备上，但未使用。选择“我的 Google 密钥”即可再次使用。"
+    "googleKeyKept": "你的 Google 密钥仍保存在此设备上，但未使用。选择“我的 Google 密钥”即可再次使用。",
+    "units": {
+      "label": "单位",
+      "metric": "公制",
+      "usCustomary": "美制"
+    }
   },
   "savedViews": {
     "defaultName": "视图 {{number}}",
@@ -2078,9 +2070,9 @@
     "imageRemove": "移除图片 {{number}}",
     "imagePreview": "图片 {{number}}：{{alt}}",
     "imageType": "请选择 PNG、JPEG、WebP 或 GIF 图片。",
-    "imageTooLarge": "此图片大小为 {{size}}。每张图片最大 1 MB，请选择更小的图片。",
-    "imageDesignFull": "此设计中的图片已达 {{used}}，而一个设计最多可容纳 10 MB。请移除一张图片或选择更小的图片。",
-    "imagesDoNotFit": "这些图片放不下：一个设计最多可容纳 10 MB 图片。请移除一张图片后重试。",
+    "imageTooLarge": "此图片大小为 {{size}}。每张图片最大 {{limit}}，请选择更小的图片。",
+    "imageDesignFull": "此设计中的图片已达 {{used}}，而一个设计最多可容纳 {{limit}}。请移除一张图片或选择更小的图片。",
+    "imagesDoNotFit": "这些图片放不下：一个设计最多可容纳 {{limit}} 图片。请移除一张图片后重试。",
     "imageUnreadable": "Canopi 无法读取此图片。请尝试其他文件。",
     "imageResized": "Canopi 已缩小此图片以符合上限：{{from}} → {{to}}。",
     "imageShrinking": "正在缩小图片…",
@@ -2199,7 +2191,13 @@
     "downloadFailedMessage": "此草稿已不在此浏览器中，或无法读取。",
     "uncheckedReadOnly": "已以只读方式打开：Canopi 无法检查此浏览器的存储，因此此草稿可能不是最新的。请下载副本以保留它。",
     "keepDrafts": "保留我的草稿",
-    "keepDraftsMenu": "保留我的草稿…"
+    "keepDraftsMenu": "保留我的草稿…",
+    "storeBlockedTitle": "草稿正在等待其他标签页",
+    "storeBlockedMessage": "请关闭其他 Canopi 标签页以继续。",
+    "pendingWriteTitle": "最后一次更改可能缺失",
+    "pendingWriteMessage": "Canopi 在保存对“{{name}}”的最后一次更改前已关闭。请在继续前检查你的设计。",
+    "olderTabCopyTitle": "已从旧标签页复制",
+    "olderTabCopyMessage": "来自旧版 Canopi 标签页对“{{name}}”的更改已另存为单独的草稿。"
   },
   "webRelease": {
     "title": "新版本",
@@ -2264,5 +2262,39 @@
     "title": "Canopi 无法启动",
     "desktopHint": "您的系统可能版本过旧，无法运行此版本的 Canopi。请更新操作系统，然后重新打开 Canopi。",
     "webHint": "请重新加载页面。如果 Canopi 仍无法启动，此浏览器可能版本过旧：请更新浏览器或换用其他浏览器。"
+  },
+  "editionCapability": {
+    "needsDesktop": "需要 Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "无法以该文件名保存。请选择其他文件名或文件夹后重试。"
+  },
+  "geocoding": {
+    "credit": "由 {{service}} 提供搜索 · © OpenStreetMap 贡献者"
+  },
+  "inspector": {
+    "title": "编辑尺寸",
+    "close": "关闭",
+    "empty": "选择可编辑对象以编辑其尺寸。",
+    "dimensions": "尺寸",
+    "width": "宽度",
+    "height": "高度",
+    "length": "长度",
+    "rotation": "旋转",
+    "angle": "角度",
+    "centerLat": "中心纬度",
+    "centerLon": "中心经度",
+    "side": "边 {{index}}",
+    "cornerAngle": "角 {{index}}",
+    "style": "区域样式",
+    "fillColor": "填充颜色",
+    "strokeColor": "描边颜色",
+    "opacity": "不透明度",
+    "canopySpread": "冠幅",
+    "quantity": "数量",
+    "plantedDate": "种植日期",
+    "notes": "备注",
+    "noteText": "备注内容",
+    "fontSize": "字号"
   }
 }

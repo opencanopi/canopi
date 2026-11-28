@@ -8,10 +8,15 @@ import {
   type ToolHarness,
   type ToolHarnessOptions,
 } from '../../../../__tests__/support/tool-harness'
-import type { ScreenPoint } from '../../view/types'
+import type { ScreenPoint } from '../../../../geo/view/types'
+import { bearingCosSin } from '../../../../geo/view/navigation-policy'
 import { getEllipticalZonePolygon, getRectangularZoneCorners } from '../../zone-geometry'
 import { createToolScene } from '../spatial-index'
-import { ROTATE_HANDLE_ID, rotationReadout } from './rotate-handle'
+import { beginRotation, ROTATE_HANDLE_ID, rotationReadout } from './rotate-handle'
+import { selectionScreenHull } from './selection-hull'
+import type { ToolContext, ToolPoint, ToolScene, ToolView } from '../tool'
+import type { CanvasDesignObjectSelectionModel } from '../../runtime'
+import type { ScenePersistedState } from '../../scene/types'
 
 const harnesses: ToolHarness[] = []
 
@@ -38,10 +43,25 @@ function bedHarness(): ToolHarness {
 const PIVOT = { x: 70, y: 110 }
 const ROTATE = { kind: 'handle', id: ROTATE_HANDLE_ID } as const
 
-/** The screen point at `angleDeg` about the pivot, `radius` px away (the view is 1 px/m at the origin). */
-function aroundPivot(angleDeg: number, radius: number): ScreenPoint {
+/** The screen point at `angleDeg` about the world pivot, `radius` m away. */
+function aroundPivot(h: ToolHarness, angleDeg: number, radius: number): ScreenPoint {
   const radians = (angleDeg * Math.PI) / 180
-  return { x: PIVOT.x + Math.cos(radians) * radius, y: PIVOT.y + Math.sin(radians) * radius }
+  return h.screen({ x: PIVOT.x + Math.cos(radians) * radius, y: PIVOT.y + Math.sin(radians) * radius })
+}
+
+const BED_CORNERS = [{ x: 20, y: 80 }, { x: 120, y: 80 }, { x: 120, y: 140 }, { x: 20, y: 140 }] as const
+
+/** The handle's centre on screen, and where it belongs: centred 28 px above the screen box of the bed's four corners. */
+function bedHandlePlacement(h: ToolHarness): { readonly at: ScreenPoint; readonly expected: ScreenPoint } {
+  const view = h.view.view()
+  const handle = h.chrome.handles.find((entry) => entry.id === ROTATE_HANDLE_ID)!
+  const anchor = view.worldToScreen(handle.anchor)
+  const hull = view.worldQuadToScreen([...BED_CORNERS])
+  const xs = hull.map((corner) => corner.x)
+  return {
+    at: { x: anchor.x + handle.offsetPx!.x, y: anchor.y + handle.offsetPx!.y },
+    expected: { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: Math.min(...hull.map((corner) => corner.y)) - 28 },
+  }
 }
 
 describe('Select rotation handle', () => {
@@ -49,7 +69,7 @@ describe('Select rotation handle', () => {
     const h = bedHarness()
 
     expect(h.chrome.handles.find((handle) => handle.id === ROTATE_HANDLE_ID)).toMatchObject({
-      anchor: { x: 70, y: 80 },
+      anchor: { x: expect.closeTo(70, 9), y: expect.closeTo(80, 9) },
       offsetPx: { x: 0, y: -28 },
       hitRadiusPx: 14,
       glyph: 'rotate',
@@ -68,7 +88,7 @@ describe('Select rotation handle', () => {
       shape.kind === 'label' && shape.tone === 'measure-quiet' ? [shape] : [])
 
     expect(chips()[0]).toMatchObject({ anchor: { x: 200, y: 100 }, beside: { normalPx: { x: 0, y: -1 }, gapPx: 6 } })
-    expect(handle()).toMatchObject({ anchor: { x: 200, y: 100 }, offsetPx: { x: 0, y: -48 } })
+    expect(handle()).toMatchObject({ anchor: { x: expect.closeTo(200, 9), y: expect.closeTo(100, 9) }, offsetPx: { x: 0, y: -48 } })
 
     // At a fifth of the scale the edges are under 52 px: no dots, every chip on its edge, and the handle back at 28 px.
     h.view.setViewport({ x: 0, y: 0, scale: 0.2 })
@@ -80,23 +100,11 @@ describe('Select rotation handle', () => {
     vi.useFakeTimers()
     const h = harness({
       camera: { bearingDeg: 45 },
-      scene: { zones: [rectZone('bed', [{ x: 20, y: 80 }, { x: 120, y: 80 }, { x: 120, y: 140 }, { x: 20, y: 140 }])] },
+      scene: { zones: [rectZone('bed', [...BED_CORNERS])] },
     })
     h.select({ kind: 'zone', id: 'bed' })
-    /** The handle's centre on screen, and where it belongs: centred 28 px above the screen box of the bed's four corners. */
-    const placement = () => {
-      const view = h.view.view()
-      const handle = h.chrome.handles.find((entry) => entry.id === ROTATE_HANDLE_ID)!
-      const anchor = view.worldToScreen(handle.anchor)
-      const hull = view.worldQuadToScreen([{ x: 20, y: 80 }, { x: 120, y: 80 }, { x: 120, y: 140 }, { x: 20, y: 140 }])
-      const xs = hull.map((corner) => corner.x)
-      return {
-        at: { x: anchor.x + handle.offsetPx!.x, y: anchor.y + handle.offsetPx!.y },
-        expected: { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: Math.min(...hull.map((corner) => corner.y)) - 28 },
-      }
-    }
 
-    let { at, expected } = placement()
+    let { at, expected } = bedHandlePlacement(h)
     expect(at.x).toBeCloseTo(expected.x, 6)
     expect(at.y).toBeCloseTo(expected.y, 6)
 
@@ -105,7 +113,7 @@ describe('Select rotation handle', () => {
     h.view.navigation.rotateBy(1)
     vi.advanceTimersByTime(400)
     expect(h.view.view().camera.bearingDeg).toBe(60);
-    ({ at, expected } = placement())
+    ({ at, expected } = bedHandlePlacement(h))
     expect(at.x).toBeCloseTo(expected.x, 6)
     expect(at.y).toBeCloseTo(expected.y, 6)
   })
@@ -114,20 +122,9 @@ describe('Select rotation handle', () => {
     vi.useFakeTimers()
     const h = harness({
       camera: { bearingDeg: 45 },
-      scene: { zones: [rectZone('bed', [{ x: 20, y: 80 }, { x: 120, y: 80 }, { x: 120, y: 140 }, { x: 20, y: 140 }])] },
+      scene: { zones: [rectZone('bed', [...BED_CORNERS])] },
     })
     h.select({ kind: 'zone', id: 'bed' })
-    const placement = () => {
-      const view = h.view.view()
-      const handle = h.chrome.handles.find((entry) => entry.id === ROTATE_HANDLE_ID)!
-      const anchor = view.worldToScreen(handle.anchor)
-      const hull = view.worldQuadToScreen([{ x: 20, y: 80 }, { x: 120, y: 80 }, { x: 120, y: 140 }, { x: 20, y: 140 }])
-      const xs = hull.map((corner) => corner.x)
-      return {
-        at: { x: anchor.x + handle.offsetPx!.x, y: anchor.y + handle.offsetPx!.y },
-        expected: { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: Math.min(...hull.map((corner) => corner.y)) - 28 },
-      }
-    }
 
     // A Shift band from an empty corner of the map, held mid-drag.
     h.press({ x: 390, y: 290 }, { mods: { shift: true } })
@@ -135,7 +132,7 @@ describe('Select rotation handle', () => {
     h.view.navigation.rotateBy(1)
     vi.advanceTimersByTime(400)
     expect(h.view.view().camera.bearingDeg).toBe(60)
-    const { at, expected } = placement()
+    const { at, expected } = bedHandlePlacement(h)
     expect(at.x).toBeCloseTo(expected.x, 6)
     expect(at.y).toBeCloseTo(expected.y, 6)
     h.release({ x: 360, y: 260 }, { shift: true })
@@ -182,8 +179,8 @@ describe('Select rotation handle', () => {
       const h = harness({ camera: { bearingDeg: 45 }, scene: { zones: [bed] } })
       h.select({ kind: 'zone', id: 'bed' })
       const corners = getRectangularZoneCorners(bed)!.map((corner) => h.view.view().worldToScreen(corner))
-      // Level on screen: its top edge is one height.
-      expect(corners.map((corner) => corner.y).sort((a, b) => a - b)[1]).toBeCloseTo(Math.min(...corners.map((c) => c.y)), 6)
+      // Level on screen (within WGS84 ellipsoid flattening, sub-pixel vs the ~85 px world box).
+      expect(corners.map((corner) => corner.y).sort((a, b) => a - b)[1]!).toBeCloseTo(Math.min(...corners.map((c) => c.y)), 0)
 
       const at = handleCentre(h)
       const expected = above(corners)
@@ -224,10 +221,12 @@ describe('Select rotation handle', () => {
     const h = harness({ scene: { measurementGuides: [measurementGuide('guide', { x: 20, y: 110 }, { x: 120, y: 110 })] } })
     h.select({ kind: 'measurement-guide', id: 'guide' })
 
-    expect(h.chrome.handles.find((handle) => handle.id === ROTATE_HANDLE_ID)).toMatchObject({ anchor: { x: 70, y: 110 } })
-    h.press({ x: 70, y: 82 }, { target: ROTATE })
-    h.move(aroundPivot(0, 28))
-    h.release(aroundPivot(0, 28))
+    expect(h.chrome.handles.find((handle) => handle.id === ROTATE_HANDLE_ID)).toMatchObject({
+      anchor: { x: expect.closeTo(70, 9), y: expect.closeTo(110, 9) },
+    })
+    h.press(aroundPivot(h, -90, 28), { target: ROTATE })
+    h.move(aroundPivot(h, 0, 28))
+    h.release(aroundPivot(h, 0, 28))
 
     const guide = h.store.persisted.measurementGuides[0]!
     expect(guide.start.x).toBeCloseTo(70)
@@ -239,18 +238,19 @@ describe('Select rotation handle', () => {
   it('Shift steps 15 degrees from the press angle', () => {
     const h = bedHarness()
     // A press off the handle's centre, so the press angle is no multiple of 15.
-    const pressAngle = Math.atan2(52 - PIVOT.y, 78 - PIVOT.x) * 180 / Math.PI
+    const pressWorld = { x: 78, y: 52 }
+    const pressAngle = Math.atan2(pressWorld.y - PIVOT.y, pressWorld.x - PIVOT.x) * 180 / Math.PI
     expect(pressAngle % 15).not.toBeCloseTo(0)
 
-    h.press({ x: 78, y: 52 }, { target: ROTATE })
-    h.move(aroundPivot(pressAngle + 22, 58), { shift: true })
+    h.press(h.screen(pressWorld), { target: ROTATE })
+    h.move(aroundPivot(h, pressAngle + 22, 58), { shift: true })
     // Relative steps: 22 degrees turned is 15, whatever the absolute angle.
     expect(h.store.persisted.zones[0]!.rotationDeg).toBe(15)
-    h.move(aroundPivot(pressAngle + 38, 58), { shift: true })
+    h.move(aroundPivot(h, pressAngle + 38, 58), { shift: true })
     expect(h.store.persisted.zones[0]!.rotationDeg).toBe(45)
-    h.move(aroundPivot(pressAngle + 22, 58))
+    h.move(aroundPivot(h, pressAngle + 22, 58))
     expect(h.store.persisted.zones[0]!.rotationDeg).toBeCloseTo(22)
-    h.release(aroundPivot(pressAngle + 22, 58))
+    h.release(aroundPivot(h, pressAngle + 22, 58))
 
     expect(h.store.persisted.zones[0]!.rotationDeg).toBeCloseTo(22)
     expect(h.undo()).toBe(true)
@@ -260,11 +260,11 @@ describe('Select rotation handle', () => {
 
   it('the handle reads 0° at its press, then hides with the others while the turn changes the scene', () => {
     const h = bedHarness()
-    h.press({ x: 70, y: 52 }, { target: ROTATE })
+    h.press(aroundPivot(h, -90, 58), { target: ROTATE })
     expect(h.chrome.activeHandle).toBe(ROTATE_HANDLE_ID)
     expect(h.chrome.handles.find((handle) => handle.id === ROTATE_HANDLE_ID)?.readout).toBe('0°')
 
-    h.move(aroundPivot(0, 58))
+    h.move(aroundPivot(h, 0, 58))
     expect(h.store.persisted.zones[0]!.rotationDeg).toBeCloseTo(90)
     expect(h.chrome.handles).toEqual([])
 
@@ -289,5 +289,80 @@ describe('Select rotation handle', () => {
 
     expect(h.store.persisted.zones[0]!.rotationDeg).toBe(0)
     expect(h.history.canUndo.value).toBe(false)
+  })
+
+  it('pivots rotation on the centre of the screen-aligned box on a turned map (2.1-Q89)', () => {
+    // Match geo/view/camera-math.ts screenToPlaneAxes: screen right = (cos, sin), down = (-sin, cos).
+    const [c, s] = bearingCosSin(45)
+    const worldToScreen = (p: { readonly x: number; readonly y: number }) => ({ x: p.x * c + p.y * s, y: -p.x * s + p.y * c })
+    const screenToWorld = (p: { readonly x: number; readonly y: number }) => ({ x: p.x * c - p.y * s, y: p.x * s + p.y * c })
+    const view = {
+      bearingDeg: 45,
+      zoom: 18,
+      mode: 'site',
+      worldToScreen,
+      screenToWorld,
+      worldDeltaToScreen: worldToScreen,
+      screenDeltaToWorld: screenToWorld,
+      screenAxesInWorld: () => ({ right: screenToWorld({ x: 1, y: 0 }), down: screenToWorld({ x: 0, y: 1 }) }),
+      metresPerPixelAt: () => 1,
+      screenDistance: (a: { readonly x: number; readonly y: number }, b: { readonly x: number; readonly y: number }) =>
+        Math.hypot(worldToScreen(a).x - worldToScreen(b).x, worldToScreen(a).y - worldToScreen(b).y),
+      clampToView: (p: { readonly x: number; readonly y: number }) => p,
+    } as unknown as ToolView
+    // Asymmetric L-shape (not symmetric about the diagonal) so a sign error would land on a different pivot.
+    const zone = {
+      id: 'z-1',
+      layer_id: 'zones',
+      name: 'L-bed',
+      zone_type: 'polygon',
+      points: [{ x: 0, y: 0 }, { x: 12, y: 0 }, { x: 12, y: 2 }, { x: 2, y: 2 }, { x: 2, y: 8 }, { x: 0, y: 8 }],
+      rotation: 0,
+      locked: false,
+    }
+    const sceneState = {
+      plants: [],
+      zones: [zone],
+      annotations: [],
+      measurement_guides: [],
+      groups: [],
+      layers: [{ id: 'zones', name: 'zones', visible: true, locked: false, opacity: 1 }],
+    } as unknown as ScenePersistedState
+    const selection: CanvasDesignObjectSelectionModel = {
+      targets: [{ kind: 'zone', id: 'z-1' }],
+      editableTargets: [{ kind: 'zone', id: 'z-1' }],
+      lockedTargets: [],
+      blockedTargets: [],
+      bounds: { minX: 0, minY: 0, maxX: 12, maxY: 8 },
+      hasLocked: false,
+      allLocked: false,
+    } as unknown as CanvasDesignObjectSelectionModel
+    const scene = {
+      persisted: sceneState,
+      state: () => sceneState,
+      selection: () => selection.editableTargets,
+      selectionModel: () => selection,
+    } as unknown as ToolScene
+    const hull = selectionScreenHull(scene, selection, view)!
+    expect(hull).not.toBeNull()
+    const screenBoxCenter = { x: (hull[0].x + hull[2].x) / 2, y: (hull[0].y + hull[2].y) / 2 }
+    expect(Math.hypot(screenBoxCenter.x - 6, screenBoxCenter.y - 4)).toBeGreaterThan(0.5)
+    const ctx = {
+      scene,
+      view,
+      effects: { edits: { begin: vi.fn(() => ({ mutate: vi.fn(), commit: vi.fn(), abort: vi.fn(), changed: false })) } },
+    } as unknown as ToolContext
+    const start = {
+      world: { x: 10, y: 10 },
+      free: { x: 10, y: 10 },
+      constrained: { x: 10, y: 10 },
+      snapped: { x: 10, y: 10 },
+      modifiers: { additive: false, subtractive: false, constrain: false, noSnap: false },
+      pointer: 'mouse',
+    } as ToolPoint
+    const drag = beginRotation(ctx, sceneState, start)
+    expect(drag).not.toBeNull()
+    expect(drag!.pivot.x).toBeCloseTo(screenBoxCenter.x, 6)
+    expect(drag!.pivot.y).toBeCloseTo(screenBoxCenter.y, 6)
   })
 })

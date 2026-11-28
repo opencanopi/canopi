@@ -2,7 +2,7 @@ import {
   CURRENT_CANOPI_FILE_VERSION,
   type CanopiDesignIngestionErrorKind,
 } from '../../generated/canopi-design-format'
-import type { DesignLoadFailure, DesignLoadFailureKind } from '../../types/design'
+import type { DesignLoadFailure, DesignLoadFailureKind, FormatRefusal } from '../../generated/contracts'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 export class CanopiDesignIngestionError extends Error {
@@ -11,18 +11,14 @@ export class CanopiDesignIngestionError extends Error {
     message: string,
     /** The file's version when `kind` is `unsupported_version`. */
     readonly unsupportedVersion: number | null = null,
+    /** Exact `DesignLoadFailureKind` when preserved from Format Core (`too_large`, `invalid_json`, etc.). */
+    readonly loadFailureKind: DesignLoadFailureKind | null = null,
+    /** Optional JSON path of the refused field (kept for diagnostics only, 2.1-Q286). */
+    readonly fieldPath: string | null = null,
   ) {
     super(message)
     this.name = 'CanopiDesignIngestionError'
   }
-}
-
-export function asCanopiDesignIngestionError(error: unknown): CanopiDesignIngestionError {
-  if (error instanceof CanopiDesignIngestionError) return error
-  return new CanopiDesignIngestionError(
-    'invalid_document',
-    error instanceof Error ? error.message : String(error),
-  )
 }
 
 /** Every kind once: the compiler refuses a kind added to the contract and not here. */
@@ -34,6 +30,7 @@ const DESIGN_LOAD_FAILURE_KINDS = {
   older_version: true,
   newer_version: true,
   invalid_document: true,
+  migration_failed: true,
   internal: true,
 } as const satisfies Record<DesignLoadFailureKind, true>
 
@@ -52,10 +49,17 @@ function isDesignLoadFailureKind(kind: unknown): kind is DesignLoadFailureKind {
 export function designLoadFailureOf(error: unknown): DesignLoadFailure | null {
   if (error instanceof CanopiDesignIngestionError) {
     const newer = error.unsupportedVersion !== null && error.unsupportedVersion > CURRENT_CANOPI_FILE_VERSION
+    if (error.loadFailureKind !== null) {
+      return error.fieldPath !== null
+        ? { kind: error.loadFailureKind, message: error.message, field_path: error.fieldPath }
+        : { kind: error.loadFailureKind, message: error.message }
+    }
     if (error.kind === 'unsupported_version') {
       return { kind: newer ? 'newer_version' : 'older_version', message: error.message, field_path: '$.version' }
     }
-    return { kind: 'invalid_document', message: error.message }
+    return error.fieldPath !== null
+      ? { kind: 'invalid_document', message: error.message, field_path: error.fieldPath }
+      : { kind: 'invalid_document', message: error.message }
   }
   if (
     error !== null
@@ -84,10 +88,54 @@ export function designLoadFailureMessageKey(kind: DesignLoadFailureKind): Locale
       return 'start.cantReadNewerVersion'
     case 'invalid_json':
     case 'invalid_document':
+    case 'migration_failed':
       return 'start.cantReadDamaged'
     case 'unreadable':
     case 'too_large':
     case 'internal':
       return 'start.cantRead'
   }
+}
+
+/** Map a Format Core refusal (`canopi-format` / Wasm) to a typed `CanopiDesignIngestionError`. */
+export function ingestionErrorFromFormatRefusal(
+  refusal: FormatRefusal,
+  rawVersion?: unknown,
+): CanopiDesignIngestionError {
+  const kind = refusal.kind
+  if (kind === 'older_version') {
+    return new CanopiDesignIngestionError(
+      'unsupported_version',
+      refusal.message,
+      typeof rawVersion === 'number' ? rawVersion : CURRENT_CANOPI_FILE_VERSION - 1,
+      'older_version',
+      refusal.field_path ?? '$.version',
+    )
+  }
+  if (kind === 'newer_version') {
+    return new CanopiDesignIngestionError(
+      'unsupported_version',
+      refusal.message,
+      typeof rawVersion === 'number' ? rawVersion : CURRENT_CANOPI_FILE_VERSION + 1,
+      'newer_version',
+      refusal.field_path ?? '$.version',
+    )
+  }
+  const errorKind: CanopiDesignIngestionErrorKind =
+    refusal.field_path === '$.version' ? 'invalid_version' : 'invalid_document'
+  const loadFailureKind: DesignLoadFailureKind =
+    kind === 'too_large'
+      ? 'too_large'
+      : kind === 'invalid_json'
+        ? 'invalid_json'
+        : kind === 'migration_failed'
+          ? 'migration_failed'
+          : 'invalid_document'
+  return new CanopiDesignIngestionError(
+    errorKind,
+    refusal.message,
+    null,
+    loadFailureKind,
+    refusal.field_path ?? null,
+  )
 }

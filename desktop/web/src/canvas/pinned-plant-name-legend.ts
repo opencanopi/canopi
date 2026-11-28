@@ -2,10 +2,11 @@ import { resolvePlantSymbolForPlant, type PlantSymbolId, type ScenePersistedStat
 import type { PlantDisplay } from './runtime/plant-display'
 import { resolvePlantDisplayColor } from './runtime/plant-presentation'
 import { isPlantLayerShown } from './runtime/scene-visuals'
-import type { SpeciesCacheEntry } from './runtime/species-cache'
+import { compareSpeciesByShownName } from '../utils/species-sort'
 
 export interface PinnedPlantNameLegendEntry {
   readonly label: string
+  readonly canonicalName?: string
   readonly color: string
   readonly symbol: PlantSymbolId
   readonly count: number
@@ -14,27 +15,26 @@ export interface PinnedPlantNameLegendEntry {
 export interface PinnedPlantNameLegendSource {
   getSceneSnapshot(): ScenePersistedState
   getLocalizedCommonNames(): ReadonlyMap<string, string | null>
-  getSpeciesCache(): ReadonlyMap<string, SpeciesCacheEntry>
 }
 
 export function buildPinnedPlantNameLegendEntries(
   source: PinnedPlantNameLegendSource,
   display: PlantDisplay,
+  locale: string,
 ): PinnedPlantNameLegendEntry[] {
   const scene = source.getSceneSnapshot()
   // The canvas draws no plant, so no pinned name, on a hidden or fully transparent Plants layer (canopi-knon).
   if (!isPlantLayerShown(scene)) return []
 
   const localizedNames = source.getLocalizedCommonNames()
-  const speciesCache = source.getSpeciesCache()
   const groups = new Map<string, PinnedPlantNameLegendEntry>()
 
   for (const plant of scene.plants) {
     if (plant.pinnedName !== true) continue
 
-    const label = localizedNames.get(plant.canonicalName) ?? plant.commonName ?? plant.canonicalName
-    // The canvas's colour: a plant without its own takes its stratum's from the species entries the runtime loaded.
-    const color = resolvePlantDisplayColor(plant, speciesCache, display)
+    const label = localizedNames.get(plant.canonicalName) || plant.commonName || plant.canonicalName
+    // The canvas's colour under the current plant display.
+    const color = resolvePlantDisplayColor(plant, display)
     const symbol = resolvePlantSymbolForPlant(plant, scene.plantSpeciesSymbols)
     const key = `${label}\u0000${symbol}\u0000${color}`
     const existing = groups.get(key)
@@ -44,18 +44,23 @@ export function buildPinnedPlantNameLegendEntries(
       continue
     }
 
-    groups.set(key, { label, color, symbol, count: 1 })
+    groups.set(key, { label, canonicalName: plant.canonicalName, color, symbol, count: 1 })
   }
 
-  return [...groups.values()].sort(comparePinnedPlantNameLegendEntries)
+  return [...groups.values()].sort((left, right) => comparePinnedPlantNameLegendEntries(left, right, locale))
 }
 
 function comparePinnedPlantNameLegendEntries(
   left: PinnedPlantNameLegendEntry,
   right: PinnedPlantNameLegendEntry,
+  locale: string,
 ): number {
   return (
-    left.label.localeCompare(right.label)
+    compareSpeciesByShownName(
+      { shownName: left.label, canonicalName: left.canonicalName ?? left.label },
+      { shownName: right.label, canonicalName: right.canonicalName ?? right.label },
+      locale,
+    )
     || left.symbol.localeCompare(right.symbol)
     || left.color.localeCompare(right.color)
   )

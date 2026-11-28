@@ -2,9 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene'
 import { hoveredPanelTargets, selectedPanelTargets } from '../app/panel-targets/state'
 import { currentCanvasSelection } from '../canvas/session-state'
-import { createPanelTargetMapOverlayContract } from '../maplibre/panel-target-overlays'
 import { targets, speciesTarget } from '../target'
-import { projectTargetResolutionToMapFeatures } from '../target/map-projection'
 
 function createScene() {
   const scene = createDefaultScenePersistedState()
@@ -38,12 +36,8 @@ describe('panel target bridge authority', () => {
     const targetList = [speciesTarget('Malus domestica')]
 
     const resolved = targets.resolve(targetList, targets.indexScene(scene))
-    const projection = projectTargetResolutionToMapFeatures(resolved, { lat: 48.8566, lon: 2.3522 })
-    const overlay = createPanelTargetMapOverlayContract('selection', projection)
 
     expect(resolved.plantIds).toEqual(['plant-1'])
-    // Plants are ringed by the canvas at their drawn size; the map overlay draws zones only (canopi-rg4q).
-    expect(overlay.hasRenderableFeatures).toBe(false)
 
     expect(currentCanvasSelection.value).toEqual(selectionBefore)
     expect(hoveredPanelTargets.value).toEqual([speciesTarget('Malus domestica')])

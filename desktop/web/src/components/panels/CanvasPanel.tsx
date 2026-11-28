@@ -1,21 +1,19 @@
-import { useRef, useState } from 'preact/hooks'
+import { useRef } from 'preact/hooks'
 import { t } from '../../i18n'
-import { useCanvasDocumentSession } from '../../app/document-session/use-canvas-document-session'
-import {
-  IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-  type MapLibreCanvasSurfaceState,
-} from '../../maplibre/canvas-surface-state'
+import { useCanvasHost } from '../../app/canvas-map-surface/use-canvas-host'
 import { WelcomeScreen } from '../shared/WelcomeScreen'
-import { hasVisibleMapLayer } from '../../app/map-layers/state'
+import { hasVisibleMapLayer } from '../../app/settings/state'
 import { presentedMapLayers } from '../../app/story-presentation/overrides'
 import { getMapNoticeReadModel } from '../../app/canvas-map-surface/map-notice'
 import { useDesignReveal } from '../../app/canvas-map-surface/design-reveal'
 import { currentDesign } from '../../app/document-session/store'
 import { appCommandGraphToolbarProjection } from '../../commands/registry'
-import { profileLineMenu } from '../../app/lidar/profile'
+import { profileLineMenu } from '../../app/data-library/profile'
 import { CanvasChrome } from '../canvas/CanvasChrome'
 import { MapNotice } from '../canvas/MapNotice'
+import { MyLocationButton } from '../canvas/MyLocationButton'
 import { StampChooser } from '../canvas/StampChooser'
+import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
 import { useMapArea } from '../shared/useMapChrome'
 import styles from './Panels.module.css'
 
@@ -23,24 +21,18 @@ import styles from './Panels.module.css'
 export function CanvasPanel() {
   const canvasAreaRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-  const [basemapState, setBasemapState] = useState<MapLibreCanvasSurfaceState>(
-    () => IDLE_MAPLIBRE_CANVAS_SURFACE_STATE,
-  )
 
   useMapArea(canvasAreaRef)
-  const { retryMap } = useCanvasDocumentSession({
-    canvasAreaRef,
-    containerRef,
-    onMapStateChange: setBasemapState,
-  })
+  const host = useCanvasHost(containerRef)
+  const surface = host.surface.value
 
   const hasDesign = currentDesign.value !== null
-  const reveal = useDesignReveal(hasDesign, basemapState)
+  const reveal = useDesignReveal(hasDesign, surface)
   const mapNotice = getMapNoticeReadModel({
     hasDesign,
     // The map the workspace draws: a presented story step's layers, else the user's own.
     mapVisible: hasVisibleMapLayer(presentedMapLayers()),
-    mapSurface: basemapState,
+    surface,
     t,
   })
 
@@ -60,10 +52,17 @@ export function CanvasPanel() {
             projection={appCommandGraphToolbarProjection.value}
             canvasRef={containerRef}
             stampChooser={StampChooser}
+            {...(hasEditionPorts() && editionPorts().capabilities.has('my-location') ? { myLocation: MyLocationButton } : {})}
             profileLine={profileLineMenu}
           />
         )}
-        <MapNotice notice={mapNotice} onRetry={retryMap} canvasRef={containerRef} />
+        <MapNotice
+          notice={mapNotice}
+          onRetry={() => {
+            if (!host.retryMap()) host.retryLayer('background')
+          }}
+          canvasRef={containerRef}
+        />
         {reveal.startScreen && <WelcomeScreen />}
       </div>
     </div>

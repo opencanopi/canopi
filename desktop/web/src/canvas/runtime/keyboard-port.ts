@@ -8,10 +8,10 @@
 // outcome. It never touches a DOM event: the router acts on its answers.
 
 import type { ToolHost } from './interaction-ports'
-import type { Modifiers, ToolId } from './interaction-types'
+import type { Modifiers } from './interaction-types'
 import type { CanvasEscapeLayer, CanvasKeyboardPort, CanvasKeyCommand, CanvasKeyState, CanvasKeyVerdict } from './runtime'
-import type { ViewNavigation } from './view/navigation'
-import type { ScreenPoint } from './view/types'
+import type { ViewNavigation } from '../../geo/view/navigation'
+import type { ScreenPoint } from '../../geo/view/types'
 
 /** Arrow-key pan steps with nothing selected, in screen pixels. */
 const ARROW_PAN_STEP_PX = 64
@@ -51,8 +51,8 @@ interface CanvasKeySession {
   keyState(state: { readonly space: boolean; readonly mods: Modifiers }): void
   /** Esc with a pointer session live: the recogniser's 'escape' cancels it and releases Space. */
   escapeGesture(): void
-  /** The Esc layer 'tool' leaves the armed tool for Select (the runtime's setTool, as a tool's own request). */
-  requestTool(id: ToolId): void
+  /** The Esc layer 'tool' leaves the armed tool for Select, settling any pending map-input request as `'escape'`. */
+  escapeTool(): void
   /** The Esc layer 'selection': an empty selection, history-free, redrawn. */
   clearSelection(): void
 }
@@ -103,11 +103,13 @@ export function createCanvasKeyboardPort(deps: CanvasKeyboardPortDeps): CanvasKe
   function escapeLayers(): readonly CanvasEscapeLayer[] {
     if (session.overview()) return session.pointerSessionLive() || toolHost.hasNudgeSeries() ? ['gesture'] : []
     const layers: CanvasEscapeLayer[] = []
-    if (session.pointerSessionLive()) layers.push('gesture')
-    if (toolHost.hasNudgeSeries()) layers.push('nudge-series')
-    if (toolHost.activeToolHasEscapeTransient()) layers.push('tool-transient')
-    if (!toolHost.activeToolIsSelect()) layers.push('tool')
-    if (deps.hasSelection()) layers.push('selection')
+    for (const step of toolHost.activeToolEscSteps()) {
+      if (step === 'gesture' && session.pointerSessionLive()) layers.push('gesture')
+      else if (step === 'nudge-series' && toolHost.hasNudgeSeries()) layers.push('nudge-series')
+      else if (step === 'tool-transient' && toolHost.activeToolHasEscapeTransient()) layers.push('tool-transient')
+      else if (step === 'tool' && !toolHost.activeToolIsSelect()) layers.push('tool')
+      else if (step === 'selection' && deps.hasSelection()) layers.push('selection')
+    }
     return layers
   }
 
@@ -127,7 +129,7 @@ export function createCanvasKeyboardPort(deps: CanvasKeyboardPortDeps): CanvasKe
           toolHost.command({ kind: 'escape' })
           return
         case 'tool':
-          session.requestTool('select')
+          session.escapeTool()
           return
         case 'selection':
           session.clearSelection()

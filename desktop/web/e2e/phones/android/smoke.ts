@@ -46,7 +46,7 @@ async function smoke(page: Page, layout: 'phone' | 'tablet'): Promise<void> {
   await startScreen.waitFor({ state: 'hidden' })
   const shell = page.getByTestId('browser-app-shell')
   await shell.waitFor()
-  const phoneLayout = await shell.getAttribute('data-phone-layout')
+  const phoneLayout = await shell.getAttribute('data-layout')
   const expected = layout === 'phone' ? 'portrait' : null
   if (phoneLayout !== expected) {
     const size = await page.evaluate(() => `${window.innerWidth}x${window.innerHeight}`)

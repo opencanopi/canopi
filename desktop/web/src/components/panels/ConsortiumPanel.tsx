@@ -7,7 +7,7 @@ import {
   CONSORTIUM_STRATA,
   CONSORTIUM_SUCCESSION_PHASES,
   type SuccessionPhaseDefinition,
-} from '../../app/consortium/time-model'
+} from '../../planning/time-model'
 import type { ConsortiumListFilter } from '../../app/planning-view/state'
 import type { ConsortiumPlanningRow } from '../../app/planning-projection'
 import { navigateTo } from '../../app/shell/state'

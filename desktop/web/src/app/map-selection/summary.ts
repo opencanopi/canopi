@@ -1,6 +1,6 @@
 import { useMemo } from 'preact/hooks'
 import { currentCanvasQuerySurface, currentCanvasSelection } from '../../canvas/session'
-import { nearestPlantSpacing } from '../../canvas/plant-spacing'
+import { nearestPlantNeighbour, nearestPlantSpacing } from '../../canvas/plant-spacing'
 import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
 import { measureZone } from '../../canvas/runtime/zone-geometry'
 import { zoneDisplayName } from '../../canvas/runtime/zone-identity'
@@ -114,9 +114,10 @@ export function readMapSelectionSummary(queries: CanvasQuerySurface | null): Map
     })
   }
 
+  const plane = queries.sessionPlane.peek() ?? undefined
   const selectedPlants = plantCount >= 2 ? scene.plants.filter((plant) => plantIds.has(plant.id)) : []
   const zones = scene.zones.filter((zone) => zoneIds.has(zone.id)).map((zone): MapSelectionZone => {
-    const measure = measureZone(zone)
+    const measure = plane ? measureZone(zone, plane) : null
     return {
       name: zoneDisplayName(zone),
       zoneType: zone.zoneType,
@@ -131,20 +132,31 @@ export function readMapSelectionSummary(queries: CanvasQuerySurface | null): Map
   return {
     plantCount,
     species,
-    plantSpacingM: meanNearestSpacing(selectedPlants),
+    plantSpacingM: meanNearestSpacing(selectedPlants, plane),
     zones,
     noteCount: notes.length,
     noteText: notes.length === 1 ? notes[0]!.text : null,
     measurementCount: measurements.length,
-    measurementLengthM: measurements.length === 1 && guide ? Math.hypot(guide.end.x - guide.start.x, guide.end.y - guide.start.y) : null,
+    measurementLengthM: measurements.length === 1 && guide
+      ? (plane ? plane.groundLength(guide.start, guide.end) : Math.hypot(guide.end.x - guide.start.x, guide.end.y - guide.start.y))
+      : null,
   }
 }
 
-function meanNearestSpacing(plants: readonly { readonly position: { readonly x: number; readonly y: number } }[]): number | null {
+function meanNearestSpacing(
+  plants: readonly { readonly position: { readonly x: number; readonly y: number } }[],
+  measure?: { groundLength(a: { readonly x: number; readonly y: number }, b: { readonly x: number; readonly y: number }): number },
+): number | null {
   let total = 0
   let counted = 0
   for (const plant of plants) {
-    const spacing = nearestPlantSpacing(plants, plant.position)
+    let spacing = Infinity
+    if (measure) {
+      const neighbour = nearestPlantNeighbour(plants, plant.position)
+      if (neighbour) spacing = measure.groundLength(plant.position, neighbour)
+    } else {
+      spacing = nearestPlantSpacing(plants, plant.position)
+    }
     if (!Number.isFinite(spacing)) continue
     total += spacing
     counted += 1

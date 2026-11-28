@@ -1,4 +1,5 @@
 import { t } from '../../i18n'
+import type { UnitSystem } from '../../utils/format'
 import { textGraphemes } from '../../utils/text-graphemes'
 import type { MapSelectionSummary } from './summary'
 import { formatArea, formatLength, zoneTypeLabel } from './zone-label'
@@ -24,7 +25,11 @@ export interface MapSelectionDescription {
   readonly details: readonly ChipDetail[]
 }
 
-export function describeMapSelection(summary: MapSelectionSummary, activeLocale: string): MapSelectionDescription {
+export function describeMapSelection(
+  summary: MapSelectionSummary,
+  activeLocale: string,
+  system: UnitSystem = 'metric',
+): MapSelectionDescription {
   const { plantCount, species, zones, noteCount, measurementCount } = summary
   const zoneCount = zones.length
   const kinds = [plantCount, zoneCount, noteCount, measurementCount].filter((count) => count > 0).length
@@ -50,7 +55,7 @@ export function describeMapSelection(summary: MapSelectionSummary, activeLocale:
         species.length === 1
           ? { text: species[0]!.name, englishFallback: species[0]!.englishFallback }
           : plain(t('canvas.selectionChip.species', { count: species.length })),
-        ...(spacing === null ? [] : [measure(t('canvas.selectionChip.apart', { distance: formatLength(spacing, activeLocale) }))]),
+        ...(spacing === null ? [] : [measure(t('canvas.selectionChip.apart', { distance: formatLength(spacing, activeLocale, system) }))]),
       ],
     }
   }
@@ -62,8 +67,8 @@ export function describeMapSelection(summary: MapSelectionSummary, activeLocale:
       head,
       details: [
         ...(zone.name === null ? [] : [plain(zone.name)]),
-        ...(zone.areaM2 === null ? [] : [measure(formatArea(zone.areaM2, activeLocale))]),
-        ...(zone.perimeterM === null ? [] : [measure(formatLength(zone.perimeterM, activeLocale))]),
+        ...(zone.areaM2 === null ? [] : [measure(formatArea(zone.areaM2, activeLocale, system))]),
+        ...(zone.perimeterM === null ? [] : [measure(formatLength(zone.perimeterM, activeLocale, system))]),
       ],
     }
   }
@@ -74,7 +79,7 @@ export function describeMapSelection(summary: MapSelectionSummary, activeLocale:
   }
   if (noteCount > 0) return { head: t('canvas.selectionChip.notes', { count: noteCount }), details: [] }
   if (measurementCount === 1 && summary.measurementLengthM !== null) {
-    return { head: t('canvas.selectionChip.measurement'), details: [measure(formatLength(summary.measurementLengthM, activeLocale))] }
+    return { head: t('canvas.selectionChip.measurement'), details: [measure(formatLength(summary.measurementLengthM, activeLocale, system))] }
   }
   return { head: t('canvas.selectionChip.measurements', { count: measurementCount }), details: [] }
 }
@@ -87,8 +92,8 @@ function notePreview(text: string): string {
 }
 
 /** One line naming the selection, as the chip reads it; an English fallback name carries its mark. */
-export function mapSelectionHeading(summary: MapSelectionSummary, activeLocale: string): string {
-  const { head, headEnglishFallback, details } = describeMapSelection(summary, activeLocale)
+export function mapSelectionHeading(summary: MapSelectionSummary, activeLocale: string, system: UnitSystem = 'metric'): string {
+  const { head, headEnglishFallback, details } = describeMapSelection(summary, activeLocale, system)
   const marked = (text: string, english: boolean | undefined) => english ? `${text} ${t('speciesName.englishMark')}` : text
   return [marked(head, headEnglishFallback), ...details.map((detail) => marked(detail.text, detail.englishFallback))].join(' · ')
 }

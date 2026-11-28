@@ -1,22 +1,17 @@
 import { effect, signal } from '@preact/signals'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { designSessionFixture } from '../../../__tests__/support/design-session-state'
 import type { CanopiFile } from '../../../types/design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
 import { geoAt, hydratedScene } from '../../../__tests__/support/geo-design'
 import { currentCanvasSelection } from '../../session-state'
+import type { CanvasRuntimeSceneSessionAdapter } from '../app-adapter'
 import {
   CanvasDocumentReplacementNotAdmittedError,
   createCanvasDocumentReplacementToken,
 } from '../runtime'
-import { SceneHistory } from '../scene-history'
 import { SceneStore, type SceneDesignObjectTarget } from '../scene'
-import {
-  SceneEditBusyError,
-  SceneRuntimeEditCoordinator,
-  type SceneEditTransaction,
-} from './transactions'
+import { createDetachedSceneSessionAdapter, SceneEditBusyError, SceneRuntimeEditCoordinator, type SceneEditTransaction } from './transactions'
 
 function makeFile(): CanopiFile {
   return {
@@ -36,7 +31,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(10, 10),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -49,7 +44,7 @@ function makeFile(): CanopiFile {
         color: null,
         position: geoAt(30, 30),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: 1,
@@ -83,7 +78,7 @@ function movedFirstPlant(x: number, y: number) {
 
 function createHarness() {
   const sceneStore = new SceneStore().hydrate(makeFile())
-  const history = new SceneHistory()
+  const history = createDetachedSceneSessionAdapter()
   const invalidations: string[] = []
   let sceneRevision = 0
   const setSelection = (targets: Iterable<SceneDesignObjectTarget>) => {
@@ -93,7 +88,7 @@ function createHarness() {
   }
   const sceneEdits = new SceneRuntimeEditCoordinator({
     sceneStore,
-    history,
+    sceneSession: history,
     setSelection,
     incrementSceneRevision: () => {
       sceneRevision += 1
@@ -103,6 +98,7 @@ function createHarness() {
       invalidations.push('scene')
     },
   })
+  history.bindReplay((command, direction, onApplied) => sceneEdits.replayCommand(command, direction, onApplied))
 
   return {
     sceneStore,
@@ -116,7 +112,6 @@ function createHarness() {
 
 describe('scene edit transactions', () => {
   beforeEach(() => {
-    designSessionFixture.canvasClean = true
     currentCanvasSelection.value = new Set()
   })
 
@@ -211,7 +206,7 @@ describe('scene edit transactions', () => {
 
 function createAdmissionHarness(options: {
   readonly file?: CanopiFile
-  readonly history?: SceneHistory
+  readonly sceneSession?: ReturnType<typeof createDetachedSceneSessionAdapter>
   readonly setSelection?: (targets: Iterable<SceneDesignObjectTarget>) => void
   readonly incrementSceneRevision?: () => void
   readonly syncCanvasSignalsFromScene?: () => void
@@ -219,18 +214,19 @@ function createAdmissionHarness(options: {
 } = {}): {
   readonly coordinator: SceneRuntimeEditCoordinator
   readonly store: SceneStore
-  readonly history: SceneHistory
+  readonly history: CanvasRuntimeSceneSessionAdapter
 } {
   const store = new SceneStore().hydrate(options.file ?? makeFile())
-  const history = options.history ?? new SceneHistory()
+  const history = options.sceneSession ?? createDetachedSceneSessionAdapter()
   const coordinator = new SceneRuntimeEditCoordinator({
     sceneStore: store,
-    history,
+    sceneSession: history,
     setSelection: options.setSelection ?? ((targets) => store.setSelection(targets)),
     incrementSceneRevision: options.incrementSceneRevision ?? (() => {}),
     syncCanvasSignalsFromScene: options.syncCanvasSignalsFromScene ?? (() => {}),
     invalidate: options.invalidate ?? vi.fn(),
   })
+  history.bindReplay((command, direction, onApplied) => coordinator.replayCommand(command, direction, onApplied))
   return { coordinator, store, history }
 }
 
@@ -342,12 +338,12 @@ describe('Scene Edit single-writer admission', () => {
   })
 
   it('aborts an immediate edit when history rejects it before acceptance', () => {
-    const history = new SceneHistory()
-    const record = history.record.bind(history)
-    vi.spyOn(history, 'record').mockImplementationOnce(() => {
+    const history = createDetachedSceneSessionAdapter()
+    const record = history.recordSceneEdit.bind(history)
+    vi.spyOn(history, 'recordSceneEdit').mockImplementationOnce(() => {
       throw new Error('history rejected before acceptance')
     }).mockImplementation(record)
-    const { coordinator, store } = createAdmissionHarness({ history })
+    const { coordinator, store } = createAdmissionHarness({ sceneSession: history })
 
     expect(() => coordinator.run('move', (tx) => {
       tx.mutate((draft) => {
@@ -360,13 +356,13 @@ describe('Scene Edit single-writer admission', () => {
   })
 
   it('keeps an accepted immediate edit when history throws after acceptance, and rethrows', () => {
-    const history = new SceneHistory()
-    const record = history.record.bind(history)
-    vi.spyOn(history, 'record').mockImplementationOnce((command, accepted) => {
-      record(command, accepted)
-      throw new Error('history publication failed after acceptance')
-    }).mockImplementation(record)
-    const { coordinator, store } = createAdmissionHarness({ history })
+    const history = createDetachedSceneSessionAdapter()
+    const { coordinator, store } = createAdmissionHarness({
+      sceneSession: history,
+      syncCanvasSignalsFromScene: vi.fn().mockImplementationOnce(() => {
+        throw new Error('history publication failed after acceptance')
+      }),
+    })
 
     expect(() => coordinator.run('move', (tx) => {
       tx.mutate((draft) => {
@@ -380,20 +376,20 @@ describe('Scene Edit single-writer admission', () => {
   })
 
   it('records an edit once when its clean-state publication throws', () => {
-    let cleanStateFailures = 1
-    let publishedClean = true
-    let cleanStatePublications = 0
-    const history = new SceneHistory({
-      reportCleanState: (clean) => {
-        cleanStatePublications += 1
-        if (cleanStateFailures > 0) {
-          cleanStateFailures -= 1
+    let signalSyncFailures = 1
+    let signalSyncCalls = 0
+    const history = createDetachedSceneSessionAdapter()
+    const recordSpy = vi.spyOn(history, 'recordSceneEdit')
+    const { coordinator, store } = createAdmissionHarness({
+      sceneSession: history,
+      syncCanvasSignalsFromScene: () => {
+        signalSyncCalls += 1
+        if (signalSyncFailures > 0) {
+          signalSyncFailures -= 1
           throw new Error('history clean-state publication failed')
         }
-        publishedClean = clean
       },
     })
-    const { coordinator, store } = createAdmissionHarness({ history })
 
     expect(() => coordinator.run('move', (tx) => {
       tx.mutate((draft) => {
@@ -402,9 +398,9 @@ describe('Scene Edit single-writer admission', () => {
     })).toThrow('history clean-state publication failed')
 
     expect(store.persisted.plants[0]?.position).toEqual({ x: 44, y: 55 })
-    expect(cleanStatePublications).toBe(1)
+    expect(recordSpy).toHaveBeenCalledTimes(1)
+    expect(signalSyncCalls).toBe(1)
     expect(coordinator.undo()).toBe(true)
-    expect(publishedClean).toBe(true)
     expect(coordinator.undo()).toBe(false)
   })
 
@@ -416,7 +412,6 @@ describe('Scene Edit single-writer admission', () => {
       })
     })).toBe(true)
     expect(coordinator.capturePersistence().acknowledgeSaved()).toBe('applied')
-    expect(history.isClean).toBe(true)
 
     expect(coordinator.undo()).toBe(true)
     expect(coordinator.run('move-b', (tx) => {
@@ -425,7 +420,7 @@ describe('Scene Edit single-writer admission', () => {
       })
     })).toBe(true)
 
-    expect(history.isClean).toBe(false)
+    expect(history.canUndo.value).toBe(true)
     expect(coordinator.canRedo.value).toBe(false)
   })
 

@@ -1,6 +1,7 @@
 import { useSignalEffect } from '@preact/signals'
 import { useId, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { parseCoordinates, placeSearch as search, type PlaceSearchResult } from '../../app/geocoding/place-search-session'
+import { NOMINATIM_PROVIDER } from '../../app/geocoding/registry'
 import { PLACE_SEARCH_ZOOM, placeSearchFocusRequest } from '../../app/geocoding/place-search-ui'
 import { formatCoordinates } from '../../app/geocoding/coordinates'
 import { locale } from '../../app/settings/state'
@@ -217,8 +218,10 @@ export function PlaceCombobox({ variant, onPick, disabled = false, autoFocus = f
             </li>
           ))}
         </ul>
-        {!coordinates && search.attribution.value && options.length > 0 && variant === 'title-bar' && (
-          <p className={styles.attribution}>{search.attribution.value}</p>
+        {!coordinates && search.providerId.value && options.length > 0 && variant === 'title-bar' && (
+          <p className={styles.attribution}>
+            {t('geocoding.credit', { service: NOMINATIM_PROVIDER.service })}
+          </p>
         )}
       </div>
     </div>

@@ -16,15 +16,16 @@
 //!   result names the zip by its file name, never a path (2.1-M299).
 
 use canopi_redact::{NamedFolder, Redactor};
+use canopi_support::durable::{
+    DurableError, DurableFs, OsDurableFs, Precondition, PublishSource, publish_durably,
+};
 use canopi_types::failure::{Failure, FailureCode, IoFailureKind};
 use canopi_types::health::SubsystemHealth;
 use canopi_types::library::LibrarySnapshot;
 use canopi_types::report::ReportSectionId;
 use canopi_types::sensitive::UserPath;
-use canopi_types::settings::Settings;
 use canopi_types::support::{ProblemReportRequest, ProblemReportResult};
 use std::collections::BTreeSet;
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
 use crate::logging::SettledFailure;
@@ -46,10 +47,11 @@ const NAME_SUFFIX: &str = ".zip";
 const MAX_SAME_SECOND: usize = 100;
 
 /// The sections the frontend fills; Desktop fills every other but the Design.
-const FRONTEND_SECTIONS: [ReportSectionId; 3] = [
+const FRONTEND_SECTIONS: [ReportSectionId; 4] = [
     ReportSectionId::Description,
     ReportSectionId::FrontendRing,
     ReportSectionId::OriginatingFailure,
+    ReportSectionId::SettingsSummary,
 ];
 
 /// What the native sections read, gathered by the command.
@@ -64,7 +66,6 @@ pub struct ProblemReportContext {
     /// The webview's version, read by the shell (`tauri::webview_version`, 2.1-M82); `None` when it
     /// could not be read. A plain value, so this module names no tauri path.
     pub webview_version: Option<String>,
-    pub settings: Result<Settings, String>,
     pub health: SubsystemHealth,
     /// The last native failure settlements (`logging::recent_failures`).
     pub settlements: Vec<SettledFailure>,
@@ -79,35 +80,21 @@ pub fn create_problem_report(
     request: &ProblemReportRequest,
     context: &ProblemReportContext,
 ) -> Result<ProblemReportResult, Failure> {
-    create_problem_report_with_writer(request, context, |file, bytes| {
-        file.write_all(bytes)?;
-        file.sync_all()
-    })
+    create_problem_report_with_fs(request, context, &OsDurableFs)
 }
 
-fn create_problem_report_with_writer(
+fn create_problem_report_with_fs(
     request: &ProblemReportRequest,
     context: &ProblemReportContext,
-    write: impl Fn(&mut std::fs::File, &[u8]) -> std::io::Result<()>,
+    fs: &dyn DurableFs,
 ) -> Result<ProblemReportResult, Failure> {
     admit(request)?;
     let created_at = crate::design::unix_to_iso8601(context.timestamp_secs);
     let zip = bundle::report_zip(request, context, &created_at, &report_redactor(context))?;
     let folder = &context.reports_folder;
-    std::fs::create_dir_all(folder)
+    fs.create_dir_all(folder)
         .map_err(|error| io_failure(&error, "Creating the problem reports folder", folder))?;
-    let (path, mut file) = create_unique(folder, &file_stem(&created_at))?;
-    if let Err(error) = write(&mut file, &zip) {
-        drop(file);
-        // A partial zip is removed; a removal that fails too is named in the detail.
-        let removal = std::fs::remove_file(&path).err();
-        let what = match removal {
-            None => "Writing the problem report",
-            Some(_) => "Writing the problem report (its partial file was not removed)",
-        };
-        return Err(io_failure(&error, what, folder));
-    }
-    drop(file);
+    let path = publish_unique(fs, folder, &file_stem(&created_at), &zip)?;
     let file_name = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -135,8 +122,13 @@ fn file_stem(created_at: &str) -> String {
     format!("{NAME_PREFIX}{date}-{}", time.get(..6).unwrap_or(time))
 }
 
-/// Create `stem.zip`, or `stem-2.zip` and on when taken: never an existing report.
-fn create_unique(folder: &Path, stem: &str) -> Result<(PathBuf, std::fs::File), Failure> {
+/// Publish `stem.zip`, or `stem-2.zip` and on when taken: never clobbers an existing report.
+fn publish_unique(
+    fs: &dyn DurableFs,
+    folder: &Path,
+    stem: &str,
+    bytes: &[u8],
+) -> Result<PathBuf, Failure> {
     for attempt in 1..=MAX_SAME_SECOND {
         let name = if attempt == 1 {
             format!("{stem}{NAME_SUFFIX}")
@@ -144,14 +136,23 @@ fn create_unique(folder: &Path, stem: &str) -> Result<(PathBuf, std::fs::File), 
             format!("{stem}-{attempt}{NAME_SUFFIX}")
         };
         let path = folder.join(name);
-        match std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path)
-        {
-            Ok(file) => return Ok((path, file)),
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
-            Err(error) => return Err(io_failure(&error, "Creating the problem report", folder)),
+        match publish_durably(
+            fs,
+            crate::target_locks::temporary_target_locks(),
+            PublishSource::Bytes(bytes),
+            &path,
+            "report",
+            Precondition::NotExists,
+        ) {
+            Ok(_) => return Ok(path),
+            Err(DurableError::AlreadyExists) => {}
+            Err(error) => {
+                return Err(io_failure(
+                    &error.into_io_error(),
+                    "Writing the problem report",
+                    folder,
+                ));
+            }
         }
     }
     Err(Failure::new(

@@ -31,15 +31,15 @@ vi.mock('../app/shell/modal-layer', () => ({
   registerModalInertRegion: () => () => {},
 }))
 
-vi.mock('../app/lidar/actions', () => actions)
+vi.mock('../app/data-library/actions', () => actions)
 
 const coverage = vi.hoisted(() => ({ check: vi.fn().mockResolvedValue(null) }))
-vi.mock('../app/lidar/import-coverage', () => ({ checkImportCoverage: coverage.check, coverageCanvas: () => null }))
+vi.mock('../app/data-library/import-coverage', () => ({ checkImportCoverage: coverage.check, coverageCanvas: () => null }))
 
-vi.mock('../app/lidar/library-store', async () => {
+vi.mock('../app/data-library/library-store', async () => {
   const { signal } = await import('@preact/signals')
   return {
-    ...(await vi.importActual<typeof LibraryStoreModule>('../app/lidar/library-store')),
+    ...(await vi.importActual<typeof LibraryStoreModule>('../app/data-library/library-store')),
     installLidarLibraryObserver: () => () => {},
     lidarLibrary: signal<LibrarySnapshot | null>(null),
     lidarStatusMessage: signal<string | null>(null),
@@ -62,17 +62,17 @@ vi.mock('../components/panels/lidar/LibraryPreview', () => ({
 }))
 
 import { DataDialogs } from '../components/panels/lidar/DataDialogs'
-import { lidarLibrary } from '../app/lidar/library-store'
+import { lidarLibrary } from '../app/data-library/library-store'
 import { designSessionStore } from '../app/document-session/store'
-import { analyzeItem, dataDialog, libraryView, openDataLibrary } from '../app/lidar/library-navigation'
-import { siteDataViewFor } from '../app/lidar/site-data-view'
+import { analyzeItem, dataDialog, libraryView, openDataLibrary } from '../app/data-library/library-navigation'
+import { siteDataViewFor } from '../app/data-library/site-data-view'
 import { sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import { openLayerRow } from '../app/canvas-layer-presentation/open-row'
 import { dropdownTrigger } from './support/dropdown-trigger'
-import { formatDiskSize } from '../components/panels/lidar/item-text'
+import { formatByteSize } from '../utils/format'
 import { hoveredTooltip } from './support/tooltip'
-import type * as LibraryStoreModule from '../app/lidar/library-store'
+import type * as LibraryStoreModule from '../app/data-library/library-store'
 
 function layer(id: string, name: string, overrides: Partial<LibraryItemSummary> = {}): LibraryItemSummary {
   return sourceItem(id, name, { resolution_m: 0.5, value_range: [1, 2], ...overrides })
@@ -88,7 +88,7 @@ function library(layers: LibraryItemSummary[], analyses: LibraryItemSummary[] = 
 
 function design(entries: { kind: 'Source' | 'Derived'; id: string }[]) {
   return {
-    lidar: {
+    site_data: {
       visible: true,
       entries: entries.map((entry, order) => ({ ...entry, name: entry.id, order, visible: true, opacity: 1, ramp: null, reversed: false, range: null })),
     },
@@ -391,18 +391,18 @@ describe('Data library, Import and Analyze dialogs', () => {
       const name = container.querySelector<HTMLInputElement>('section[aria-labelledby] form input')!
       expect(document.activeElement).toBe(name)
       await type(name, 'elevation')
+      await key(name, 'Enter')
       expect(container.textContent).toContain('already has data named “elevation”')
-      expect(button('Save name').disabled).toBe(true)
+      expect(actions.renameLibraryItem).not.toHaveBeenCalled()
       await key(name, 'Escape')
       expect(libraryView.value).not.toBeNull()
       expect(container.querySelector('section[aria-labelledby] form')).toBeNull()
       expect(detailsHeading()).toBe('Terrain')
 
       await click(button(/^Rename…$/))
-      await type(container.querySelector<HTMLInputElement>('section[aria-labelledby] form input')!, 'Terrain model')
-      await act(async () => {
-        container.querySelector('section[aria-labelledby] form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-      })
+      const next = container.querySelector<HTMLInputElement>('section[aria-labelledby] form input')!
+      await type(next, '  Terrain\tmodel  ')
+      await key(next, 'Enter')
       expect(actions.renameLibraryItem).toHaveBeenCalledWith('b', 'Terrain model')
     })
 
@@ -540,7 +540,7 @@ describe('Data library, Import and Analyze dialogs', () => {
       await key(container.querySelector('section[aria-labelledby] form input')!, 'Escape')
       expect(document.activeElement).toBe(button(/^Rename…$/))
       await click(button(/^Rename…$/))
-      await click(button(/^Cancel$/))
+      await act(async () => { container.querySelector<HTMLInputElement>('section[aria-labelledby] form input')!.blur() })
       expect(document.activeElement).toBe(button(/^Rename…$/))
 
       await click(button(/^Delete everywhere$/))
@@ -1161,9 +1161,9 @@ function CSS_ESCAPE(id: string): string {
 
 describe('Data library size', () => {
   it('reads as kilobytes, megabytes or gigabytes', () => {
-    expect(formatDiskSize(0, 'en')).toBe('0 kB')
-    expect(formatDiskSize(12_345, 'en')).toBe('12.3 kB')
-    expect(formatDiskSize(340_000_000, 'en')).toBe('340 MB')
-    expect(formatDiskSize(1_240_000_000, 'en')).toBe('1.2 GB')
+    expect(formatByteSize(0, 'en')).toBe('0 kB')
+    expect(formatByteSize(12_345, 'en')).toBe('12.3 kB')
+    expect(formatByteSize(340_000_000, 'en')).toBe('340 MB')
+    expect(formatByteSize(1_240_000_000, 'en')).toBe('1.2 GB')
   })
 })

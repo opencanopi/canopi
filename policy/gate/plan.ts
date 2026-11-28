@@ -20,8 +20,10 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { basename, isAbsolute, join, posix, resolve } from 'node:path'
+import { readDerivedRows } from '../core/ratchets.mjs'
 import { commitLaneFamilies, reachedFamilies } from './families.ts'
 import { GateError } from './gate-error.ts'
+import { checkGitLink } from './git-link.ts'
 import { CHEAP_FAMILIES, display, POLICY_COMMIT, TABLE, WEB, type Area, type Check, type Table } from './table.ts'
 
 export { GateError }
@@ -67,7 +69,7 @@ export function check(id: string, table: Table = TABLE): PlannedCheck {
   return { id, ...found }
 }
 
-const gitEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
+export const gitEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
   const clean: NodeJS.ProcessEnv = Object.fromEntries(Object.entries(env).filter(([name]) => !name.startsWith('GIT_')))
   const index = env['GIT_INDEX_FILE']
   if (index) clean['GIT_INDEX_FILE'] = isAbsolute(index) ? index : resolve(index)
@@ -77,6 +79,7 @@ const gitEnv = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {
 
 /** git on the checkout at `root`; a failure refuses. */
 export function git(root: string, args: readonly string[], env: NodeJS.ProcessEnv = process.env): string {
+  checkGitLink(root)
   const run = spawnSync('git', args, { cwd: root, encoding: 'utf8', env: gitEnv(env), maxBuffer: 256 * 1024 * 1024 })
   if (run.error) throw new GateError(`git ${args.join(' ')} failed: ${run.error.message}`)
   if (run.status !== 0) throw new GateError(`git ${args.join(' ')} failed: ${run.stderr.trim()}`)
@@ -206,7 +209,7 @@ export function reaching(root: string, modules: readonly string[]): string[] {
   if (!isFile(cruiser)) throw new GateError(`${WEB}/node_modules/.bin/depcruise is missing: run npm ci in ${WEB}`)
   const reach = `^(?:${modules.map(escape).join('|')})$`
   const run = spawnSync(cruiser, ['--config', '.dependency-cruiser.web.cjs', '--output-type', 'json', '--reaches', reach,
-    'src', 'ui-gallery'], { cwd: join(root, WEB), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
+    'src'], { cwd: join(root, WEB), encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 })
   try {
     const sources = (JSON.parse(run.stdout) as { modules: { source: string }[] }).modules.map((module) => module.source)
     return [...new Set(sources)].filter((source) => !modules.includes(source)).sort()
@@ -357,23 +360,19 @@ const lane = (id: string, command: string, extra: Partial<Check> = {}): PlannedC
 
 const escaped = (path: string) => `^${path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`
 
-/**
- * `table` with each area naming a `ratchet` also selected by the files that ratchet lists (its entry keys), read from
- * `root` now: a missing or unreadable ratchet refuses, so a plan never silently drops the debt files (AR12).
- */
+/** `table` with each area naming a `ratchet` also selected by its listed files (AR12); missing or unreadable refuses. */
 export function withRatchetPaths(root: string, table: Table = TABLE): Table {
   if (!table.areas.some((area) => area.ratchet)) return table
+  const derived = readDerivedRows(root) as Map<string, unknown>
   return { ...table, areas: table.areas.map((area) => {
     if (!area.ratchet) return area
+    const full = join(root, area.ratchet)
     let entries: unknown
-    try {
-      entries = (JSON.parse(readFileSync(join(root, area.ratchet), 'utf8')) as { entries?: unknown }).entries
-    } catch {
-      entries = undefined
-    }
+    if (existsSync(full)) {
+      try { entries = (JSON.parse(readFileSync(full, 'utf8')) as { entries?: unknown }).entries } catch { entries = undefined }
+    } else if (derived.has(basename(area.ratchet, '.json'))) { entries = {} }
     if (!entries || typeof entries !== 'object') {
-      throw new GateError(`the ${area.name} area reads ${area.ratchet}, which is missing or unreadable: the gate refuses rather `
-        + 'than select too little')
+      throw new GateError(`the ${area.name} area reads ${area.ratchet}, which is missing or unreadable: the gate refuses rather than select too little`)
     }
     return { ...area, patterns: [...area.patterns, ...Object.keys(entries).map(escaped)] }
   }) }
@@ -474,7 +473,7 @@ function planLane(root: string, paths: readonly string[], mode: 'commit' | 'affe
       if (covering.length && covering.every((text) => text !== display(planned) && selected.has(text))) continue
       checks.push(planned)
     }
-    if (area.name === 'frontend' && paths.some((path) => path.startsWith(`${WEB}/ui-gallery/`))) checks.push(of('typecheck'))
+    if (area.name === 'frontend' && paths.some((path) => path.startsWith(`${WEB}/src/editions/gallery/`) || path === `${WEB}/gallery.html`)) checks.push(of('typecheck'))
   }
   const docs = docsOnly(paths, table)
   let e2e: E2ePlan | undefined

@@ -3,7 +3,8 @@
 import { signal } from '@preact/signals'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SceneCanvasInspectionOwner } from '../canvas/runtime/inspection-lens'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
+import { buildViewTransform } from '../geo/view/view-transform'
 import { createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import { createTestView } from './support/test-view'
 import './support/camera-tolerance'
@@ -83,7 +84,12 @@ function mountLensBesideMint(bearingDeg = 0) {
   view.highlightPlant('mint')
   recording.arcs.length = 0
   vi.advanceTimersByTime(20)
-  return { camera, owner, view, arcs: recording.arcs }
+  const { scale } = view.state.value!
+  const lensView = buildViewTransform({
+    camera: { center: TEST_PLANE.toGeo({ x: 0.5, y: 1.5 }), zoom: TEST_PLANE.zoomForPixelsPerMetre(scale), bearingDeg, pitchDeg: 0 },
+    screen: { width: 430, height: 390, devicePixelRatio: 2 }, plane: TEST_PLANE, planeRevision: camera.view().planeRevision,
+  })
+  return { camera, owner, view, lensView, arcs: recording.arcs }
 }
 
 describe('Inspection Lens ownership', () => {
@@ -99,12 +105,13 @@ describe('Inspection Lens ownership', () => {
     const view = owner.mount(document.createElement('div'))
     view.inspectAtScreenPoint({ x: 250, y: 180 })
     vi.advanceTimersByTime(20)
-    expect(view.state.value!.point).toEqual({ x: 15, y: 13 })
+    const inspected = camera.view().screenToWorld({ x: 250, y: 180 })
+    expect(view.state.value!.point).toEqual(inspected)
     expect(camera.viewport()).toEqual({ x: 100, y: 50, scale: 10 })
     expect(JSON.stringify(snapshot.scene)).toBe(before)
     view.inspectAtScreenPoint({ x: Number.NaN, y: 100 })
     vi.advanceTimersByTime(20)
-    expect(view.state.value!.point).toEqual({ x: 15, y: 13 })
+    expect(view.state.value!.point).toEqual(inspected)
     owner.dispose()
     view.inspectAtScreenPoint({ x: 0, y: 0 })
     vi.advanceTimersByTime(20)
@@ -196,15 +203,16 @@ describe('Inspection Lens ownership', () => {
     const view = owner.mount(document.createElement('div'))
     vi.advanceTimersByTime(20)
     camera.setViewport({ x: 100, y: 50, scale: 10 })
+    const center = camera.view().screenToWorld({ x: 400, y: 300 })
     view.centerOnCanvas()
     vi.advanceTimersByTime(20)
-    expect(view.state.value!.point).toEqual({ x: 30, y: 25 })
+    expect(view.state.value!.point).toEqual(center)
     view.panByScreen({ x: 40, y: 20 })
     view.zoomBy(2)
     vi.advanceTimersByTime(20)
     owner.reset()
     vi.advanceTimersByTime(20)
-    expect(view.state.value!.point).toEqual({ x: 30, y: 25 })
+    expect(view.state.value!.point).toEqual(center)
     expect(view.state.value!.zoomPercent).toBe(700)
     owner.dispose()
     view.centerOnCanvas()
@@ -217,8 +225,7 @@ describe('Inspection Lens ownership', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
     let snapshot = createTestSceneRendererSnapshot({ scene: { layers: [{ kind: 'layer', name: 'plants', visible: true, opacity: 1, locked: false }], plants: [{
       kind: 'plant', id: 'mint', canonicalName: 'Mentha spicata', commonName: 'Menthe verte', position: { x: 0, y: 0 },
-      color: null, canopySpreadM: null, rotationDeg: null, notes: null,
-      plantedDate: null, quantity: null, locked: false,
+      color: null, canopySpreadM: null, rotationDeg: null, notes: null, plantedDate: null, quantity: null, locked: false,
     }] } })
     const revision = { scene: signal(0), plantNames: signal(0), transientHistory: signal(0) }, setHoveredTarget = vi.fn(target => { snapshot = { ...snapshot, hoverTarget: target } })
     const owner = new SceneCanvasInspectionOwner({ readSessionPlane: () => TEST_PLANE, frames: createTestView(UNSIZED).frames, revision, getSnapshot: () => snapshot, setHoveredTarget })
@@ -280,15 +287,22 @@ describe('Inspection Lens ownership', () => {
     const { view: mainView } = camera.frames.viewFrame.peek()
     expect(view.state.value?.point).toEqual(mainView.screenToWorld({ x: mainView.screen.width / 2, y: mainView.screen.height / 2 }))
     // Lens pixels at the painted scale; the lens's view is at bearing 0, so x is east and y south.
-    const { scale } = view.state.value!
+    const { scale, frame, point: startPoint } = view.state.value!
+    const lensView = buildViewTransform({
+      camera: { center: TEST_PLANE.toGeo(startPoint), zoom: TEST_PLANE.zoomForPixelsPerMetre(scale), bearingDeg: 0, pitchDeg: 0 },
+      screen: { width: frame.width, height: frame.height, devicePixelRatio: 1 }, plane: TEST_PLANE, planeRevision: mainView.planeRevision,
+    })
+    const expectedPoint = lensView.screenToWorld({ x: frame.width / 2 - 47 * scale, y: frame.height / 2 - 49 * scale })
     view.panByScreen({ x: -49 * scale, y: -48 * scale })
     vi.advanceTimersByTime(20)
     view.panByScreen({ x: 2 * scale, y: -1 * scale })
     vi.advanceTimersByTime(20)
-    expect(view.state.value?.point).toEqual({ x: 3, y: 1 })
+    expect(view.state.value?.point.x).toBeCloseTo(expectedPoint.x, 6)
+    expect(view.state.value?.point.y).toBeCloseTo(expectedPoint.y, 6)
     view.panByScreen({ x: Number.NaN, y: 0 })
     vi.advanceTimersByTime(20)
-    expect(view.state.value?.point).toEqual({ x: 3, y: 1 })
+    expect(view.state.value?.point.x).toBeCloseTo(expectedPoint.x, 6)
+    expect(view.state.value?.point.y).toBeCloseTo(expectedPoint.y, 6)
     expect(view.state.value?.scale).toBeGreaterThan(0)
     expect(camera.viewport()).toEqual(viewport)
     owner.dispose()
@@ -324,8 +338,7 @@ describe('Inspection Lens ownership', () => {
     vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null)
     const snapshot = createTestSceneRendererSnapshot({ scene: { plants: [{
       kind: 'plant', id: 'mint', canonicalName: 'Mentha spicata', commonName: 'Menthe verte', position: { x: 1, y: 2 },
-      color: null, canopySpreadM: null, rotationDeg: null, notes: null,
-      plantedDate: null, quantity: null, locked: false,
+      color: null, canopySpreadM: null, rotationDeg: null, notes: null, plantedDate: null, quantity: null, locked: false,
     }] } })
     const before = JSON.stringify(snapshot.scene)
     const camera = createTestView(START)
@@ -337,10 +350,11 @@ describe('Inspection Lens ownership', () => {
     const lensScale = view.state.value!.scale
     view.panByScreen({ x: -49 * lensScale, y: -48 * lensScale })
     vi.advanceTimersByTime(20)
+    const pannedPoint = view.state.value!.point
     expect(view.state.value?.plants.map((plant) => plant.name)).toEqual(['Menthe verte'])
     camera.navigation.panByPx({ x: 5, y: 6 })
     vi.advanceTimersByTime(20)
-    expect(view.state.value?.point).toEqual({ x: 1, y: 2 })
+    expect(view.state.value?.point).toEqual(pannedPoint)
     const viewport = { ...camera.viewport() }
     const lensZoom = view.state.value!.zoomPercent
     view.zoomBy(1.25)
@@ -391,29 +405,27 @@ describe('Inspection Lens ownership', () => {
   })
 
   it('the lens draws the same pixels through its view transform at bearing 0', () => {
-    const { owner, view, arcs } = mountLensBesideMint()
+    const { owner, view, lensView, arcs } = mountLensBesideMint()
     const { scale } = view.state.value!
+    const mintScreen = lensView.worldToScreen(MINT.position)
     expect(arcs.length).toBeGreaterThan(0)
-    // Today's lens: device pixels = dpr × (the lens centre at the frame centre, world metres × scale).
+    // Device pixels = dpr × (the plant's screen position through the lens view, with upright metre scale).
     for (const arc of arcs) {
       expect(arc).toMatchObject({ x: 1, y: 2 })
-      expect(arc.m.a).toBeCloseTo(2 * scale, 6)
-      expect(arc.m.b).toBeCloseTo(0, 6)
-      expect(arc.m.c).toBeCloseTo(0, 6)
-      expect(arc.m.d).toBeCloseTo(2 * scale, 6)
-      expect(arc.m.e).toBeCloseTo(2 * (215 - 0.5 * scale), 5)
-      expect(arc.m.f).toBeCloseTo(2 * (195 - 1.5 * scale), 5)
+      expect(arc.m.a).toBeCloseTo(2 * scale, 6); expect(arc.m.b).toBeCloseTo(0, 6)
+      expect(arc.m.c).toBeCloseTo(0, 6); expect(arc.m.d).toBeCloseTo(2 * scale, 6)
+      expect(arc.m.e).toBeCloseTo(2 * (mintScreen.x - MINT.position.x * scale), 5)
+      expect(arc.m.f).toBeCloseTo(2 * (mintScreen.y - MINT.position.y * scale), 5)
     }
     owner.dispose()
   })
 
   it('name buttons and rings keep today\'s positions at bearing 0', () => {
-    const { owner, view, arcs } = mountLensBesideMint()
-    const { scale, plants } = view.state.value!
-    const today = { x: 215 + (1 - 0.5) * scale, y: 195 + (2 - 1.5) * scale }
+    const { owner, view, lensView, arcs } = mountLensBesideMint()
+    const { plants } = view.state.value!
+    const today = lensView.worldToScreen(MINT.position)
     expect(plants.map((plant) => plant.id)).toEqual(['mint'])
-    expect(plants[0]!.screenPosition.x).toBeCloseTo(today.x, 6)
-    expect(plants[0]!.screenPosition.y).toBeCloseTo(today.y, 6)
+    expect(plants[0]!.screenPosition.x).toBeCloseTo(today.x, 6); expect(plants[0]!.screenPosition.y).toBeCloseTo(today.y, 6)
     // The name button sits 13 px below its plant, as today.
     expect(plants[0]!.label!.y).toBeCloseTo(today.y + 13, 6)
     // The hover ring is drawn where the name button points.
@@ -424,14 +436,13 @@ describe('Inspection Lens ownership', () => {
   })
 
   it('name buttons and rings sit over their plants at bearing 45', () => {
-    const { owner, view, arcs } = mountLensBesideMint(45)
-    const { scale, plants } = view.state.value!
+    const { owner, view, lensView, arcs } = mountLensBesideMint(45)
+    const { plants } = view.state.value!
     // The lens turns with the view: the mint, half a metre east and half a metre south of the inspected point, is
     // 0.71 m to the right of the lens centre on screen and level with it.
-    const onLens = { x: 215 + Math.SQRT1_2 * scale, y: 195 }
+    const onLens = lensView.worldToScreen(MINT.position)
     expect(plants.map((plant) => plant.id)).toEqual(['mint'])
-    expect(plants[0]!.screenPosition.x).toBeCloseTo(onLens.x, 6)
-    expect(plants[0]!.screenPosition.y).toBeCloseTo(onLens.y, 6)
+    expect(plants[0]!.screenPosition.x).toBeCloseTo(onLens.x, 6); expect(plants[0]!.screenPosition.y).toBeCloseTo(onLens.y, 6)
     expect(plants[0]!.label!.y).toBeCloseTo(onLens.y + 13, 6)
     const ring = arcs.at(-1)!
     expect((ring.m.a * ring.x + ring.m.c * ring.y + ring.m.e) / 2).toBeCloseTo(onLens.x, 6)
@@ -445,43 +456,33 @@ describe('Inspection Lens ownership', () => {
     expect(arcs.length).toBeGreaterThan(0)
     for (const arc of arcs) {
       // Drawn unturned: the transform at the glyph is a pure scale (device pixels per metre) and a translation.
-      expect(arc.m.a).toBeCloseTo(2 * scale, 6)
-      expect(arc.m.b).toBeCloseTo(0, 6)
-      expect(arc.m.c).toBeCloseTo(0, 6)
-      expect(arc.m.d).toBeCloseTo(2 * scale, 6)
+      expect(arc.m.a).toBeCloseTo(2 * scale, 6); expect(arc.m.b).toBeCloseTo(0, 6)
+      expect(arc.m.c).toBeCloseTo(0, 6); expect(arc.m.d).toBeCloseTo(2 * scale, 6)
     }
     owner.dispose()
   })
 
   it('arrows and drags move the lens along its turned screen at bearing 90', () => {
-    const { owner, view } = mountLensBesideMint(90)
+    const { owner, view, lensView } = mountLensBesideMint(90)
     const { scale } = view.state.value!
     // At 90° east is up on the lens: its screen right is the plane's south (+y) and its screen down is west (−x).
+    const expected = lensView.screenToWorld({ x: 215 + 2 * scale, y: 195 + 1 * scale })
     view.panByScreen({ x: 2 * scale, y: 1 * scale })
     vi.advanceTimersByTime(20)
-    expect(view.state.value!.point.x).toBeCloseTo(0.5 - 1, 6)
-    expect(view.state.value!.point.y).toBeCloseTo(1.5 + 2, 6)
+    expect(view.state.value!.point.x).toBeCloseTo(expected.x, 6); expect(view.state.value!.point.y).toBeCloseTo(expected.y, 6)
     owner.dispose()
   })
 
   it('the source quad follows a main-camera frame before the next lens paint', () => {
-    const { camera, owner, view } = mountLensBesideMint()
+    const { camera, owner, view, lensView } = mountLensBesideMint()
     const state = view.state.value!
-    /** Today's outline: the lens footprint through the main camera, corners TL, TR, BR, BL. */
-    const todayQuad = () => {
-      const { x, y, scale } = camera.viewport()
-      const left = x + (state.point.x - state.frame.width / state.scale / 2) * scale
-      const top = y + (state.point.y - state.frame.height / state.scale / 2) * scale
-      const width = state.frame.width / state.scale * scale
-      const height = state.frame.height / state.scale * scale
-      return [{ x: left, y: top }, { x: left + width, y: top }, { x: left + width, y: top + height }, { x: left, y: top + height }]
-    }
+    /** The lens footprint through the main camera, corners TL, TR, BR, BL. */
+    const todayQuad = () => camera.view().worldQuadToScreen(lensView.visibleWorldQuad())
     const expectQuad = (expected: ReturnType<typeof todayQuad>) => {
       const quad = view.sourceQuad.value
       expect(quad).not.toBeNull()
       for (const [index, corner] of expected.entries()) {
-        expect(quad![index]!.x).toBeCloseTo(corner.x, 6)
-        expect(quad![index]!.y).toBeCloseTo(corner.y, 6)
+        expect(quad![index]!.x).toBeCloseTo(corner.x, 6); expect(quad![index]!.y).toBeCloseTo(corner.y, 6)
       }
     }
     expectQuad(todayQuad())

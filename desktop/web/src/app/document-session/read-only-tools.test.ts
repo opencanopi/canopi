@@ -11,7 +11,7 @@
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { isCatalogCommandDisabled, type AppCommandId } from '../../commands/graph/catalog'
-import { createBrowserShellCatalog } from '../../web/browser-shell-commands'
+import { createBrowserShellCatalog } from '../../editions/web/browser-shell-commands'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasKeyboardPort,
@@ -20,12 +20,12 @@ import {
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
 import { installDesktopKeys } from '../../__tests__/support/desktop-key-router'
 import { setCurrentCanvasSession } from '../../canvas/session'
-import { currentCanvasTool, setCanvasSelection } from '../../canvas/session-state'
+import { setCanvasSelection } from '../../canvas/session-state'
 import { dispatchWorkspaceCanvasIntent, workspaceCanvasCommandProjection } from '../workspace-commands/canvas-actions'
 import { focusOwner } from '../keyboard/focus-owner'
 import { singleKeyShortcuts } from '../settings/state'
-import { activePanel } from '../shell/state'
-import { createDesignSessionStoreTestFixture, designSessionStore, EDITING_DESIGN_SESSION } from './store'
+import { createTestSessionCore, type TestSessionCoreHandle } from '../../__tests__/support/session-core-fixture'
+import { designSessionStore, EDITING_DESIGN_SESSION, type DesignSessionKind } from './store'
 import {
   buildCanvasContextMenuEntries,
   type CanvasContextMenuCommand,
@@ -37,7 +37,17 @@ import type { CanvasDesignObjectSelectionModel } from '../../canvas/runtime/runt
 import { t } from '../../i18n'
 import type { CanopiFile } from '../../types/design'
 
-const fixture = createDesignSessionStoreTestFixture(designSessionStore)
+let sessionHandle: TestSessionCoreHandle | null = null
+
+function installSession(
+  file: CanopiFile,
+  path: string | null,
+  name: string,
+  kind: DesignSessionKind,
+): void {
+  sessionHandle?.dispose()
+  sessionHandle = createTestSessionCore({ file, path, name, kind })
+}
 
 const SHOWN: CanopiFile = {
   version: 9,
@@ -64,7 +74,7 @@ const SHOWN: CanopiFile = {
 
 let host: HTMLDivElement
 let elsewhere: HTMLButtonElement
-let setTool: ReturnType<typeof vi.fn<(name: string) => void>>
+let armed: ReturnType<typeof vi.fn<(name: string) => void>>
 let releaseRegion: () => void
 
 beforeEach(() => {
@@ -73,25 +83,30 @@ beforeEach(() => {
   elsewhere = document.createElement('button')
   document.body.append(host, elsewhere)
   releaseRegion = focusOwner.registerRegion('map', host)
-  setTool = vi.fn<(name: string) => void>()
+  armed = vi.fn<(name: string) => void>()
   setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
-    commands: createTestCanvasCommandSurface({ tools: { setTool } }),
+    commands: createTestCanvasCommandSurface({
+      tools: {
+        arm: (id) => {
+          armed(id)
+          return { settled: new Promise(() => {}), cancel() {} }
+        },
+      },
+    }),
     keyboard: createTestCanvasKeyboardPort({ host }),
   }))
-  activePanel.value = 'canvas'
-  currentCanvasTool.value = 'select'
   singleKeyShortcuts.value = true
-  designSessionStore.replaceCurrentDesignState(SHOWN, null, 'Orchard 2.1', {
+  installSession(SHOWN, null, 'Orchard 2.1', {
     kind: 'read-only',
-    origin: 'newer-version',
-    savedByVersion: 10,
+    origin: 'storage-unchecked',
   })
 })
 
 afterEach(() => {
   releaseRegion()
   setCurrentCanvasSession(null)
-  fixture.reset()
+  sessionHandle?.dispose()
+  sessionHandle = null
   host.remove()
   elsewhere.remove()
 })
@@ -105,8 +120,8 @@ it('R1 canopi-f47t.52.270: a drawing tool\'s key arms nothing over a read-only D
   } finally {
     keys.dispose()
   }
-  expect(setTool).not.toHaveBeenCalledWith('line')
-  expect(setTool).toHaveBeenCalledWith('hand')
+  expect(armed).not.toHaveBeenCalledWith('line')
+  expect(armed).toHaveBeenCalledWith('hand')
 })
 
 it('R1 canopi-f47t.52.270: the one command projection greys the drawing tools, Undo and the object edits over a read-only Design', () => {
@@ -114,7 +129,12 @@ it('R1 canopi-f47t.52.270: the one command projection greys the drawing tools, U
   const undo = vi.fn()
   setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({
     commands: createTestCanvasCommandSurface({
-      tools: { setTool },
+      tools: {
+        arm: (id) => {
+          armed(id)
+          return { settled: new Promise(() => {}), cancel() {} }
+        },
+      },
       history: { canUndo: signal(true), canRedo: signal(true), undo },
       sceneEdits: { deleteSelected },
     }),
@@ -217,7 +237,7 @@ it('R1 canopi-f47t.52.270: the right-click menu greys every edit and edit tool o
   expect(renameZoneDialog.value).toBeNull()
 
   // The same menu over an editing Design offers the edits.
-  designSessionStore.replaceCurrentDesignState(SHOWN, '/designs/orchard.canopi', 'Orchard', EDITING_DESIGN_SESSION)
+  installSession(SHOWN, '/designs/orchard.canopi', 'Orchard', EDITING_DESIGN_SESSION)
   expect(contextMenu([{ kind: 'plant', id: 'apple-1' }]).enabled).toEqual(expect.arrayContaining(['cut', 'delete', 'lock']))
   expect(contextMenu(null).enabled).toEqual(['place-plants-here', 'paste', 'select-all'])
 })
@@ -243,8 +263,8 @@ function webEnabled(): string[] {
   const catalog = createBrowserShellCatalog({
     newDesign: run, openCanopi: run, downloadCanopi: run, revertDesign: run, importGeoJson: run, exportGeoJson: run,
     exportBudgetCsv: run, closeDesign: run, navigate: run,
-  }, { templatesEnabled: false, canvasReady: () => true })
-  const state = { hasDesign: true, revertAvailable: true, activePanel: 'canvas', sidePanel: null } as const
+  }, { canvasReady: () => true })
+  const state = { hasDesign: true, revertAvailable: true, sidePanel: null } as const
   return catalog.filter((entry) => !entry.isExecutionDisabled(state)).map((entry) => entry.id)
 }
 
@@ -257,22 +277,28 @@ describe('R1 canopi-f47t.52.270: a read-only Design offers Close only', () => {
   })
 
   it('Desktop: an editing Design of the same content keeps Rename, Save and Save as', () => {
-    designSessionStore.replaceCurrentDesignState(SHOWN, null, SHOWN.name, EDITING_DESIGN_SESSION)
+    installSession(SHOWN, null, SHOWN.name, EDITING_DESIGN_SESSION)
     expect(isCatalogCommandDisabled('file.rename')).toBe(false)
     expect(isCatalogCommandDisabled('file.save')).toBe(false)
     expect(isCatalogCommandDisabled('file.saveAs')).toBe(false)
   })
 
-  it('Web: the catalog turns off Rename, Download a copy, Revert, the imports and the exports, and keeps Close', () => {
+  it('Web: the catalog turns off Rename, Revert, imports, exports and saved-view edits, and keeps Close and Download a copy for storage-unchecked', () => {
     const enabled = webEnabled()
-    for (const id of ['file.rename', 'file.downloadCanopi', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv', 'file.exportCanvasPdf', 'view.saveCurrentView']) {
+    expect(enabled).toContain('file.close')
+    expect(enabled).toContain('file.downloadCanopi')
+    for (const id of [
+      'file.rename', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv',
+      'file.exportCanvasPdf', 'view.saveCurrentView', 'view.manageViews',
+    ]) {
       expect(enabled, id).not.toContain(id)
     }
-    expect(enabled).toContain('file.close')
+    installSession(SHOWN, null, SHOWN.name, EDITING_DESIGN_SESSION)
+    expect(webEnabled()).toEqual(expect.arrayContaining(['file.rename', 'file.downloadCanopi', 'file.revert']))
   })
 
   it('R3 canopi-f47t.52.272: a Web Draft opened while 2.1\'s Drafts could not be listed keeps Download a copy, and nothing else (2.1-Q334)', () => {
-    designSessionStore.replaceCurrentDesignState(SHOWN, null, SHOWN.name, { kind: 'read-only', origin: 'storage-unchecked' })
+    installSession(SHOWN, null, SHOWN.name, { kind: 'read-only', origin: 'storage-unchecked' })
     const enabled = webEnabled()
     expect(enabled).toContain('file.downloadCanopi')
     for (const id of ['file.rename', 'file.revert', 'file.importGeoJson', 'file.exportGeoJson', 'file.exportBudgetCsv', 'file.exportCanvasPdf', 'view.saveCurrentView']) {

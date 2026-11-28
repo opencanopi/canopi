@@ -48,7 +48,8 @@
     "addCurrentUnsavedHint": "Salve este design antes de adicioná-lo ao caderno.",
     "addCurrentDesign": "Adicionar o design atual ao caderno",
     "addCurrentButton": "Adicionar design atual",
-    "openNow": "Aberto agora"
+    "openNow": "Aberto agora",
+    "renameSectionFailed": "O Canopi não conseguiu renomear esta seção. Tente novamente."
   },
   "plantDb": {
     "title": "Catálogo de plantas",
@@ -73,7 +74,6 @@
     "addFavoriteNamed": "Adicionar {{name}} aos favoritos",
     "favoriteNeedsNewer": "Salvo por uma versão mais recente do Canopi. Atualize o Canopi para alterar seus favoritos.",
     "removeFavoriteNamed": "Remover {{name}} dos favoritos",
-    "factHeight": "{{height}} m",
     "factHardiness": "USDA {{zones}}",
     "factEdible": "Comestível {{rating}}/5",
     "quickEdible": "Comestível",
@@ -240,7 +240,6 @@
       "selectedCount_few": "{{count}} selecionadas",
       "selectedCount_many": "{{count}} selecionadas",
       "selectedCount_other": "{{count}} selecionadas",
-      "suggested": "Sugestão baseada na cor da flor",
       "moreColors": "Cor personalizada",
       "hue": "Matiz",
       "saturationLightness": "Saturação e luminosidade",
@@ -312,7 +311,7 @@
       "placeholder": "Lugar ou coordenadas",
       "searching": "Pesquisando…",
       "noResults": "Nenhum lugar encontrado",
-      "error": "A pesquisa de lugar falhou",
+      "error": "Pesquisa de locais indisponível. Introduza latitude e longitude.",
       "results": "Lugares",
       "placeholderShort": "Pesquisar um lugar",
       "east": "L",
@@ -360,7 +359,9 @@
       "siteDataWeb_one": "{{count, number}} camada de terreno ou altura neste design · Requer o Canopi Desktop",
       "siteDataWeb_few": "{{count, number}} camadas de terreno ou altura neste design · Requer o Canopi Desktop",
       "siteDataWeb_many": "{{count, number}} camadas de terreno ou altura neste design · Requer o Canopi Desktop",
-      "siteDataWeb_other": "{{count, number}} camadas de terreno ou altura neste design · Requer o Canopi Desktop"
+      "siteDataWeb_other": "{{count, number}} camadas de terreno ou altura neste design · Requer o Canopi Desktop",
+      "webgl2Unavailable": "WebGL2 não está disponível neste dispositivo. O Canopi precisa de WebGL2 para desenhar o mapa.",
+      "layerFailed": "Não foi possível carregar"
     },
     "timeline": {
       "actionType": "Tipo de ação",
@@ -724,11 +725,6 @@
       }
     },
     "basemap": {
-      "googleKey": "Chave de API do Google Maps (opcional)",
-      "saveKey": "Salvar chave",
-      "clearKey": "Limpar chave",
-      "keySaved": "Chave salva neste dispositivo.",
-      "keyLocalOnly": "Armazenada apenas nas configurações deste dispositivo. Nunca é gravada em um design, exportação, log ou relatório.",
       "style": "Estilo",
       "styles": {
         "liberty": "Liberty",
@@ -736,9 +732,6 @@
         "bright": "Claro",
         "dark": "Escuro"
       }
-    },
-    "satellite": {
-      "googleKeyOptional": "Sem chave, o Canopi usa os blocos de satélite públicos do Google. Adicione sua chave de API do Google Maps para usar a API oficial Map Tiles."
     },
     "zoom": {
       "scaleBar": "Barra de escala: {{distance}}",
@@ -752,7 +745,7 @@
     },
     "myLocation": {
       "show": "Mostrar minha localização",
-      "blocked": "A localização está bloqueada. Permita-a para este site nas configurações do seu navegador.",
+      "blocked": "A localização está bloqueada. Permita-a nas configurações do navegador ou do sistema.",
       "unavailable": "Sua localização não está disponível agora; continuamos tentando."
     },
     "selectionChip": {
@@ -792,7 +785,9 @@
       "clear": "Limpar a seleção",
       "rename": "Renomear…",
       "sameSpeciesShort": "Mesma espécie",
-      "clearShort": "Limpar"
+      "clearShort": "Limpar",
+      "dimensions": "Dimensões",
+      "dimensionsShort": "Tamanho"
     },
     "viewChip": "Visualização",
     "map": {
@@ -871,7 +866,8 @@
       "pathKeys": "Alt coloca um ponto em canto vivo · Shift mantém ângulos de 45° · {{mod}} desativa o ajuste",
       "pathTouchHint": "Arraste um ponto para movê-lo · arraste uma marca para adicionar um · mantenha um ponto pressionado para mais opções",
       "pathFinish": "Plantar a fileira",
-      "options": "Opções"
+      "options": "Opções",
+      "constrain": "Restringir"
     },
     "placePreview": {
       "nearest": "{{distance}} até {{name}}",
@@ -898,18 +894,6 @@
       "point": "Ponto da fileira {{index}}",
       "dot": "Adicionar um ponto no trecho {{index}} da fileira"
     }
-  },
-  "worldMap": {
-    "title": "Mapa mundial",
-    "discover": "Descobrir designs",
-    "featured": "Destaque",
-    "downloading": "Baixando modelo…",
-    "author": "Por {{author}}",
-    "noDesigns": "Ainda não há designs nesta área",
-    "zoomToExplore": "Amplie para explorar designs",
-    "filterByClimate": "Filtrar por clima",
-    "filterByStyle": "Filtrar por estilo",
-    "openTemplate": "Abrir como novo design"
   },
   "theme": {
     "light": "Claro",
@@ -1060,7 +1044,6 @@
     "fireResistant": "Resistente ao fogo",
     "fireTolerance": "Tolerância ao fogo",
     "hedgeTolerance": "Tolerância à poda",
-    "inchesUnit": "pol",
     "daysUnit": "d",
     "pollinators": "Polinizadores",
     "salinityTolerance": "Tolerância salina",
@@ -1381,7 +1364,11 @@
     "reorderNamed": "Reordenar {{name}} (Alt ↑ ou ↓)",
     "placeNamed": "Colocar o carimbo {{name}}",
     "deleteNamed": "Excluir o carimbo {{name}}",
-    "actionsFor": "Mais ações para {{name}}"
+    "actionsFor": "Mais ações para {{name}}",
+    "renameFailed": "O Canopi não conseguiu renomear este carimbo. Tente novamente.",
+    "deletedToast": "“{{name}}” excluído",
+    "placedToast": "Carimbo posicionado ({{summary}})",
+    "undo": "Desfazer"
   },
   "boundary": {
     "panelFailed": "Não foi possível carregar este painel",
@@ -1530,7 +1517,11 @@
     "mapOrientationAsOnScreen": "Como na tela",
     "northArrow": "Seta do norte e escala",
     "pageOptions": "Página selecionada",
-    "findInKey": "Buscar na legenda"
+    "findInKey": "Buscar na legenda",
+    "scale": "Escala",
+    "pageAngle": "Ângulo da página",
+    "angleDegrees": "Ângulo (°)",
+    "savedViewAngle": "Vista guardada"
   },
   "speciesKey": {
     "title": "Plantas deste design",
@@ -1598,7 +1589,8 @@
     "namesShown_one": "Nomes visíveis em {{shown, number}} de {{count, number}} planta à vista",
     "namesShown_few": "Nomes visíveis em {{shown, number}} de {{count, number}} plantas à vista",
     "namesShown_many": "Nomes visíveis em {{shown, number}} de {{count, number}} plantas à vista",
-    "namesShown_other": "Nomes visíveis em {{shown, number}} de {{count, number}} plantas à vista"
+    "namesShown_other": "Nomes visíveis em {{shown, number}} de {{count, number}} plantas à vista",
+    "codeLabel": "Código da espécie para {{name}}"
   },
   "geojson": {
     "import": "Importar GeoJSON…",
@@ -1639,10 +1631,7 @@
     "conflictAnotherTab": "Alterado em outra aba"
   },
   "readOnlyDesign": {
-    "label": "Somente leitura",
-    "status": "Somente leitura: salvo por uma versão mais recente do Canopi",
-    "details": "Este design foi salvo por uma versão mais recente do Canopi. Você pode vê-lo, mas não pode alterá-lo nem salvá-lo. Atualize o Canopi para editá-lo.",
-    "update": "Atualizar"
+    "label": "Somente leitura"
   },
   "saveProblem": {
     "flushFailedTitle": "Não foi possível salvar suas alterações",
@@ -1745,7 +1734,6 @@
       "ValuesNotMetres": "Precisa de valores em metros; estes dados estão em {{units}}.",
       "GridNotProjectedMetres": "Precisa de uma grade projetada em metros no terreno, não Web Mercator nem longitude e latitude.",
       "EngineMissing": "Indisponível: o motor GeoLibre está ausente.",
-      "NeedsDesktop": "Precisa do Canopi Desktop.",
       "AlreadyInSiteData": "Já está em Dados do local."
     },
     "stale": {
@@ -1867,7 +1855,6 @@
   "siteOnboarding": {
     "locateTitle": "Onde fica o seu terreno?",
     "locateIntro": "Pesquise um lugar ou cole coordenadas. O mapa vai até lá; nada é colocado ainda.",
-    "placeNamesCredit": "Nomes de lugares © colaboradores do OpenStreetMap",
     "skip": "Pular, vou encontrar no mapa",
     "startTitle": "Comece seu design",
     "closeStart": "Fechar Comece seu design",
@@ -1981,7 +1968,12 @@
     "aboutVersion": "Canopi {{version}}",
     "aboutCanopi": "Sobre o Canopi…",
     "mapStyle": "Estilo do mapa",
-    "googleKeyKept": "Sua chave do Google continua salva neste dispositivo, sem uso. Escolha Minha chave do Google para usá-la de novo."
+    "googleKeyKept": "Sua chave do Google continua salva neste dispositivo, sem uso. Escolha Minha chave do Google para usá-la de novo.",
+    "units": {
+      "label": "Unidades",
+      "metric": "Métrico",
+      "usCustomary": "Sistema americano"
+    }
   },
   "savedViews": {
     "defaultName": "Visualização {{number}}",
@@ -2078,9 +2070,9 @@
     "imageRemove": "Remover a imagem {{number}}",
     "imagePreview": "Imagem {{number}}: {{alt}}",
     "imageType": "Escolha uma imagem PNG, JPEG, WebP ou GIF.",
-    "imageTooLarge": "Esta imagem tem {{size}}. Uma imagem pode ter no máximo 1 MB; escolha uma menor.",
-    "imageDesignFull": "Este design já contém {{used}} de imagens, e um design pode conter 10 MB. Remova uma imagem ou escolha uma menor.",
-    "imagesDoNotFit": "Estas imagens não cabem: um design contém no máximo 10 MB de imagens. Remova uma imagem e tente novamente.",
+    "imageTooLarge": "Esta imagem tem {{size}}. Uma imagem pode ter no máximo {{limit}}; escolha uma menor.",
+    "imageDesignFull": "Este design já contém {{used}} de imagens, e um design pode conter {{limit}}. Remova uma imagem ou escolha uma menor.",
+    "imagesDoNotFit": "Estas imagens não cabem: um design contém no máximo {{limit}} de imagens. Remova uma imagem e tente novamente.",
     "imageUnreadable": "O Canopi não conseguiu ler esta imagem. Tente outro arquivo.",
     "imageResized": "O Canopi reduziu esta imagem para caber: de {{from}} para {{to}}.",
     "imageShrinking": "Reduzindo a imagem…",
@@ -2199,7 +2191,13 @@
     "downloadFailedMessage": "Este rascunho não está mais neste navegador ou não pôde ser lido.",
     "uncheckedReadOnly": "Aberto somente leitura: o Canopi não conseguiu verificar o armazenamento deste navegador, então este rascunho pode estar desatualizado. Baixe uma cópia para mantê-lo.",
     "keepDrafts": "Manter meus rascunhos",
-    "keepDraftsMenu": "Manter meus rascunhos…"
+    "keepDraftsMenu": "Manter meus rascunhos…",
+    "storeBlockedTitle": "Rascunhos aguardando outra aba",
+    "storeBlockedMessage": "Feche as outras abas do Canopi para continuar.",
+    "pendingWriteTitle": "A última alteração pode estar faltando",
+    "pendingWriteMessage": "O Canopi foi fechado antes de salvar a última alteração em “{{name}}”. Verifique seu projeto antes de continuar.",
+    "olderTabCopyTitle": "Copiado de uma aba mais antiga",
+    "olderTabCopyMessage": "As alterações em “{{name}}” feitas em uma aba mais antiga do Canopi foram salvas como um rascunho separado."
   },
   "webRelease": {
     "title": "Nova versão",
@@ -2264,5 +2262,39 @@
     "title": "Não foi possível iniciar o Canopi",
     "desktopHint": "Seu sistema pode ser antigo demais para esta versão do Canopi. Atualize o sistema operacional e abra o Canopi novamente.",
     "webHint": "Recarregue a página. Se o Canopi ainda não iniciar, este navegador pode ser antigo demais: atualize-o ou use outro navegador."
+  },
+  "editionCapability": {
+    "needsDesktop": "Requer o Canopi Desktop"
+  },
+  "fileDelivery": {
+    "refused": "Não foi possível salvar com esse nome de arquivo. Escolha outro nome ou pasta e tente novamente."
+  },
+  "geocoding": {
+    "credit": "Pesquisa por {{service}} · © colaboradores do OpenStreetMap"
+  },
+  "inspector": {
+    "title": "Editar dimensões",
+    "close": "Fechar",
+    "empty": "Selecione um objeto editável para editar suas dimensões.",
+    "dimensions": "Dimensões",
+    "width": "Largura",
+    "height": "Altura",
+    "length": "Comprimento",
+    "rotation": "Rotação",
+    "angle": "Ângulo",
+    "centerLat": "Latitude do centro",
+    "centerLon": "Longitude do centro",
+    "side": "Lado {{index}}",
+    "cornerAngle": "Ângulo {{index}}",
+    "style": "Estilo da zona",
+    "fillColor": "Cor de preenchimento",
+    "strokeColor": "Cor da borda",
+    "opacity": "Opacidade",
+    "canopySpread": "Diâmetro da copa",
+    "quantity": "Quantidade",
+    "plantedDate": "Data de plantio",
+    "notes": "Notas",
+    "noteText": "Texto da nota",
+    "fontSize": "Tamanho do texto"
   }
 }

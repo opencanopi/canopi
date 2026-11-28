@@ -268,6 +268,7 @@ checksum = "23f756521115a60a84bc45722261eaf03aa6a59d886c9c3b41d08ac1c39e3e24"
 name = "bindings-gen"
 version = "2.1.0-beta.3"
 dependencies = [
+ "canopi-format",
  "canopi-types",
  "serde",
  "serde_json",
@@ -460,6 +461,7 @@ dependencies = [
  "base64 0.22.1",
  "canopi-format",
  "canopi-redact",
+ "canopi-support",
  "canopi-types",
  "ed25519-dalek",
  "libc",
@@ -480,13 +482,13 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "tauri-plugin-window-state",
  "tokio",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
  "ureq",
  "wbgeotiff",
- "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -494,6 +496,7 @@ name = "canopi-format"
 version = "2.1.0-beta.3"
 dependencies = [
  "canopi-types",
+ "proptest",
  "serde",
  "serde_json",
 ]
@@ -517,6 +520,17 @@ dependencies = [
  "serde",
  "serde_json",
  "specta",
+]
+
+[[package]]
+name = "canopi-support"
+version = "2.1.0-beta.3"
+dependencies = [
+ "fs4",
+ "proptest",
+ "sha2",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]
@@ -1324,6 +1338,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e"
 dependencies = [
  "percent-encoding",
+]
+
+[[package]]
+name = "fs4"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7e72ed92b67c146290f88e9c89d60ca163ea417a446f61ffd7b72df3e7f1dfd5"
+dependencies = [
+ "rustix",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4916,6 +4940,21 @@ dependencies = [
  "tokio",
  "url",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "tauri-plugin-window-state"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d6815cab7b212f9cfe16a9d79d8d22f9e14159e4a9460f7dec1467167a008e3"
+dependencies = [
+ "bitflags 2.11.0",
+ "log",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

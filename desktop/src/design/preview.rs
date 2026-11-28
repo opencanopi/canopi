@@ -1,16 +1,17 @@
 //! Recent Design previews: counts, ground bounds and a symbolic sketch derived
 //! from a Design's own plants and zones. Pure: no file or network access.
 
+use canopi_types::design::v10::{CanopiFileV10, GeoPointV10, ZoneV10};
 use canopi_types::design::{
-    CanopiFile, DESIGN_SKETCH_GRID, DESIGN_SKETCH_MAX_PLANTS, DESIGN_SKETCH_MAX_ZONE_POINTS,
-    DesignGroundBounds, DesignSketch, DesignSketchZone, GeoPoint, RecentDesignPreview, Zone,
+    DESIGN_SKETCH_GRID, DESIGN_SKETCH_MAX_PLANTS, DESIGN_SKETCH_MAX_ZONE_POINTS,
+    DesignGroundBounds, DesignSketch, DesignSketchZone, RecentDesignPreview,
 };
 
 /// Points an ellipse zone is drawn with in a sketch.
 const SKETCH_ELLIPSE_POINTS: usize = 16;
 
 /// The preview of a Design read from its file.
-pub(crate) fn preview_of(file: &CanopiFile) -> RecentDesignPreview {
+pub(crate) fn preview_of(file: &CanopiFileV10) -> RecentDesignPreview {
     let bounds = ground_bounds(file);
     RecentDesignPreview::Read {
         plant_count: saturating_u32(file.plants.len()),
@@ -25,12 +26,12 @@ fn saturating_u32(count: usize) -> u32 {
 }
 
 /// The box around every plant position and zone point, or `None` without any.
-pub(crate) fn ground_bounds(file: &CanopiFile) -> Option<DesignGroundBounds> {
-    let points = file.plants.iter().map(|plant| plant.position).chain(
-        file.zones
-            .iter()
-            .flat_map(|zone| zone.points.iter().copied()),
-    );
+pub(crate) fn ground_bounds(file: &CanopiFileV10) -> Option<DesignGroundBounds> {
+    let points = file
+        .plants
+        .iter()
+        .map(|plant| &plant.position)
+        .chain(file.zones.iter().flat_map(|zone| zone.points.iter()));
     points.fold(None, |bounds: Option<DesignGroundBounds>, point| {
         Some(match bounds {
             None => DesignGroundBounds {
@@ -95,7 +96,7 @@ impl SketchPlane {
         }
     }
 
-    fn local(&self, point: GeoPoint) -> (f64, f64) {
+    fn local(&self, point: &GeoPointV10) -> (f64, f64) {
         (
             (point.lon - self.west) * self.lon_scale,
             self.north - point.lat,
@@ -129,14 +130,14 @@ fn step_for(count: usize, cap: usize) -> usize {
     count.div_ceil(cap).max(1)
 }
 
-fn sketch(file: &CanopiFile, bounds: DesignGroundBounds) -> DesignSketch {
+fn sketch(file: &CanopiFileV10, bounds: DesignGroundBounds) -> DesignSketch {
     let plane = SketchPlane::over(bounds);
     let plant_step = step_for(file.plants.len(), DESIGN_SKETCH_MAX_PLANTS);
     let plants = file
         .plants
         .iter()
         .step_by(plant_step)
-        .flat_map(|plant| plane.project(plane.local(plant.position)))
+        .flat_map(|plant| plane.project(plane.local(&plant.position)))
         .collect();
 
     let outlines: Vec<(bool, Vec<(f64, f64)>)> = file
@@ -172,12 +173,8 @@ fn sketch(file: &CanopiFile, bounds: DesignGroundBounds) -> DesignSketch {
 /// A zone's outline in the sketch plane: polygon and line zones by their
 /// vertices; rectangles and ellipses from the opposite corners of their
 /// unrotated box, turned clockwise by the zone's rotation about its centre.
-fn zone_outline(zone: &Zone, plane: &SketchPlane) -> Option<(bool, Vec<(f64, f64)>)> {
-    let points: Vec<(f64, f64)> = zone
-        .points
-        .iter()
-        .map(|point| plane.local(*point))
-        .collect();
+fn zone_outline(zone: &ZoneV10, plane: &SketchPlane) -> Option<(bool, Vec<(f64, f64)>)> {
+    let points: Vec<(f64, f64)> = zone.points.iter().map(|point| plane.local(point)).collect();
     match zone.zone_type.as_str() {
         "rect" | "ellipse" => {
             let (min_x, min_y, max_x, max_y) = points.iter().fold(
@@ -237,13 +234,13 @@ fn zone_outline(zone: &Zone, plane: &SketchPlane) -> Option<(bool, Vec<(f64, f64
 #[cfg(test)]
 mod tests {
     use super::*;
-    use canopi_types::design::PlacedPlant;
+    use canopi_types::design::v10::PlacedPlantV10;
 
-    fn design() -> CanopiFile {
+    fn design() -> CanopiFileV10 {
         crate::design::format::create_new_design("Orchard", "2026-09-27T00:00:00Z")
     }
 
-    fn plant(id: usize, lon: f64, lat: f64) -> PlacedPlant {
+    fn plant(id: usize, lon: f64, lat: f64) -> PlacedPlantV10 {
         serde_json::from_value(serde_json::json!({
             "id": format!("plant-{id}"),
             "canonical_name": "Malus domestica",
@@ -252,7 +249,7 @@ mod tests {
         .unwrap()
     }
 
-    fn zone(zone_type: &str, points: &[(f64, f64)], rotation: f64) -> Zone {
+    fn zone(zone_type: &str, points: &[(f64, f64)], rotation: f64) -> ZoneV10 {
         serde_json::from_value(serde_json::json!({
             "id": format!("zone-{zone_type}"),
             "zone_type": zone_type,

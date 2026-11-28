@@ -24,24 +24,26 @@ import type { MapNoticeReadModel } from '../app/canvas-map-surface/map-notice'
 import { t } from '../i18n'
 import { PanelRail } from '../components/shared/PanelRail'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  locale,
+} from '../app/settings/state'
 import { modalLayerOpen } from '../app/shell/modal-layer'
-import { readPanelTargetOverlaySnapshot } from '../app/panel-targets/presentation'
+import { readPanelOriginTargets } from '../app/panel-targets/presentation'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
-import { mapZoomToStageScale } from '../canvas/projection'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { setCurrentCanvasSession, currentCanvasQuerySurface } from '../canvas/session'
 import type { PlantDisplay } from '../canvas/runtime/plant-display'
 import { createDefaultScenePersistedState } from '../canvas/runtime/scene/defaults'
 import type { ScenePlantEntity } from '../canvas/runtime/scene'
-import { locale } from '../app/settings/state'
 import { gridVisible } from '../app/canvas-settings/signals'
 import { focusOwner } from '../app/keyboard/focus-owner'
 import type { CanopiFile, SavedView, Story } from '../types/design'
-import type { ViewCamera } from '../canvas/runtime/view/types'
+import type { ViewCamera } from '../geo/view/types'
 import { createTestCanvasCommandSurface, createTestCanvasRuntimeSurfaces } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { replaceCurrentDesignState, resetDirtyBaselines } from './support/design-session-state'
 import { TEST_GEO_ORIGIN } from './support/geo-design'
 import { framedCornersOnScreen, groundSizeShown } from './support/saved-view-frame'
 import { describeSavedViewSnapshot, VIEW_SNAPSHOT_THUMBNAIL } from '../app/saved-views/snapshot'
@@ -118,7 +120,7 @@ function plant(id: string, canonicalName: string): ScenePlantEntity {
 function mountMap(planted: readonly ScenePlantEntity[] = [plant('p1', 'Lycium barbarum')]): void {
   const queries = createTestCanvasQuerySurface({
     scene: { ...createDefaultScenePersistedState(), plants: [...planted] },
-    placement: { x: 200, y: 150, scale: mapZoomToStageScale(18, TEST_GEO_ORIGIN.lat) },
+    placement: { x: 200, y: 150, scale: createSessionPlane({ lon: 0, lat: TEST_GEO_ORIGIN.lat }).pixelsPerMetre(18).mean },
     sessionPlane: createSessionPlane(TEST_GEO_ORIGIN),
   })
   queries.getSpeciesFocus = () => ({ canonicalName: 'Malus domestica' })
@@ -161,7 +163,7 @@ function framedTour(width: number, height: number, bearing: number): CanopiFile 
 beforeEach(() => {
   locale.value = 'en'
   replaceCurrentDesignState(design(), null, 'Stories')
-  designSessionStore.resetDirtyBaselines()
+  resetDirtyBaselines()
   mountMap()
   container = document.createElement('div')
   document.body.append(container)
@@ -178,7 +180,6 @@ afterEach(() => {
 describe('presenting a story', () => {
   it('applies a step’s view as session overrides and never touches the Design', () => {
     const before = currentDesign.value
-    const revision = designSessionStore.committedDesignRevision.value
     const userLayers = mapLayers.value
 
     expect(presentStory('tour', 1)).toBe(true)
@@ -192,7 +193,7 @@ describe('presenting a story', () => {
     expect(presented.hillshade.visible).toBe(true)
     expect(storyPresentationOverrides.value?.plantLabels).toBe('codes')
     expect([...storyPresentationOverrides.value!.siteDataIds]).toEqual([])
-    expect(readPanelTargetOverlaySnapshot().selectedTargets).toEqual([
+    expect(readPanelOriginTargets()).toEqual([
       { kind: 'species', canonical_name: 'Lycium barbarum' },
       { kind: 'zone', zone_id: 'zone-1' },
     ])
@@ -205,7 +206,6 @@ describe('presenting a story', () => {
     expect(mapLayers.value).toBe(userLayers)
     expect(currentDesign.value).toBe(before)
     expect(designSessionStore.designDirty.value).toBe(false)
-    expect(designSessionStore.committedDesignRevision.value).toBe(revision)
   })
 
   it('clears the highlight for a step whose species has no plants instead of keeping the previous one', () => {

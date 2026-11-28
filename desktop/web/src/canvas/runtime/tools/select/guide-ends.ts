@@ -10,7 +10,9 @@ import { createMeasurementGuideDraftMeasurements } from '../../measurement-guide
 import type { CanvasDesignObjectSelectionModel } from '../../runtime'
 import { singleEditableTarget } from '../../scene-runtime/selection'
 import type { SceneMeasurementGuideEntity, ScenePersistedState } from '../../scene/types'
-import type { WorldPoint } from '../../view/types'
+import type { GroundMeasure } from '../../../../geo/session-plane'
+import type { UnitSystem } from '../../../../utils/format'
+import type { WorldPoint } from '../../../../geo/view/types'
 import type { DraftShape, ToolHandle } from '../draft'
 import { measureLabelShapes } from '../measure-labels'
 import type { ToolContext } from '../tool'
@@ -74,8 +76,14 @@ export function guideEndSubject(
 export function guideLengthShapes(
   guide: Pick<SceneMeasurementGuideEntity, 'start' | 'end'>,
   screenDistance: (a: WorldPoint, b: WorldPoint) => number,
+  groundMeasure?: Pick<GroundMeasure, 'groundLength'>,
+  unitSystem: UnitSystem = 'metric',
+  locale = 'en',
 ): DraftShape[] {
-  return measureLabelShapes(createMeasurementGuideDraftMeasurements(guide.start, guide.end), screenDistance)
+  return measureLabelShapes(
+    createMeasurementGuideDraftMeasurements(guide.start, guide.end, groundMeasure, unitSystem, locale),
+    screenDistance,
+  )
 }
 
 /** The guide with its end `index` at `dragged`, or null where it would be shorter than the minimum. */

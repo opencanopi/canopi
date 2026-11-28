@@ -1,5 +1,6 @@
 import { t } from '../../i18n';
-import { locale } from '../../app/settings/state';
+import { locale, unitSystem } from '../../app/settings/state';
+import { CONVERSION_CONSTANTS, formatRainfall } from '../../utils/format';
 import { ControlIcon } from '../shared/ControlIcon';
 import row from '../shared/species-row.module.css';
 import { formatNumber } from '../species-detail/species-facts';
@@ -42,12 +43,16 @@ export function NumAttr({ label, value, unit }: { label: string; value: number |
   return <Attr label={label} value={`${formatNumber(value, locale.value, 2)}${unit ?? ''}`} />;
 }
 
-/** Format a min/max precipitation range with directional prefixes. */
+/** Format a min/max precipitation range (stored in inches) in the active unit system. */
 export function formatPrecipRange(min: number | null, max: number | null): string | null {
-  const u = t('plantDetail.inchesUnit');
-  const n = (value: number) => formatNumber(value, locale.value);
-  if (min !== null && max !== null) return `${n(min)}–${n(max)} ${u}`;
-  if (min !== null) return `${n(min)}+ ${u}`;
-  if (max !== null) return `≤${n(max)} ${u}`;
+  const fmt = (inches: number) => formatRainfall(
+    inches * CONVERSION_CONSTANTS.mmPerInch,
+    unitSystem.value,
+    locale.value,
+    { trimTrailingZeros: true },
+  );
+  if (min !== null && max !== null) return `${fmt(min)}–${fmt(max)}`;
+  if (min !== null) return `${fmt(min)}+`;
+  if (max !== null) return `≤${fmt(max)}`;
   return null;
 }

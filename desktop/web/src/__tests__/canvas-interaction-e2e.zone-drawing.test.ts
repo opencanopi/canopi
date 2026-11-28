@@ -5,17 +5,16 @@
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts. The session draws its drafts into a recording
 // renderer (the draft sink scene-runtime.ts passes); the tools' own behaviour is tested in canvas/runtime/tools/*.test.ts.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { currentCanvasSelection } from '../canvas/session-state'
-import { snapToGridEnabled } from '../app/canvas-settings/signals'
+import { snapToGridEnabled } from '../app/settings/state'
 import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
 import type {
   SceneInteractionSession,
   SceneInteractionSessionDeps,
 } from '../canvas/runtime/interaction-session'
-import { SceneHistory } from '../canvas/runtime/scene-history'
 import { SceneRuntimeReoriginController } from '../canvas/runtime/scene-runtime/reorigin'
 import {
+  createDetachedSceneSessionAdapter,
   SceneRuntimeEditCoordinator,
   type SceneEditCoordinator,
   type SceneEditTransaction,
@@ -55,6 +54,7 @@ describe('SceneInteractionSession', () => {
     () => ({ events }),
   )
   const { openContextMenu, openContextMenuFromKeyboard } = fixture
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
 
   beforeEach(() => {
     renderer = createRecordingRenderer()
@@ -115,7 +115,7 @@ describe('SceneInteractionSession', () => {
       }),
     })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
     events.pointerDown({ x: 20, y: 20 })
     events.pointerDown({ x: 80, y: 20 })
     events.pointerDown({ x: 80, y: 80 })
@@ -123,7 +123,7 @@ describe('SceneInteractionSession', () => {
     openContextMenu({ x: 200, y: 180 })
     contextMenuCommand('paste').run()
 
-    expect(pasteAt).toHaveBeenCalledWith({ x: 200, y: 180 })
+    expect(pasteAt).toHaveBeenCalledWith(world({ x: 200, y: 180 }))
     expect(store.persisted.zones).toHaveLength(0)
     expect(draftBand()).not.toBeNull()
     session.dispose()
@@ -133,7 +133,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 20, y: 20 }, { button: 0, pointerId: 72 })
     events.pointerMove({ x: 80, y: 60 }, { button: 0, pointerId: 72 })
@@ -149,33 +149,33 @@ describe('SceneInteractionSession', () => {
     { label: 'Rectangle', tool: 'rectangle' },
     { label: 'Measurement Guide', tool: 'measurement-guide' },
   ] as const)('keeps a $label drag authoritative until pointer-up commits it', ({ tool }) => {
-    const history = new SceneHistory()
-    const record = history.record.bind(history)
+    const sceneSession = createDetachedSceneSessionAdapter()
+    const record = sceneSession.recordSceneEdit.bind(sceneSession)
     let unrelatedRecordFailures = 2
-    vi.spyOn(history, 'record').mockImplementation((command, transaction) => {
-      const recorded = record(command, transaction)
+    vi.spyOn(sceneSession, 'recordSceneEdit').mockImplementation((label, command) => {
+      record(label, command)
       if (command.type === 'unrelated-immediate' && unrelatedRecordFailures > 0) {
         unrelatedRecordFailures -= 1
         throw new Error('unrelated publication failed')
       }
-      return recorded
     })
     const baseDeps = createInteractionDeps(container, store, testView)
     const coordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
-      history,
+      sceneSession,
       setSelection: baseDeps.setSelection,
       incrementSceneRevision: () => {},
       syncCanvasSignalsFromScene: () => {},
       invalidate: () => {},
     })
+    sceneSession.bindReplay((command, direction) => coordinator.replayCommand(command, direction))
     const deps: SceneInteractionSessionDeps = {
       ...baseDeps,
       sceneEdits: coordinator,
       commandAdmission: coordinator,
     }
     const session = createTestSession(deps)
-    session.setTool(tool)
+    session.arm(tool)
 
     events.pointerDown({ x: 10, y: 20 })
     events.pointerMove({ x: 40, y: 60 })
@@ -191,23 +191,25 @@ describe('SceneInteractionSession', () => {
     expect(unrelatedResult).toBe(false)
     events.pointerUp({ x: 40, y: 60 })
 
+    const start = world({ x: 10, y: 20 })
+    const end = world({ x: 40, y: 60 })
     expect(unrelatedEdit).not.toHaveBeenCalled()
     if (tool === 'rectangle') {
       expect(store.persisted.zones).toHaveLength(1)
       expect(store.persisted.zones[0]).toMatchObject({
         zoneType: 'rect',
         points: [
-          { x: 10, y: 20 },
-          { x: 40, y: 20 },
-          { x: 40, y: 60 },
-          { x: 10, y: 60 },
+          { x: start.x, y: start.y },
+          { x: end.x, y: start.y },
+          { x: end.x, y: end.y },
+          { x: start.x, y: end.y },
         ],
       })
     } else {
       expect(store.persisted.measurementGuides).toEqual([
         expect.objectContaining({
-          start: { x: 10, y: 20 },
-          end: { x: 40, y: 60 },
+          start,
+          end,
         }),
       ])
     }
@@ -239,7 +241,7 @@ describe('SceneInteractionSession', () => {
       ...baseDeps,
       sceneEdits: abortFailure.sceneEdits,
     })
-    session.setTool(tool)
+    session.arm(tool)
 
     events.pointerDown({ x: 10, y: 20 }, { pointerId: 71 })
     events.pointerMove({ x: 40, y: 60 }, { pointerId: 71 })
@@ -269,32 +271,26 @@ describe('SceneInteractionSession', () => {
   })
 
   it('a pointer-up whose commit fails finishes publication at once, then reaches the app', () => {
-    const history = new SceneHistory()
-    const record = history.record.bind(history)
-    let publicationFailures = 2
-    vi.spyOn(history, 'record').mockImplementation((command, transaction) => {
-      const recorded = record(command, transaction)
-      if (command.type === 'interaction-rectangle' && publicationFailures > 0) {
-        publicationFailures -= 1
-        throw new Error('rectangle publication failed')
-      }
-      return recorded
-    })
+    let publicationFailures = 1
     const baseDeps = createInteractionDeps(container, store, testView)
     const coordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
-      history,
       setSelection: baseDeps.setSelection,
       incrementSceneRevision: () => {},
       syncCanvasSignalsFromScene: () => {},
-      invalidate: () => {},
+      invalidate: () => {
+        if (publicationFailures > 0) {
+          publicationFailures -= 1
+          throw new Error('rectangle publication failed')
+        }
+      },
     })
     const session = createTestSession({
       ...baseDeps,
       sceneEdits: coordinator,
       commandAdmission: coordinator,
     })
-    session.setTool('rectangle')
+    session.arm('rectangle')
     const downstreamPointerUp = vi.fn()
     window.addEventListener('pointerup', downstreamPointerUp)
 
@@ -326,11 +322,9 @@ describe('SceneInteractionSession', () => {
     { label: 'Rectangle', tool: 'rectangle' },
     { label: 'Measurement Guide', tool: 'measurement-guide' },
   ] as const)('a $label commit whose cleanup throws keeps the shape once, leaving nothing open for the next drag', ({ tool }) => {
-    const history = new SceneHistory()
     const baseDeps = createInteractionDeps(container, store, testView)
     const coordinator = new SceneRuntimeEditCoordinator({
       sceneStore: store,
-      history,
       setSelection: baseDeps.setSelection,
       incrementSceneRevision: () => {},
       syncCanvasSignalsFromScene: () => {},
@@ -347,7 +341,7 @@ describe('SceneInteractionSession', () => {
       }),
       commandAdmission: coordinator,
     })
-    session.setTool(tool)
+    session.arm(tool)
 
     events.pointerDown({ x: 10, y: 20 }, { pointerId: 91 })
     events.pointerMove({ x: 40, y: 60 }, { pointerId: 91 })
@@ -400,7 +394,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 40, y: 60 }, { button: 0 })
@@ -415,12 +409,14 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('line')
+    session.arm('line')
 
+    const start = world({ x: 10, y: 20 })
+    const end = world({ x: 40, y: 60 })
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 40, y: 60 }, { button: 0 })
 
-    expect(draftOutline()).toMatchObject({ kind: 'polyline', points: [{ x: 10, y: 20 }, { x: 40, y: 60 }] })
+    expect(draftOutline()).toMatchObject({ kind: 'polyline', points: [start, end] })
 
     events.pointerUp({ x: 40, y: 60 }, { button: 0 })
 
@@ -428,18 +424,15 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'line',
       rotationDeg: 0,
-      points: [
-        { x: 10, y: 20 },
-        { x: 40, y: 60 },
-      ],
+      points: [start, end],
     })
     expect(store.toCanopiFile().zones[0]).toMatchObject({
       zone_type: 'line',
       rotation: 0,
       locked: false,
       points: [
-        storedGeo(store, { x: 10, y: 20 }),
-        storedGeo(store, { x: 40, y: 60 }),
+        storedGeo(store, start),
+        storedGeo(store, end),
       ],
     })
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-line')
@@ -456,7 +449,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('line')
+    session.arm('line')
 
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 40, y: 60 }, { button: 0 })
@@ -471,7 +464,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('line')
+    session.arm('line')
 
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 70, y: 20 }, { button: 0 })
@@ -489,7 +482,7 @@ describe('SceneInteractionSession', () => {
 
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('line')
+    session.arm('line')
 
     events.pointerDown({ x: 43, y: 87 }, { button: 0 })
     events.pointerMove({ x: 148, y: 254 }, { button: 0 })
@@ -514,7 +507,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('line')
+    session.arm('line')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerMove({ x: 10.2, y: 10.2 }, { button: 0 })
@@ -529,12 +522,15 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('ellipse')
+    session.arm('ellipse')
 
+    const start = world({ x: 10, y: 20 }), end = world({ x: 70, y: 100 })
+    const center = { x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }
+    const radiusX = Math.abs(end.x - start.x) / 2, radiusY = Math.abs(end.y - start.y) / 2
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 70, y: 100 }, { button: 0 })
 
-    expect(draftOutline()).toMatchObject({ kind: 'ellipse', center: { x: 40, y: 60 }, radiusX: 30, radiusY: 40 })
+    expect(draftOutline()).toMatchObject({ kind: 'ellipse', center, radiusX, radiusY })
 
     events.pointerUp({ x: 70, y: 100 }, { button: 0 })
 
@@ -542,20 +538,14 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'ellipse',
       rotationDeg: 0,
-      points: [
-        { x: 40, y: 60 },
-        { x: 30, y: 40 },
-      ],
+      points: [center, { x: radiusX, y: radiusY }],
     })
     expect(store.toCanopiFile().zones[0]).toMatchObject({
       zone_type: 'ellipse',
       rotation: 0,
       locked: false,
       // Files store the opposite corners of the unrotated bounding box.
-      points: [
-        storedGeo(store, { x: 10, y: 20 }),
-        storedGeo(store, { x: 70, y: 100 }),
-      ],
+      points: [storedGeo(store, start), storedGeo(store, end)],
     })
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-ellipse')
     expect(deps.setSelection).toHaveBeenCalledTimes(1)
@@ -571,7 +561,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('ellipse')
+    session.arm('ellipse')
 
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 70, y: 100 }, { button: 0 })
@@ -585,8 +575,10 @@ describe('SceneInteractionSession', () => {
   it('normalizes elliptical zone drags in any direction', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('ellipse')
+    session.arm('ellipse')
 
+    const start = world({ x: 110, y: 90 })
+    const end = world({ x: 10, y: 10 })
     events.pointerDown({ x: 110, y: 90 }, { button: 0 })
     events.pointerMove({ x: 10, y: 10 }, { button: 0 })
     events.pointerUp({ x: 10, y: 10 }, { button: 0 })
@@ -594,10 +586,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'ellipse',
       rotationDeg: 0,
-      points: [
-        { x: 60, y: 50 },
-        { x: 50, y: 40 },
-      ],
+      points: [{ x: (start.x + end.x) / 2, y: (start.y + end.y) / 2 }, { x: Math.abs(end.x - start.x) / 2, y: Math.abs(end.y - start.y) / 2 }],
     })
     session.dispose()
   })
@@ -609,7 +598,7 @@ describe('SceneInteractionSession', () => {
 
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('ellipse')
+    session.arm('ellipse')
 
     events.pointerDown({ x: 43, y: 87 }, { button: 0 })
     events.pointerMove({ x: 148, y: 254 }, { button: 0 })
@@ -634,15 +623,14 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('ellipse')
+    session.arm('ellipse')
 
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 70, y: 100 }, { button: 0 })
 
     expect(draftChips()).toEqual([
-      'W 60 m',
-      'H 80 m',
-      '3770 m²',
+      '60 m × 80 m',
+      '3,770 m²',
     ])
     expect(store.persisted.annotations).toHaveLength(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
@@ -653,7 +641,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('ellipse')
+    session.arm('ellipse')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerMove({ x: 10.2, y: 10.4 }, { button: 0 })
@@ -673,7 +661,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0 })
@@ -693,7 +681,7 @@ describe('SceneInteractionSession', () => {
 
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 43, y: 87 }, { button: 0 })
     events.pointerMove({ x: 148, y: 254 }, { button: 0 })
@@ -706,7 +694,7 @@ describe('SceneInteractionSession', () => {
   it('shows a live polygonal zone active-edge measurement while drawing', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerMove({ x: 60, y: 10 }, { button: 0 })
@@ -735,7 +723,7 @@ describe('SceneInteractionSession', () => {
     const deps = createInteractionDeps(container, store, testView)
     deps.setSelection([plantTarget('plant-1')])
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
 
@@ -749,7 +737,7 @@ describe('SceneInteractionSession', () => {
   it('shows polygonal zone draft edge measurements, closing edge, and live area', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0 })
@@ -759,7 +747,7 @@ describe('SceneInteractionSession', () => {
       '50 m',
       '40 m',
       '64 m',
-      '1000 m²',
+      '1,000 m²',
     ])
     session.dispose()
   })
@@ -768,7 +756,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0 })
@@ -778,11 +766,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'polygon',
       rotationDeg: 0,
-      points: [
-        { x: 10, y: 10 },
-        { x: 60, y: 10 },
-        { x: 60, y: 50 },
-      ],
+      points: [world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })],
     })
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-polygon')
     session.dispose()
@@ -791,14 +775,14 @@ describe('SceneInteractionSession', () => {
   it('finishes a polygonal zone with a double-click or the canvas menu\'s first entry, Finish shape', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0, detail: 1 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0, detail: 1 })
     events.pointerDown({ x: 60, y: 50 }, { button: 0, detail: 1 })
     events.pointerDown({ x: 60, y: 50 }, { button: 0, detail: 2 })
     expect(store.persisted.zones).toHaveLength(1)
-    expect(store.persisted.zones[0]!.points).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(store.persisted.zones[0]!.points).toEqual([world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })])
 
     events.pointerDown({ x: 110, y: 10 }, { button: 0, detail: 1 })
     events.pointerDown({ x: 160, y: 10 }, { button: 0, detail: 1 })
@@ -807,14 +791,14 @@ describe('SceneInteractionSession', () => {
     expect(contextMenuItemIds()[0]).toBe('finish-shape')
     contextMenuCommand('finish-shape').run()
     expect(store.persisted.zones).toHaveLength(2)
-    expect(store.persisted.zones[1]!.points).toEqual([{ x: 110, y: 10 }, { x: 160, y: 10 }, { x: 160, y: 50 }])
+    expect(store.persisted.zones[1]!.points).toEqual([world({ x: 110, y: 10 }), world({ x: 160, y: 10 }), world({ x: 160, y: 50 })])
     session.dispose()
   })
 
   it('a double-click finishes a polygon when the platform sends detail 0, with no duplicate corner', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     for (const point of [{ x: 10, y: 10 }, { x: 60, y: 10 }]) {
       events.pointerDown(point, { button: 0, detail: 0 })
@@ -826,7 +810,7 @@ describe('SceneInteractionSession', () => {
     events.pointerUp({ x: 60, y: 50 }, { button: 0 })
 
     expect(store.persisted.zones).toHaveLength(1)
-    expect(store.persisted.zones[0]!.points).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(store.persisted.zones[0]!.points).toEqual([world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })])
     session.dispose()
   })
 
@@ -839,7 +823,7 @@ describe('SceneInteractionSession', () => {
     })
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
     events.pointerDown({ x: 110, y: 110 }, { button: 0, detail: 1 })
     events.pointerDown({ x: 160, y: 110 }, { button: 0, detail: 1 })
     events.pointerDown({ x: 160, y: 150 }, { button: 0, detail: 1 })
@@ -875,15 +859,9 @@ describe('SceneInteractionSession', () => {
       return events.keyDown({ key: 'Escape', target: container })
     }
 
-    function sessionWithToolLog(): { session: SceneInteractionSession, tools: string[] } {
-      const tools: string[] = []
-      const deps = createInteractionDeps(container, store, testView, { setTool: (name: string) => { tools.push(name) } })
-      return { session: createTestSession(deps), tools }
-    }
-
     it('steps a polygon draft back point by point, then returns to Select (A17)', () => {
-      const { session, tools } = sessionWithToolLog()
-      session.setTool('polygon')
+      const session = createTestSession(createInteractionDeps(container, store, testView))
+      session.arm('polygon')
       container.focus()
       events.pointerDown({ x: 20, y: 20 })
       events.pointerUp({ x: 20, y: 20 })
@@ -892,12 +870,12 @@ describe('SceneInteractionSession', () => {
 
       escapeOnMap()
       escapeOnMap()
-      expect(tools).not.toContain('select')
+      expect(session.tool).toBe('polygon')
       expect(draftBand()).toBeNull()
       expect(document.activeElement).toBe(container)
 
       escapeOnMap()
-      expect(tools.at(-1)).toBe('select')
+      expect(session.tool).toBe('select')
       session.dispose()
     })
   })
@@ -906,7 +884,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerUp({ x: 10, y: 10 }, { button: 0 })
@@ -925,7 +903,7 @@ describe('SceneInteractionSession', () => {
   it('keeps a Backspace the polygon draft consumed from reaching the app shortcuts', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0 })
     // App shortcuts (Delete/Backspace deletes the selection) listen in the bubble
@@ -961,14 +939,13 @@ describe('SceneInteractionSession', () => {
       await Promise.resolve()
       await Promise.resolve()
     }
-    session.setTool('polygon')
+    session.arm('polygon')
     for (const corner of [{ x: 10, y: 10 }, { x: 60, y: 10 }]) {
       events.pointerDown(corner, { button: 0 })
       events.pointerUp(corner, { button: 0 })
     }
     const previous = store.sessionPlane
-    // The viewport is 1 px per metre at the origin, so screen (10, 10) is plane (10, 10).
-    const corners = [previous.toGeo({ x: 10, y: 10 }), previous.toGeo({ x: 60, y: 10 }), previous.toGeo({ x: 60, y: 50 })]
+    const corners = [{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }].map((pt) => previous.toGeo(view.view().screenToWorld(pt)))
 
     // The view's centre is 20 km east: the draft holds the plane.
     view.navigation.panByPx({ x: -20_000, y: 0 })
@@ -999,7 +976,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0 })
@@ -1008,12 +985,12 @@ describe('SceneInteractionSession', () => {
     expect(session.canUndoTransientHistory()).toBe(true)
     expect(session.undoTransientHistory()).toBe(true)
 
-    expect(draftBand()).toEqual([{ x: 10, y: 10 }, { x: 60, y: 50 }])
+    expect(draftBand()).toEqual([world({ x: 10, y: 10 }), world({ x: 60, y: 50 })])
     expect(session.canRedoTransientHistory()).toBe(true)
 
     expect(session.redoTransientHistory()).toBe(true)
 
-    expect(draftBand()).toEqual([{ x: 10, y: 10 }, { x: 60, y: 10 }, { x: 60, y: 50 }])
+    expect(draftBand()).toEqual([world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })])
     expect(store.persisted.zones).toHaveLength(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
     session.dispose()
@@ -1023,7 +1000,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
 
@@ -1034,7 +1011,7 @@ describe('SceneInteractionSession', () => {
 
     expect(session.redoTransientHistory()).toBe(true)
 
-    expect(draftBand()).toEqual([{ x: 10, y: 10 }, { x: 10, y: 10 }])
+    expect(draftBand()).toEqual([world({ x: 10, y: 10 }), world({ x: 10, y: 10 })])
     expect(store.persisted.zones).toHaveLength(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
     session.dispose()
@@ -1042,10 +1019,9 @@ describe('SceneInteractionSession', () => {
 
   it('cancels redo-only polygonal zone draft history with Escape and returns to Select in the same press (A17)', () => {
     const onSceneEditCommit = vi.fn()
-    const tools: string[] = []
-    const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit, setTool: (name: string) => { tools.push(name) } })
+    const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerUp({ x: 10, y: 10 }, { button: 0 })
@@ -1054,7 +1030,7 @@ describe('SceneInteractionSession', () => {
 
     events.keyDown({ key: 'Escape' })
 
-    expect(tools.at(-1)).toBe('select')
+    expect(session.tool).toBe('select')
     expect(session.canRedoTransientHistory()).toBe(false)
     expect(session.redoTransientHistory()).toBe(false)
     expect(draftBand()).toBeNull()
@@ -1066,7 +1042,7 @@ describe('SceneInteractionSession', () => {
   it('clears redo-only polygonal zone draft history on window blur', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { pointerId: 1 })
     events.pointerUp({ x: 10, y: 10 }, { pointerId: 1 })
@@ -1085,7 +1061,7 @@ describe('SceneInteractionSession', () => {
   it('clears polygonal zone draft redo when a new vertex branches the draft', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0 })
@@ -1103,7 +1079,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0 })
@@ -1116,11 +1092,7 @@ describe('SceneInteractionSession', () => {
     expect(store.persisted.zones[0]).toMatchObject({
       zoneType: 'polygon',
       rotationDeg: 0,
-      points: [
-        { x: 10, y: 10 },
-        { x: 60, y: 10 },
-        { x: 60, y: 50 },
-      ],
+      points: [world({ x: 10, y: 10 }), world({ x: 60, y: 10 }), world({ x: 60, y: 50 })],
     })
     expect(session.canRedoTransientHistory()).toBe(false)
     expect(onSceneEditCommit).toHaveBeenCalledWith('interaction-polygon')
@@ -1130,7 +1102,7 @@ describe('SceneInteractionSession', () => {
   it('clears polygonal zone draft redo on cancellation and tool switch', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerUp({ x: 10, y: 10 }, { button: 0 })
@@ -1145,7 +1117,7 @@ describe('SceneInteractionSession', () => {
     events.pointerDown({ x: 80, y: 20 }, { button: 0 })
     expect(session.undoTransientHistory()).toBe(true)
     expect(session.canRedoTransientHistory()).toBe(true)
-    session.setTool('select')
+    session.arm('select')
 
     expect(session.canUndoTransientHistory()).toBe(false)
     expect(session.canRedoTransientHistory()).toBe(false)
@@ -1156,7 +1128,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerMove({ x: 60, y: 10 }, { button: 0 })
@@ -1181,7 +1153,7 @@ describe('SceneInteractionSession', () => {
       const onSceneEditCommit = vi.fn()
       const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
       const session = createTestSession(deps)
-      session.setTool('polygon')
+      session.arm('polygon')
 
       events.pointerDown({ x: 10, y: 10 }, { pointerId: 1 })
       events.pointerMove({ x: 60, y: 10 }, { pointerId: 1 })
@@ -1212,7 +1184,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerMove({ x: 60, y: 10 }, { button: 0 })
@@ -1229,7 +1201,7 @@ describe('SceneInteractionSession', () => {
   it('removes polygonal zone draft and measurement overlays on session dispose', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerMove({ x: 60, y: 10 }, { button: 0 })
@@ -1246,7 +1218,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 }, { button: 0 })
     events.pointerDown({ x: 60, y: 10 }, { button: 0 })
@@ -1266,7 +1238,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 43, y: 87 }, { button: 0 })
     events.pointerMove({ x: 148, y: 254 }, { button: 0 })
@@ -1298,7 +1270,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('rectangle')
+    session.arm('rectangle')
 
     events.pointerDown({ x: 10, y: 20 }, { button: 0 })
     events.pointerMove({ x: 70, y: 100 }, { button: 0 })
@@ -1308,7 +1280,7 @@ describe('SceneInteractionSession', () => {
       '80 m',
       '60 m',
       '80 m',
-      '4800 m²',
+      '4,800 m²',
     ])
     expect(store.persisted.annotations).toHaveLength(0)
     expect(onSceneEditCommit).not.toHaveBeenCalled()
@@ -1322,7 +1294,7 @@ describe('SceneInteractionSession', () => {
 
       try {
         rectangleSession = createTestSession(createInteractionDeps(container, store, testView))
-        rectangleSession.setTool('rectangle')
+        rectangleSession.arm('rectangle')
 
         events.pointerDown({ x: 10, y: 20 }, { button: 0 })
         events.pointerMove({ x: 40, y: 60 }, { button: 0 })
@@ -1332,14 +1304,16 @@ describe('SceneInteractionSession', () => {
         rectangleSession.dispose()
         rectangleSession = null
 
-        selectPlantStampSource({
-          canonical_name: 'Malus domestica',
-          common_name: 'Apple',
-          stratum: 'high',
-          width_max_m: 4,
-        })
         plantSession = createTestSession(createInteractionDeps(container, store, testView))
-        plantSession.setTool('plant-stamp')
+        plantSession.arm('plant-stamp', {
+          kind: 'species',
+          species: {
+            canonical_name: 'Malus domestica',
+            common_name: 'Apple',
+            stratum: 'high',
+            width_max_m: 4,
+          },
+        })
 
         events.pointerDown({ x: 50, y: 70 }, { button: 0 })
 
@@ -1353,18 +1327,19 @@ describe('SceneInteractionSession', () => {
 
   it('keeps a polygon edge on 45° angles while Shift is held', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('polygon')
+    session.arm('polygon')
 
     events.pointerDown({ x: 10, y: 10 })
     events.pointerDown({ x: 60, y: 14 }, { shiftKey: true })
     events.pointerDown({ x: 60, y: 50 })
     events.keyDown({ key: 'Enter' })
 
+    const p1 = world({ x: 10, y: 10 }), p2 = world({ x: 60, y: 14 }), p3 = world({ x: 60, y: 50 })
     const [first, second, third] = store.persisted.zones[0]!.points
-    expect(first).toEqual({ x: 10, y: 10 })
-    expect(second!.y).toBeCloseTo(10)
-    expect(second!.x).toBeCloseTo(Math.hypot(50, 4) + 10)
-    expect(third).toEqual({ x: 60, y: 50 })
+    expect(first).toEqual(p1)
+    expect(second!.y).toBeCloseTo(p1.y)
+    expect(second!.x).toBeCloseTo(Math.hypot(p2.x - p1.x, p2.y - p1.y) + p1.x)
+    expect(third).toEqual(p3)
     session.dispose()
   })
 })

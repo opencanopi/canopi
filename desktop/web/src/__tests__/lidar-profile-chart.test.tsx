@@ -9,10 +9,12 @@ import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LidarSamplePointsRequest, LidarSampleSeries } from '../generated/contracts'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { librarySnapshot, sourceItem } from './support/library-fixtures'
 
 const plotting = vi.hoisted(() => ({ builds: 0 }))
-vi.mock('../app/lidar/profile-chart', async (importOriginal) => {
+vi.mock('../app/data-library/profile-chart', async (importOriginal) => {
   const actual = await importOriginal<typeof ProfileChartModule>()
   return {
     ...actual,
@@ -48,16 +50,17 @@ vi.mock('../app/document-session/store', async () => {
 })
 
 import { ProfileChart } from '../components/panels/lidar/ProfileChart'
-import { lidarLibrary } from '../app/lidar/library-store'
-import { profileCopyText, profileHover, setProfileCursor, siteProfile } from '../app/lidar/profile'
-import { endSiteDataTransients, profileLine, setProfileLine } from '../app/lidar/site-transients'
-import { siteSampler } from '../app/lidar/sampler'
-import { activePanel, selectPanel, sidePanel } from '../app/shell/state'
+import { lidarLibrary } from '../app/data-library/library-store'
+import { profileCopyText, profileHover, setProfileCursor, siteProfile } from '../app/data-library/profile'
+import { endSiteDataTransients, profileLine, setProfileLine } from '../app/data-library/site-transients'
+import { siteSampler } from '../app/data-library/sampler'
+import { selectPanel, sidePanel } from '../app/shell/state'
+import { unitSystem } from '../app/settings/state'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import { t } from '../i18n'
-import type * as ProfileChartModule from '../app/lidar/profile-chart'
+import type * as ProfileChartModule from '../app/data-library/profile-chart'
 
 const PLANE = createSessionPlane({ lon: 2.35, lat: 48.85 })
 const at = (x: number, y: number) => PLANE.toGeo({ x, y })
@@ -94,13 +97,15 @@ function legendLines(): string[] {
   return Array.from(container.querySelectorAll('li')).map((line) => line.textContent ?? '')
 }
 
+let disposePorts: () => void = () => undefined
+
 beforeEach(async () => {
+  disposePorts = installEditionPorts(createTestEditionPorts())
   container = document.createElement('div')
   document.body.appendChild(container)
   sampling.answer = analyticSite
   sampling.requests = []
   setCurrentCanvasSession({ queries: { sessionPlane: signal(PLANE), view: { mode: signal('site') } } } as unknown as CanvasRuntimeSurfaces)
-  activePanel.value = 'canvas'
   selectPanel('site-data')
   lidarLibrary.value = librarySnapshot([
     sourceItem('mnt', 'MNT · IGN', { resolution_m: 0.5 }),
@@ -108,7 +113,7 @@ beforeEach(async () => {
     sourceItem('chm', 'MNH · IGN', { resolution_m: 0.5, item_type: { kind: 'Raster', quantity: 'AboveGroundHeight' } }),
   ])
   mockedStore.currentDesign!.value = {
-    lidar: {
+    site_data: {
       visible: true,
       entries: [
         { kind: 'Source', id: 'chm', order: 0 },
@@ -126,10 +131,12 @@ afterEach(() => {
   render(null, container)
   container.remove()
   endSiteDataTransients()
+  disposePorts()
   setCurrentCanvasSession(null)
   sidePanel.value = null
   lidarLibrary.value = null
   mockedStore.currentDesign!.value = null
+  unitSystem.value = 'metric'
   vi.restoreAllMocks()
 })
 
@@ -156,6 +163,59 @@ describe('ProfileChart', () => {
       'MNS · IGNRise +1.4 m · Steepest 40% over 2 m',
       'MNH · IGNHighest 9.0 m',
     ])
+  })
+
+  it('formats metre curves, distances and stats in US customary when unitSystem changes', async () => {
+    await drawLine()
+    await act(async () => {
+      unitSystem.value = 'us_customary'
+    })
+
+    expect(container.textContent).toContain('33 ft')
+    expect(legendLines()).toEqual([
+      'MNT · IGNRise +5.2 ft · Steepest 40% over 6′ 7″',
+      'MNS · IGNRise +4.4 ft · Steepest 40% over 6′ 7″',
+      'MNH · IGNHighest 29.5 ft',
+    ])
+    const svg = container.querySelector('section > svg')!
+    await act(async () => {
+      svg.dispatchEvent(new PointerEvent('pointermove', { clientX: 60 + (342 * 9) / 10, bubbles: true }))
+    })
+    expect(container.querySelector('[role="status"]')?.textContent).toBe('At 30 ft')
+    expect(legendLines()).toEqual(['MNT · IGN333.01 ft', 'MNS · IGN—', 'MNH · IGN9.84 ft'])
+  })
+
+  it('keeps high elevations (> 1000 m) in m or ft on axes and preserves 1-decimal rise/canopy stats (#932 B1)', async () => {
+    sampling.answer = (request) => {
+      const xs = request.points.map(([lon, lat]) => PLANE.toPlane({ lon, lat }).x)
+      return request.targets.map((target) => ({
+        Values: {
+          values: xs.map((x) => {
+            if (target.entity_id === 'mnt') return 1203 + (12.34 * x) / 10
+            if (target.entity_id === 'mns') return 1203 + (44 * x) / 10
+            return 23.4
+          }),
+        },
+      }))
+    }
+    await drawLine()
+
+    const metricAxes = Array.from(container.querySelectorAll('section > svg text')).map((node) => node.textContent)
+    expect(metricAxes).toContain('1,203 m')
+    expect(metricAxes).toContain('1,247 m')
+    expect(metricAxes.join(' ')).not.toMatch(/km|mi/)
+    expect(legendLines()[0]).toContain('Rise +12.3 m')
+    expect(legendLines()[2]).toBe('MNH · IGNHighest 23.4 m')
+
+    await act(async () => {
+      unitSystem.value = 'us_customary'
+    })
+    const usAxes = Array.from(container.querySelectorAll('section > svg text')).map((node) => node.textContent)
+    expect(usAxes).toContain('3,947 ft')
+    expect(usAxes).toContain('4,091 ft')
+    expect(usAxes.join(' ')).not.toMatch(/km|mi/)
+    expect(legendLines()[0]).toContain('Rise +40.5 ft')
+    expect(legendLines()[2]).toBe('MNH · IGNHighest 76.8 ft')
   })
 
   it('samples through the app\'s one sampler, in its profile lane beside the row values\' lane', async () => {
@@ -327,7 +387,7 @@ describe('ProfileChart', () => {
   })
 
   it('says what to show with no elevation or height layer shown, and keeps the line', async () => {
-    mockedStore.currentDesign!.value = { lidar: { visible: false, entries: [] } }
+    mockedStore.currentDesign!.value = { site_data: { visible: false, entries: [] } }
     await drawLine()
 
     expect(container.textContent).toContain('Show an elevation or height layer to see its profile')

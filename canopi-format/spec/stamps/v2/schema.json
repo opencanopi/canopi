@@ -1,0 +1,197 @@
+{
+  "$defs": {
+    "StampAnnotationV2": {
+      "properties": {
+        "annotationType": {
+          "type": "string"
+        },
+        "fontSize": {
+          "format": "double",
+          "type": "number"
+        },
+        "id": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/StampPoint"
+        },
+        "rotationDeg": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "annotationType",
+        "position",
+        "text",
+        "fontSize"
+      ],
+      "type": "object"
+    },
+    "StampPlantV2": {
+      "properties": {
+        "canonicalName": {
+          "type": "string"
+        },
+        "color": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "commonName": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/StampPoint"
+        },
+        "rotationDeg": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "scale": {
+          "default": null,
+          "format": "double",
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "symbol": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "canonicalName",
+        "position"
+      ],
+      "type": "object"
+    },
+    "StampPoint": {
+      "properties": {
+        "x": {
+          "format": "double",
+          "type": "number"
+        },
+        "y": {
+          "format": "double",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "type": "object"
+    },
+    "StampZoneV2": {
+      "properties": {
+        "fillColor": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "type": "string"
+        },
+        "name": {
+          "default": null,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "points": {
+          "items": {
+            "$ref": "#/$defs/StampPoint"
+          },
+          "type": "array"
+        },
+        "rotationDeg": {
+          "default": 0.0,
+          "format": "double",
+          "type": "number"
+        },
+        "zoneType": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "zoneType",
+        "points"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "anchor": {
+      "$ref": "#/$defs/StampPoint"
+    },
+    "annotations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampAnnotationV2"
+      },
+      "type": "array"
+    },
+    "groups": {
+      "default": [],
+      "items": true,
+      "type": "array"
+    },
+    "plants": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampPlantV2"
+      },
+      "type": "array"
+    },
+    "version": {
+      "format": "uint32",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "zones": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/StampZoneV2"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "version",
+    "anchor"
+  ],
+  "title": "SavedObjectStampPayloadV2",
+  "type": "object"
+}

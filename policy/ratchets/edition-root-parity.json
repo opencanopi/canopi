@@ -1,0 +1,15 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "version": 1,
+  "family": "edition-root-parity",
+  "ledger": "2.1-M211",
+  "tool": "edition-root-parity",
+  "scope": [
+    "desktop/web/tsconfig.json",
+    "desktop/web/vite.config.ts",
+    "desktop/web/src/editions/**"
+  ],
+  "lane": "commit",
+  "keys": "path",
+  "entries": {}
+}

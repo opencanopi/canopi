@@ -1,25 +1,27 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { LidarDisplayDescriptor } from '../ipc/lidar'
-import type { LidarPresentationItem } from '../app/lidar/library-store'
+import type { LidarDisplayDescriptor } from '../generated/contracts'
+import type { LidarPresentationItem } from '../app/data-library/library-store'
 
 const invoke = vi.fn()
 vi.mock('@tauri-apps/api/core', () => ({ invoke: (...args: unknown[]) => invoke(...args) }))
 const requestCutOutlierRange = vi.fn()
 const cutRanges = new Map<string, readonly [number, number]>()
-vi.mock('../app/lidar/display-range', () => ({
+vi.mock('../app/data-library/display-range', () => ({
   requestCutOutlierRange: (...args: unknown[]) => requestCutOutlierRange(...args),
   cutOutlierRange: (key: string) => cutRanges.get(key) ?? null,
   resetCutOutlierRanges: () => cutRanges.clear(),
 }))
 
-const display = await import('../app/lidar/display')
-const { lidarLibrary } = await import('../app/lidar/library-store')
+const display = await import('../app/data-library/display')
+const { lidarLibrary } = await import('../app/data-library/library-store')
 const { setStoryPresentationOverrides } = await import('../app/story-presentation/overrides')
 const { designSessionFixture } = await import('./support/design-session-state')
-const { createDefaultMapLayers } = await import('../app/map-layers/state')
+const { createDefaultMapLayersForTests: createDefaultMapLayers } = await import('../app/settings/state')
 const { librarySnapshot, sourceItem } = await import('./support/library-fixtures')
+const { installEditionPorts } = await import('../platform/edition-ports')
+const { createTestEditionPorts } = await import('./support/test-edition-ports')
 
 function item(overrides: Partial<LidarPresentationItem> = {}): LidarPresentationItem {
   return {
@@ -174,14 +176,17 @@ describe('LiDAR display projection', () => {
 })
 
 describe('LiDAR display descriptor requests', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(() => {
     vi.useFakeTimers()
     invoke.mockReset()
+    disposePorts = installEditionPorts(createTestEditionPorts())
     display.disposeLidarDisplayDescriptors()
     display.lidarDisplayDescriptors.value = new Map()
   })
   afterEach(() => {
     display.disposeLidarDisplayDescriptors()
+    disposePorts()
     vi.useRealTimers()
   })
 
@@ -199,6 +204,7 @@ describe('LiDAR display descriptor requests', () => {
     expect(invoke).toHaveBeenCalledTimes(2)
     expect(invoke).toHaveBeenCalledWith('lidar_display_descriptor', {
       request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: false },
+      operation: expect.stringMatching(/^u-/),
     })
   })
 
@@ -213,8 +219,8 @@ describe('LiDAR display descriptor requests', () => {
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [
-        { kind: 'Source', id: 'lyr-1', name: 'Orchard terrain', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+      site_data: { visible: true, entries: [
+        { id: 'lyr-1', name: 'Orchard terrain', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
       ] },
       created_at: '', updated_at: '', extra: {},
     }
@@ -230,6 +236,7 @@ describe('LiDAR display descriptor requests', () => {
       // The ground elevation draws Relief, its default.
       expect(invoke).toHaveBeenCalledWith('lidar_display_descriptor', {
         request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: true },
+        operation: expect.stringMatching(/^u-/),
       })
     } finally {
       setStoryPresentationOverrides(null)
@@ -256,13 +263,13 @@ describe('LiDAR display descriptor requests', () => {
       sourceItem('lyr-1', 'Orchard terrain', { generation_id: 'gen-2' }),
       sourceItem('lyr-2', 'Canopy', { generation_id: 'gen-5' }),
     ])
-    const entry = (id: string, range: unknown) => ({ kind: 'Source', id, name: id, visible: true, opacity: 1, order: 0, ramp: 'Terrain', reversed: false, range })
+    const entry = (id: string, range: unknown) => ({ id, name: id, visible: true, opacity: 1, order: 0, ramp: 'Terrain', reversed: false, range })
     designSessionFixture.file = {
       version: 9, name: 'Orchard', description: null,
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [entry('lyr-1', { mode: 'CutOutliers' }), entry('lyr-2', null)] as never },
+      site_data: { visible: true, entries: [entry('lyr-1', { mode: 'CutOutliers' }), entry('lyr-2', null)] as never },
       created_at: '', updated_at: '', extra: {},
     }
     try {
@@ -295,13 +302,13 @@ describe('LiDAR display descriptor requests', () => {
       sourceItem('lyr-1', 'Orchard terrain', { generation_id: 'gen-2' }),
       sourceItem('lyr-2', 'Canopy', { generation_id: 'gen-5' }),
     ])
-    const entry = (id: string, ramp: unknown) => ({ kind: 'Source', id, name: id, visible: true, opacity: 1, order: 0, ramp, reversed: false, range: { mode: 'CutOutliers' } })
+    const entry = (id: string, ramp: unknown) => ({ id, name: id, visible: true, opacity: 1, order: 0, ramp, reversed: false, range: { mode: 'CutOutliers' } })
     designSessionFixture.file = {
       version: 9, name: 'Orchard', description: null,
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [entry('lyr-1', null), entry('lyr-2', 'Terrain')] as never },
+      site_data: { visible: true, entries: [entry('lyr-1', null), entry('lyr-2', 'Terrain')] as never },
       created_at: '', updated_at: '', extra: {},
     }
     try {
@@ -323,7 +330,7 @@ describe('LiDAR display descriptor requests', () => {
     const { h, render } = await import('preact')
     const { act } = await import('preact/test-utils')
     const { LibraryPreview } = await import('../components/panels/lidar/LibraryPreview')
-    const { libraryItems } = await import('../app/lidar/library-items')
+    const { libraryItems } = await import('../app/data-library/library-items')
     const [preview] = libraryItems(librarySnapshot([sourceItem('lyr-1', 'Orchard terrain', { generation_id: 'gen-2' })]))
     const host = document.createElement('div')
     try {
@@ -331,6 +338,7 @@ describe('LiDAR display descriptor requests', () => {
       await vi.advanceTimersByTimeAsync(0)
       expect(invoke).toHaveBeenCalledWith('lidar_display_descriptor', {
         request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: true },
+        operation: expect.stringMatching(/^u-/),
       })
     } finally {
       render(null, host)
@@ -346,13 +354,13 @@ describe('LiDAR display descriptor requests', () => {
       sourceItem('lyr-1', 'Orchard terrain', { generation_id: 'gen-2' }),
       sourceItem('lyr-2', 'Canopy', { generation_id: 'gen-5' }),
     ])
-    const entry = (id: string, range: unknown) => ({ kind: 'Source', id, name: id, visible: false, opacity: 1, order: 0, ramp: 'Terrain', reversed: false, range })
+    const entry = (id: string, range: unknown) => ({ id, name: id, visible: false, opacity: 1, order: 0, ramp: 'Terrain', reversed: false, range })
     designSessionFixture.file = {
       version: 9, name: 'Orchard', description: null,
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [entry('lyr-1', { mode: 'CutOutliers' }), entry('lyr-2', null)] as never },
+      site_data: { visible: true, entries: [entry('lyr-1', { mode: 'CutOutliers' }), entry('lyr-2', null)] as never },
       created_at: '', updated_at: '', extra: {},
     }
     try {
@@ -371,9 +379,11 @@ describe('LiDAR display descriptor requests', () => {
 })
 
 describe('LiDAR display descriptor refusals', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(async () => {
     vi.useFakeTimers()
     invoke.mockReset()
+    disposePorts = installEditionPorts(createTestEditionPorts())
     display.disposeLidarDisplayDescriptors()
     display.lidarDisplayDescriptors.value = new Map()
     const { resetFrontendDiagnosticsForTests } = await import('../failures/ring')
@@ -383,6 +393,7 @@ describe('LiDAR display descriptor refusals', () => {
   })
   afterEach(() => {
     display.disposeLidarDisplayDescriptors()
+    disposePorts()
     vi.useRealTimers()
   })
 
@@ -413,6 +424,7 @@ describe('LiDAR display descriptor refusals', () => {
     // The re-ask is no Retry of a failed preparation.
     expect(invoke).toHaveBeenLastCalledWith('lidar_display_descriptor', {
       request: { kind: 'Source', entity_id: 'lyr-1', expected_generation_id: 'gen-2', retry: false, relief: true },
+      operation: expect.stringMatching(/^u-/),
     })
     expect(recentFrontendDiagnostics()).toEqual([
       expect.objectContaining({ source: 'ipc.lidar_display_descriptor', message: 'Native user-data operations are busy; try again' }),
@@ -537,8 +549,8 @@ describe('LiDAR display descriptor refusals', () => {
       plant_species_colors: {}, plant_species_symbols: {}, plant_species_codes: {},
       layers: [], plants: [], zones: [], annotations: [], measurement_guides: [],
       consortiums: [], groups: [], timeline: [], budget: [], budget_currency: 'EUR',
-      lidar: { visible: true, entries: [
-        { kind: 'Source', id: 'lyr-1', name: 'Orchard terrain', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+      site_data: { visible: true, entries: [
+        { id: 'lyr-1', name: 'Orchard terrain', visible: false, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
       ] },
       created_at: '', updated_at: '', extra: {},
     }

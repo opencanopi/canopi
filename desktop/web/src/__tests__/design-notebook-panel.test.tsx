@@ -127,8 +127,7 @@ describe('DesignNotebookPanel', () => {
             name: 'Forest Edge',
             updated_at: '2026-06-22T08:00:00.000Z',
             plant_count: 7,
-            section_id: null,
-            sort_order: 1,
+            section_id: null, sort_order: 1, grant: 'grant:forest-edge', recent_id: 'rid-forest-edge',
           },
         ],
       }),
@@ -159,7 +158,7 @@ describe('DesignNotebookPanel', () => {
       await Promise.resolve()
     })
 
-    expect(openDesign).toHaveBeenCalledWith('/designs/forest-edge.canopi')
+    expect(openDesign).toHaveBeenCalledWith('grant:forest-edge', { grant: 'grant:forest-edge', displayName: 'forest-edge.canopi', recentId: 'rid-forest-edge' })
     expect(container.querySelector('button[aria-current="true"]')?.textContent).toContain('Forest Edge')
   })
 

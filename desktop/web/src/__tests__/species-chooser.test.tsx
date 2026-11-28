@@ -5,30 +5,21 @@ import { act } from 'preact/test-utils'
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { locale } from '../app/settings/state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import { ToolCard } from '../components/canvas/ToolCard'
 import { focusOwner } from '../app/keyboard/focus-owner'
-import {
-  clearPlantStampSource,
-  readPlantStampSource,
-  recentPlantStampSources,
-  selectPlantStampSource,
-} from '../canvas/plant-stamp-source'
+import { recentPlantStampSources } from '../canvas/stamp-drag-data'
 import { SceneStore } from '../canvas/runtime/scene/store'
-import { setCurrentCanvasSession } from '../canvas/session'
+import { currentCanvasTool, currentCanvasToolState, setCurrentCanvasSession } from '../canvas/session'
 import {
   IDLE_CANVAS_TOOL_GUIDANCE,
-  currentCanvasTool,
-  setCanvasTool,
   setCanvasToolGuidance,
 } from '../canvas/session-state'
 import type { SpeciesListItem } from '../types/species'
 import { hoveredPanelTargets, selectedPanelTargets } from '../app/panel-targets/state'
 import { speciesTarget } from '../target'
 import {
-  createTestCanvasCommandSurface,
-  createTestCanvasDocumentSurface,
-  createTestCanvasKeyboardPort,
+  createTestCanvasRuntimeSurfaces,
 } from './support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import type * as PlantBrowserModule from '../app/plant-browser'
@@ -109,12 +100,7 @@ describe('Place plants species chooser', () => {
         ['Ficus carica', { canonical_name: 'Ficus carica', stratum: 'emergent' }],
       ]),
     })
-    setCurrentCanvasSession({
-      commands: createTestCanvasCommandSurface(),
-      queries,
-      documents: createTestCanvasDocumentSurface(),
-      keyboard: createTestCanvasKeyboardPort(),
-    })
+    setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
     favorites.view!.value = {
       items: [favorite('Rubus idaeus', 'Raspberry', 1.5), favorite('Ficus carica', 'Fig', 4)],
       loading: false,
@@ -122,7 +108,7 @@ describe('Place plants species chooser', () => {
     }
     await act(() => render(<ToolCard />, container))
     await act(() => {
-      setCanvasTool('plant-stamp')
+      queries.setActiveTool('plant-stamp')
       setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     })
   })
@@ -132,16 +118,17 @@ describe('Place plants species chooser', () => {
     container.remove()
     releaseMap()
     map.remove()
-    setCanvasTool('select')
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
-    clearPlantStampSource()
     recentPlantStampSources.value = []
     favorites.englishNames = {}
     setCurrentCanvasSession(null)
     sidePanel.value = null
-    activePanel.value = 'canvas'
   })
 
+  const activeSpecies = () => {
+    const source = currentCanvasToolState.value.source
+    return source?.kind === 'species' ? source.species : null
+  }
   const options = () => [...container.querySelectorAll<HTMLButtonElement>('[data-species-option]')]
   const sections = () => [...container.querySelectorAll('[data-species-section]')].map((section) => [
     section.querySelector('h3')?.textContent,
@@ -227,10 +214,10 @@ describe('Place plants species chooser', () => {
     expect(glyph('Rubus idaeus').querySelector('svg')?.getAttribute('data-plant-symbol')).toBe('round')
   })
 
-  it('the chooser swatch for a Design species shows the cached stratum colour', async () => {
+  it('the chooser swatch for a Design species shows the default plant colour when none is set', async () => {
     const fig = options().find((option) => option.dataset.speciesOption === 'Ficus carica')!
-    // getStratumColor('emergent'), #1B5E20: the colour the canvas draws a Fig with no colour of its own.
-    expect(fig.querySelector<HTMLElement>('[data-species-glyph]')!.style.color).toBe('rgb(27, 94, 32)')
+    // DEFAULT_PLANT_COLOR, #4CAF50: the colour the canvas draws a Fig with no colour of its own.
+    expect(fig.querySelector<HTMLElement>('[data-species-glyph]')!.style.color).toBe('rgb(76, 175, 80)')
   })
 
   it('rings a species\' plants with the hover stroke only while its row is pointed at or focused', async () => {
@@ -272,7 +259,7 @@ describe('Place plants species chooser', () => {
   it('arms Place plants with the chosen species, names it, remembers it and gives the map focus', async () => {
     await act(() => options().find((option) => option.dataset.speciesOption === 'Rubus idaeus')!.click())
 
-    expect(readPlantStampSource()).toEqual({
+    expect(activeSpecies()).toEqual({
       canonical_name: 'Rubus idaeus', common_name: 'Raspberry', stratum: null, width_max_m: 1.5,
     })
     expect(recentPlantStampSources.value[0]?.canonical_name).toBe('Rubus idaeus')
@@ -284,7 +271,7 @@ describe('Place plants species chooser', () => {
   it('keeps the spread the Design saved for a Design species', async () => {
     await act(() => options().find((option) => option.dataset.speciesOption === 'Malus domestica')!.click())
 
-    expect(readPlantStampSource()).toEqual({
+    expect(activeSpecies()).toEqual({
       canonical_name: 'Malus domestica', common_name: 'Pommier', stratum: 'high', width_max_m: 6,
     })
   })
@@ -294,18 +281,17 @@ describe('Place plants species chooser', () => {
     store.updatePersisted((draft) => {
       draft.plants = [plant('p1', 'Prunus avium', 'Cherry', null)]
     })
-    await act(() => setCurrentCanvasSession({
-      commands: createTestCanvasCommandSurface(),
-      queries: createTestCanvasQuerySurface({
+    await act(() => {
+      queries = createTestCanvasQuerySurface({
         scene: store.persisted,
         speciesCache: new Map([['Prunus avium', { canonical_name: 'Prunus avium', stratum: 'high', width_max_m: 6 }]]),
-      }),
-      documents: createTestCanvasDocumentSurface(),
-      keyboard: createTestCanvasKeyboardPort(),
-    }))
+        activeTool: 'plant-stamp',
+      })
+      setCurrentCanvasSession(createTestCanvasRuntimeSurfaces({ queries }))
+    })
     await act(() => options().find((option) => option.dataset.speciesOption === 'Prunus avium')!.click())
 
-    expect(readPlantStampSource()?.width_max_m).toBe(6)
+    expect(activeSpecies()?.width_max_m).toBe(6)
   })
 
   it('opens the full catalog from its link', async () => {
@@ -333,7 +319,10 @@ describe('Place plants species chooser', () => {
 
   it('reopens the chooser from Change species and closes it with Esc', async () => {
     await act(() => {
-      selectPlantStampSource({ canonical_name: 'Ficus carica', common_name: 'Fig', stratum: null, width_max_m: 4 })
+      queries.setActiveTool('plant-stamp', {
+        kind: 'species',
+        species: { canonical_name: 'Ficus carica', common_name: 'Fig', stratum: null, width_max_m: 4 },
+      })
     })
     expect(options()).toHaveLength(0)
 
@@ -345,13 +334,16 @@ describe('Place plants species chooser', () => {
 
     await act(() => { input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })) })
     expect(options()).toHaveLength(0)
-    expect(readPlantStampSource()?.canonical_name).toBe('Ficus carica')
+    expect(activeSpecies()?.canonical_name).toBe('Ficus carica')
     expect(document.activeElement).toBe(map)
   })
 
   it('closes with Esc from a species option, keeping the tool and its species', async () => {
     await act(() => {
-      selectPlantStampSource({ canonical_name: 'Ficus carica', common_name: 'Fig', stratum: null, width_max_m: 4 })
+      queries.setActiveTool('plant-stamp', {
+        kind: 'species',
+        species: { canonical_name: 'Ficus carica', common_name: 'Fig', stratum: null, width_max_m: 4 },
+      })
     })
     const change = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Change species')!
     await act(() => change.click())
@@ -364,7 +356,7 @@ describe('Place plants species chooser', () => {
     expect(escape.defaultPrevented).toBe(true)
     expect(options()).toHaveLength(0)
     expect(currentCanvasTool.value).toBe('plant-stamp')
-    expect(readPlantStampSource()?.canonical_name).toBe('Ficus carica')
+    expect(activeSpecies()?.canonical_name).toBe('Ficus carica')
     expect(document.activeElement).toBe(map)
   })
 
@@ -379,7 +371,7 @@ describe('Place plants species chooser', () => {
     expect(escape.defaultPrevented).toBe(true)
     expect(currentCanvasTool.value).toBe('select')
     expect(container.querySelector('input[type="search"]')).toBeNull()
-    expect(readPlantStampSource()).toBeNull()
+    expect(activeSpecies()).toBeNull()
     expect(document.activeElement).toBe(map)
   })
 

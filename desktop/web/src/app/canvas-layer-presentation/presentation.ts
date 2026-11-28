@@ -1,7 +1,6 @@
 import { NEW_DESIGN_LAYER_DEFAULTS } from '../../generated/new-design-defaults'
 import { openLayerRow } from './open-row'
-import { googleMapsApiKey } from '../settings/state'
-import { mapLayers } from '../map-layers/state'
+import { googleMapsApiKey, mapLayers } from '../settings/state'
 import {
   setMapLayerOpacity,
   setMapLayerVisible,
@@ -43,6 +42,7 @@ export type CanvasLayerPresentationDetail =
       readonly contourIntervalMeters: number
     }
   | { readonly type: 'hillshade' }
+  | { readonly type: 'library'; readonly libraryId: string }
 
 export interface CanvasLayerPresentationRow {
   readonly id: string
@@ -56,6 +56,9 @@ export interface CanvasLayerPresentationRow {
   readonly locked: boolean
   readonly count?: number
   readonly canLock: boolean
+  /** True when this non-background layer failed to load and offers Retry on its Layers row (MAP-02, 2.1-Q351). */
+  readonly failed?: boolean
+  readonly retrySlot?: 'terrain' | `library:${string}`
   readonly detail: CanvasLayerPresentationDetail
 }
 
@@ -68,30 +71,37 @@ export interface CanvasLayerPresentation {
  * for a layer's eye, lock and opacity; before a scene exists they show the New
  * Design defaults.
  */
-export function readCanvasLayerPresentation(): CanvasLayerPresentation {
+export function readCanvasLayerPresentation(
+  layerStatuses?: ReadonlyMap<string, { readonly kind: string; readonly label?: string }> | null,
+): CanvasLayerPresentation {
   const runtime = currentCanvasQuerySurface.value
   void runtime?.revision.scene.value
   const scene = runtime?.getSceneSnapshot()
   const open = openLayerRow.value
   const layers = mapLayers.value
+  const terrainFailed = layerStatuses?.get('terrain')?.kind === 'failed'
 
   const mapRow = (
     id: MapLayerId,
     label: string,
     state: { readonly visible: boolean; readonly opacity: number },
     detail: CanvasLayerPresentationDetail,
-  ): CanvasLayerPresentationRow => ({
-    id,
-    label,
-    authority: 'map-layers',
-    group: id === 'basemap' || id === 'satellite' ? 'background' : 'map',
-    open: open === id,
-    visible: state.visible,
-    opacity: state.opacity,
-    locked: false,
-    canLock: false,
-    detail,
-  })
+  ): CanvasLayerPresentationRow => {
+    const isTerrain = id === 'contours' || id === 'hillshade'
+    return {
+      id,
+      label,
+      authority: 'map-layers',
+      group: id === 'basemap' || id === 'satellite' ? 'background' : 'map',
+      open: open === id,
+      visible: state.visible,
+      opacity: state.opacity,
+      locked: false,
+      canLock: false,
+      ...(isTerrain && terrainFailed ? { failed: true, retrySlot: 'terrain' as const } : {}),
+      detail,
+    }
+  }
 
   const rows: CanvasLayerPresentationRow[] = [
     ...SCENE_LAYER_ROW_IDS.map((id) => {
@@ -128,6 +138,27 @@ export function readCanvasLayerPresentation(): CanvasLayerPresentation {
     }),
     mapRow('hillshade', t('canvas.terrain.hillshade'), layers.hillshade, { type: 'hillshade' }),
   ]
+
+  if (layerStatuses) {
+    for (const [slot, status] of layerStatuses) {
+      if (!slot.startsWith('library:') || status.kind !== 'failed') continue
+      const libraryId = slot.slice('library:'.length)
+      rows.push({
+        id: slot,
+        label: status.label ?? libraryId,
+        authority: 'map-layers',
+        group: 'map',
+        open: false,
+        visible: true,
+        opacity: 1,
+        locked: false,
+        canLock: false,
+        failed: true,
+        retrySlot: slot as `library:${string}`,
+        detail: { type: 'library', libraryId },
+      })
+    }
+  }
 
   return { rows }
 }

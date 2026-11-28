@@ -416,6 +416,10 @@ pub struct LidarPresentationSection {
     // and its own `visible` are on, and each entry keeps its own eye.
     pub visible: bool,
     pub entries: Vec<LidarPresentationEntry>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 /// Import › "Covers your site": where the chosen files lie, read before import.
@@ -434,7 +438,9 @@ pub struct LidarImportCoverage {
     reason = "undocumented before 2.1-Q217; document when this file is next touched"
 )]
 pub struct LidarPresentationEntry {
-    pub kind: crate::library::LibraryItemRole,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[specta(optional)]
+    pub kind: Option<crate::library::LibraryItemRole>,
     // Stable library identity: source-layer ID or derived item ID.
     pub id: String,
     // The library item's name, written on attach and refreshed from the
@@ -444,11 +450,15 @@ pub struct LidarPresentationEntry {
     pub opacity: f32,
     // User-defined order inside the LiDAR band; lower renders further back.
     pub order: u32,
-    // The colour ramp; `None` is the item kind's default.
-    pub ramp: Option<LidarRamp>,
+    // Open-set colour ramp name; `None` is the item kind's default (2.1-M493).
+    pub ramp: Option<String>,
     pub reversed: bool,
     // The value range the ramp spans; `None` is the item kind's default.
     pub range: Option<LidarColourRange>,
+    #[serde(flatten, default)]
+    #[cfg_attr(feature = "design-schema", schemars(skip))]
+    #[specta(skip)]
+    pub extra: std::collections::BTreeMap<String, serde_json::Value>,
 }
 
 // A colour ramp by Canopi's own name; the frontend maps each to a renderer

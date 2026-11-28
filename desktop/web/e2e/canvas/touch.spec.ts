@@ -7,7 +7,8 @@
 // compass and the View menu's rotation rows on a phone).
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import { bearing, designMap, expectCanvasDrawn } from '../support/canvas'
+import { bearing, designMap, expectCanvasDrawn, seedUnitSystem } from '../support/canvas'
+import { chooseFixtureFromStart } from '../support/layout'
 import { Fingers, type Point } from '../support/fingers'
 import { expect, test } from '../support/offline'
 import { tooltipOf } from '../support/tooltip'
@@ -45,13 +46,10 @@ const PHONE: Layout = {
 const RECT_ZONE_CHIP = 'Rectangle zone · 112 m² · 44 m'
 
 async function openBaseFixture(page: Page, layout: Layout): Promise<void> {
+  await seedUnitSystem(page)
   await page.setViewportSize(layout.viewport)
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expect(tool(page, 'Select')).toHaveAttribute('aria-pressed', 'true')
   await expectCanvasDrawn(page)
@@ -384,14 +382,14 @@ test.describe('Chromium touch', () => {
     await page.waitForTimeout(600)
     await fingers.tap({ x: 720, y: 560 })
     await page.waitForTimeout(600)
-    await fingers.tap({ x: 620, y: 632 })
-    await fingers.tap({ x: 620, y: 642 })
+    await fingers.tap({ x: 660, y: 632 })
+    await fingers.tap({ x: 660, y: 642 })
 
     await expect(selectionChip(page), 'the double tap finished the shape').toHaveText(/^Polygon zone/)
     const rename = page.getByRole('group', { name: 'Selection' }).getByRole('button', { name: 'Rename…' })
     const box = await rename.boundingBox()
     if (!box) throw new Error('the finished zone\'s chip shows no Rename')
-    expect(box.x <= 620 && 620 <= box.x + box.width && box.y <= 642 && 642 <= box.y + box.height, 'Rename is under the finger').toBe(true)
+    expect(box.x <= 660 && 660 <= box.x + box.width && box.y <= 642 && 642 <= box.y + box.height, 'Rename is under the finger').toBe(true)
     await page.waitForTimeout(300)
     await expect(page.getByRole('dialog', { name: 'Rename zone' }), 'the lift opens no dialog').toHaveCount(0)
   })

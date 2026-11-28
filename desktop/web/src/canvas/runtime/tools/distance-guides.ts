@@ -6,7 +6,8 @@
 // and the stamps draw their own guide with ToolScene.nearestPlant, which keeps the scene order on a tie instead.
 
 import type { ScenePlantEntity } from '../scene/types'
-import type { ScreenPoint, WorldPoint } from '../view/types'
+import type { ScreenPoint, WorldPoint } from '../../../geo/view/types'
+import type { UnitSystem } from '../../../utils/format'
 import { formatMetricDistance } from '../zone-measurements'
 import type { DraftShape, DraftStroke } from './draft'
 import type { ToolScene } from './tool'
@@ -36,20 +37,26 @@ export function distanceGuideShapes(
 
 /** The move-drag's guides from `active` (one of `dragged`) to the nearest plants outside `dragged`. */
 export function plantDragDistanceGuideShapes(
-  scene: Pick<ToolScene, 'persisted'>,
+  scene: Pick<ToolScene, 'persisted' | 'groundMeasure'>,
   active: ScenePlantEntity,
   dragged: ReadonlySet<string>,
+  unitSystem: UnitSystem = 'metric',
+  locale = 'en',
 ): DraftShape[] {
   const { layers, plants } = scene.persisted
-  if (!dragged.has(active.id) || layers.find((layer) => layer.name === 'plants')?.visible === false) return []
+  const plantsLayer = layers.find((layer) => layer.name === 'plants')
+  if (!dragged.has(active.id) || plantsLayer?.visible === false || (plantsLayer?.opacity ?? 1) <= 0) return []
+  const measure = scene.groundMeasure
   return plants
     .filter((plant) => !dragged.has(plant.id))
     .map((plant) => ({
       plant,
-      distanceM: Math.hypot(plant.position.x - active.position.x, plant.position.y - active.position.y),
+      distanceM: measure
+        ? measure.groundLength(active.position, plant.position)
+        : Math.hypot(plant.position.x - active.position.x, plant.position.y - active.position.y),
     }))
     .sort((left, right) => left.distanceM - right.distanceM || left.plant.id.localeCompare(right.plant.id))
     .slice(0, DRAG_DISTANCE_GUIDES)
     .flatMap(({ plant, distanceM }) =>
-      distanceGuideShapes(active.position, plant.position, formatMetricDistance(distanceM)))
+      distanceGuideShapes(active.position, plant.position, formatMetricDistance(distanceM, unitSystem, locale)))
 }

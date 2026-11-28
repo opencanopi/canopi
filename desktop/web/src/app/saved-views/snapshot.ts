@@ -1,5 +1,8 @@
 import { currentCanvasQuerySurface } from '../../canvas/session'
 import type { CanvasQuerySurface } from '../../canvas/runtime/runtime'
+import { createPixiScenePainter } from '../../canvas/runtime/renderers/pixi-scene-painter'
+import type { SceneRendererSnapshot } from '../../canvas/runtime/renderers/scene-types'
+import { createSceneHostLayer } from '../../maplibre/scene-host-layer'
 import {
   createViewSnapshotMap,
   type ViewSnapshotCapture,
@@ -8,10 +11,10 @@ import {
   type ViewSnapshotRequest,
 } from '../../maplibre/view-snapshot-map'
 import type { SavedView } from '../../types/design'
-import { locale } from '../settings/state'
+import { isDarkMapBackdrop, locale, mapLayers, mapTerrainStateOf, type MapLayersState } from '../settings/state'
 import { readSatelliteConfig } from '../settings/satellite-config'
-import { mapLayers, type MapLayersState } from '../map-layers/state'
 import { backgroundPresentationOf, mapLayersOfView } from '../map-layers/background-presentation'
+import { loadMapLibreTerrainSupport } from '../../maplibre/terrain-loader'
 import { currentPlantDisplay } from '../plant-display/state'
 import type { PlantLabelMode } from '../../canvas/runtime/plant-display'
 import { savedViewZoom } from '../../canvas/saved-view-framing'
@@ -54,11 +57,13 @@ export function describeSavedViewSnapshot(
   view: SavedView,
   options: SavedViewSnapshotOptions,
   context: SavedViewSnapshotContext,
-): ViewSnapshotRequest | null {
+): ViewSnapshotRequest<SceneRendererSnapshot> | null {
   const plane = context.queries.sessionPlane.peek()
   if (!plane) return null
   const visibleLayerNames = [...view.visible_layers.scene_layers]
   const focusedSpecies = view.highlighted.species[0] ?? null
+  const highlightedObjects = view.highlighted.objects
+  const viewMapLayers = mapLayersOfView(view, context.mapLayers)
   return {
     camera: {
       lon: view.camera.lon,
@@ -69,12 +74,13 @@ export function describeSavedViewSnapshot(
     width: options.width,
     height: options.height,
     ...(options.pixelRatio === undefined ? {} : { pixelRatio: options.pixelRatio }),
-    background: backgroundPresentationOf(mapLayersOfView(view, context.mapLayers), context.locale),
+    background: backgroundPresentationOf(viewMapLayers, context.locale),
+    terrain: { ...mapTerrainStateOf(viewMapLayers), isDark: isDarkMapBackdrop(viewMapLayers) },
     scene: {
       origin: plane.origin,
       build(view) {
         const snapshot = context.queries.captureViewScene({
-          view, visibleLayerNames, focusedSpecies, plantLabels: context.plantLabels,
+          view, visibleLayerNames, focusedSpecies, plantLabels: context.plantLabels, highlightedObjects,
         })
         if (!snapshot) throw new ViewSnapshotSceneBusyError()
         return snapshot
@@ -100,7 +106,7 @@ export function savedViewPresentedLabels(view: Pick<SavedView, 'labels'>): Plant
   return view.labels ?? currentPlantDisplay.peek().labels
 }
 
-let owner: ViewSnapshotMap | null = null
+let owner: ViewSnapshotMap<SceneRendererSnapshot> | null = null
 
 /**
  * Captures a saved view of the open Design as an image, off-screen: the
@@ -121,7 +127,11 @@ export async function captureSavedViewSnapshot(
     plantLabels: savedViewPresentedLabels(view),
   })
   if (!request) return null
-  owner ??= createViewSnapshotMap({ readSatelliteConfig })
+  owner ??= createViewSnapshotMap({
+    readSatelliteConfig,
+    loadTerrainSupport: loadMapLibreTerrainSupport,
+    createSceneLayer: (layerOptions) => createSceneHostLayer({ ...layerOptions, painter: createPixiScenePainter() }),
+  })
   return owner.capture(request)
 }
 

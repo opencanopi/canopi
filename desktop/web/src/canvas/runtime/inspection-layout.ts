@@ -3,7 +3,7 @@ import type { InspectionLabel, InspectionPoint, InspectedPlant } from '../inspec
 import { LabelCollisionIndex } from '../label-collision'
 import { nearestPlantSpacing } from '../plant-spacing'
 import type { ScenePlantEntity } from './scene'
-import type { ViewTransform } from './view/types'
+import type { ViewTransform } from '../../geo/view/types'
 
 // Matches the lens name buttons: 12px type, 16px lines, 4px padding.
 const INSPECTION_TYPE = { size: 12, line: 16, padding: 4 } as const

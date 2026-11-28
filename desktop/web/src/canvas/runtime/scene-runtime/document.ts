@@ -1,4 +1,6 @@
 import type { CanopiFile, SavedViewCamera } from '../../../types/design'
+import { DOCUMENT_FILE_FIELD_OWNERS } from '../../../generated/known-canopi-keys'
+import type { SceneCommand } from '../scene-commands'
 import { serializeScenePersistedState } from '../scene'
 import type {
   CanvasPersistenceCapture,
@@ -11,10 +13,15 @@ import type {
 } from '../app-adapter'
 import type { SceneDocumentAuthority, ScenePersistenceAuthority } from './transactions'
 
+const SCENE_FIELD_KEYS = Object.entries(DOCUMENT_FILE_FIELD_OWNERS)
+  .filter(([, owner]) => owner === 'scene')
+  .map(([key]) => key)
+
 interface SceneRuntimeDocumentBridgeOptions {
-  authority: SceneDocumentAuthority & ScenePersistenceAuthority
+  authority: SceneDocumentAuthority & ScenePersistenceAuthority & {
+    replayCommand(command: SceneCommand, direction: 'undo' | 'redo'): boolean
+  }
   prepareForDocumentReplacement(): void
-  clearHoveredTargets(): void
   clearPanelOriginTargets(): void
   composeDocumentForSave(input: CanvasRuntimeDocumentCompositionInput): CanopiFile
 }
@@ -22,20 +29,17 @@ interface SceneRuntimeDocumentBridgeOptions {
 export class SceneRuntimeDocumentBridge {
   private readonly _authority: SceneRuntimeDocumentBridgeOptions['authority']
   private readonly _prepareForDocumentReplacement: SceneRuntimeDocumentBridgeOptions['prepareForDocumentReplacement']
-  private readonly _clearHoveredTargets: SceneRuntimeDocumentBridgeOptions['clearHoveredTargets']
   private readonly _clearPanelOriginTargets: SceneRuntimeDocumentBridgeOptions['clearPanelOriginTargets']
   private readonly _composeDocumentForSave: SceneRuntimeDocumentBridgeOptions['composeDocumentForSave']
 
   constructor(options: SceneRuntimeDocumentBridgeOptions) {
     this._authority = options.authority
     this._prepareForDocumentReplacement = options.prepareForDocumentReplacement
-    this._clearHoveredTargets = options.clearHoveredTargets
     this._clearPanelOriginTargets = options.clearPanelOriginTargets
     this._composeDocumentForSave = options.composeDocumentForSave
   }
 
   loadDocument(file: CanopiFile): void {
-    this._clearHoveredTargets()
     this._clearPanelOriginTargets()
     this._authority.hydrate(file)
   }
@@ -49,7 +53,6 @@ export class SceneRuntimeDocumentBridge {
       token,
       prepare: () => {
         this._prepareForDocumentReplacement()
-        this._clearHoveredTargets()
         this._clearPanelOriginTargets()
       },
       finalizeReplacement,
@@ -72,5 +75,20 @@ export class SceneRuntimeDocumentBridge {
       isCurrent: () => capture.isCurrent(),
       acknowledgeSaved: () => capture.acknowledgeSaved(),
     })
+  }
+
+  serializeSceneFields(mapView: SavedViewCamera | null): Partial<CanopiFile> {
+    const capture = this._authority.capturePersistence()
+    const serialized: Record<string, unknown> = { ...serializeScenePersistedState(capture.scene, capture.plane, { now: new Date() }) }
+    const out: Record<string, unknown> = {}
+    for (const key of SCENE_FIELD_KEYS) {
+      if (key in serialized) out[key] = serialized[key]
+    }
+    if (mapView) out.map_view = mapView
+    return out
+  }
+
+  replaySceneCommand(command: SceneCommand, direction: 'undo' | 'redo'): boolean {
+    return this._authority.replayCommand(command, direction)
   }
 }

@@ -5,11 +5,12 @@ import {
   setCanvasLayerPresentationOpacity,
   setCanvasLayerPresentationVisibility,
 } from './presentation'
-import { saveGoogleMapsApiKey, setBasemapStyle, setMapBackground, setSoftenBackground } from '../map-layers/actions'
+import { setBasemapStyle, setMapBackground, setSoftenBackground } from '../map-layers/actions'
 
 /**
  * Layer actions shared by both editions' Layers panels. Edition-neutral:
- * Desktop-only LiDAR wiring stays in the Desktop Layers panel.
+ * Desktop-only LiDAR wiring stays in the Desktop Layers panel; layer Retry
+ * is supplied by each panel from `app/canvas-map-surface/host-view`.
  */
 export const LAYER_PANEL_ACTIONS = {
   open: toggleLayerRow,
@@ -18,7 +19,6 @@ export const LAYER_PANEL_ACTIONS = {
   opacity: setCanvasLayerPresentationOpacity,
   contourInterval: setCanvasLayerPresentationContourIntervalMeters,
   basemapStyle: setBasemapStyle,
-  saveGoogleKey: saveGoogleMapsApiKey,
   background: setMapBackground,
   softenBackground: setSoftenBackground,
 } as const

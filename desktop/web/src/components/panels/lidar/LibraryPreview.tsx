@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'preact/hooks'
-import { lidarAssetUrl, readLidarDisplay, requestLidarDisplay } from '../../../app/lidar/display'
-import { displayVariant, itemTypeStyle } from '../../../app/lidar/item-types'
-import type { LibraryItem } from '../../../app/lidar/library-items'
+import { readLidarDisplay, requestLidarDisplay } from '../../../app/data-library/display'
+import { editionPorts } from '../../../platform/edition-ports'
+import { displayVariant, itemTypeStyle } from '../../../app/data-library/item-types'
+import type { LibraryItem } from '../../../app/data-library/library-items'
 import { rasterWorkerPool, type RasterPoolClient } from '../../../maplibre/raster-display/pool'
 import { t } from '../../../i18n'
 import styles from './data-library.module.css'
@@ -85,7 +86,7 @@ export function LibraryPreview({ item, client, width, height, large = false }: {
     )
     void client
       .renderPreview(
-        descriptor.assets.map((asset) => lidarAssetUrl(asset.path)),
+        descriptor.assets.map((asset) => editionPorts().dataLibrary.resolveAssetUrl(asset.path)),
         bbox,
         { width, height },
         { bidx: [1], rescale: [style.rescale[0], style.rescale[1]], colormap: style.colormap, reversed: style.reversed },

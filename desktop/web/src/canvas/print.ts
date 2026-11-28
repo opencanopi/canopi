@@ -1,4 +1,6 @@
 /** Read-only, renderer-independent authored Canvas content for physical output. */
+import type { GeoPoint } from '../types/design'
+
 export interface PrintPoint { readonly x: number; readonly y: number }
 export interface PrintBounds extends PrintPoint { readonly width: number; readonly height: number }
 /** A plant symbol path: the body in the plant colour, cut-outs in a contrasting ink. */
@@ -28,6 +30,9 @@ export interface PrintZone {
     | { readonly kind: 'rect' | 'polygon' | 'line'; readonly points: readonly PrintPoint[] }
 }
 export interface CanvasPrintSnapshot {
+  /** Session-plane WGS84 anchor for true ground-metre PDF measurements (contracts §20, 2.1-M520). */
+  readonly planeOrigin?: GeoPoint
+  readonly symbolScale?: number
   readonly layers: readonly { readonly name: string; readonly visible: boolean; readonly opacity: number }[]
   readonly plants: readonly PrintPlant[]
   readonly zones: readonly PrintZone[]

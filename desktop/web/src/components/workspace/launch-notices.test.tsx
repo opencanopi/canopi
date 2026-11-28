@@ -51,7 +51,6 @@ async function verifiedOffer(platform: UpdateOs): Promise<UpdateController> {
     flushBeforeExit: () => Promise.resolve('proceed'),
     holdCloseUntilSettled: () => () => true,
     mintOperationId: () => `op-${++id}`,
-    currentDesignPath: () => null,
     onUpdateAvailable: raiseUpdateNotice,
   })
   disposers.push(withdrawUpdateNoticeOnInstall(controller), raiseLaunchNotices())

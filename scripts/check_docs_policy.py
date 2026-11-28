@@ -374,47 +374,30 @@ TEST_FILE = re.compile(r"\.(test|spec)\.tsx?$")
 
 
 def exists_marker_errors(ident, exists):
-    """An exists state holds `check` and optionally `reads_source: true`, the one grant of the right to read source text
-    (no-src-read-outside-policies' ignores, src-read-exemptions.test.ts): it marks a test file only, so a row naming a
-    behavioural test as its check grants nothing (canopi-f47t.52.228 seam 6)."""
+    """exists holds check and optional reads_source: true (test files only, canopi-f47t.52.228 seam 6)."""
     if set(exists) - {"check", "reads_source"}:
         return [f"{INVENTORY}: {ident} exists holds check and reads_source only, not {', '.join(exists)}"]
-    if "reads_source" not in exists:
-        return []
+    if "reads_source" not in exists: return []
     if exists["reads_source"] is not True:
         return [f"{INVENTORY}: {ident} reads_source is true or absent, not {json.dumps(exists['reads_source'])}"]
     if not TEST_FILE.search(exists.get("check", "")):
         return [f"{INVENTORY}: {ident} marks reads_source on check {exists.get('check', '')}, which is no test file; only a policy test reads source"]
     return []
 
-
 def check_inventory(root, phase_close=None, registry=None):
-    """The policy inventory (contracts §12:541-542, ADR 0028:14, 2.1-M193): `{version: 1, rows}`, one row per rule
-    the ADRs, guides and AGENTS.md state, `{id, doc, quote, state}`. Its quote is in its doc; its state is
-    exists{check, reads_source?} (a bare id of --list-rules or an existing test or script path, and its quote backticks no
-    planned rule: a bullet naming a built and a planned check is planned; reads_source: true lets its test read source
-    text), planned{phase, bead} (a
-    policy/rules.json phase, refused at `--phase-close` of that phase or a later one) or advice; a primitive
-    row is `{id, doc, quote}` and reads its state from policy/primitives.json, which must hold its id."""
-    if not (root / INVENTORY).is_file():
-        return [f"{INVENTORY}: missing; the policy inventory (2.1-M193)"]
+    """Policy inventory (contracts §12, ADR 0028:14, 2.1-M193, 2.1-M530) plus derived table-row ledger checks."""
+    if not (root / INVENTORY).is_file(): return [f"{INVENTORY}: missing; the policy inventory (2.1-M193)"]
     try:
         table = json_file(root, INVENTORY)
         phases = json_file(root, RULES, {}).get("phases", [])
         primitives = {row.get("id") for row in json_file(root, PRIMITIVES, {}).get("rules", [])}
-    except ValueError as error:
-        return [f"{INVENTORY}: unreadable with {RULES} and {PRIMITIVES}: {error}"]
-    if "rules" in table:
-        return [f"{INVENTORY}: rows live under `rows`, never `rules` (check.mjs would read them as rule rows)"]
-    try:
-        active, planned = registry or list_rules(root)
-    except RegistryError as error:
-        return [str(error)]
+    except ValueError as error: return [f"{INVENTORY}: unreadable with {RULES} and {PRIMITIVES}: {error}"]
+    if "rules" in table: return [f"{INVENTORY}: rows live under `rows`, never `rules` (check.mjs would read them as rule rows)"]
+    try: active, planned = registry or list_rules(root)
+    except RegistryError as error: return [str(error)]
     errors, seen = [], set()
-    if table.get("version") != 1 or not table.get("rows"):
-        errors.append(f"{INVENTORY}: version is 1 and rows is a non-empty list")
-    if phase_close is not None and phase_close not in phases:
-        errors.append(f"{INVENTORY}: --phase-close {phase_close} is not one of the {RULES} phases")
+    if table.get("version") != 1 or not table.get("rows"): errors.append(f"{INVENTORY}: version is 1 and rows is a non-empty list")
+    if phase_close is not None and phase_close not in phases: errors.append(f"{INVENTORY}: --phase-close {phase_close} is not one of the {RULES} phases")
     for row in table.get("rows", []):
         ident, doc, quote, state = row.get("id"), row.get("doc", ""), row.get("quote", ""), row.get("state")
         if ident in seen:
@@ -447,6 +430,13 @@ def check_inventory(root, phase_close=None, registry=None):
                 errors.append(f"{INVENTORY}: {ident} is still planned at the close of phase {phase_close} (phase {phase}, {bead})")
         else:
             errors.append(f"{INVENTORY}: {ident} state is exists{{check}}, planned{{phase, bead}} or advice, not {json.dumps(state)}")
+    for table_path in (RULES, PRIMITIVES):
+        for row in json_file(root, table_path, {}).get("rules", []):
+            ledger = row.get("ledger")
+            if not ledger: continue
+            ledger_doc = f"docs/decisions/{ledger.split('-', 1)[0].replace('.', '-')}.md"
+            if not (root / ledger_doc).is_file() or f"| {ledger} |" not in (root / ledger_doc).read_text(encoding="utf-8"):
+                errors.append(f"{table_path}: {row.get('id')} cites ledger {ledger}, which {ledger_doc} does not hold")
     return errors
 
 
@@ -518,16 +508,14 @@ def check_policy(root, phase_close=None):
 
 
 def check_gate_rows(root):
-    """AGENTS.md's Quality gates rows against policy/gate/table.ts (2.1-M198, 2.1-Q267): the gate renders them from each
-    area's template and `node policy/gate/cli.mjs agents-rows --check` names each drifted row; a root without the gate
-    has nothing to check."""
+    """docs/quality-gates.md's Quality gates rows against policy/gate/table.ts (2.1-M198, 2.1-Q267, 2.1-Q342)."""
     if not (Path(root) / "policy/gate/cli.mjs").is_file():
         return []
     try:
         run = subprocess.run(["node", "policy/gate/cli.mjs", "agents-rows", "--check"], cwd=root, capture_output=True,
                              text=True, timeout=120)
     except FileNotFoundError:
-        return ["policy/gate/cli.mjs: no node on PATH to check AGENTS.md's Quality gates rows (2.1-Q267)"]
+        return ["policy/gate/cli.mjs: no node on PATH to check docs/quality-gates.md's Quality gates rows (2.1-Q267)"]
     if run.returncode == 0:
         return []
     return [line for line in run.stdout.splitlines() + run.stderr.splitlines() if line.strip()] or [

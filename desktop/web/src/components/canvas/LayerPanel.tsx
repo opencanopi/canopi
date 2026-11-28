@@ -2,12 +2,13 @@ import { DockPanelHeader } from '../shared/DockPanelHeader'
 import { t } from '../../i18n'
 import { locale } from '../../app/settings/state'
 import { formatCount } from '../../utils/format-count'
+import { formatNumber, formatPercent } from '../../utils/format'
 import type { CanvasLayerPresentationDetail, CanvasLayerPresentationRow } from '../../app/canvas-layer-presentation/presentation'
 import { ButtonTooltip } from '../shared/ButtonTooltip'
 import { Dropdown } from '../shared/Dropdown'
-import { useEffect, useRef, useState } from 'preact/hooks'
+import { useEffect, useRef } from 'preact/hooks'
 import type { BasemapStyle } from '../../generated/contracts'
-import type { MapBackground } from '../../app/map-layers/state'
+import type { MapBackground } from '../../app/settings/state'
 import { Slider } from '../shared/Slider'
 import { Switch } from '../shared/Switch'
 import { LayerVisibilityIcon } from '../shared/LayerVisibilityIcon'
@@ -30,24 +31,9 @@ function LayerIcon({ id }: { id: string }) {
 
 function LockIcon({ locked }: { locked: boolean }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <rect x="4" y="7" width="8" height="6.2" rx="1.2" stroke="currentColor" stroke-width="1.3" />
-      {locked ? (
-        <path
-          d="M5.8 7V5.4C5.8 4.1 6.8 3.1 8 3.1C9.2 3.1 10.2 4.1 10.2 5.4V7"
-          stroke="currentColor"
-          stroke-width="1.3"
-          stroke-linecap="round"
-        />
-      ) : (
-        <path
-          d="M5.8 7V5.4C5.8 4.1 6.8 3.1 8 3.1C9 3.1 9.8 3.8 10.1 4.7"
-          stroke="currentColor"
-          stroke-width="1.3"
-          stroke-linecap="round"
-        />
-      )}
-      <path d="M8 9.2V11" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true">
+      <rect x="4" y="7" width="8" height="6.2" rx="1.2" />
+      <path d={`M8 9.2V11M5.8 7V5.4C5.8 4.1 6.8 3.1 8 3.1${locked ? 'C9.2 3.1 10.2 4.1 10.2 5.4V7' : 'C9 3.1 9.8 3.8 10.1 4.7'}`} />
     </svg>
   )
 }
@@ -60,11 +46,14 @@ export interface LayerPanelActions {
   opacity(id: string, opacity: number): void
   contourInterval(meters: number): void
   basemapStyle(style: BasemapStyle): void
-  saveGoogleKey(key: string | null): void
+  /** Opens Settings › Map and imagery for satellite source & key management (2.1-Q64). */
+  openSatelliteSettings?(): void
   /** Background › Satellite, Street map or None. */
   background(choice: MapBackground): void
   /** Soften background: dims the chosen background under the Design. */
   softenBackground(soften: boolean): void
+  /** Retries a single failed non-background layer from its Layers row (MAP-02, 2.1-Q351). */
+  retryLayer?(slot: NonNullable<CanvasLayerPresentationRow['retrySlot']>): void
 }
 
 /**
@@ -75,7 +64,7 @@ export interface LayerPanelActions {
  */
 export type SiteDataSummary =
   | {
-      readonly edition: 'desktop'
+      readonly kind: 'available'
       readonly count: number
       /** Entries not missing whose own eye is on, while the summary eye is on. */
       readonly shown: number
@@ -86,10 +75,10 @@ export type SiteDataSummary =
       setVisible(visible: boolean): void
       open(): void
     }
-  | { readonly edition: 'web'; readonly count: number }
+  | { readonly kind: 'needs-desktop'; readonly count: number }
 
 /** Background sources are proper names, the same in every language. */
-const BACKGROUND_SOURCES = { satellite: 'Google', basemap: 'OpenFreeMap' } as const
+const BACKGROUND_SOURCES = { basemap: 'OpenFreeMap' } as const
 
 /** Which background the map draws: Satellite hides the Basemap under it. */
 function chosenBackground(background: readonly CanvasLayerPresentationRow[]): MapBackground {
@@ -126,7 +115,10 @@ export function LayerPanel({ rows, actions, siteData }: {
             <div className={styles.groupHeading}><h3 id="layers-map">{t('canvas.layers.map')}</h3></div>
             {terrain.length > 0 && (
               <div role="list">
-                {terrain.map((row) => <LayerRow key={row.id} row={row} actions={actions} caption={terrainCaption(row)} />)}
+                {terrain.map((row) => {
+                  const caption = terrainCaption(row)
+                  return <LayerRow key={row.id} row={row} actions={actions} {...(caption !== undefined ? { caption } : {})} />
+                })}
               </div>
             )}
             {background.length > 0 && <>
@@ -147,7 +139,7 @@ function SiteDataGlyph() {
 
 function SiteDataSummaryRow({ summary }: { readonly summary: SiteDataSummary }) {
   const name = t('canvas.layers.siteData')
-  if (summary.edition === 'web') {
+  if (summary.kind === 'needs-desktop') {
     if (summary.count === 0) return null
     return (
       <section className={`${styles.section} ${styles.summary}`} aria-label={name}>
@@ -217,8 +209,12 @@ function BackgroundChoice({ rows, actions }: {
   readonly actions: LayerPanelActions
 }) {
   const choice = chosenBackground(rows)
+  const satelliteRow = rows.find((row) => row.id === 'satellite')
+  const satelliteSource = satelliteRow?.detail.type === 'satellite' && satelliteRow.detail.hasGoogleKey
+    ? t('settings.satelliteGoogle')
+    : t('settings.satelliteFree')
   const options: { value: MapBackground; label: string; source: string; row?: CanvasLayerPresentationRow }[] = [
-    { value: 'satellite', label: t('canvas.layers.satellite'), source: BACKGROUND_SOURCES.satellite, row: rows.find((row) => row.id === 'satellite') },
+    { value: 'satellite', label: t('canvas.layers.satellite'), source: satelliteSource, row: satelliteRow },
     { value: 'basemap', label: t('canvas.layers.backgroundMap'), source: BACKGROUND_SOURCES.basemap, row: rows.find((row) => row.id === 'basemap') },
     { value: 'none', label: t('canvas.layers.backgroundNone'), source: t('canvas.layers.backgroundPlainPaper') },
   ]
@@ -246,11 +242,12 @@ function BackgroundChoice({ rows, actions }: {
 }
 
 /** Contour lines and hillshading say which elevation they are drawn from. */
-function terrainCaption(row: CanvasLayerPresentationRow): string {
+function terrainCaption(row: CanvasLayerPresentationRow): string | undefined {
+  if (row.detail.type === 'library') return undefined
   if (row.detail.type === 'contours') {
     return row.detail.contourIntervalMeters > 0
       ? t('canvas.terrain.contoursEvery', {
-        interval: new Intl.NumberFormat(locale.value).format(row.detail.contourIntervalMeters),
+        interval: formatNumber(row.detail.contourIntervalMeters, locale.value),
       })
       : t('canvas.terrain.contoursByZoom')
   }
@@ -266,58 +263,70 @@ function LayerRow({ row, actions, caption }: {
   readonly actions: LayerPanelActions
   readonly caption?: string
 }) {
+  const isLibrary = row.detail.type === 'library'
   const lockLabel = row.locked ? t('canvas.layers.unlockLayer') : t('canvas.layers.lockLayer')
   const eyeLabel = t(row.visible ? 'canvas.lidar.layers.hide' : 'canvas.lidar.layers.show', { name: row.label })
   const item = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (row.open) item.current?.scrollIntoView?.({ block: 'nearest' })
   }, [row.open])
+  const labelContent = <>
+    {isLibrary ? <SiteDataGlyph /> : <LayerIcon id={row.id} />}
+    <span className={styles.nameText}>
+      <span>{row.label}</span>
+      {row.failed ? (
+        <small className={styles.failedCaption} data-layer-failed>{t('canvas.layers.layerFailed')}</small>
+      ) : (
+        caption && <small className={styles.caption}>{caption}</small>
+      )}
+    </span>
+    {row.count !== undefined && <span className={styles.count}>{formatCount(row.count, locale.value)}</span>}
+  </>
   return (
-    <div
-      ref={item}
-      role="listitem"
-      className={styles.item}
-    >
+    <div ref={item} role="listitem" className={styles.item}>
       <div
         className={`${layerRow.row} ${styles.layerRow}`}
         data-hidden={row.visible ? 'false' : 'true'}
         data-locked={row.locked ? 'true' : 'false'}
       >
-        <button
-          type="button"
-          className={layerRow.eye}
-          aria-label={eyeLabel}
-          aria-pressed={row.visible}
-          onClick={() => {
-            actions.visibility(row.id, !row.visible)
-          }}
-        >
-          <LayerVisibilityIcon open={row.visible} />
-          <ButtonTooltip label={eyeLabel} side="right" />
-        </button>
-        <button
-          type="button"
-          className={`${layerRow.name} ${styles.layerName}`}
-          aria-expanded={row.open}
-          title={row.label}
-          onClick={() => actions.open(row.id)}
-        >
-          <LayerIcon id={row.id} />
-          <span className={styles.nameText}>
-            <span>{row.label}</span>
-            {caption && <small className={styles.caption}>{caption}</small>}
-          </span>
-          {row.count !== undefined && <span className={styles.count}>{formatCount(row.count, locale.value)}</span>}
-        </button>
-        {row.canLock ? (
+        {isLibrary ? (
+          <span className={styles.lockSlot} aria-hidden="true" />
+        ) : (
+          <button
+            type="button"
+            className={layerRow.eye}
+            aria-label={eyeLabel}
+            aria-pressed={row.visible}
+            onClick={() => actions.visibility(row.id, !row.visible)}
+          >
+            <LayerVisibilityIcon open={row.visible} />
+            <ButtonTooltip label={eyeLabel} side="right" />
+          </button>
+        )}
+        {isLibrary ? (
+          <div className={`${layerRow.name} ${styles.layerName}`} title={row.label}>{labelContent}</div>
+        ) : (
+          <button
+            type="button"
+            className={`${layerRow.name} ${styles.layerName}`}
+            aria-expanded={row.open}
+            title={row.label}
+            onClick={() => actions.open(row.id)}
+          >
+            {labelContent}
+          </button>
+        )}
+        {row.failed && row.retrySlot ? (
+          <button type="button" className={styles.retryBtn} onClick={() => actions.retryLayer?.(row.retrySlot!)}>
+            {t('canvas.layers.retryMap')}
+          </button>
+        ) : row.canLock ? (
           <button
             type="button"
             className={styles.lockBtn}
             aria-label={`${lockLabel}: ${row.label}`}
             aria-pressed={row.locked}
-            onClick={() => {
-              actions.locked(row.id, !row.locked)
-            }}
+            onClick={() => actions.locked(row.id, !row.locked)}
           >
             <LockIcon locked={row.locked} />
             <ButtonTooltip label={lockLabel} side="left" />
@@ -326,7 +335,7 @@ function LayerRow({ row, actions, caption }: {
           <span className={styles.lockSlot} aria-hidden="true" />
         )}
       </div>
-      {row.open && <LayerDetail row={row} actions={actions} />}
+      {row.open && !isLibrary && <LayerDetail row={row} actions={actions} />}
     </div>
   )
 }
@@ -340,9 +349,10 @@ function LayerDetail({ row, actions }: { row: CanvasLayerPresentationRow; action
     case 'contours':
       return <ContourLayerDetail row={row} detail={row.detail} actions={actions} />
     case 'hillshade':
-      return <HillshadeLayerDetail row={row} actions={actions} />
     case 'scene':
-      return <SceneLayerDetail row={row} actions={actions} />
+      return <div className={styles.layerDetail}><OpacitySlider actions={actions} row={row} /></div>
+    case 'library':
+      return null
   }
 }
 
@@ -375,9 +385,21 @@ function SatelliteLayerDetail({ row, detail, actions }: {
   row: CanvasLayerPresentationRow
   detail: Extract<CanvasLayerPresentationDetail, { type: 'satellite' }>
 }) {
+  const sourceLabel = detail.hasGoogleKey ? t('settings.satelliteGoogle') : t('settings.satelliteFree')
   return (
     <div className={styles.layerDetail}>
-      <GoogleKeyForm hasKey={detail.hasGoogleKey} onSave={(key) => actions.saveGoogleKey(key)} />
+      <div className={styles.controlRow}>
+        <span className={styles.controlLabel}>{sourceLabel}</span>
+        {actions.openSatelliteSettings && (
+          <button
+            type="button"
+            className={styles.keyButton}
+            onClick={() => actions.openSatelliteSettings?.()}
+          >
+            {t('settings.mapAndImagery')}
+          </button>
+        )}
+      </div>
       <OpacitySlider actions={actions} row={row} />
       <SoftenBackgroundSwitch soften={detail.softenBackground} actions={actions} />
     </div>
@@ -392,62 +414,6 @@ function SoftenBackgroundSwitch({ soften, actions }: { soften: boolean; actions:
       checked={soften}
       onChange={(next) => actions.softenBackground(next)}
     />
-  )
-}
-
-/**
- * The device-local Google key. The field never shows a stored key; saving
- * trims it, and it never reaches a Design, export, diagnostic bundle or log.
- */
-function GoogleKeyForm({ hasKey, onSave }: { hasKey: boolean; onSave(key: string | null): void }) {
-  const [draft, setDraft] = useState('')
-  const [saved, setSaved] = useState(false)
-  return (
-    <form
-      className={styles.keyForm}
-      onSubmit={(event) => {
-        event.preventDefault()
-        if (!draft.trim()) return
-        onSave(draft)
-        setDraft('')
-        setSaved(true)
-      }}
-    >
-      {!hasKey && <p className={styles.layerNote}>{t('canvas.satellite.googleKeyOptional')}</p>}
-      <label className={styles.controlRow}>
-        <span className={styles.controlLabel}>{t('canvas.basemap.googleKey')}</span>
-        <input
-          type="password"
-          className={styles.keyInput}
-          autoComplete="off"
-          spellcheck={false}
-          value={draft}
-          placeholder={hasKey ? '••••••••' : ''}
-          onInput={(event) => {
-            setSaved(false)
-            setDraft(event.currentTarget.value)
-          }}
-        />
-      </label>
-      <div className={styles.keyActions}>
-        <button type="submit" className={styles.keyButton} disabled={!draft.trim()}>{t('canvas.basemap.saveKey')}</button>
-        {hasKey && (
-          <button
-            type="button"
-            className={styles.keyButton}
-            onClick={() => {
-              setDraft('')
-              setSaved(false)
-              onSave(null)
-            }}
-          >
-            {t('canvas.basemap.clearKey')}
-          </button>
-        )}
-      </div>
-      {saved && <p className={styles.layerNote} role="status">{t('canvas.basemap.keySaved')}</p>}
-      <p className={styles.layerNote}>{t('canvas.basemap.keyLocalOnly')}</p>
-    </form>
   )
 }
 
@@ -479,25 +445,6 @@ function ContourLayerDetail({ row, detail, actions }: {
   )
 }
 
-function HillshadeLayerDetail({ row, actions }: {
-  actions: LayerPanelActions
-  row: CanvasLayerPresentationRow
-}) {
-  return (
-    <div className={styles.layerDetail}>
-      <OpacitySlider actions={actions} row={row} />
-    </div>
-  )
-}
-
-function SceneLayerDetail({ row, actions }: { row: CanvasLayerPresentationRow; actions: LayerPanelActions }) {
-  return (
-    <div className={styles.layerDetail}>
-      <OpacitySlider actions={actions} row={row} />
-    </div>
-  )
-}
-
 function OpacitySlider({ row, actions }: { row: CanvasLayerPresentationRow; actions: LayerPanelActions }) {
   return (
     <Slider
@@ -506,7 +453,7 @@ function OpacitySlider({ row, actions }: { row: CanvasLayerPresentationRow; acti
       min={0}
       max={100}
       value={Math.round(row.opacity * 100)}
-      format={(percent) => new Intl.NumberFormat(locale.value, { style: 'percent' }).format(percent / 100)}
+      format={(percent) => formatPercent(percent / 100, locale.value)}
       onInput={(percent) => actions.opacity(row.id, percent / 100)}
     />
   )

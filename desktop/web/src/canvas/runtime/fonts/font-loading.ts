@@ -6,28 +6,36 @@
 
 type Fonts = Pick<FontFaceSet, 'load' | 'forEach'>
 
-interface FontRequests {
+interface FontLoaderState {
+  /** Held strongly so WebKit/JSC never collects the document.fonts wrapper out from under active listeners. */
+  readonly fonts: Fonts
   /** Font and text loads in flight. */
   readonly pending: Set<string>
   /** Loads that settled, loaded or failed: never asked for again. */
   readonly settled: Set<string>
+  epoch: number
+  readonly listeners: Set<() => void>
 }
 
 /** How many settled requests a face set remembers; past it, a request may be asked for once more. */
 const SETTLED_LIMIT = 1024
 
-/** Per font face set, so a page (or a test) that swaps `document.fonts` starts afresh. */
-const requestsByFonts = new WeakMap<Fonts, FontRequests>()
-const listeners = new Set<() => void>()
-let fontEpoch = 0
+/** Per Document (never WeakMap-keyed on document.fonts, which WebKit/JSC can collect when unreferenced). */
+const stateByDocument = new WeakMap<Document, FontLoaderState>()
 
-function requestsOf(fonts: Fonts): FontRequests {
-  let requests = requestsByFonts.get(fonts)
-  if (!requests) {
-    requests = { pending: new Set(), settled: new Set() }
-    requestsByFonts.set(fonts, requests)
+function currentDocumentAndFonts(): { readonly doc: Document; readonly fonts: Fonts } | undefined {
+  const doc = globalThis.document
+  const fonts = doc?.fonts
+  return doc && fonts ? { doc, fonts } : undefined
+}
+
+function stateOf(doc: Document, fonts: Fonts): FontLoaderState {
+  let state = stateByDocument.get(doc)
+  if (!state || state.fonts !== fonts) {
+    state = { fonts, pending: new Set(), settled: new Set(), epoch: 0, listeners: new Set() }
+    stateByDocument.set(doc, state)
   }
-  return requests
+  return state
 }
 
 /**
@@ -37,26 +45,27 @@ function requestsOf(fonts: Fonts): FontRequests {
  * font-display: swap as failed, so check() is true, and only `load()` waits for the face to arrive.
  */
 function request(font: string, text = ''): void {
-  const fonts = globalThis.document?.fonts as Fonts | undefined
-  if (!fonts) return
-  const requests = requestsOf(fonts)
+  const current = currentDocumentAndFonts()
+  if (!current) return
+  const { doc, fonts } = current
+  const state = stateOf(doc, fonts)
   const key = `${font}\n${text}`
-  if (requests.pending.has(key) || requests.settled.has(key)) return
+  if (state.pending.has(key) || state.settled.has(key)) return
   const unloaded = new Set<FontFace>()
   fonts.forEach((face) => { if (face.status !== 'loaded') unloaded.add(face) })
   if (unloaded.size === 0) return
-  requests.pending.add(key)
+  state.pending.add(key)
   const settle = () => {
-    requests.pending.delete(key)
-    if (requests.settled.size >= SETTLED_LIMIT) requests.settled.clear()
-    requests.settled.add(key)
+    state.pending.delete(key)
+    if (state.settled.size >= SETTLED_LIMIT) state.settled.clear()
+    state.settled.add(key)
   }
   const loading = text ? fonts.load(font, text) : fonts.load(font)
   loading.then((faces) => {
     settle()
     if (!faces.some((face) => unloaded.has(face) && face.status === 'loaded')) return
-    fontEpoch += 1
-    for (const listener of [...listeners]) listener()
+    state.epoch += 1
+    for (const listener of [...state.listeners]) listener()
   }, () => {
     settle()
     // The text keeps the fallback font for good: the browser logs the failed request, and asking again would loop.
@@ -73,9 +82,15 @@ export function distinctCharacters(texts: Iterable<string>): string {
 export const canvasFonts = {
   request,
   /** Counts the loads that brought a face; a memo of anything sized by canvas text keeps it in its key. */
-  epoch: (): number => fontEpoch,
+  epoch: (): number => {
+    const current = currentDocumentAndFonts()
+    return current ? stateOf(current.doc, current.fonts).epoch : 0
+  },
   /** Calls `listener` after each epoch move; returns the unsubscribe, which a disposed drawer calls. */
   subscribe(listener: () => void): () => void {
+    const current = currentDocumentAndFonts()
+    if (!current) return () => {}
+    const { listeners } = stateOf(current.doc, current.fonts)
     listeners.add(listener)
     return () => { listeners.delete(listener) }
   },

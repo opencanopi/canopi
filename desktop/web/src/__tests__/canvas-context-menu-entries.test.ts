@@ -499,7 +499,7 @@ describe('canvas context menu entries', () => {
     const guide = build(selection({
       editableTargets: [{ kind: 'plant', id: 'p' }, { kind: 'measurement-guide', id: 'g' }],
     })).entries
-    expect(item(guide, 'group').disabled).toBe(true)
+    expect(item(guide, 'group').disabled).toBe(false)
 
     const blocked = build(selection({
       editableTargets: [{ kind: 'group', id: 'group-1' }, { kind: 'plant', id: 'p' }],

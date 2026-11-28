@@ -6,7 +6,7 @@ import { consortiumTarget, speciesBudgetTarget, speciesTarget } from '../../../t
 import { SceneStore } from './store'
 import { createDefaultScenePersistedState, createDefaultSceneSessionState } from './defaults'
 import { serializeScenePersistedState } from './codec'
-import { createSessionPlane } from '../../session-plane'
+import { createSessionPlane } from '../../../geo/session-plane'
 import { createScenePatchCommand } from '../scene-commands'
 
 const TEST_FRAME_ORIGIN = { lon: 13, lat: 23 }
@@ -130,7 +130,7 @@ describe('scene store', () => {
           pinned_name: false,
           position: storedGeoAt(12, 18),
           rotation: 45,
-          scale: 1.2,
+          canopy_spread_m: 1.2,
           notes: 'heritage tree',
           planted_date: '2025-04-01',
           quantity: 1,
@@ -169,7 +169,7 @@ describe('scene store', () => {
         },
       ],
       timeline: [{ id: 't1', action_type: 'planting', description: 'Plant oak', start_date: '2026-04-01', end_date: '2026-04-02', recurrence: null, targets: [speciesTarget('Quercus robur')], depends_on: [], completed: false, order: 0 }],
-      budget: [{ target: speciesBudgetTarget('Quercus robur'), category: 'plants', description: 'Quercus robur', quantity: 1, unit_cost: 25, currency: 'EUR' }],
+      budget: [{ target: speciesBudgetTarget('Quercus robur'), unit_cost: 25 }],
       budget_currency: 'EUR',
       created_at: '2026-04-01T10:00:00.000Z',
       updated_at: '2026-04-01T12:00:00.000Z',
@@ -270,7 +270,7 @@ describe('scene store', () => {
           color: null,
           position: geoAt(1, 2),
           rotation: null,
-          scale: null,
+          canopy_spread_m: null,
           notes: null,
           planted_date: null,
           quantity: null,
@@ -382,7 +382,7 @@ describe('scene store', () => {
           pinned_name: false,
           position: storedGeoAt(12, 18),
           rotation: null,
-          scale: 1.2,
+          canopy_spread_m: 1.2,
           notes: null,
           planted_date: null,
           quantity: null,
@@ -410,7 +410,7 @@ describe('scene store', () => {
 
     expect(serialized.plants[0]).toEqual({
       ...file.plants[0],
-      scale: 2.4,
+      canopy_spread_m: 2.4,
     })
     expect(serialized.plants[0]).not.toHaveProperty('canopySpreadM')
   })

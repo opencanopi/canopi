@@ -9,9 +9,9 @@
  * a Lambert-93 plane split into two adjacent NoData-free sources (west on
  * top), and the whole plane as another item under them. Each XYZ tile over
  * them is rendered at the item's zoom and two overview zooms with the
- * layer-wide stretch, the two top assets composited with maplibre-gl-raster's
- * `paintUnder` (copied below: the mosaic engine does not export it), and
- * the under item behind them, as MapLibre stacks the two layers.
+ * layer-wide stretch, the two top assets composited with Canopi's production
+ * `paintUnder` (`adapter.ts`), and the under item behind them, as MapLibre
+ * stacks the two layers.
  *
  * Measured (2026-10-15, cog-tiler-wasm 0.4.0): at the item's zoom and its
  * two overview zooms, 622, 151 and 76 under-line pixels, 1, 1 and 0 gaps,
@@ -29,6 +29,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import type { CogSource } from 'cog-tiler-wasm'
+import { paintUnderForTests as paintUnder } from './adapter'
 
 interface SeamFixture {
   zoom: number
@@ -51,27 +52,6 @@ interface SeamCounts {
 }
 
 const TILE = 256
-
-/**
- * maplibre-gl-raster 0.x `paintUnder` (dist/RasterControl-*.js), verbatim:
- * fills only fully transparent destination pixels, so the first asset
- * listed keeps a pixel two assets cover.
- */
-function paintUnder(dst: Uint8ClampedArray, src: Uint8Array | Uint8ClampedArray): boolean {
-  let complete = true
-  for (let i = 3; i < dst.length; i += 4) {
-    if (dst[i] !== 0) continue
-    if (src[i] === 0) {
-      complete = false
-      continue
-    }
-    dst[i - 3] = src[i - 3]!
-    dst[i - 2] = src[i - 2]!
-    dst[i - 1] = src[i - 1]!
-    dst[i] = src[i]!
-  }
-  return complete
-}
 
 const tileX = (lon: number, z: number) => Math.floor(((lon + 180) / 360) * 2 ** z)
 const tileY = (lat: number, z: number) => {

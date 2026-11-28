@@ -16,32 +16,35 @@ import { useScrimPress } from './useScrimPress'
 /** Where a report is sent (2.1-Q279): Canopi sends nothing itself. */
 const PROBLEM_REPORT_ISSUES_URL = 'https://github.com/opencanopi/canopi/issues'
 
+type ProblemReportKey = LocaleKey extends infer K ? K extends `problemReport.${infer N}` ? N : never : never
+type SectionKey = LocaleKey extends infer K ? K extends `problemReport.section.${infer N}` ? N : never : never
+const pr = (key: ProblemReportKey) => t(`problemReport.${key}`)
+const sec = (id: ReportSectionId) => t(`problemReport.section.${SECTION_LINES[id]}`)
+
 /** Each section's line in the dialog, one per `REPORT_SECTIONS` row (2.1-Q280); en.json holds the table's English. */
-const SECTION_LINES: { readonly [S in ReportSectionId]: LocaleKey } = {
-  originating_failure: 'problemReport.section.originatingFailure',
-  description: 'problemReport.section.description',
-  build: 'problemReport.section.build',
-  health: 'problemReport.section.health',
-  queues: 'problemReport.section.queues',
-  native_settlements: 'problemReport.section.nativeSettlements',
-  frontend_ring: 'problemReport.section.frontendRing',
-  jobs: 'problemReport.section.jobs',
-  library_disk: 'problemReport.section.libraryDisk',
-  log_tail: 'problemReport.section.logTail',
-  settings_summary: 'problemReport.section.settingsSummary',
-  design: 'problemReport.section.design',
+const SECTION_LINES: { readonly [S in ReportSectionId]: SectionKey } = {
+  originating_failure: 'originatingFailure',
+  description: 'description',
+  build: 'build',
+  health: 'health',
+  queues: 'queues',
+  native_settlements: 'nativeSettlements',
+  frontend_ring: 'frontendRing',
+  jobs: 'jobs',
+  library_disk: 'libraryDisk',
+  log_tail: 'logTail',
+  settings_summary: 'settingsSummary',
+  design: 'design',
 }
 
 type ConsentKind = Exclude<ReportConsent, 'always'>
 
 /**
- * The checkbox each consent kind draws, while `offered`; a new kind fails typecheck until it has one (2.1-Q280). A newer
- * Canopi's read view is never offered as the current Design (canopi-v4kj).
+ * The checkbox each consent kind draws; a new kind fails typecheck until it has one (2.1-Q280).
  */
-const CONSENT_CHECKBOXES: { readonly [K in ConsentKind]: { readonly label: LocaleKey, readonly offered: () => boolean, readonly checked: () => boolean, readonly set: (on: boolean) => void } } = {
+const CONSENT_CHECKBOXES: { readonly [K in ConsentKind]: { readonly label: ProblemReportKey, readonly checked: () => boolean, readonly set: (on: boolean) => void } } = {
   current_design: {
-    label: 'problemReport.includeCurrentDesign',
-    offered: () => problemReportSubmission.currentDesignOffered.value,
+    label: 'includeCurrentDesign',
     checked: () => problemReportSubmission.includeCurrentDesign.value,
     set: (on) => problemReportSubmission.setIncludeCurrentDesign(on),
   },
@@ -83,7 +86,7 @@ function ProblemReportDialogContent() {
   const canReveal = port?.reveal !== undefined
   const listed = REPORT_SECTIONS.filter((row) => row.consent === 'always' && editionHas(port?.sections, row.id))
   const consentRows = REPORT_SECTIONS.flatMap((row) =>
-    row.consent === 'always' || !CONSENT_CHECKBOXES[row.consent].offered() ? [] : [{ ...row, consent: row.consent }])
+    row.consent === 'always' ? [] : [{ ...row, consent: row.consent }])
 
   // Focus goes in as the dialog commits, with its modal layer, so an Esc at once is the dialog's (canopi-f47t.52.228.20).
   useLayoutEffect(() => {
@@ -140,43 +143,36 @@ function ProblemReportDialogContent() {
       >
         <header className={styles.header}>
           <div>
-            <h2 id="problem-report-title" className={styles.title}>
-              {t('problemReport.title')}
-            </h2>
-            <p className={styles.intro}>{t('problemReport.intro')}</p>
+            <h2 id="problem-report-title" className={styles.title}>{pr('title')}</h2>
+            <p className={styles.intro}>{pr('intro')}</p>
           </div>
-          <button
-            type="button"
-            className={styles.iconButton}
-            onClick={closeDialog}
-            aria-label={t('problemReport.close')}
-          >
+          <button type="button" className={styles.iconButton} onClick={closeDialog} aria-label={pr('close')}>
             <ControlIcon name="close" size={18} />
           </button>
         </header>
 
         {result ? (
           <div className={styles.success}>
-            <h3 className={styles.sectionTitle}>{t('problemReport.successTitle')}</h3>
+            <h3 className={styles.sectionTitle}>{pr('successTitle')}</h3>
             {canReveal ? (
               <>
-                {showFolderState === 'failed'
-                  ? <p className={styles.errorText}>{t('problemReport.showFolderFailed')}</p>
-                  : <p className={styles.body}>{t('problemReport.successText')}</p>}
+                <p className={showFolderState === 'failed' ? styles.errorText : styles.body}>
+                  {pr(showFolderState === 'failed' ? 'showFolderFailed' : 'successText')}
+                </p>
                 <dl className={styles.paths}>
                   <div>
-                    <dt>{t('problemReport.bundleFile')}</dt>
+                    <dt>{pr('bundleFile')}</dt>
                     <dd>{result.file_name}</dd>
                   </div>
                 </dl>
               </>
             ) : (
-              <p className={styles.body}>{t('problemReport.downloadedText')}</p>
+              <p className={styles.body}>{pr('downloadedText')}</p>
             )}
             <SendTo />
             <div className={styles.footer}>
               <button type="button" ref={successCloseRef} className={styles.secondaryButton} onClick={closeDialog}>
-                {t('problemReport.close')}
+                {pr('close')}
               </button>
               {canReveal && (
                 <button
@@ -185,7 +181,7 @@ function ProblemReportDialogContent() {
                   onClick={() => void showFolder()}
                   disabled={showFolderState === 'showing'}
                 >
-                  {t(showFolderState === 'showing' ? 'problemReport.showingFolder' : 'problemReport.showAgain')}
+                  {pr(showFolderState === 'showing' ? 'showingFolder' : 'showAgain')}
                 </button>
               )}
             </div>
@@ -193,22 +189,22 @@ function ProblemReportDialogContent() {
         ) : (
           <form className={styles.form} onSubmit={(event) => void submit(event)}>
             <label className={styles.label} htmlFor="problem-report-description">
-              {t('problemReport.descriptionLabel')}
+              {pr('descriptionLabel')}
             </label>
             <textarea
               id="problem-report-description"
               ref={textareaRef}
               className={styles.textarea}
               value={description}
-              placeholder={t('problemReport.descriptionPlaceholder')}
+              placeholder={pr('descriptionPlaceholder')}
               onInput={(event) =>
                 problemReportSubmission.setDescription((event.target as HTMLTextAreaElement).value)
               }
             />
             <fieldset className={styles.attachments}>
-              <legend>{t('problemReport.contentsTitle')}</legend>
+              <legend>{pr('contentsTitle')}</legend>
               <ul className={styles.sectionList}>
-                {listed.map((row) => <li key={row.id} className={styles.sectionRow} data-report-section={row.id}>{t(SECTION_LINES[row.id])}</li>)}
+                {listed.map((row) => <li key={row.id} className={styles.sectionRow} data-report-section={row.id}>{sec(row.id)}</li>)}
               </ul>
               {consentRows.map((row) => {
                 const checkbox = CONSENT_CHECKBOXES[row.consent]
@@ -221,8 +217,8 @@ function ProblemReportDialogContent() {
                       onChange={(event) => checkbox.set((event.target as HTMLInputElement).checked)}
                     />
                     <span className={styles.checkboxText}>
-                      <span className={styles.checkboxTitle}>{t(checkbox.label)}</span>
-                      <span className={styles.checkboxDescription}>{t(SECTION_LINES[row.id])}</span>
+                      <span className={styles.checkboxTitle}>{pr(checkbox.label)}</span>
+                      <span className={styles.checkboxDescription}>{sec(row.id)}</span>
                     </span>
                   </label>
                 )
@@ -231,16 +227,16 @@ function ProblemReportDialogContent() {
             <SendTo />
             {error && (
               <div className={styles.errorBox} role="alert">
-                <strong>{t('problemReport.errorTitle')}</strong>
+                <strong>{pr('errorTitle')}</strong>
                 <span>{error}</span>
               </div>
             )}
             <div className={styles.footer}>
               <button type="button" className={styles.secondaryButton} onClick={closeDialog}>
-                {t('problemReport.cancel')}
+                {pr('cancel')}
               </button>
               <button type="submit" ref={createRef} className={styles.primaryButton} disabled={submitting}>
-                {t(submitting ? 'problemReport.creating' : 'problemReport.create')}
+                {pr(submitting ? 'creating' : 'create')}
               </button>
             </div>
           </form>
@@ -254,8 +250,8 @@ function ProblemReportDialogContent() {
 function SendTo() {
   return (
     <p className={styles.body}>
-      {t('problemReport.sendText')}{' '}
-      <a className={styles.link} href={PROBLEM_REPORT_ISSUES_URL} target="_blank" rel="noopener noreferrer">{t('problemReport.issuesLink')}</a>
+      {pr('sendText')}{' '}
+      <a className={styles.link} href={PROBLEM_REPORT_ISSUES_URL} target="_blank" rel="noopener noreferrer">{pr('issuesLink')}</a>
     </p>
   )
 }

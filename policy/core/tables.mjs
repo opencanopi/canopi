@@ -5,7 +5,7 @@ import path from 'node:path';
 import { UPSTREAM_REGISTER } from '../beads.mjs';
 import { isObject, isRepoPath, POLICY_DIR, RATCHETS_DIR, refusal, REPO_ROOT, RULES_TABLE } from './base.mjs';
 import { listFiles } from './exec.mjs';
-import { loadRatchets } from './ratchets.mjs';
+import { DERIVED_TOOLS, loadRatchets, shapeOf } from './ratchets.mjs';
 
 // ---------------------------------------------------------------------------------------------------------------
 // Registry
@@ -32,6 +32,12 @@ function checkRow(row, i, table, { root, files, phases }) {
   if ('family' in row && (typeof row.family !== 'string' || !RULE_ID.test(row.family))) {
     return [refusal('rules-table', table, `${at}: family names one family file, ${RATCHETS_DIR}/<family>.json`)];
   }
+  if ('scope' in row && (!Array.isArray(row.scope) || !row.scope.length || !row.scope.every((g) => typeof g === 'string' && g.length > 0))) {
+    return [refusal('rules-table', table, `${at}: scope is a non-empty array of globs`)];
+  }
+  if ('lane' in row && !['commit', 'push', 'ci'].includes(row.lane)) {
+    return [refusal('rules-table', table, `${at}: lane is commit, push or ci`)];
+  }
   const target = row.owner_target;
   if (target !== undefined && !(isObject(target) && typeof target.path === 'string' && typeof target.phase === 'string')) {
     return [refusal('rules-table', table, `${at}: owner_target is {path, phase, bead?}`)];
@@ -50,7 +56,7 @@ function checkRow(row, i, table, { root, files, phases }) {
   if (target && !phases.includes(target.phase)) {
     refusals.push(refusal('phase-label', table, `${row.id}: owner_target phase ${target.phase} is not one of ${RULES_TABLE}'s phases`));
   }
-  if (row.status !== 'planned' && row.family !== undefined && !fs.existsSync(path.join(root, RATCHETS_DIR, `${row.family}.json`))) {
+  if (row.status !== 'planned' && row.family !== undefined && !DERIVED_TOOLS.has(row.tool) && !fs.existsSync(path.join(root, RATCHETS_DIR, `${row.family}.json`))) {
     refusals.push(refusal('missing-rule', table, `rule ${row.id}${row.ledger ? ` (${row.ledger})` : ''} names family ${row.family}, and ${RATCHETS_DIR}/${row.family}.json is missing`));
   }
   return refusals;
@@ -141,6 +147,34 @@ export function plannedPins(root = REPO_ROOT) {
     .map((row) => ({ id: row.id, ...row.pin_test.planned }));
 }
 
+const beadlessEntryRefusals = (file, doc, phase) => Object.entries(doc.entries)
+  .filter(([, entry]) => !entry?.bead)
+  .map(([key]) => refusal('phase-close', file, `${key}: phase ${phase} closes with a beadless entry in ${doc.family}; pay it down or cite an open bead (2.1-M78)`));
+
+/** Stopping rule for one family (ADR 0028, 2.1-M78, canopi-0kjje). */
+function stoppingRuleForFamily(file, doc, phase) {
+  const kind = shapeOf(doc);
+  if (kind === 'budgets' || kind === 'floors') return [];
+  if (doc.bead !== undefined) {
+    return doc.standing === true ? [refusal('phase-close', file, `${doc.family}: names both bead and standing; choose one`)] : [];
+  }
+  if (doc.standing === true) return [];
+  if (kind === 'entries') return beadlessEntryRefusals(file, doc, phase);
+  return kind === 'count' && doc.count > 0
+    ? [refusal('phase-close', file, `${doc.family}: phase ${phase} closes with count ${doc.count} and no bead or standing mark (2.1-M78)`)]
+    : [];
+}
+
+/** Stopping rule (ADR 0028, 2.1-M78, canopi-0kjje): at Phase 4 close, every non-standing ratchet entry carries a bead. */
+function stoppingRuleRefusals(tables, at, families, phase) {
+  const stopAt = tables.phases.indexOf('4');
+  if (stopAt === -1 || at < stopAt) return [];
+  return [...families.values()].flatMap(({ file, doc }) => stoppingRuleForFamily(file, doc, phase));
+}
+
+/** Report mode for phase closes (canopi-0kjje, 2.1-M78): lists every beadless entry or count without failing. */
+export const beadlessReport = (families) => [...families.values()].flatMap(({ file, doc }) => stoppingRuleForFamily(file, doc, '4'));
+
 /**
  * `--phase-close <phase>`: refuses each row, planned or not, whose owner_target phase is `phase` or earlier in
  * rules.json's order while its owner_today is not its owner_target path, or while it is still planned, so it would
@@ -174,6 +208,7 @@ export function phaseCloseRefusals(tables, phase, families = new Map(), pins = [
       refusals.push(refusal('phase-close', UPSTREAM_REGISTER, `${pin.id}: phase ${pin.phase} closes with its pin test still planned (${pin.bead}); write the pin or re-plan it with the bead that will`));
     }
   }
+  refusals.push(...stoppingRuleRefusals(tables, at, families, phase));
   return refusals;
 }
 

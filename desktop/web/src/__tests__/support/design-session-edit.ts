@@ -1,23 +1,21 @@
-import { designEditAuthorityCapability } from '../../app/design-edit/authority-capability'
-import type { DesignSessionStore } from '../../app/document-session/store'
+import { defaultDesignEditAuthority } from '../../app/design-edit/authority-capability'
 import type { CanopiFile } from '../../types/design'
+import { markTestDesignDirty } from './design-session-state'
 
-// Test-only access to the private Design Edit role of an isolated session store.
-// Production callers must use the intent-shaped app/design-edit surface.
 export function editDesignSessionForTest(
-  store: DesignSessionStore,
+  _store: unknown,
   projector: (design: CanopiFile) => CanopiFile,
 ): CanopiFile | null {
-  return designEditAuthorityCapability(store).editCommitted(projector)
+  return defaultDesignEditAuthority().editCommitted(projector)
 }
 
 export function reconcileDesignSessionForTest(
-  store: DesignSessionStore,
+  _store: unknown,
   projector: (design: CanopiFile) => CanopiFile,
 ): CanopiFile | null {
-  return designEditAuthorityCapability(store).reconcileCommitted(projector)
+  return defaultDesignEditAuthority().reconcileCommitted(projector)
 }
 
-export function markDesignSessionDirtyForTest(store: DesignSessionStore): void {
-  designEditAuthorityCapability(store).markCommittedDirty()
+export function markDesignSessionDirtyForTest(_store?: unknown): void {
+  markTestDesignDirty()
 }

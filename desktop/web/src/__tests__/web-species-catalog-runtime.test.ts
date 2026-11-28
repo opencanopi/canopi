@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createBrowserSpeciesCatalogRuntime } from '../app/plant-browser/browser-runtime'
+import { createBrowserSpeciesCatalogRuntime } from '../editions/web/species-catalog-runtime'
 import { createBrowserAppDataStore, type BrowserStorageAdapter } from '../web/browser-app-data'
 import type { SpeciesListItem } from '../types/species'
 

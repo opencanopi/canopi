@@ -44,9 +44,9 @@ flowchart LR
   web -->|"file input, download"| fs
 ```
 
-- No backend (2.1-Q71): every external system is a static host or a public service, and a problem report is a zip the user saves and sends; nothing leaves without a user action (2.1-Q74).
-- The Google key and the location reading never reach a Design, export, report or log (`map-error-redaction.test.ts`, `problem-report-diagnostics.test.ts`, `my-location-trust.test.ts`).
-- Both editions reach the same services; any difference is a row of the edition-capabilities table (ADR 0030, `edition-root-parity`, Phase 2a).
+- No backend (2.1-Q71): external systems are static hosts or public services; problem reports are local zips sent by the user (2.1-Q74).
+- Google key and location never reach Designs, exports, reports or logs (`map-error-redaction.test.ts`, `problem-report-diagnostics.test.ts`, `my-location-trust.test.ts`).
+- Both editions use the same services; differences are rows in edition-capabilities (ADR 0030, `edition-root-parity`, Phase 2a).
 
 ## Level 2: containers
 
@@ -64,7 +64,7 @@ flowchart TB
     upd["Updater in the Rust host (2.1)"]:::target
   end
   subgraph webview["Webview, owner edition root"]
-    root["editions/desktop/ (2.1)"]:::target
+    root["editions/desktop/"]:::target
     app["Shared app, desktop/web/src/"]
     rw["maplibre/raster-display/worker.ts"]
     pw["app/canvas-pdf/worker.ts"]
@@ -104,9 +104,9 @@ Source: ADR 0022 Canopi Rust on Web, ADR 0029 Static Web serving, contracts §11
 flowchart TB
   classDef target stroke-dasharray: 4 3
   subgraph page["Page, owner edition root"]
-    root["editions/web/ (2.1)"]:::target
+    root["editions/web/"]:::target
     app["Shared app, desktop/web/src/"]
-    st["platform/page-rules.ts (2.1): page-rules wasm in the page"]:::target
+    st["platform/page-rules.ts: page-rules wasm in the page"]:::target
   end
   fw["Format worker: platform/design-core.worker.ts"]
   lw["Library worker: catalogue in SQLite on OPFS, engine child, Web Lock (2.1)"]:::target
@@ -149,9 +149,9 @@ Source: ADR 0022 Layers, 2.1-Q1, 2.1-M20
 flowchart TB
   classDef target stroke-dasharray: 4 3
   subgraph L5["L5 edition roots"]
-    ed["editions/desktop/ (2.1)"]:::target
-    ew["editions/web/ (2.1)"]:::target
-    eg["editions/gallery/ (2.1)"]:::target
+    ed["editions/desktop/"]:::target
+    ew["editions/web/"]:::target
+    eg["editions/gallery/"]
   end
   subgraph L4["L4 surfaces, an error boundary each"]
     comp["components/"]
@@ -160,15 +160,15 @@ flowchart TB
   subgraph L3["L3 features, acyclic, panels never import each other"]
     feat["other app/ features"]
     dedit["app/design-edit/ Document writers"]
-    dlib["app/data-library/ (2.1)"]:::target
+    dlib["app/data-library/"]:::target
     sc["app/shell-commands/"]
   end
   subgraph L2["L2 runtimes, ranked"]
     set["1 app/settings/, owner settings"]
-    cmd["2 app/command-table/ (2.1)"]:::target
+    cmd["2 app/command-table/"]
     can["3 canvas/, owner Scene"]
     doc["4 app/design-edit/document/ (2.1), owner Document"]:::target
-    core["5 app/document-session/core/ (2.1), owner Session core"]:::target
+    core["5 app/document-session/core/, owner Session core"]
   end
   subgraph L1["L1 adapters, ranked"]
     fail["1 failures/"]
@@ -182,8 +182,8 @@ flowchart TB
     i18n["i18n/, owner active locale"]
     utils["utils/"]
     sty["styles/ and assets/"]
-    geo["geo/ (2.1)"]:::target
-    plan["planning/ (2.1)"]:::target
+    geo["geo/"]:::target
+    plan["planning/"]:::target
   end
   L5 --> L4
   L4 --> L3
@@ -200,7 +200,7 @@ flowchart TB
 ```
 
 - A layer imports only layers below; inside L1 and L2 a directory imports only lower ranks, and equal ranks import none of each other. One owner: `policy/layers.json`, which generates the dependency-cruiser `layer-order` and `edition-roots` rules.
-- `maplibre/` imports nothing from `canvas/`; it hosts a scene through `maplibre/scene-host-layer.ts` (2.1). `app/command-table/` (2.1) imports no feature.
+- `maplibre/` imports nothing from `canvas/`; it hosts a scene through `maplibre/scene-host-layer.ts`. `app/command-table/` (2.1) imports no feature.
 - Every top-level path has one layer or a named destination in `policy/layers.json`; `target/` is L3: it imports `canvas/` (L2), and its importers in `canvas/` and `maplibre/` are `layer-order` entries (finding COMP-F01, 2.1-M244).
 
 ### Edition selection at HEAD
@@ -213,16 +213,16 @@ flowchart LR
   vite["desktop/web/vite.config.ts: five aliases"]
   md["main.tsx"]
   mw["main.web.tsx"]
-  pd["platform/desktop.ts"]
-  pb["platform/browser.ts"]
-  wa["web/WebApp.tsx"]
-  ds["app/document-session/state-machine.ts"]
-  bs["web/browser-design-session.ts"]
+  pd["editions/desktop/boot.ts"]
+  pb["editions/web/boot.ts"]
+  wa["editions/web/WebApp.tsx"]
+  ds["app/document-session/core/session-core.ts"]
+  bs["editions/web/web-session.ts"]
   kd["commands/registry.ts: Desktop key router"]
-  kw["web/browser-shell-commands.ts: Web key router"]
+  kw["editions/web/browser-shell-commands.ts: Web key router"]
   al["Four feature aliases: species catalog, PDF, budget CSV, geocoding"]
   lp["components/panels/LayersPanel.tsx: edition prop"]
-  wl["web/WebLayersPanel.tsx: edition prop"]
+  wl["editions/web/WebLayersPanel.tsx: edition prop"]
   vite --> pd
   vite --> pb
   vite --> al
@@ -249,19 +249,22 @@ flowchart LR
   canopi_desktop["canopi-desktop: shell, commands, services, stores, catalog, LiDAR"]
   canopi_types["canopi-types: contract shapes"]
   canopi_redact["canopi-redact: Redactor, RedactedText (skeleton)"]
+  canopi_support["canopi-support: durable files"]
   canopi_format
-  bindings_gen["bindings-gen: TS emitter"]
+  bindings_gen["bindings-gen: emitter"]
   canopi_desktop --> canopi_types
   canopi_desktop --> canopi_redact
+  canopi_desktop --> canopi_support
   canopi_desktop --> canopi_format
   canopi_format --> canopi_types
   canopi_types --> canopi_redact
   canopi_format_wasm --> canopi_types
   canopi_format_wasm --> canopi_format
   bindings_gen --> canopi_types
+  bindings_gen --> canopi_format
 ```
 
-- One crate holds the shell and every service; the split below replaces it from Phase 1 (1.0's rename, then 1a) to Phase 3 N2.
+- One crate holds the shell and services; the split below runs Phase 1 to 3 N2.
 
 ### Rust crates
 
@@ -274,7 +277,7 @@ flowchart BT
   types["canopi-types: shapes, DESIGN_FILE_FIELDS; failure, settings and quantity tables (2.1)"]:::target
   fmt["canopi-format: stored user work"]
   st["canopi-search-text (2.1): search normalisation"]:::target
-  sup["canopi-support (2.1): executor, durable files, http, process"]:::target
+  sup["canopi-support: durable files, hash, fs_space"]
   veg["canopi-vegetation (2.1): crown algorithms, roadmap"]:::target
   lib["canopi-library (2.1): Data library, owner library repository"]:::target
   cat["canopi-catalog (2.1): plant DB and search (E1 outcome B)"]:::target
@@ -320,15 +323,15 @@ Source: ADR 0022 Ports, ADR 0024, ADR 0030, contracts §4, §13, §16
 ```mermaid
 flowchart LR
   classDef target stroke-dasharray: 4 3
-  ed["editions/desktop/ (2.1)"]:::target
-  ew["editions/web/ (2.1)"]:::target
+  ed["editions/desktop/"]:::target
+  ew["editions/web/"]:::target
   da["Desktop adapters in platform/ over ipc/ (2.1)"]:::target
   wa["Browser adapters in platform/: storage and workers (2.1)"]:::target
   gal["editions/gallery (2.1): browser adapters over memory, fakes, transcript library"]:::target
-  cap["generated/edition-capabilities.ts from canopi-types/edition-capabilities.json (2.1)"]:::target
-  ep["platform/edition-ports.ts (2.1): EditionPorts, installed once"]:::target
+  cap["generated/edition-capabilities.ts from canopi-types/edition-capabilities.json"]
+  ep["platform/edition-ports.ts: EditionPorts, installed once"]
   host["canvas-host.ts (2.1): one mountCanvasHost"]:::target
-  core["app/document-session/core/ (2.1), owner Session core"]:::target
+  core["app/document-session/core/, owner Session core"]
   feat["L3 features and L4 surfaces"]
   ed --> da
   ew --> wa
@@ -345,16 +348,16 @@ flowchart LR
 
 | Port | Declared in | Desktop adapter | Web adapter | Protects |
 |---|---|---|---|---|
-| DesignHomeStore | `platform/design-home.ts` (2.1) | native files, file grants | IndexedDB Draft store, file input, download | L10, L17, L21 |
-| DesignCore | `platform/design-core.ts` (Web read view built in 2.0.4) | format worker, bytes through `ipc/bytes.ts` (2.1) | format worker over `canopi-format-wasm` (2.1) | L5 |
-| FileDelivery | `platform/file-delivery.ts` (2.1) | dialog and native write | download | L12 |
-| File access | `platform/file-access.ts` (2.1) | host dialogs with `pickOpen`, `pickHomeTarget`, `convertFileSrc` | file input | L9 |
+| DesignHomeStore | `platform/design-home.ts` | native files, file grants | IndexedDB Draft store, file input, download | L10, L17, L21 |
+| DesignCore | `platform/design-core.ts` (Web read view built in 2.0.4) | format worker, bytes through `ipc/bytes.ts` | format worker over `canopi-format-wasm` (2.1) | L5 |
+| FileDelivery | `platform/file-delivery.ts` | dialog and native write | download | L12 |
+| File access | `platform/file-access.ts` | host dialogs with `pickOpen`, `pickHomeTarget`, `convertFileSrc` | file input | L9 |
 | App lifecycle | not named | close and exit requests, update install | visibility, page hide and show, version change | ADR 0024 |
-| Settings store | `platform/settings.ts` (2.1) | user DB settings row | localStorage record | L16 |
-| Data library | `platform/library.ts` (2.1) | library commands (N3) | library worker over SQLite on OPFS (N5) | L21 |
+| Settings store | `platform/settings.ts` | user DB settings row | localStorage record | L16 |
+| Data library | `platform/library.ts` | library commands (N3) | library worker over SQLite on OPFS (N5) | L21 |
 | Species reader | not named | native catalog commands | DuckDB reader | L20, while two remain (2.1-E1) |
 | Saved stamps, Design Notebook | not named | user DB | browser record | L21 |
-| Scene host layer | `maplibre/scene-host-layer.ts` (2.1) | the Pixi layer on both | the same | L8; the caller hands the factory |
+| Scene host layer | `maplibre/scene-host-layer.ts` | the Pixi layer on both | the same | L8; the caller hands the factory |
 
 - Only the roots build and install `EditionPorts` (2.1); feature code reads a capability from its set, never the edition (`edition-ports-installed-only-by-roots`, `no-edition-check`). Fields and their files: contracts §22.
 - Every port's contract suite runs against both editions' adapters (ADR 0028, contracts §13).

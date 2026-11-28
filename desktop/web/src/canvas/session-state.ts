@@ -1,15 +1,9 @@
 import { computed, signal } from '@preact/signals'
 import type { PlantSymbolId } from '../generated/known-canopi-keys'
-import type { ToolId } from './runtime/interaction-types'
 
 // UI mirror state only, one name per signal (canvas/session.ts re-exports them). SceneCanvasRuntime owns the authoritative
-// canvas selection.
-export const currentCanvasTool = signal<ToolId>('select')
+// canvas selection; ToolHost owns the authoritative active tool (L11, §18 F29).
 export const currentCanvasSelection = signal<Set<string>>(new Set())
-
-export function setCanvasTool(id: ToolId): void {
-  currentCanvasTool.value = id
-}
 
 export function setCanvasSelection(
   ids: Iterable<string>,
@@ -31,6 +25,20 @@ export function setCanvasDesignPinHovered(hovered: boolean): void {
   currentCanvasDesignPinHovered.value = hovered
 }
 
+/** Touch constraint toggle (T11): constrains drawing/rotation on touch devices just like holding Shift. */
+export const currentCanvasTouchConstrain = signal(false)
+
+export function setCanvasTouchConstrain(active: boolean): void {
+  if (currentCanvasTouchConstrain.peek() === active) return
+  currentCanvasTouchConstrain.value = active
+}
+
+export function toggleCanvasTouchConstrain(): boolean {
+  const next = !currentCanvasTouchConstrain.peek()
+  currentCanvasTouchConstrain.value = next
+  return next
+}
+
 /** A drag refused by a lock (2.1-Q177): a fresh notice per refused drag, which the lock toast shows until dismissed. It
  *  belongs to the mounted canvas: the toast clears it when the canvas chrome unmounts, so the next canvas never replays it
  *  (canopi-eon8.14.3). */
@@ -39,11 +47,9 @@ interface CanvasLockedMoveNotice {
 }
 
 export const currentCanvasLockedMoveNotice = signal<CanvasLockedMoveNotice | null>(null)
-let lockedMoveNoticeIds = 0
 
 export function noteCanvasLockedMoveRefused(): void {
-  lockedMoveNoticeIds += 1
-  currentCanvasLockedMoveNotice.value = { id: lockedMoveNoticeIds }
+  currentCanvasLockedMoveNotice.value = { id: (currentCanvasLockedMoveNotice.peek()?.id ?? 0) + 1 }
 }
 
 /** Dismisses `notice`, only while it is still the one shown. */

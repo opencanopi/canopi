@@ -3,29 +3,25 @@
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { librarySnapshot, slopeItem, slopeProvenance, sourceItem } from './support/library-fixtures'
 
 const actions = vi.hoisted(() => ({
-  cancelAnalysisJob: vi.fn().mockResolvedValue(true),
-  cancelLibraryImport: vi.fn().mockResolvedValue(undefined),
-  chooseImportFiles: vi.fn().mockResolvedValue(null),
-  dismissAttachmentFailure: vi.fn(),
-  moveReferenceTo: vi.fn(),
-  removeFromDesign: vi.fn(),
-  rerunAnalysis: vi.fn().mockResolvedValue(undefined),
-  setLidarEntryDisplay: vi.fn(),
-  setLidarEntryVisibility: vi.fn(),
-  setSiteDataShown: vi.fn(),
+  cancelAnalysisJob: vi.fn().mockResolvedValue(true), cancelLibraryImport: vi.fn().mockResolvedValue(undefined),
+  chooseImportFiles: vi.fn().mockResolvedValue(null), dismissAttachmentFailure: vi.fn(),
+  moveReferenceTo: vi.fn(), removeFromDesign: vi.fn(), rerunAnalysis: vi.fn().mockResolvedValue(undefined),
+  setLidarEntryDisplay: vi.fn(), setLidarEntryVisibility: vi.fn(), setSiteDataShown: vi.fn(),
 }))
 const pending = vi.hoisted(() => ({ attachments: null as unknown, failure: null as unknown, values: null as unknown }))
 
-vi.mock('../app/lidar/actions', async () => {
+vi.mock('../app/data-library/actions', async () => {
   const { signal } = await import('@preact/signals')
   pending.attachments = signal([])
   pending.failure = signal(null)
   return { ...actions, pendingAttachments: pending.attachments, attachmentFailure: pending.failure }
 })
-vi.mock('../app/lidar/site-values', async () => {
+vi.mock('../app/data-library/site-values', async () => {
   const { signal } = await import('@preact/signals')
   pending.values = signal(null)
   return { siteValues: pending.values }
@@ -33,7 +29,7 @@ vi.mock('../app/lidar/site-values', async () => {
 vi.mock('../ipc/lidar', () => ({
   lidarDisplayDescriptor: vi.fn(() => new Promise(() => {})),
   // The panel's library observer reads the list on mount: it answers with the snapshot the test set.
-  lidarListLibrary: vi.fn(async () => (await import('../app/lidar/library-store')).lidarLibrary.peek()),
+  lidarListLibrary: vi.fn(async () => (await import('../app/data-library/library-store')).lidarLibrary.peek()),
   // The panel's Profile button imports the profile, which builds the app's one sampler on this transport.
   lidarSamplePoints: vi.fn(() => new Promise(() => {})),
 }))
@@ -46,14 +42,14 @@ vi.mock('../app/document-session/store', async () => {
 })
 
 import { SiteDataPanel } from '../components/panels/lidar/SiteDataPanel'
-import { lidarLibrary, lidarLibraryStale, refreshLidarLibrary, resetLidarLibraryForTests } from '../app/lidar/library-store'
+import { lidarLibrary, lidarLibraryStale, refreshLidarLibrary, resetLidarLibraryForTests } from '../app/data-library/library-store'
 import { applyHealthSnapshot, resetStoreHealthForTests } from '../failures/health'
 import { lidarListLibrary } from '../ipc/lidar'
 import { currentDesign, designSessionStore } from '../app/document-session/store'
-import { dataDialog, libraryView } from '../app/lidar/library-navigation'
-import { showInSiteData, siteDataViewFor } from '../app/lidar/site-data-view'
-import { pin, setPin, unpin } from '../app/lidar/site-transients'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { dataDialog, libraryView } from '../app/data-library/library-navigation'
+import { showInSiteData, siteDataViewFor } from '../app/data-library/site-data-view'
+import { pin, setPin, unpin } from '../app/data-library/site-transients'
+import { sidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import type { LibraryItemSummary } from '../generated/contracts'
 import type { Signal } from '@preact/signals'
@@ -67,7 +63,7 @@ interface Entry { kind: 'Source' | 'Derived'; id: string; order: number; visible
 
 function setDesign(entries: readonly Entry[], visible = true): void {
   (currentDesign as unknown as { value: unknown }).value = {
-    lidar: { visible, entries: entries.map((entry) => ({ name: entry.id, visible: true, opacity: 1, ramp: null, reversed: false, range: null, ...entry })) },
+    site_data: { visible, entries: entries.map((entry) => ({ name: entry.id, visible: true, opacity: 1, ramp: null, reversed: false, range: null, ...entry })) },
   }
 }
 
@@ -134,7 +130,10 @@ function values(entries: Record<string, number | null>, at: 'pointer' | 'pin' = 
   }
 }
 
+let disposePorts: () => void = () => undefined
+
 beforeEach(() => {
+  disposePorts = installEditionPorts(createTestEditionPorts())
   locale.value = 'en'
   vi.clearAllMocks()
   newSession()
@@ -158,6 +157,7 @@ beforeEach(() => {
 afterEach(() => {
   render(null, container)
   container.remove()
+  disposePorts()
   resetStoreHealthForTests()
   resetLidarLibraryForTests()
 })
@@ -662,7 +662,6 @@ describe('pending work, failures and the Site data eye', () => {
 
 describe('the pinned point', () => {
   it('shows the pin\'s coordinates with Unpin, and otherwise a hint while a row can show a value', async () => {
-    activePanel.value = 'canvas'
     setDesign([{ kind: 'Source', id: 'a', order: 0 }])
     mount()
     expect(container.textContent).toContain('Point at the map to read values · click to pin')

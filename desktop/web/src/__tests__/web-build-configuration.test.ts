@@ -8,7 +8,6 @@ import { build, resolveConfig as resolveViteConfig } from 'vite'
 import type { ConfigEnv, Plugin, PluginOption, UserConfig } from 'vite'
 
 import viteConfig from '../../vite.config'
-import galleryConfig from '../../ui-gallery/vite.config'
 import { ENGINE_FLOOR_TARGET } from '../../engine-floor'
 import { parseCssDeclarations } from './support/architecture/css-facts'
 import { admitWebCatalogManifest } from '../generated/web-catalog-artifact.mjs'
@@ -26,36 +25,18 @@ describe('Web Edition build configuration', () => {
   it('selects shared browser and desktop adapters at build time', async () => {
     const web = await resolveConfig('web')
     const desktop = await resolveConfig('desktop')
-
-    expect(aliasPath(web, '#platform')).toMatch(/\/src\/platform\/browser\.ts$/)
-    expect(aliasPath(web, '#budget-export-platform')).toMatch(/\/src\/app\/budget\/platform\.browser\.ts$/)
-    expect(aliasPath(desktop, '#platform')).toMatch(/\/src\/platform\/desktop\.ts$/)
-    expect(aliasPath(desktop, '#budget-export-platform')).toMatch(/\/src\/app\/budget\/platform\.desktop\.ts$/)
-    expect(aliasPath(web, '#species-catalog-live')).toMatch(/\/live\.browser\.ts$/)
-    expect(aliasPath(desktop, '#species-catalog-live')).toMatch(/\/live\.desktop\.ts$/)
-    for (const config of [web, desktop]) {
-      for (const alias of ['#platform', '#budget-export-platform', '#species-catalog-live']) {
-        expect(existsSync(aliasPath(config, alias)), `${alias} resolves to an existing source`).toBe(true)
-      }
-    }
+    // 2a deleted all compile-time edition aliases; roots bind EditionPorts directly.
+    expect(web.resolve?.alias).toBeUndefined()
+    expect(desktop.resolve?.alias).toBeUndefined()
+    expect(existsSync(new URL('../editions/desktop/main.tsx', import.meta.url))).toBe(true)
+    expect(existsSync(new URL('../editions/web/main.tsx', import.meta.url))).toBe(true)
   })
 
   it('gives dependency-cruiser the Web aliases through tsconfig.web-graph.json (2.1-M218; deleted in 2a)', async () => {
+    // Deleted in 2a: neither vite.config.ts nor tsconfig.web-graph.json carries edition aliases.
     const web = await resolveConfig('web')
-    const aliases = web.resolve?.alias
-    if (!aliases || Array.isArray(aliases)) throw new Error('Expected object-form Vite aliases')
-    const graphUrl = new URL('../../tsconfig.web-graph.json', import.meta.url)
-    expect(existsSync(graphUrl), 'tsconfig.web-graph.json exists').toBe(true)
-    const graph = JSON.parse(readFileSync(graphUrl, 'utf8')) as {
-      extends?: string
-      compilerOptions?: { paths?: Record<string, string[]> }
-    }
-    const root = fileURLToPath(new URL('../../', import.meta.url))
-    const graphPaths = Object.fromEntries(Object.entries(graph.compilerOptions?.paths ?? {})
-      .map(([name, targets]) => [name, targets.map((t) => join(root, t).replace(/\\/g, '/'))]))
-    const vitePaths = Object.fromEntries(Object.keys(aliases).map((name) => [name, [aliasPath(web, name)]]))
-    expect(graph.extends).toBe('./tsconfig.json')
-    expect(graphPaths).toEqual(vitePaths)
+    expect(web.resolve?.alias).toBeUndefined()
+    expect(existsSync(new URL('../../tsconfig.web-graph.json', import.meta.url))).toBe(false)
   })
 
   it('builds the browser entry into its isolated artifact at the root base, whatever the environment says (2.1-Q85)', async () => {
@@ -73,7 +54,7 @@ describe('Web Edition build configuration', () => {
     ]))
     expect(desktop.build?.outDir).toBe('dist')
     expect(desktop.build?.rolldownOptions?.input).toBe('index.html')
-    expect(webHtml).toContain('/src/main.web.tsx')
+    expect(webHtml).toContain('/src/editions/web/main.tsx')
   })
 
   it('serves no public/ directory, so leftovers of the old catalog and font paths never reach a build (2.1-M176)', async () => {
@@ -99,7 +80,7 @@ describe('Web Edition build configuration', () => {
     const configs = {
       web: await resolveConfig('web'),
       desktop: await resolveConfig('desktop'),
-      gallery: galleryConfig,
+      gallery: await resolveConfig('gallery'),
     }
     for (const [name, config] of Object.entries(configs)) {
       expect(deprecatedOptionPaths(config), name).toEqual([])
@@ -126,10 +107,10 @@ describe('Web Edition build configuration', () => {
   })
 
   it('loads the gallery config for a build, as knip reads it, and refuses a gallery build when it starts', async () => {
-    const configFile = fileURLToPath(new URL('../../ui-gallery/vite.config.ts', import.meta.url))
-    const forBuild = await resolveViteConfig({ configFile, logLevel: 'silent' }, 'build')
-    expect(forBuild.resolve.alias.some(({ find }) => find === '#platform')).toBe(true)
-    await expect(build({ configFile, logLevel: 'silent' })).rejects.toThrow('The UI gallery is development-only.')
+    const configFile = fileURLToPath(new URL('../../vite.config.ts', import.meta.url))
+    const forBuild = await resolveViteConfig({ configFile, mode: 'gallery', logLevel: 'silent' }, 'build')
+    expect(forBuild.plugins.some((plugin) => plugin.name === 'canopi-gallery-dev-entry')).toBe(true)
+    await expect(build({ configFile, mode: 'gallery', logLevel: 'silent' })).rejects.toThrow('The UI gallery is development-only.')
   })
 
   it('names each vendor chunk from build-facts.generated.json, first matching row wins (2.1-M40)', async () => {
@@ -299,8 +280,8 @@ describe('Web Edition build configuration', () => {
       webForbiddenPackages: string[]
       webForbiddenChunks: string[]
     }
-    expect(facts.webForbiddenPackages).toEqual(expect.arrayContaining(['@tauri-apps', 'maplibre-gl-raster']))
-    expect(facts.webForbiddenChunks).toEqual(expect.arrayContaining(['tauri', 'raster-display']))
+    expect(facts.webForbiddenPackages).toEqual(expect.arrayContaining(['@tauri-apps', 'cog-tiler-wasm']))
+    expect(facts.webForbiddenChunks).toEqual(expect.arrayContaining(['tauri']))
     const { scanWebBuild } = await import(SCANNER_URL.href) as { scanWebBuild(distRoot: string): string[] }
     const dist = mkdtempSync(join(tmpdir(), 'canopi-web-facts-'))
     try {
@@ -317,13 +298,13 @@ describe('Web Edition build configuration', () => {
   })
 
   it('keeps the browser shell and optional sidebar inside the workspace', () => {
-    const webAppCss = readFileSync(new URL('../web/WebApp.module.css', import.meta.url), 'utf8')
+    const webAppCss = readFileSync(new URL('../editions/web/WebApp.module.css', import.meta.url), 'utf8')
     const workspaceCss = readFileSync(
       new URL('../components/workspace/WorkspaceComposition.module.css', import.meta.url),
       'utf8',
     )
     const shellCss = readFileSync(
-      new URL('../web/BrowserAppShell.module.css', import.meta.url),
+      new URL('../editions/web/BrowserAppShell.module.css', import.meta.url),
       'utf8',
     )
 
@@ -486,14 +467,6 @@ async function resolveConfig(mode: string): Promise<UserConfig> {
     isPreview: false,
   }
   return Promise.resolve(viteConfig(environment))
-}
-
-function aliasPath(config: UserConfig, alias: string): string {
-  const aliases = config.resolve?.alias
-  if (!aliases || Array.isArray(aliases)) throw new Error('Expected object-form Vite aliases')
-  const path = Object.entries(aliases).find(([name]) => name === alias)?.[1]
-  if (typeof path !== 'string') throw new Error(`Missing Vite alias ${alias}`)
-  return path.replace(/\\/g, '/')
 }
 
 type DevMiddleware = (

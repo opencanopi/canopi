@@ -11,7 +11,7 @@ const labels = englishPdfLabels
 const plantFill = (op: PdfOperation) => op.kind === 'path' && !!op.fill && op.fill !== '#24211c'
 const mark = [{ d: 'M-1 -1 h2 v2 h-2 Z', paint: 'symbol' as const }]
 function input(): PdfInput {
-  return { name: 'Field garden', locale: 'en', viewBearingDeg: 0, commonNames: { 'Malus domestica': 'Apple' }, canvas: {
+  return { name: 'Field garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: { 'Malus domestica': 'Apple' }, canvas: {
     layers: [{ name: 'plants', visible: true, opacity: 1 }], zones: [], annotations: [], measurements: [],
     plants: [
       { id: 'a', canonicalName: 'Malus domestica', position: { x: 0, y: 0 }, color: '#123456', symbol: 'square', mark, pinnedName: true },

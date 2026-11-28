@@ -6,7 +6,7 @@ import {
   createSceneInteractionEventHarness,
   type SceneInteractionEventHarness,
 } from '../../../__tests__/support/canvas-interaction-events'
-import { writePlantStampDragData } from '../../plant-stamp-source'
+import { writePlantStampDragData } from '../../stamp-drag-data'
 import type { DomInputSourceDeps } from '../interaction-ports'
 import { createDomInputSource, outcomeEffects } from './dom-input-source'
 import type { Gesture } from './gestures'

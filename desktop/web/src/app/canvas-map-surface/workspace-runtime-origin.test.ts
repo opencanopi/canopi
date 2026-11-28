@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from 'vitest'
-import { createDetachedCanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { createDetachedSceneRuntimePanelTargetAdapter } from '../../canvas/runtime/scene-runtime/panel-target-adapter'
-import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../../canvas/session-plane'
-import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+import { createSessionPlane, DEFAULT_NEW_DESIGN_VIEW } from '../../geo/session-plane'
+import type { SceneLayerFactory } from './scene-layer-factory'
 import type { WorkspaceActivationOptions } from './workspace-activation'
 import type { WorkspaceGenerationLifecycle } from './workspace-generation-reconciler'
 import { createWorkspaceRuntimeComposition } from './workspace-runtime-composition'
@@ -35,11 +35,9 @@ describe('workspace runtime composition origin effect', () => {
       activate: vi.fn(async () => 'shared-ready' as const),
       teardown: vi.fn(async () => {}),
       retry: vi.fn(() => false),
-      canRetry: vi.fn(() => false),
       updateMapContributions: vi.fn(),
       updateBackgroundPresentation: vi.fn(),
     } satisfies WorkspaceGenerationLifecycle & {
-      canRetry(): boolean
       updateMapContributions(snapshot: unknown): void
       updateBackgroundPresentation(presentation: unknown): void
     }
@@ -59,7 +57,7 @@ describe('workspace runtime composition origin effect', () => {
         locale: 'en',
       }),
     }, {
-      createRendererComposition: () => ({ createLayer: vi.fn() }) as unknown as SharedMapSceneRendererComposition,
+      createRendererComposition: () => ({ createLayer: vi.fn() }) as unknown as SceneLayerFactory,
       createRuntime: () => runtime,
       createControls: () => ({
         createMap: vi.fn(),

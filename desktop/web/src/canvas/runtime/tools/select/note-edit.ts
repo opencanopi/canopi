@@ -7,7 +7,7 @@
 // grouped, or on a hidden or locked layer), closing the entry in each case; while the scene refuses the edit the same
 // entry stays open with its text.
 
-import { getSceneGroupedMemberKeys, sceneObjectGroupMemberKey } from '../../scene/group-members'
+import { getSceneGroupedMemberKeys, pruneGroupDeletedMembers, sceneObjectGroupMemberKey } from '../../scene/group-members'
 import { isSceneDesignObjectLocked } from '../../scene/locks'
 import { singleEditableTarget } from '../../scene-runtime/selection'
 import type { SceneAnnotationEntity, ScenePersistedState } from '../../scene/types'
@@ -53,11 +53,8 @@ function submitNote(ctx: ToolContext, annotationId: string, text: string): 'clos
       tx.mutate((draft) => {
         draft.annotations = draft.annotations.filter((entry) => entry.id !== annotationId)
         draft.groups = draft.groups
-          .map((group) => ({
-            ...group,
-            members: group.members.filter((member) => !(member.kind === 'annotation' && member.id === annotationId)),
-          }))
-          .filter((group) => group.members.length >= 2)
+          .map((group) => pruneGroupDeletedMembers(group, { annotationIds: new Set([annotationId]) }))
+          .filter((group): group is NonNullable<typeof group> => group !== null)
       })
       tx.setSelection([])
     }) ? 'close' : 'keep'
@@ -75,7 +72,7 @@ function isNoteEditable(scene: Readonly<ScenePersistedState>, annotation: SceneA
   const target = { kind: 'annotation', id: annotation.id } as const
   if (getSceneGroupedMemberKeys(scene).has(sceneObjectGroupMemberKey(target))) return false
   const layer = scene.layers.find((entry) => entry.name === 'annotations')
-  if (layer?.visible === false || layer?.locked === true) return false
+  if (layer?.visible === false || (layer?.opacity ?? 1) <= 0 || layer?.locked === true) return false
   return !isSceneDesignObjectLocked(scene, target)
 }
 

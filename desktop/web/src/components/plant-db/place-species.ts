@@ -1,5 +1,5 @@
 import { armCanvasTool } from '../../app/keyboard/arming'
-import type { PlantStampSourceInput } from '../../canvas/plant-stamp-source'
+import type { PlantStampSourceInput } from '../../canvas/stamp-drag-data'
 
 /**
  * A panel's Place button: arms Place plants with the species, and the map takes focus so the next click places and

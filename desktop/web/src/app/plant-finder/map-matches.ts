@@ -4,7 +4,7 @@ import {
   currentCanvasSceneEditCommandSurface,
   currentCanvasViewportCommandSurface,
 } from '../../canvas/session'
-import type { SceneBounds } from '../../canvas/runtime/view/types'
+import type { SceneBounds } from '../../geo/view/types'
 import type { ScenePersistedState } from '../../canvas/runtime/scene'
 import { speciesTarget } from '../../target'
 import { clearSelectedPanelTargetsForOrigin, setMatchedPanelTargets, setSelectedPanelTargets } from '../panel-targets/presentation'

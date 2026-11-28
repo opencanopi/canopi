@@ -1,13 +1,12 @@
 import type { ComponentChildren, ComponentType } from 'preact'
 import { Suspense } from 'preact/compat'
 import { useEffect, useMemo, useRef } from 'preact/hooks'
-import { usePlanningViewState } from '../../app/planning-view/state'
+import { closeInspector, inspectorOpen, usePlanningViewState } from '../../app/planning-view/state'
 import { phoneLayout } from '../../app/shell/phone-layout'
 import { siteLocateOpen } from '../../app/site-onboarding/state'
 import { storyPresentationActive } from '../../app/story-presentation'
 import type { ShellPanelBarProjection } from '../../app/shell-commands'
 import {
-  activePanel,
   isSidePanel,
   navigateTo,
   sidePanel,
@@ -19,6 +18,7 @@ import { SavedViewDialogs } from '../shared/SavedViewDialogs'
 import { StoryPresenter } from '../stories/StoryPresenter'
 import { RenameZoneDialog } from '../canvas/RenameZoneDialog'
 import { RotateSelectionDialog } from '../canvas/RotateSelectionDialog'
+import { InspectorPanel } from '../panels/InspectorPanel'
 import { GettingStartedDialog } from '../shared/GettingStartedDialog'
 import type { PanelRailCommand } from '../shared/PanelRail'
 import { PhoneSheet } from '../shared/PhoneSheet'
@@ -67,18 +67,13 @@ export function WorkspaceComposition({
     () => validateWorkspaceSurfaces(panelProjection, surfaces),
     [panelProjection, surfaces],
   )
-  const currentPrimary = activePanel.value
   const requestedSide = sidePanel.value
-  const primary = registrations.primary.has(currentPrimary)
-    ? currentPrimary as PrimaryPanel
-    : 'canvas'
   // "Where is your site?" is the one task: the dock steps aside, as the tool
   // rail does, and comes back once the site is found or skipped.
   const locating = siteLocateOpen.value
   // A presented story fills the window; the dock comes back when it ends.
   const presenting = storyPresentationActive.value
-  const mountedSide = primary === 'canvas'
-    && !locating
+  const mountedSide = !locating
     && !presenting
     && requestedSide
     && registrations.side.has(requestedSide)
@@ -88,41 +83,27 @@ export function WorkspaceComposition({
   // The map, its chrome and the dock sit behind every modal dialog.
   const root = useRef<HTMLDivElement>(null)
   useModalInertRegion(root)
-  const PrimarySurface = surfaces.primary[primary]
+  const PrimarySurface = surfaces.primary.canvas!
   const SideSurface = mountedSide ? surfaces.side[mountedSide] : undefined
   const phone = phoneTabs ? phoneLayout.value : null
-  const sidePanelContent = mountedSide && SideSurface ? (
-    <div className={styles.sidePanel} data-workspace-side-panel={mountedSide}>
-      <SurfaceBoundary key={mountedSide} surface="workspace-side">
-        <Suspense fallback={<WorkspaceLoading />}>
-          <SideSurface />
-        </Suspense>
-      </SurfaceBoundary>
-    </div>
-  ) : null
+  const inspecting = !locating && !presenting && inspectorOpen.value
+  const sidePanelContent = renderSidePanelContent(inspecting, mountedSide, SideSurface)
 
   useEffect(() => {
-    if (
-      registrations.primary.has(currentPrimary)
-      && (!requestedSide || registrations.side.has(requestedSide))
-    ) return
+    if (!requestedSide || registrations.side.has(requestedSide)) return
     navigateTo('canvas')
-  }, [currentPrimary, registrations, requestedSide])
-
-  if (!PrimarySurface) {
-    throw new Error(`Workspace is missing its '${primary}' primary surface.`)
-  }
+  }, [registrations, requestedSide])
 
   return (
     <div
       ref={root}
       className={styles.root}
       data-workspace-composition
-      data-workspace-primary-panel={primary}
+      data-workspace-primary-panel="canvas"
       data-workspace-sidebar-open={mountedSide ? 'true' : undefined}
     >
       <div className={styles.primary}>
-        <SurfaceBoundary key={primary} surface="workspace-primary">
+        <SurfaceBoundary key="canvas" surface="workspace-primary">
           <Suspense fallback={<WorkspaceLoading />}>
             <PrimarySurface />
           </Suspense>
@@ -131,12 +112,12 @@ export function WorkspaceComposition({
       {phone && phoneTabs ? (
         // The phone sheet stands in for the dock and the panel rail; it steps aside with the dock.
         !locating && !presenting && (
-          <PhoneSheet layout={phone} tabs={phoneTabs} bar={phoneBar} options={phoneOptions}>{sidePanelContent}</PhoneSheet>
+          <PhoneSheet layout={phone} tabs={phoneTabs} bar={phoneBar} options={phoneOptions} inspectorOpen={inspecting} onCloseInspector={closeInspector}>{sidePanelContent}</PhoneSheet>
         )
-      ) : mountedSide && sidePanelContent ? (
+      ) : (mountedSide || inspecting) && sidePanelContent ? (
         <SidePanelDock
           responsive={responsive}
-          wide={isWidePanel(mountedSide)}
+          wide={mountedSide ? isWidePanel(mountedSide) : false}
           expanded={mountedSide === 'calendar' && planningView.calendarExpanded.value}
           onManualResize={() => { planningView.calendarExpanded.value = false }}
         >
@@ -218,6 +199,32 @@ function assertSamePanels(
 /** Site data, Budget, Consortium and Stories open at 440 px; every other panel at 380 px. */
 function isWidePanel(panel: SidePanel): boolean {
   return panel === 'site-data' || panel === 'budget' || panel === 'consortium' || panel === 'stories'
+}
+
+function renderSidePanelContent(
+  inspecting: boolean,
+  mountedSide: SidePanel | null,
+  SideSurface: WorkspaceSurface | undefined,
+): ComponentChildren {
+  if (inspecting) {
+    return (
+      <div className={styles.sidePanel} data-workspace-side-panel="inspector">
+        <SurfaceBoundary key="inspector" surface="workspace-side">
+          <InspectorPanel />
+        </SurfaceBoundary>
+      </div>
+    )
+  }
+  if (!mountedSide || !SideSurface) return null
+  return (
+    <div className={styles.sidePanel} data-workspace-side-panel={mountedSide}>
+      <SurfaceBoundary key={mountedSide} surface="workspace-side">
+        <Suspense fallback={<WorkspaceLoading />}>
+          <SideSurface />
+        </Suspense>
+      </SurfaceBoundary>
+    </div>
+  )
 }
 
 function WorkspaceLoading() {

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { createRef, render } from 'preact'
-import { profileLineMenu } from '../app/lidar/profile'
+import { profileLineMenu } from '../app/data-library/profile'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CanvasContextMenu } from '../components/canvas/CanvasContextMenu'
@@ -11,11 +11,11 @@ import {
   closeCanvasContextMenu,
   openCanvasContextMenu,
   plantAppearanceAnchor,
+  plantColorMenuOpen,
+  plantSymbolMenuOpen,
 } from '../app/canvas-context-menu/state'
-import { plantColorMenuOpen } from '../canvas/plant-color-menu-state'
-import { plantSymbolMenuOpen } from '../canvas/plant-symbol-menu-state'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { createDesignSessionStoreTestFixture, designSessionStore } from '../app/document-session/store'
+import { clearCurrentDesignState, replaceCurrentDesignState } from './support/design-session-state'
 import type { CanopiFile } from '../types/design'
 import type { CanvasContextMenuEntryOptions } from '../app/canvas-context-menu/entries'
 import { currentCanvasSelection } from '../canvas/session-state'
@@ -114,7 +114,6 @@ describe('CanvasContextMenu', () => {
           ...plantContext,
           plantIds: currentCanvasSelection.value.size > 0 ? plantContext.plantIds : [],
           sharedCurrentColor: null,
-          suggestedColor: null,
           singleSpeciesDefaultColor: null,
         }),
         getSelectedPlantSymbolContext: () => ({
@@ -218,8 +217,8 @@ describe('CanvasContextMenu', () => {
 
   // R1-8 failure state: an edit tool reachable by the right-click menu over a read-only Design (2.1-M478).
   it('canopi-f47t.52.270: over a read-only Session the shipped menu shows its edits disabled and runs none', async () => {
-    designSessionStore.replaceCurrentDesignState({ name: 'Orchard 2.1' } as unknown as CanopiFile, null, 'Orchard 2.1', {
-      kind: 'read-only', origin: 'newer-version', savedByVersion: 10,
+    replaceCurrentDesignState({ name: 'Orchard 2.1' } as unknown as CanopiFile, null, 'Orchard 2.1', {
+      kind: 'read-only', origin: 'storage-unchecked',
     })
     try {
       await open()
@@ -233,7 +232,7 @@ describe('CanvasContextMenu', () => {
       expect(commands.deleteSelected).not.toHaveBeenCalled()
       expect(canvasContextMenuRequest.value).not.toBeNull()
     } finally {
-      createDesignSessionStoreTestFixture(designSessionStore).reset()
+      clearCurrentDesignState()
     }
   })
 

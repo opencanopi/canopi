@@ -16,7 +16,7 @@ import {
   localToday,
   parseCivilDate,
   type CivilDate,
-} from '../../app/timeline/civil-date'
+} from '../../planning/civil-date'
 import { computeFloatingDirection, shouldAlignRight } from '../../utils/floating-position'
 import styles from './DatePicker.module.css'
 

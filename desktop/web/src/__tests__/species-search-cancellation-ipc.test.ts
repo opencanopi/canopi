@@ -9,6 +9,6 @@ describe('Species Search cancellation IPC', () => {
   it('invokes the dedicated backend supersession command', async () => {
     await supersedeSpeciesSearch()
 
-    expect(invoke).toHaveBeenCalledWith('supersede_species_search')
+    expect(invoke).toHaveBeenCalledWith('supersede_species_search', { operation: expect.stringMatching(/^u-/) })
   })
 })

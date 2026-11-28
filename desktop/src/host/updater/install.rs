@@ -215,14 +215,14 @@ fn private_folder(parent: &Path) -> std::io::Result<PathBuf> {
 /// Writes `bytes` to a new file at `file` only this account can read (0600 on Unix); an existing
 /// file or symlink there is refused, never followed.
 fn write_private(file: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    use std::io::Write as _;
-    let mut options = std::fs::OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
-    let mut opened = options.open(file)?;
-    opened.write_all(bytes)?;
-    opened.sync_all()
+    canopi_support::durable::write_private_new(
+        &canopi_support::durable::OsDurableFs,
+        crate::target_locks::temporary_target_locks(),
+        file,
+        bytes,
+    )
+    .map(|_| ())
+    .map_err(canopi_support::durable::DurableError::into_io_error)
 }
 
 /// The AppImage: verified, then written whole to a sibling file and renamed over the running one
@@ -252,42 +252,34 @@ fn install_appimage(
     replace_whole(appimage, bytes).map_err(|error| failure::install_io(installation, &error))
 }
 
-/// Replaces `target` by `bytes` with its permissions kept: a sibling file written, synced and
-/// renamed over it, the folder synced so the rename itself survives a power cut. A sibling left by
-/// an install that died is removed first, never written through; any failure removes the sibling
-/// and leaves `target` untouched.
+/// Replaces `target` by `bytes` with its permissions kept: any leftover `.canopi-*.update`
+/// sibling from a crashed install is swept under the target lock first, then a new sibling is
+/// written, synced on its writing handle, chmodded to match `target`, and renamed over `target`,
+/// with the folder synced so the rename itself survives a power cut. Any failure removes the
+/// sibling and leaves `target` untouched.
 fn replace_whole(target: &Path, bytes: &[u8]) -> std::io::Result<()> {
-    let not_found = || std::io::Error::from(std::io::ErrorKind::NotFound);
-    let folder = target.parent().ok_or_else(not_found)?;
-    let name = target.file_name().ok_or_else(not_found)?;
-    let mut sibling_name = OsString::from(".");
-    sibling_name.push(name);
-    sibling_name.push(".update");
-    let sibling = folder.join(sibling_name);
-    match std::fs::remove_file(&sibling) {
-        Err(error) if error.kind() != std::io::ErrorKind::NotFound => return Err(error),
-        Ok(()) | Err(_) => {}
+    // Require an existing file in a parent folder before staging.
+    if target.parent().is_none() || target.file_name().is_none() {
+        return Err(std::io::Error::from(std::io::ErrorKind::NotFound));
     }
-    let permissions = std::fs::metadata(target)?.permissions();
-    let replaced = write_private(&sibling, bytes)
-        .and_then(|()| std::fs::set_permissions(&sibling, permissions))
-        .and_then(|()| std::fs::rename(&sibling, target))
-        .and_then(|()| sync_folder(folder));
-    if replaced.is_err() {
-        let _removed = std::fs::remove_file(&sibling);
-    }
-    replaced
-}
-
-/// Syncs `folder`'s entries, so a rename in it is on disk.
-#[cfg(unix)]
-fn sync_folder(folder: &Path) -> std::io::Result<()> {
-    std::fs::File::open(folder)?.sync_all()
-}
-
-#[cfg(not(unix))]
-fn sync_folder(_: &Path) -> std::io::Result<()> {
-    Ok(())
+    std::fs::metadata(target)?;
+    let options = canopi_support::durable::PublishOptions {
+        unix_mode: Some(0o600),
+        preserve_target_permissions: true,
+        sweep_stale_sidecars: true,
+        retry_policy: canopi_support::durable::RenameRetryPolicy::default(),
+    };
+    canopi_support::durable::publish_durably_with_options(
+        &canopi_support::durable::OsDurableFs,
+        crate::target_locks::temporary_target_locks(),
+        canopi_support::durable::PublishSource::Bytes(bytes),
+        target,
+        "update",
+        canopi_support::durable::Precondition::Any,
+        &options,
+    )
+    .map(|_| ())
+    .map_err(canopi_support::durable::DurableError::into_io_error)
 }
 
 /// The macOS app in the probe build: the plugin's replace, which backs the running app bundle up
@@ -379,8 +371,22 @@ fn write_marker(marker: &Path, version: &str) -> Result<(), Failure> {
         std::fs::create_dir_all(folder)
             .map_err(|error| failure::io(op, &error, "the app data folder could not be made"))?;
     }
-    std::fs::write(marker, text)
-        .map_err(|error| failure::io(op, &error, "the pending-update marker could not be written"))
+    canopi_support::durable::publish_durably(
+        &canopi_support::durable::OsDurableFs,
+        crate::target_locks::temporary_target_locks(),
+        canopi_support::durable::PublishSource::Bytes(text.as_bytes()),
+        marker,
+        "marker",
+        canopi_support::durable::Precondition::Any,
+    )
+    .map(|_| ())
+    .map_err(|error| {
+        failure::io(
+            op,
+            &error.into_io_error(),
+            "the pending-update marker could not be written",
+        )
+    })
 }
 
 /// Reads and clears the marker: `true`, once, when it names a version above `running`, so the

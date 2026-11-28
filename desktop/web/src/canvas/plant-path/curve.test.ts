@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { WorldPoint } from '../runtime/view/types'
+import type { WorldPoint } from '../../geo/view/types'
 import { flattenPath, pointAlong, segmentMidpoints, tangentAlong, type PathPoints } from './curve'
 
 function path(points: readonly (WorldPoint & { readonly sharp?: boolean })[], closed = false): PathPoints {

@@ -1,0 +1,12 @@
+id: edition-ports-installed-only-by-roots.typescript
+valid:
+  - |
+    import { editionPorts } from '../platform/edition-ports'
+    export const read = () => editionPorts()
+invalid:
+  - |
+    import { installEditionPorts } from '../platform/edition-ports'
+    installEditionPorts(ports)
+  - |
+    import { installCanvasHostRuntime } from '../app/canvas-map-surface/use-canvas-host'
+    installCanvasHostRuntime(factory)

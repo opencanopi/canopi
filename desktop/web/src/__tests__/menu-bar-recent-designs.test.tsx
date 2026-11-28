@@ -105,7 +105,7 @@ describe('Title bar menu: Open recent', () => {
 
   it('opens recent designs from an Open Recent submenu capped to five entries', async () => {
     vi.mocked(getRecentFiles).mockResolvedValue([
-      { path: '/designs/forest.canopi', name: 'Forest Edge', updated_at: '2026-06-20T00:00:00.000Z' },
+      { path: '/designs/forest.canopi', name: 'Forest Edge', updated_at: '2026-06-20T00:00:00.000Z', grant: 'grant:forest', recent_id: 'rid-forest' },
       { path: '/designs/home.canopi', name: 'Home Guild', updated_at: '2026-06-21T00:00:00.000Z' },
       { path: '/designs/client-a.canopi', name: 'Client A', updated_at: '2026-06-22T00:00:00.000Z' },
       { path: '/designs/client-b.canopi', name: 'Client B', updated_at: '2026-06-23T00:00:00.000Z' },
@@ -153,6 +153,10 @@ describe('Title bar menu: Open recent', () => {
       await Promise.resolve()
     })
 
-    expect(openDesignFromPath).toHaveBeenCalledWith('/designs/forest.canopi')
+    expect(openDesignFromPath).toHaveBeenCalledWith('grant:forest', {
+      grant: 'grant:forest',
+      displayName: 'forest.canopi',
+      recentId: 'rid-forest',
+    })
   })
 })

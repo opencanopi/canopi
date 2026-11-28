@@ -1,52 +1,61 @@
 import type { CanopiFile } from '../../types/design'
-import { designSessionStore } from '../document-session/store'
+import { normaliseObjectName } from '../contracts/object-name'
 import {
-  designEditAuthorityCapability,
-  disposeDesignEditAuthority,
+  defaultDesignEditAuthority,
+  disposeDefaultDesignEditAuthority,
+  hasDesignEditAuthority as hasAuthority,
+  type DesignEditOptions,
 } from './authority-capability'
+
+export function hasDesignEditAuthority(): boolean {
+  return hasAuthority()
+}
 
 export function editCurrentDesign(
   updater: (design: CanopiFile) => CanopiFile,
+  label = 'edit',
+  options?: DesignEditOptions,
 ): CanopiFile | null {
-  return designEditAuthorityCapability(designSessionStore).editCommitted(updater)
+  return defaultDesignEditAuthority().editCommitted(updater, label, options)
+}
+
+export function endDesignEditCoalesce(key: string): void {
+  defaultDesignEditAuthority().endCoalesce(key)
 }
 
 /** The open Design as committed, for a command that decides before it edits. */
 export function readCurrentDesign(): CanopiFile | null {
-  return designSessionStore.currentDesign.peek()
-}
-
-/** The open Design session's identity; session-only Design Edit state keys on it and goes with it. */
-export function currentDesignSessionKey(): object {
-  return designSessionStore.sessionIdentity.peek()
+  return defaultDesignEditAuthority().readCommitted()
 }
 
 export function reconcileCurrentDesign(
   updater: (design: CanopiFile) => CanopiFile,
 ): CanopiFile | null {
-  return designEditAuthorityCapability(designSessionStore).reconcileCommitted(updater)
+  return defaultDesignEditAuthority().reconcileCommitted(updater)
 }
 
-export function setDesignName(name: string): void {
-  const nextName = name.trim()
-  if (nextName.length === 0) return
-  if (nextName === designSessionStore.readDesignName()) return
+export function setDesignName(name: string, label = 'rename'): void {
+  const normalised = normaliseObjectName(name)
+  if (!normalised.ok) return
+  const authority = defaultDesignEditAuthority()
+  if (normalised.name === authority.readDesignName()) return
 
-  designSessionStore.renameCurrentDesign(nextName)
+  authority.renameDesign(normalised.name, label)
 }
 
 export function editDesignArray<K extends keyof CanopiFile>(
   key: K,
   updater: (arr: CanopiFile[K]) => CanopiFile[K],
+  label: string = String(key),
 ): void {
   editCurrentDesign((design) => {
     const next = updater(design[key])
     return next === design[key] ? design : { ...design, [key]: next }
-  })
+  }, label)
 }
 
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    disposeDesignEditAuthority(designSessionStore)
+    disposeDefaultDesignEditAuthority()
   })
 }

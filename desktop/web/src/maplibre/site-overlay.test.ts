@@ -1,10 +1,9 @@
 // The Site data pin, profile line and chart hover as MapLibre overlay contracts (canopi-f47t.42, spec §1.10).
-import { afterEach, describe, expect, it } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import {
   getGuideLineVisual,
   getMapBackdropInk,
   OVERLAY_CASING_EXTRA_PX,
-  setCanvasMapBackdrop,
   SITE_PIN_VISUAL,
 } from '../canvas/runtime/scene-visuals'
 import { siteHoverOverlayContract, siteMapOverlayContract, siteMapOverlayIds } from './site-overlay'
@@ -17,10 +16,6 @@ function paintOf(contract: { readonly layers: readonly { readonly id: string; re
 }
 
 describe('the Site data map overlay', () => {
-  afterEach(() => {
-    setCanvasMapBackdrop('basemap')
-  })
-
   it('draws nothing with neither a pin nor a line, but names every layer so a sync clears them', () => {
     for (const site of [null, { pin: null, profileLine: null }]) {
       const contract = siteMapOverlayContract(site)
@@ -64,12 +59,9 @@ describe('the Site data map overlay', () => {
       .toBe(OVERLAY_CASING_EXTRA_PX)
 
     // Spec §1.10 and the board's MAPINK: the pin sits on imagery, so its two tones never follow the backdrop.
-    for (const backdrop of ['basemap', 'satellite'] as const) {
-      setCanvasMapBackdrop(backdrop)
-      const pinned = siteMapOverlayContract({ pin: PIN, profileLine: null })
-      expect(paintOf(pinned, 'site-pin-core')['circle-color']).toBe('#27231D')
-      expect(paintOf(pinned, 'site-pin-ring')['circle-color']).toBe('#FFFFFF')
-    }
+    const pinned = siteMapOverlayContract({ pin: PIN, profileLine: null })
+    expect(paintOf(pinned, 'site-pin-core')['circle-color']).toBe('#27231D')
+    expect(paintOf(pinned, 'site-pin-ring')['circle-color']).toBe('#FFFFFF')
   })
 
   it('draws no point that is not finite', () => {
@@ -95,11 +87,10 @@ describe('the Site data map overlay', () => {
 
   it('takes every colour from scene-visuals.ts: each layer paints only guide, pin and backdrop ink colours, on every backdrop (spec §1.10)', () => {
     for (const backdrop of ['basemap', 'dark-basemap', 'satellite', 'paper'] as const) {
-      setCanvasMapBackdrop(backdrop)
       const guide = getGuideLineVisual()
-      const ink = getMapBackdropInk()
+      const ink = getMapBackdropInk(backdrop)
       const visuals = [guide.color, guide.casing, SITE_PIN_VISUAL.core, SITE_PIN_VISUAL.ring, ink.halo, ink.text]
-      const layers = [...siteMapOverlayContract({ pin: PIN, profileLine: LINE }).layers, ...siteHoverOverlayContract(PIN).layers]
+      const layers = [...siteMapOverlayContract({ pin: PIN, profileLine: LINE }).layers, ...siteHoverOverlayContract(PIN, backdrop).layers]
       const colours = layers.flatMap((layer) => Object.entries(layer.paint).filter(([key]) => key.endsWith('-color')).map(([, value]) => value))
       expect(colours.length, backdrop).toBeGreaterThan(0)
       for (const colour of colours) expect(visuals, backdrop).toContain(colour)

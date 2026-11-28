@@ -149,12 +149,13 @@ export function shellKeymapRows(
   options: { readonly omit?: ReadonlySet<string> } = {},
 ): readonly KeymapRow[] {
   return catalog.flatMap((command): KeymapRow[] => {
-    const shortcut = command.shortcut
-    if (!shortcut || options.omit?.has(shortcut)) return []
-    const singleKey = isCharacterKeyShortcut(shortcut)
+    const raw = command.shortcuts ?? (command.shortcut ? [command.shortcut] : [])
+    const live = raw.filter((shortcut) => !options.omit?.has(shortcut))
+    if (live.length === 0) return []
+    const singleKey = live.every(isCharacterKeyShortcut)
     return [{
       command: command.id,
-      chords: chordsOfShortcut(shortcut),
+      chords: live.flatMap(chordsOfShortcut),
       scope: SHELL_COMMAND_SCOPE_ROWS.has(command.id) ? 'command' : 'global',
       singleKey: singleKey ? 'follows-switch' : 'n/a',
       ...(singleKey ? {} : { worksInTextFields: true }),

@@ -42,8 +42,8 @@ export function PdfPageEditor({ page, plan, adding = false, disabled = false, in
   const drag = useRef<Gesture | null>(null)
   const [selection, setSelection] = useState<PrintBounds | null>(null)
   const clipId = useId()
-  // Page grounds are in the layout's turned frame; what the editor reports goes back to plan metres.
-  const frame = pageFrame(plan.angleDeg)
+  // Page grounds are in the page's turned frame; what the editor reports goes back to plan metres.
+  const frame = pageFrame(page.angleDeg ?? plan.angleDeg)
   const move = (x: number, y: number) => onMove?.(frame.fromFrame({ x: x / page.pointsPerMeter, y: y / page.pointsPerMeter }))
   const interactive = !disabled && !inspecting && page.kind !== 'legend'
   function cancel() {

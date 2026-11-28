@@ -38,13 +38,10 @@ interface MapLibreSurfaceSize {
 interface MapLibreSurfaceRequest<TMap extends MapLibreMapInstance> {
   createMap(maplibre: MapLibreApi, container: HTMLElement): TMap
   onCreate?(context: MapLibreSurfaceContext<TMap>): void
-  /**
-   * The request's own resize owner (spec §1.1 "Resize"): the surface reports the container's new size and never resizes a map itself.
-   * The workspace request hands the size to its camera driver; the World map, which has no driver, resizes its map.
-   */
-  onResize?(context: MapLibreSurfaceContext<TMap>, size: MapLibreSurfaceSize): void
-  /** The request's own failure owner; without one, the surface logs the failure (redacted). */
-  onCreateError?(error: unknown): void
+  /** The request's own resize owner (spec §1.1 "Resize"): the surface reports the container's new size and never resizes a map itself. */
+  onResize(context: MapLibreSurfaceContext<TMap>, size: MapLibreSurfaceSize): void
+  /** The request's own failure owner. */
+  onCreateError(error: unknown): void
 }
 
 interface MapLibreSurfaceDeps {
@@ -141,8 +138,7 @@ export class MapLibreSurface<TMap extends MapLibreMapInstance = MapLibreMapInsta
       } catch (removeError) {
         this.logSafely('Failed to remove MapLibre map after create failure:', removeError)
       }
-      if (request.onCreateError) request.onCreateError(error)
-      else this.logSafely('Failed to create MapLibre map:', error)
+      request.onCreateError(error)
     }
   }
 
@@ -162,7 +158,7 @@ export class MapLibreSurface<TMap extends MapLibreMapInstance = MapLibreMapInsta
     this.resizeObserver = this.createResizeObserver(() => {
       const live = this.live
       if (!live?.context.isCurrent()) return
-      live.request.onResize?.(live.context, { width: container.clientWidth, height: container.clientHeight })
+      live.request.onResize(live.context, { width: container.clientWidth, height: container.clientHeight })
     })
     this.resizeObserver?.observe(container)
   }

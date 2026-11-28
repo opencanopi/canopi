@@ -8,7 +8,6 @@ import '../../../__tests__/support/camera-tolerance'
 
 vi.mock('../../../ipc/species', () => ({
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 
@@ -17,7 +16,7 @@ import { geoAt } from '../../../__tests__/support/geo-design'
 import { placeOnHost } from '../../../__tests__/support/test-view'
 import { CURRENT_CANOPI_FILE_VERSION } from '../../../generated/canopi-design-format'
 import type { CanopiFile } from '../../../types/design'
-import { createDetachedCanvasRuntimeAppAdapter } from '../app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../../__tests__/support/detached-canvas-app-adapter'
 import { SceneCanvasRuntime } from '../scene-runtime'
 
 const SCREEN = { width: 400, height: 300 }
@@ -26,7 +25,7 @@ const SCREEN = { width: 400, height: 300 }
 function makeFile(): CanopiFile {
   const tree: CanopiFile['plants'][number] = {
     id: 'plant-1', canonical_name: 'Malus domestica', common_name: 'Apple', color: null, position: geoAt(10, 10),
-    rotation: null, scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+    rotation: null, canopy_spread_m: null, notes: null, planted_date: null, quantity: 1, locked: false,
   }
   return {
     version: CURRENT_CANOPI_FILE_VERSION, name: 'Read-only orchard', description: null, plant_species_colors: {},
@@ -53,7 +52,7 @@ async function createMountedRuntime(readOnly: { value: boolean }) {
   const plane = runtime.querySurface.sessionPlane.peek()!
   const tree = plane.toPlane(file.plants[0]!.position)
   placeOnHost(runtime.cameraHost, plane, { x: SCREEN.width / 2 - tree.x, y: SCREEN.height / 2 - tree.y, scale: 1 })
-  runtime.commandSurface.tools.setTool('select')
+  runtime.commandSurface.tools.arm('select')
   const events = createSceneInteractionEventHarness(container)
   return {
     runtime,
@@ -115,5 +114,9 @@ describe('the runtime construction (canopi-f47t.52.270)', () => {
 
   it('the detached app adapter answers that no Design is read-only', () => {
     expect(createDetachedCanvasRuntimeAppAdapter().isReadOnly?.()).toBe(false)
+  })
+
+  it('refuses construction without an appAdapter', () => {
+    expect(() => new SceneCanvasRuntime({} as never)).toThrow('SceneCanvasRuntime requires an appAdapter.')
   })
 })

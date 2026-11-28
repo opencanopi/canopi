@@ -7,24 +7,55 @@
 
 // Production CSP rejects Pixi's generated functions; its shim avoids eval.
 import 'pixi.js/unsafe-eval'
-import { Matrix, TextStyle, type Container, type Graphics, type Text, type TextStyleOptions } from 'pixi.js'
+import { Container, TextStyle, type Graphics, type Text, type TextStyleOptions } from 'pixi.js'
 import { isSceneObjectGroupMemberTarget, type ScenePoint } from '../scene'
+import type { CanvasPaintTokens } from '../../theme-refresh'
 import {
   getCanvasInteractionStrokeVisual,
   getLabelHalo,
   OVERLAY_CASING_EXTRA_PX,
+  type CanvasBackdropInk,
   type CanvasInteractionStrokeVisual,
   type CanvasInteractionVisualState,
 } from '../scene-visuals'
-import type { ViewTransform } from '../view/types'
+import type { ViewTransform } from '../../../geo/view/types'
 import type { SceneRendererHoverState, SceneRendererSnapshot } from './scene-types'
 
-const affine = new Matrix()
+/**
+ * Pixi world root (ADR 0016, 2.1-M520): overrides `updateLocalTransform` to write the view's
+ * 2×3 general affine directly into `localTransform`, avoiding position/scale/rotation/skew
+ * decomposition so anisotropic WGS84 ground-metre affines stay exact on one transform path.
+ */
+export class WorldRootContainer extends Container {
+  private readonly affine: [number, number, number, number, number, number] = [1, 0, 0, 1, 0, 0]
 
-/** A world root's transform: the view's affine, so world shapes keep their metres (spec §1.5). One write per frame. */
-export function writeWorldAffine(root: Container, view: ViewTransform): void {
-  const values = view.planar.affine
-  root.setFromMatrix(affine.set(values[0], values[1], values[2], values[3], values[4], values[5]))
+  setAffine(values: readonly [number, number, number, number, number, number]): void {
+    this.affine[0] = values[0]
+    this.affine[1] = values[1]
+    this.affine[2] = values[2]
+    this.affine[3] = values[3]
+    this.affine[4] = values[4]
+    this.affine[5] = values[5]
+    // Public ObservablePoint.set marks the container dirty even when tx/ty are unchanged,
+    // keeping getGlobalPosition() consistent without touching private Container internals.
+    this.position.set(values[4] + 1, values[5])
+    this.position.set(values[4], values[5])
+  }
+
+  override updateLocalTransform(): void {
+    const lt = this.localTransform
+    lt.a = this.affine[0]
+    lt.b = this.affine[1]
+    lt.c = this.affine[2]
+    lt.d = this.affine[3]
+    lt.tx = this.affine[4]
+    lt.ty = this.affine[5]
+  }
+}
+
+/** A world root's transform: the view's general affine, so world shapes keep their ground metres (ADR 0016, 2.1-M520). */
+export function writeWorldAffine(root: WorldRootContainer, view: ViewTransform): void {
+  root.setAffine(view.planar.affine)
 }
 
 /** CSS px as world units at `pixelsPerMetre`: the scene's one rule for screen-weight strokes in a world root. */
@@ -70,8 +101,11 @@ export function casedStroke(visual: CanvasInteractionStrokeVisual, pixelsPerMetr
 }
 
 /** The cased outline of an interaction state in CSS px. */
-export function interactionOutline(state: CanvasInteractionVisualState): CasedStroke {
-  return casedStroke(getCanvasInteractionStrokeVisual(state), 1)
+export function interactionOutline(
+  state: CanvasInteractionVisualState,
+  paintTokens?: CanvasPaintTokens,
+): CasedStroke {
+  return casedStroke(getCanvasInteractionStrokeVisual(state, paintTokens), 1)
 }
 
 export function drawClosedPath(graphics: Graphics, points: readonly ScenePoint[]): Graphics {
@@ -209,7 +243,6 @@ export function hoverStateForTarget(
   const hoverTarget = snapshot.hoverTarget
   if (!hoverTarget) return null
   if (hoverTarget.kind === kind && hoverTarget.id === id) return hoverTarget.state
-  if (kind === 'measurement-guide') return null
   if (hoverTarget.kind !== 'group') return null
   const group = snapshot.scene.groups.find((entry) => entry.id === hoverTarget.id)
   return group?.members.some((member) => isSceneObjectGroupMemberTarget(member, { kind, id }))
@@ -220,8 +253,11 @@ export function hoverStateForTarget(
 const textStyleKeys = new WeakMap<Text, string>()
 
 /** The halo under map text, so it reads on the backdrop and on busy imagery. */
-export function labelHaloStroke(fontSizePx: number): { color: number; width: number; join: 'round' } {
-  const halo = getLabelHalo(fontSizePx)
+export function labelHaloStroke(
+  fontSizePx: number,
+  backdropInk?: CanvasBackdropInk,
+): { color: number; width: number; join: 'round' } {
+  const halo = getLabelHalo(fontSizePx, backdropInk)
   return { color: toPixiColor(halo.color), width: halo.widthPx, join: 'round' }
 }
 

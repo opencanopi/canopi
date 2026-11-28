@@ -22,7 +22,7 @@ import { locale } from '../app/settings/state'
 import { StartScreen } from '../components/shared/StartScreen'
 import { WelcomeScreen } from '../components/shared/WelcomeScreen'
 import type * as IpcDesignModule from '../ipc/design'
-import type { DesignDraftSummary, RecentDesignSummary } from '../types/design'
+import type { DesignDraftSummary, RecentDesignSummary } from '../generated/contracts'
 
 let container: HTMLDivElement
 
@@ -142,7 +142,7 @@ describe('Desktop recent Designs', () => {
         },
       },
       { path: '/d/old.canopi', preview: { kind: 'unreadable', reason: 'unknown' } },
-      { path: '/d/huge.canopi', preview: { kind: 'too_large', saved_by_newer: false } },
+      { path: '/d/huge.canopi', preview: { kind: 'too_large' } },
     ]
     await act(async () => { render(<WelcomeScreen />, container) })
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
@@ -170,42 +170,6 @@ describe('Desktop recent Designs', () => {
     expect(rowOf('Garden newer_version').textContent).toContain('update Canopi to open it')
     expect(rowOf('Garden damaged').textContent).toContain('damaged')
     for (const reason of reasons) expect(rowOf(`Garden ${reason}`).closest('li')?.hasAttribute('data-read-only')).toBe(false)
-  })
-
-  // 2.1-Q316 changes the newer row: a Design a newer Canopi saved opens read-only, so its row says so.
-  it('canopi-f47t.52.270: labels a newer Design read-only with its sketch, never the 2.0.3 update state, and offers no Delete or Rename', async () => {
-    recentDesigns.files = [{ path: '/d/pond.canopi', name: 'Pond', updated_at: new Date().toISOString() }]
-    recentDesigns.previews = async () => [{
-      path: '/d/pond.canopi',
-      preview: {
-        kind: 'read_only', saved_by_version: 10, plant_count: 3, zone_count: 1,
-        bounds: { west: 0.1, south: 47, east: 0.2, north: 47.05 },
-        sketch: { width: 1000, height: 500, plants: [0, 500], zones: [] },
-      },
-    }]
-    await act(async () => { render(<WelcomeScreen />, container) })
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
-
-    const row = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Pond'))!
-    expect(row.textContent).toContain('Read-only: saved by a newer Canopi')
-    expect(row.textContent).not.toMatch(/update Canopi/i)
-    expect(row.querySelector('[data-design-sketch]')).not.toBeNull()
-    expect(row.closest('li')?.hasAttribute('data-read-only')).toBe(true)
-    await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="More actions for Pond"]')!.click() })
-    expect(Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((item) => item.textContent)).toEqual(['Show in folder', 'Remove from list'])
-  })
-
-  it('canopi-f47t.52.270: labels a newer Design too large for a preview read-only, by its name alone', async () => {
-    recentDesigns.files = [{ path: '/d/estate.canopi', name: 'Estate', updated_at: new Date().toISOString() }]
-    recentDesigns.previews = async () => [{ path: '/d/estate.canopi', preview: { kind: 'too_large', saved_by_newer: true } }]
-    await act(async () => { render(<WelcomeScreen />, container) })
-    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
-
-    const row = Array.from(container.querySelectorAll('button')).find((button) => button.textContent?.includes('Estate'))!
-    expect(row.textContent).toContain('Read-only: saved by a newer Canopi')
-    expect(row.textContent).not.toMatch(/plant/i)
-    expect(row.querySelector('[data-design-sketch]')).toBeNull()
-    expect(row.closest('li')?.hasAttribute('data-read-only')).toBe(true)
   })
 
   it('tells rows with the same Design name apart by file name, or by folder when that is the same too', async () => {
@@ -240,7 +204,6 @@ describe('Desktop Drafts', () => {
     const updated_at = new Date().toISOString()
     recentDesigns.files = []
     recentDesigns.drafts = [
-      { id: 'pond-2-1', name: 'Pond', updated_at, access: 'read_only' },
       { id: 'pond-2-2', name: 'Untitled', updated_at, access: 'unreadable' },
       { id: 'hedge', name: 'Hedge', updated_at },
     ]
@@ -248,15 +211,11 @@ describe('Desktop Drafts', () => {
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)) })
 
     const rowOf = (name: string) => Array.from(container.querySelectorAll('li')).find((row) => row.textContent?.includes(name))!
-    expect(rowOf('Pond').textContent).toContain('Read-only: saved by a newer Canopi')
-    expect(rowOf('Pond').hasAttribute('data-read-only')).toBe(true)
     expect(rowOf('Untitled').textContent).toContain('Saved by a newer Canopi; this version can’t read it')
     expect(rowOf('Untitled').hasAttribute('data-unreadable')).toBe(true)
     expect(rowOf('Untitled').hasAttribute('data-read-only')).toBe(false)
-    for (const name of ['Pond', 'Untitled']) {
-      expect(rowOf(name).textContent).not.toContain('Draft, never saved to a file')
-      expect(rowOf(name).querySelector('button[aria-label^="Actions for"]')).toBeNull()
-    }
+    expect(rowOf('Untitled').textContent).not.toContain('Draft, never saved to a file')
+    expect(rowOf('Untitled').querySelector('button[aria-label^="Actions for"]')).toBeNull()
     expect(rowOf('Hedge').textContent).toContain('Draft, never saved to a file')
     await act(async () => { rowOf('Hedge').querySelector<HTMLButtonElement>('button[aria-label="Actions for Hedge"]')!.click() })
     expect(Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((item) => item.textContent)).toEqual(['Delete draft…'])

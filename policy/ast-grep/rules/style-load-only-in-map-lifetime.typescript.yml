@@ -6,7 +6,7 @@
 id: style-load-only-in-map-lifetime.typescript
 language: typescript
 severity: error
-message: "style-load-only-in-map-lifetime (§18 F4): style readiness (isStyleLoaded, the style.load and styledata events, a map loaded() check) is decided only by the map lifetime. ADR 0024; owner none; target desktop/web/src/maplibre/map-lifetime.ts (2d); example none yet"
+message: "style-load-only-in-map-lifetime (§18 F4): style readiness (isStyleLoaded, the style.load and styledata events, a map loaded() check) is decided only by the map lifetime. ADR 0024; owner desktop/web/src/maplibre/map-lifetime.ts; target desktop/web/src/maplibre/map-lifetime.ts (2d); example none yet"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
@@ -15,6 +15,8 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/map-lifetime.ts"
 rule:
   any:
     - kind: call_expression

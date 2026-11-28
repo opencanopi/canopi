@@ -6,15 +6,16 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { locale } from '../app/settings/state'
 import { ToolCard } from '../components/canvas/ToolCard'
-import { clearPlantStampSource, selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { createSceneCanvasQuerySurface } from '../canvas/runtime/query-surface'
 import { SceneStore } from '../canvas/runtime/scene'
-import { SceneHistory } from '../canvas/runtime/scene-history'
 import { SceneRuntimeMutationController } from '../canvas/runtime/scene-runtime/mutations'
 import { SceneRuntimePresentationController } from '../canvas/runtime/scene-runtime/presentation'
-import { SceneRuntimeEditCoordinator } from '../canvas/runtime/scene-runtime/transactions'
+import {
+  SceneRuntimeEditCoordinator,
+} from '../canvas/runtime/scene-runtime/transactions'
 import { setCurrentCanvasSession } from '../canvas/session'
-import { IDLE_CANVAS_TOOL_GUIDANCE, setCanvasTool, setCanvasToolGuidance } from '../canvas/session-state'
+import { IDLE_CANVAS_TOOL_GUIDANCE, setCanvasToolGuidance } from '../canvas/session-state'
+import type { ToolHostState } from '../canvas/runtime/interaction-ports'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasDocumentSurface,
@@ -40,7 +41,7 @@ function runtimeOverOneApple() {
   const revision = { scene: signal(0), plantNames: signal(0), transientHistory: signal(0) }
   const camera = createTestView()
   const edits = new SceneRuntimeEditCoordinator({
-    sceneStore: store, history: new SceneHistory(),
+    sceneStore: store,
     setSelection: (targets) => { store.setSelection(targets) },
     incrementSceneRevision: () => { revision.scene.value += 1 },
     syncCanvasSignalsFromScene: () => {}, invalidate: () => {},
@@ -57,7 +58,6 @@ function runtimeOverOneApple() {
       getViewportScale: () => 1,
       createPlantPresentationContext: (scale = 1) => presentation.createPlantPresentationContext(scale),
       getLocalizedCommonNames: () => presentation.getLocalizedCommonNames(),
-      getSuggestedPlantColor: () => null,
     },
     invalidateScene: () => {},
   })
@@ -79,22 +79,22 @@ describe('Tool card after a Species Key recolour', () => {
   afterEach(() => {
     render(null, container)
     container.remove()
-    setCanvasTool('select')
     setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
-    clearPlantStampSource()
     setCurrentCanvasSession(null)
   })
 
   it('with Place plants armed, the card glyph takes the species\' new colour', async () => {
     const { queries, mutations } = runtimeOverOneApple()
+    queries.bindToolState(signal<ToolHostState>({
+      id: 'plant-stamp',
+      source: { kind: 'species', species: APPLE },
+    }))
     setCurrentCanvasSession({
       commands: createTestCanvasCommandSurface(),
       queries,
       documents: createTestCanvasDocumentSurface(),
       keyboard: createTestCanvasKeyboardPort(),
     })
-    selectPlantStampSource(APPLE)
-    setCanvasTool('plant-stamp')
     await act(() => render(<ToolCard />, container))
     const lead = () => container.querySelector<HTMLElement>('[data-tool-card-lead="species"]')!
     expect(lead().style.color).toBe('rgb(176, 96, 69)')

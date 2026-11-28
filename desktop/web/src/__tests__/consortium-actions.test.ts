@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import {
+  designDirty,
   designSessionFixture,
   currentDesign,
-  nonCanvasRevision,
 } from './support/design-session-state'
 import { moveConsortiumEntry } from '../app/design-edit'
 import { consortiumTarget } from '../target'
@@ -19,7 +19,6 @@ function consortium(canonicalName: string, overrides: Partial<Omit<Consortium, '
 }
 
 beforeEach(() => {
-  designSessionFixture.nonCanvasRevision = 0
   designSessionFixture.file = {
     version: 9,
     name: 'test',
@@ -33,7 +32,7 @@ beforeEach(() => {
       color: null,
       position: { lon: 13, lat: 23 },
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: null,
@@ -53,8 +52,7 @@ beforeEach(() => {
 })
 
 function seedConsortiums(...entries: Consortium[]): void {
-  designSessionFixture.file = { ...designSessionFixture.file!, consortiums: entries }
-  designSessionFixture.nonCanvasRevision = 0
+  designSessionFixture.file = { ...currentDesign.value!, consortiums: entries }
 }
 
 describe('moveConsortiumEntry', () => {
@@ -66,7 +64,7 @@ describe('moveConsortiumEntry', () => {
     expect(entry.stratum).toBe('medium')
     expect(entry.start_phase).toBe(2)
     expect(entry.end_phase).toBe(5)
-    expect(nonCanvasRevision.value).toBe(1)
+    expect(designDirty.value).toBe(true)
   })
 
   it('preserves existing stratum when stratum is omitted', () => {
@@ -80,13 +78,13 @@ describe('moveConsortiumEntry', () => {
     seedConsortiums(consortium('Quercus robur'))
     moveConsortiumEntry('Nonexistent', { stratum: 'medium', startPhase: 1, endPhase: 4 })
 
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
   })
 
   it('is a no-op when values unchanged', () => {
     seedConsortiums(consortium('Quercus robur'))
     moveConsortiumEntry('Quercus robur', { stratum: 'high', startPhase: 0, endPhase: 3 })
 
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
   })
 })

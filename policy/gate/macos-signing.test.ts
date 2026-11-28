@@ -1,11 +1,9 @@
-// The Mac bundle's ad-hoc seal (canopi-3cu2; design check U-7; 2.1-M472, Q305: never a Developer ID). The signing
-// probe (macos-signing-probe.yml, PR #96 on macOS 15 arm64 with Gatekeeper on) read today's linker-signed bundle as
-// "damaged" with no Open Anyway, and the signingIdentity '-' bundle as "could not verify" with Open Anyway; so
+// The Mac bundle's ad-hoc seal (canopi-3cu2; design check U-7; 2.1-M472, M500, M530, Q305: never a Developer ID).
 // desktop/tauri.macos.conf.json signs ad hoc, the Release Candidate's Mac build fails unless its .app is sealed ad hoc
-// with its resources, the probe keeps comparing against 2.0.3's unsigned bundle, and the install text users read is
-// the probe's for the shipped decision. Each failure state is planted here: a linker-signed candidate that would pass,
-// a probe whose unsigned row silently turns ad hoc, and install text naming a step the shipped bundle never shows. The
-// workflow steps run for real in bash, with codesign stubbed and the probe's rows planted.
+// with its resources, and the install text users read is held to the shipped house copy below (the one-off signing
+// probe workflow was deleted in canopi-hoy2s / 2.1-M534 once its verdict shipped). Each failure state is planted here:
+// a linker-signed candidate that would pass, and install text naming a step the shipped bundle never shows. The
+// workflow step runs for real in bash, with codesign stubbed.
 import { spawnSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -32,15 +30,16 @@ interface MacConfig { readonly bundle?: { readonly macOS?: { readonly signingIde
 
 const MAC_CONFIG = 'desktop/tauri.macos.conf.json'
 const RC = '.github/workflows/release-candidate.yml'
-const PROBE = '.github/workflows/macos-signing-probe.yml'
 const INSTALL_DOCS = ['README.md', 'docs/release-notes/v2.0.4.md', 'docs/release-notes/v2.1.0.md']
 const SEAL_STEP = 'The Mac app is sealed ad hoc with its resources'
 const PACKAGE_STEP = 'Package the desktop app'
-const VERDICT_STEP = 'Read the verdict'
+const INSTALL_TEXTS = {
+  xattr_steps: 'Open the dmg and drag Canopi to Applications. Open Terminal, run xattr -dr com.apple.quarantine /Applications/Canopi.app, then open Canopi.',
+  open_anyway_steps: 'Open the dmg and drag Canopi to Applications, then open Canopi. If macOS says it cannot verify Canopi or check it for malware, click Done, Cancel or OK (not Move to Trash), open System Settings > Privacy & Security (on macOS 12, System Preferences > Security & Privacy), click Open Anyway beside Canopi and confirm. If macOS says Canopi is damaged, open Terminal, run xattr -dr com.apple.quarantine /Applications/Canopi.app, then open Canopi.',
+} as const
 
 const macConfig = JSON.parse(read(MAC_CONFIG)) as MacConfig
 const rc = parse(read(RC)) as Workflow
-const probe = parse(read(PROBE)) as Workflow
 
 /** Why the shipped Mac config and the Release Candidate's seal check no longer hold together, empty when they do. */
 function signingFaults(config: MacConfig, workflow: Workflow): string[] {
@@ -69,13 +68,8 @@ function sealStepFaults(steps: readonly Step[]): string[] {
   return faults
 }
 
-const probeRun = (name: string) => (probe.jobs?.['verdict']?.steps ?? []).find((step) => step.name === name)?.run ?? ''
-/** One of the probe's install texts, by its variable in the verdict step: the SIGNING-INSTALL-TEXT it prints. */
-function probeText(variable: 'open_anyway_steps' | 'xattr_steps'): string {
-  const text = new RegExp(`^\\s*${variable}='([^']+)'$`, 'm').exec(probeRun(VERDICT_STEP))?.[1]
-  if (text === undefined) throw new Error(`${PROBE} sets no ${variable}`)
-  return text
-}
+/** The house install text for each Mac signing decision (moved from the deleted signing probe, canopi-hoy2s / 2.1-M534). */
+const probeText = (variable: 'open_anyway_steps' | 'xattr_steps'): string => INSTALL_TEXTS[variable]
 /** A user's reading of Markdown: no code or bold marks, the house menu arrow as the probe's '>', one space, any case. */
 const prose = (text: string) => text.replace(/\*\*|`/g, '').replace(/›/g, '>').replace(/\s+/g, ' ').toLowerCase()
 
@@ -185,46 +179,6 @@ exit 64
     expect(sealed.stdout).toContain('is sealed ad hoc (adhoc,runtime)')
   })
 
-  /** The probe's two rows as PR #96 read them, with `signatures` as each row's codesign -dvvv reading. */
-  function probeRows(signatures: { readonly unsigned: string, readonly adhoc: string }): Record<string, string> {
-    const row = (variant: 'unsigned' | 'adhoc', fields: Readonly<Record<string, string>>) =>
-      Object.entries({ variant, macos: '15.8.2 arm64', gatekeeper: 'assessments enabled', quarantine: 'propagated', signature_msg: signatures[variant],
-        launched_quarantined: 'yes', launched_after_xattr: 'yes', ...fields }).map(([key, value]) => `${key}=${value}\n`).join('')
-    return {
-      'signing-results/unsigned.env': row('unsigned', { codesign_exit: '1', codesign_msg: 'APP: code has no resources but signature indicates they must be present',
-        spctl_exit: '3', spctl_msg: 'APP: code has no resources but signature indicates they must be present', syspolicy_exit: '1', syspolicy_msg: 'Error: Notary Ticket Missing; damaged',
-        dialog: '“Canopi” is damaged and can’t be opened. You should move it to the Trash.' }),
-      'signing-results/adhoc.env': row('adhoc', { codesign_exit: '0', codesign_msg: 'APP: valid on disk', spctl_exit: '3', spctl_msg: 'APP: rejected',
-        syspolicy_exit: '1', syspolicy_msg: 'Error: Notary Ticket Missing', dialog: '“Canopi” Not Opened Apple could not verify “Canopi” is free of malware' }),
-    }
-  }
-  const LINKER = 'Executable=APP/Contents/MacOS/canopi-desktop CodeDirectory v=20400 size=1 flags=0x20002(adhoc,linker-signed) hashes=1+0 Signature=adhoc'
-  const SEALED = 'Executable=APP/Contents/MacOS/canopi-desktop CodeDirectory v=20400 size=1 flags=0x10002(adhoc,runtime) hashes=1+3 Signature=adhoc Sealed Resources version=2'
-
-  it('canopi-3cu2: the probe\'s unsigned row builds 2.0.3\'s linker-signed bundle, so the verdict never compares the shipped bundle with itself', () => {
-    const rows = probe.jobs?.['probe']?.strategy?.matrix?.include ?? []
-    const args = (variant: string) => String(rows.find((row) => row['variant'] === variant)?.['bundle_args'] ?? '')
-    // The unsigned row overrides the shipped identity away, in one word (the action splits bundle-args on whitespace).
-    expect(args('unsigned')).not.toMatch(/\s.*\s/)
-    expect(JSON.parse(args('unsigned').replace(/^--config /, ''))).toEqual({ bundle: { macOS: { signingIdentity: null } } })
-    // The ad-hoc row builds what ships.
-    expect(args('adhoc')).toBe('')
-    const verdict = (signatures: { readonly unsigned: string, readonly adhoc: string }) =>
-      runStep(probeRun(VERDICT_STEP), probeRows(signatures), { RESULTS: 'signing-results' })
-    const found = verdict({ unsigned: LINKER, adhoc: SEALED })
-    expect(found.status, found.stdout + found.stderr).toBe(0)
-    expect(found.stdout).toContain('classifier self-test passed')
-    expect(found.stdout).toContain("SIGNING-VERDICT: improved: ship signingIdentity '-' and the Release Candidate verify check")
-    expect(found.stdout).toContain(`SIGNING-INSTALL-TEXT: ${probeText('open_anyway_steps')}`)
-    // Planted: the unsigned row silently sealed ad hoc, then the ad-hoc row silently linker-signed.
-    const same = verdict({ unsigned: SEALED, adhoc: SEALED })
-    expect(same.status).toBe(1)
-    expect(same.stdout).toContain("::error::the unsigned row is not 2.0.3's linker-signed bundle (adhoc)")
-    const lost = verdict({ unsigned: LINKER, adhoc: LINKER })
-    expect(lost.status).toBe(1)
-    expect(lost.stdout).toContain('::error::the adhoc row is not sealed ad hoc (linker-signed)')
-  })
-
   it('canopi-3cu2: the Mac install text everywhere a user reads it is the probe\'s for the shipped bundle', () => {
     const docs = new Map(INSTALL_DOCS.map((file) => [file, read(file)]))
     expect(installFaults(macConfig.bundle?.macOS?.signingIdentity, docs)).toEqual([])
@@ -253,8 +207,9 @@ exit 64
   // missing; the version files name the next release once its release commit bumps them, and until then they name
   // 2.1.0-beta.2, published with the linker-signed bundle and its xattr text. Only those published notes keep their one
   // known fault: any bump without the probe's text in its notes fails here.
-  it('canopi-3cu2: the release notes of the version the tree would release carry the probe\'s install text', () => {
-    const version = (JSON.parse(read('desktop/tauri.conf.json')) as { readonly version: string }).version
+  it('canopi-3cu2: the release notes of the version the tree would release carry the probe\'s install text', async () => {
+    const { readCargoWorkspaceVersion } = await import('../release-version.mjs')
+    const version = readCargoWorkspaceVersion(REPO_ROOT)
     const notes = `docs/release-notes/v${version}.md`
     expect(existsSync(join(REPO_ROOT, notes)), `${notes} is missing, so the release page carries no install text`).toBe(true)
     const published = version === '2.1.0-beta.2' ? [`${notes} lacks the probe's install text for the ad-hoc bundle`] : []

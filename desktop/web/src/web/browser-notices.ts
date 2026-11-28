@@ -11,6 +11,12 @@ import type { DesignOpenFailureNotice } from '../app/document-session/open-failu
 import type { GeoJsonNotice } from '../app/geojson/workflow'
 import { raiseNotice, withdrawNotice, type NoticeSpec } from '../failures/notices'
 
+let openBrowserProblemReport: (() => void) | null = null
+
+export function registerBrowserProblemReportOpener(opener: (() => void) | null): void {
+  openBrowserProblemReport = opener
+}
+
 type ActionNotice = Pick<NoticeSpec, 'tone' | 'title' | 'message' | 'params' | 'detail' | 'action'>
 
 /** Shows an action's outcome at the front of the row, replacing the outcome shown before it under the same key. */
@@ -24,7 +30,12 @@ export function presentBrowserGeoJsonNotice(notice: GeoJsonNotice): void {
 }
 
 export function presentBrowserDesignOpenFailure(notice: DesignOpenFailureNotice): void {
-  showOutcome('web.open-failure', notice)
+  showOutcome('web.open-failure', {
+    ...notice,
+    ...(openBrowserProblemReport
+      ? { action: { label: 'boundary.reportProblem', run: openBrowserProblemReport } }
+      : {}),
+  })
 }
 
 /** A Draft gone from this browser (another tab, or the browser cleared it) could not be downloaded. */
@@ -37,26 +48,43 @@ export function presentBrowserDraftOpenFailure(): void {
   showOutcome('web.open-failure', { tone: 'error', title: 'start.cantOpenTitle', message: 'webStorage.downloadFailedMessage' })
 }
 
-const DRAFT_UNCHECKED = 'web.draft-unchecked'
-
-/**
- * An old-key Draft opened read-only while 2.1's Draft listing could not be read: it may be a copy 2.1 replaced, so the
- * notice offers its Download a copy (2.1-Q334).
- */
-export function presentBrowserDraftUncheckedNotice(download: () => void): void {
-  showOutcome(DRAFT_UNCHECKED, {
-    tone: 'warning', message: 'webStorage.uncheckedReadOnly', action: { label: 'webShell.downloadCopy', run: download },
-  })
-}
-
-/** That view's session ended: its notice goes with it. */
-export function withdrawBrowserDraftUncheckedNotice(): void {
-  withdrawNotice(DRAFT_UNCHECKED)
+/** Q334 (canopi-2b6q): old-key Draft opened read-only while browser IndexedDB storage could not be checked. */
+export function presentBrowserStorageUncheckedNotice(): void {
+  showOutcome('web.storage-unchecked', { tone: 'info', title: 'readOnlyDesign.label', message: 'webStorage.uncheckedReadOnly' })
 }
 
 /** Browser data from before Canopi 2.0 stays in place, unread (ADR 0021): told once, at the launch that finds it. */
 export function raiseEarlierDataNotice(): void {
   raiseNotice({ key: 'web.earlier-data', title: 'health.localDataNotOpenedTitle', message: 'health.localDataNotOpened' })
+}
+
+/** Upgrade of `canopi-drafts` is waiting on another open Canopi tab (`draft_store_blocked`, 2.1-Q40). */
+export function raiseDraftStoreBlockedNotice(): void {
+  raiseNotice({ key: 'web.draft-store-blocked', tone: 'warning', title: 'webStorage.storeBlockedTitle', message: 'webStorage.storeBlockedMessage' })
+}
+
+export function withdrawDraftStoreBlockedNotice(): void {
+  withdrawNotice('web.draft-store-blocked')
+}
+
+/** Pending-write marker found at reopen: the page closed before committing the last edit (contracts §11). */
+export function raisePendingWriteNotice(draftName: string): void {
+  showOutcome('web.pending-write', {
+    tone: 'warning',
+    title: 'webStorage.pendingWriteTitle',
+    message: 'webStorage.pendingWriteMessage',
+    params: { name: draftName },
+  })
+}
+
+/** A 2.0 tab wrote after the move to IndexedDB: saved as a separate Draft without overwriting 2.1's copy. */
+export function raiseOlderTabCopyNotice(draftName: string): void {
+  showOutcome('web.older-tab-copy', {
+    tone: 'info',
+    title: 'webStorage.olderTabCopyTitle',
+    message: 'webStorage.olderTabCopyMessage',
+    params: { name: draftName },
+  })
 }
 
 const RELEASE_NOTICE = 'web.release'

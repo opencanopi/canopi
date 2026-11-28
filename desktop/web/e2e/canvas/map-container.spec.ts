@@ -7,6 +7,7 @@
 // on the visible-map-area seam, so the map credits fold into MapLibre's (i) button rather than sit under it.
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
+import { routeMinimalBasemap } from '../support/basemap'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
 import { expect, test } from '../support/offline'
 
@@ -72,16 +73,19 @@ test('a Design switch leaves exactly one map in the map container', async ({ pag
   await expectOneMapAsOpened(page, opened)
 })
 
-/** Offline the Basemap style never installs; a spec that answers it in the page gives it these inline credits. */
-const BASEMAP_CREDITS = '<a href="https://openfreemap.org">OpenFreeMap</a> <a href="https://www.openmaptiles.org/">© OpenMapTiles</a>'
-  + ' Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-
 test.describe('a map that stops drawing', () => {
   // upstream: W19
   // Playwright's Firefox logs the Error argument by its name alone, without the message, so there the whole line is
   // expected rather than a prefix that would let any map failure through.
   test.use({
-    expectedConsoleErrors: async ({ browserName }, use) => use(browserName === 'firefox' ? [] : ['Shared workspace map failed: Error: MapLibre WebGL context was lost']),
+    expectedConsoleErrors: async ({ browserName }, use) => use(
+      browserName === 'firefox'
+        ? ['MapLibre WebGL context was lost while preparing the shared workspace.']
+        : [
+            'Shared workspace map failed: Error: MapLibre WebGL context was lost',
+            'MapLibre WebGL context was lost while preparing the shared workspace.',
+          ],
+    ),
     expectedConsoleLines: async ({ browserName }, use) => use(browserName === 'firefox' ? ['Shared workspace map failed: Error'] : []),
   })
 
@@ -107,14 +111,7 @@ test.describe('a map that stops drawing', () => {
   // installed Basemap afterwards must not edit it: the failure path ends with the notice and no second error, which the
   // offline fixture would report as an unexpected console error.
   test('a lost context with the Basemap installed shows the notice and no failure-handling error (canopi-f47t.52.228.31)', async ({ page }) => {
-    await page.route('https://tiles.openfreemap.org/styles/**', (route) => route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        version: 8,
-        sources: { openmaptiles: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, attribution: BASEMAP_CREDITS } },
-        layers: [{ id: 'water', type: 'fill', source: 'openmaptiles', paint: { 'fill-color': '#a0c8f0' } }],
-      }),
-    }))
+    await routeMinimalBasemap(page)
     await openBaseFixture(page)
     // The Basemap's credits show once its style is installed on the map.
     await expect(designMap(page).locator('.maplibregl-ctrl-attrib')).toContainText('OpenStreetMap')
@@ -137,15 +134,7 @@ test.describe('the map notice and the map credits', () => {
 
   for (const size of [{ width: 760, height: 800 }, { width: 1400, height: 900 }, { width: 1920, height: 900 }]) {
     test(`the map notice never covers the map credits at ${size.width}x${size.height}`, async ({ page }) => {
-      await page.route('https://tiles.openfreemap.org/styles/**', (route) => route.fulfill({
-        contentType: 'application/json',
-        body: JSON.stringify({
-          version: 8,
-          sprite: 'https://tiles.openfreemap.org/sprites/ofm_f384/ofm',
-          sources: { openmaptiles: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, attribution: BASEMAP_CREDITS } },
-          layers: [{ id: 'water', type: 'fill', source: 'openmaptiles', paint: { 'fill-color': '#a0c8f0' } }],
-        }),
-      }))
+      await routeMinimalBasemap(page, { sprite: 'https://tiles.openfreemap.org/sprites/ofm_f384/ofm' })
       // Opened at the default size, whose opening scale openFixture checks, then resized as a window is.
       await openBaseFixture(page)
       await page.setViewportSize(size)

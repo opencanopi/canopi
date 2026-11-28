@@ -5,7 +5,7 @@
   "path": "user path: measure an area on the canvas without drawing a zone",
   "owners": [
     "canvas/runtime/tools/",
-    "canvas/runtime/tool-id.ts",
+    "app/command-table/tools.ts",
     "canvas/runtime/zone-measurements.ts",
     "app/tool-card/content.ts",
     "app/canvas-commands/index.ts",

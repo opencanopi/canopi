@@ -3,7 +3,7 @@ import type { PanelTarget, SpeciesPanelTarget } from '../types/design'
 type Target = PanelTarget
 type SpeciesTarget = SpeciesPanelTarget
 
-export interface TargetScenePoint {
+interface TargetScenePoint {
   readonly x: number
   readonly y: number
 }
@@ -14,19 +14,19 @@ interface TargetPlantRef {
   readonly position?: TargetScenePoint
 }
 
-export interface TargetZoneRef {
+interface TargetZoneRef {
   readonly id: string
   readonly zoneType?: string
   readonly points?: readonly TargetScenePoint[]
   readonly rotationDeg?: number
 }
 
-export interface TargetSceneInput {
+interface TargetSceneInput {
   readonly plants: readonly TargetPlantRef[]
   readonly zones: readonly TargetZoneRef[]
 }
 
-export interface TargetSceneIndex {
+interface TargetSceneIndex {
   readonly plantsById: ReadonlyMap<string, TargetPlantRef>
   readonly plantIdsBySpecies: ReadonlyMap<string, readonly string[]>
   readonly zonesById: ReadonlyMap<string, TargetZoneRef>
@@ -36,7 +36,7 @@ type ResolvedTargetRef =
   | { readonly kind: 'plant'; readonly id: string; readonly plant: TargetPlantRef }
   | { readonly kind: 'zone'; readonly id: string; readonly zone: TargetZoneRef }
 
-export interface TargetResolution {
+interface TargetResolution {
   readonly plantIds: readonly string[]
   readonly zoneIds: readonly string[]
   readonly resolvedRefs: readonly ResolvedTargetRef[]
@@ -46,10 +46,6 @@ export const MANUAL_TARGET: Target = { kind: 'manual' }
 
 export function speciesTarget(canonicalName: string): SpeciesTarget {
   return { kind: 'species', canonical_name: canonicalName }
-}
-
-export function isSpeciesTarget(target: Target): target is SpeciesTarget {
-  return target.kind === 'species'
 }
 
 function targetKey(target: Target): string {
@@ -79,7 +75,7 @@ function targetsEqual(left: Target, right: Target): boolean {
   return targetKey(left) === targetKey(right)
 }
 
-export function indexTargetScene(scene: TargetSceneInput): TargetSceneIndex {
+function indexTargetScene(scene: TargetSceneInput): TargetSceneIndex {
   const plantsById = new Map<string, TargetPlantRef>()
   const plantIdsBySpecies = new Map<string, string[]>()
   const zonesById = new Map<string, TargetZoneRef>()
@@ -98,7 +94,7 @@ export function indexTargetScene(scene: TargetSceneInput): TargetSceneIndex {
   return { plantsById, plantIdsBySpecies, zonesById }
 }
 
-export function resolveTargetsInScene(
+function resolveTargetsInScene(
   values: readonly Target[],
   index: TargetSceneIndex,
 ): TargetResolution {

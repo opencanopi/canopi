@@ -24,6 +24,8 @@ mod native_operation;
 #[doc(hidden)]
 pub mod reader_session;
 mod services;
+pub use {native_operation::NativeOperationExecutor, services::design_core};
+pub(crate) mod target_locks;
 #[cfg(test)]
 mod test_scratch;
 use canopi_types::failure::{Failure, FailureCode, IoFailureKind, PlantCatalogCause};
@@ -73,15 +75,14 @@ pub fn run() {
     let context = host::e2e_context(context);
     let app = builder
         .invoke_handler(tauri::generate_handler![
-            commands::settings::get_settings,
-            commands::settings::set_settings,
+            commands::settings::get_settings_record,
+            commands::settings::patch_settings_record,
             commands::species::search_species,
             commands::species::supersede_species_search,
             commands::species::get_species_detail,
             commands::species::get_common_names,
             commands::species::get_species_habits,
             commands::species::get_species_batch,
-            commands::species::get_flower_color_batch,
             commands::species::get_filter_options,
             commands::species::get_dynamic_filter_options,
             commands::species::get_species_images,
@@ -94,20 +95,25 @@ pub fn run() {
             commands::saved_object_stamps::create_saved_object_stamp,
             commands::saved_object_stamps::rename_saved_object_stamp,
             commands::saved_object_stamps::delete_saved_object_stamp,
+            commands::saved_object_stamps::restore_saved_object_stamp,
             commands::saved_object_stamps::reorder_saved_object_stamps,
             commands::saved_object_stamps::export_saved_object_stamp_canopi_file,
             commands::saved_object_stamps::load_saved_object_stamp_canopi_file,
-            commands::design::new_design,
-            commands::design::save_design,
-            commands::design::load_design,
             commands::design::get_recent_files,
             commands::design::get_recent_design_previews,
             commands::design::remove_recent_design,
             commands::design::show_recent_design_in_folder,
-            commands::design::save_design_draft,
-            commands::design::load_design_draft,
             commands::design::list_design_drafts,
             commands::design::delete_design_draft,
+            commands::design_core::design_core_version,
+            commands::design_core::design_core_decode,
+            commands::design_core::design_core_encode,
+            commands::design_core::design_core_new_design,
+            commands::design_core::design_core_draft_summary,
+            commands::design_core::design_core_decode_stamp,
+            commands::design_core::design_core_encode_stamp,
+            commands::design_core::design_core_stamp_to_canopi,
+            commands::design_core::design_core_canopi_to_stamp,
             commands::design_notebook::get_design_notebook,
             commands::design_notebook::create_notebook_section,
             commands::design_notebook::add_design_reference_to_notebook,
@@ -118,12 +124,14 @@ pub fn run() {
             commands::design_notebook::reorder_notebook_sections,
             commands::design_notebook::reorder_design_references,
             commands::design_notebook::relocate_design_reference,
-            commands::export::export_file,
+            commands::export::deliver_file,
             commands::export::pick_geojson_file,
-            commands::export::save_canvas_pdf,
             commands::health::get_health,
             commands::health::dismiss_store_notice,
             commands::host::take_pending_open,
+            commands::host::home_read,
+            commands::host::home_write,
+            commands::host::grant_for_recent,
             commands::host::pick_open,
             commands::host::pick_save,
             commands::update::update_check,
@@ -131,14 +139,12 @@ pub fn run() {
             commands::update::update_install,
             commands::update::update_cancel,
             commands::update::update_restart,
-            commands::update::update_launch_check_get,
-            commands::update::update_launch_check_set,
             commands::update::update_take_launch_notice,
             commands::problem_report::create_problem_report,
             commands::problem_report::show_problem_report_folder,
             commands::app_folders::get_app_folders,
             commands::app_folders::show_app_folder,
-            commands::geocoding::geocode_address,
+            commands::geocoding::geocoder_fetch,
             commands::lidar::lidar_list_library,
             commands::lidar::lidar_rename_item,
             commands::lidar::lidar_delete_impact,
@@ -161,7 +167,8 @@ pub fn run() {
             // Logging: a log folder that cannot be opened logs to stderr, never stops startup.
             logging::init(app.path().app_log_dir().ok().as_deref());
             tracing::info!("Canopi starting");
-            build_main_window(app.handle())?;
+            let main_window = build_main_window(app.handle())?;
+            host::window_state::restore_and_show_main_window(&main_window);
 
             let native_executor = native_operation::NativeOperationExecutor::production();
             app.manage(native_executor.clone());
@@ -171,6 +178,10 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
             app.manage(design::drafts::DesignDrafts::new(&data_dir));
+            let file_grants = std::sync::Arc::clone(
+                app.state::<std::sync::Arc<host::home::FileGrantRegistry>>()
+                    .inner(),
+            );
             app.manage(services::recent_design_previews::RecentDesignPreviews::default());
             let (user_db, user_stores) = match services::health::open_stores(&data_dir) {
                 Ok(opened) => opened,
@@ -185,8 +196,12 @@ pub fn run() {
                     return Err(format!("Failed to initialize user DB: {error}").into());
                 }
             };
+            app.manage(std::sync::Arc::new(
+                host::home::DesktopHomeStore::production(&data_dir, file_grants)
+                    .with_user_db(user_db.clone()),
+            ));
+            app.manage(services::settings::DesktopSettingsStore::new(&data_dir, user_db.clone()));
             app.manage(user_db);
-
             tracing::info!("User DB initialized");
 
             // LiDAR library (dedicated catalogue, managed raster assets). A bad
@@ -259,7 +274,6 @@ pub fn run() {
             let plant_db_status = plant_db.status();
             app.manage(plant_db);
             app.manage(services::plant_browser::SpeciesSearchCancellation::default());
-
             app.manage(AppHealth::new(SubsystemHealth(std::collections::BTreeMap::from_iter([
                 (StoreId::PlantCatalog, services::health::plant_catalog(plant_db_status)),
                 (StoreId::LibraryCatalogue, StoreHealth { status: lidar_library_status, notice: None }),
@@ -308,6 +322,7 @@ fn build_main_window<R: tauri::Runtime>(
     let origins = AppOrigins::new(tauri::is_dev(), app.config().build.dev_url.as_ref());
     let window_origins = origins.clone();
     host::e2e_window(tauri::WebviewWindowBuilder::from_config(app, &config)?)
+        .visible(false)
         .on_navigation(move |url| follow_navigation(url, &origins, open_link_in_system))
         .on_new_window(move |url, _features| {
             follow_new_window(&url, &window_origins, open_link_in_system);
@@ -585,11 +600,7 @@ mod tests {
             lidar.join("lidar-library.sqlite"),
             data_dir.join("user.db"),
         ] {
-            assert!(
-                !scope.is_allowed(&refused),
-                "refused: {}",
-                refused.display()
-            );
+            assert!(!scope.is_allowed(&refused), "{}", refused.display());
         }
     }
 
@@ -610,10 +621,7 @@ mod tests {
             .iter()
             .find(|window| window.label == "main")
             .expect("tauri.conf.json declares the main window");
-        assert!(
-            !main.create,
-            "Tauri must not create the unguarded main window"
-        );
+        assert!(!main.create, "must not auto-create main window");
         let app = tauri::test::mock_builder()
             .build(context)
             .expect("the mock app builds from the real configuration");
@@ -646,10 +654,11 @@ mod tests {
                 }
             })
             .collect::<Vec<_>>();
-        let mut expected = vec!["main-window".to_owned()];
-        if dev_bridge {
-            expected.push("mcp-bridge-dev".to_owned());
-        }
+        let expected = if dev_bridge {
+            vec!["main-window", "mcp-bridge-dev"]
+        } else {
+            vec!["main-window"]
+        };
         assert_eq!(capabilities, expected);
     }
 }

@@ -30,7 +30,7 @@ import {
   localToday,
   parseCivilDate,
   startOfCivilMonth,
-} from './civil-date'
+} from '../../planning/civil-date'
 
 const calendarTargetPresentation = createPanelTargetPresentationController('timeline')
 

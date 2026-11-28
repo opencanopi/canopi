@@ -1,0 +1,8 @@
+{
+  "about": "edition-root-parity (2.1-M211, ADR 0030): planted violation where Desktop and Web edition manifests diverge on a capability-table item without a capability row explaining the difference. Exercised by desktop/web/src/__tests__/edition-root-parity.test.ts.",
+  "plantedDrift": {
+    "surface": "panels",
+    "entry": "unexplained-panel",
+    "desktopOnly": true
+  }
+}

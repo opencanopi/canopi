@@ -1,0 +1,36 @@
+{
+  "about": "check.mjs --update lowers falling entries, prunes deleted-file entries, deletes emptied derived files, and never raises a rising entry (canopi-hlewq, 2.1-M530)",
+  "files": {
+    "desktop/web/src/a.ts": "export const a = 1;\n",
+    "policy/adapters/ast-grep.mjs": "export function collect({ select }) {\n  const rule = select?.[0];\n  if (rule === 'derived-empty') return [];\n  if (rule === 'derived-lower') return [{ rule: 'derived-lower', path: 'desktop/web/src/a.ts' }];\n  return [{ rule: 'derived-rise', path: 'desktop/web/src/a.ts' }, { rule: 'derived-rise', path: 'desktop/web/src/a.ts' }];\n}\n",
+    "policy/rules.json": {
+      "version": 1,
+      "phases": ["2"],
+      "rules": [
+        { "id": "derived-empty", "tool": "ast-grep", "ledger": "2.1-M530", "family": "derived-empty" },
+        { "id": "derived-lower", "tool": "ast-grep", "ledger": "2.1-M530", "family": "derived-lower" },
+        { "id": "derived-rise", "tool": "ast-grep", "ledger": "2.1-M530", "family": "derived-rise" }
+      ]
+    },
+    "policy/ratchets/derived-empty.json": {
+      "$schema": "./ratchet.schema.json",
+      "family": "derived-empty",
+      "entries": { "desktop/web/src/gone.ts": { "count": 1 } }
+    },
+    "policy/ratchets/derived-lower.json": {
+      "$schema": "./ratchet.schema.json",
+      "family": "derived-lower",
+      "entries": { "desktop/web/src/a.ts": { "count": 3 }, "desktop/web/src/gone.ts": { "count": 1 } }
+    },
+    "policy/ratchets/derived-rise.json": {
+      "$schema": "./ratchet.schema.json",
+      "family": "derived-rise",
+      "entries": { "desktop/web/src/a.ts": { "count": 1 } }
+    }
+  },
+  "expect": [
+    "removed:policy/ratchets/derived-empty.json",
+    "rising",
+    "updated:policy/ratchets/derived-lower.json"
+  ]
+}

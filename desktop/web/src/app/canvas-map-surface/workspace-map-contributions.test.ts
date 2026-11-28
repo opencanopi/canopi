@@ -3,21 +3,22 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createDefaultScenePersistedState } from '../../canvas/runtime/scene'
 import type { MapLibreApi, MapLibreMapInstance } from '../../maplibre/loader'
-import { IDLE_MAPLIBRE_CANVAS_SURFACE_STATE, type MapLibreCanvasSurfaceState } from '../../maplibre/canvas-surface-state'
+import type { MapLifetimeState } from '../../maplibre/map-lifetime'
 import type { TerrainProtocolSupport } from '../../maplibre/terrain'
 import { WorkspaceMapContributions } from './workspace-map-contributions'
+import { USER_LOCATION_OVERLAY_PORT } from './user-location-overlay-port'
 import { createDesktopWorkspaceMapContributionAdapter } from './desktop-workspace-map-contribution-adapter'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
-import { designSessionStore } from '../document-session/store'
-import { activePanel, selectPanel, sidePanel } from '../shell/state'
-import { endSiteDataTransients, setPin, setProfileLine } from '../lidar/site-transients'
+import { createTestSessionCore } from '../../__tests__/support/session-core-fixture'
+import { selectPanel, sidePanel } from '../shell/state'
+import { endSiteDataTransients, setPin, setProfileLine } from '../data-library/site-transients'
 import type { CanopiFile } from '../../types/design'
 import { signal } from '@preact/signals'
 import { createWorkspaceRuntimeComposition } from './workspace-runtime-composition'
-import { createDetachedCanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { createDetachedSceneRuntimePanelTargetAdapter } from '../../canvas/runtime/scene-runtime/panel-target-adapter'
 import { createTestCanvasRuntimeSurfaces } from '../../__tests__/support/canvas-runtime-surfaces'
-import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+import type { SceneLayerFactory } from './scene-layer-factory'
 import type { WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 import type { RasterDisplay, RasterDisplayLayer } from '../../maplibre/raster-display/adapter'
 import type { SiteMapOverlay } from '../../maplibre/site-overlay'
@@ -113,7 +114,7 @@ function snapshot(identity: object, overrides: Partial<WorkspaceMapContributionS
     sessionIdentity: identity,
     lidar: [layer()],
     terrain: { contourIntervalMeters: 1, contoursVisible: false, contoursOpacity: 1, hillshadeVisible: false, hillshadeOpacity: 1, isDark: false },
-    overlays: { runtime: { getSceneSnapshot: () => scene }, location: { lat: 48, lon: 2 }, hoveredTargets: [{ kind: 'zone', zone_id: 'plot' }], selectedTargets: [], site: null },
+    overlays: { site: null },
     ...overrides,
   }
 }
@@ -146,16 +147,21 @@ function locationFeed() {
   return feed<UserLocationReading | null>(null)
 }
 
+function readyLayers(state: MapLifetimeState | undefined) {
+  return state?.kind === 'ready' ? state.layers : undefined
+}
+
 function fixture(loadTerrainSupport = vi.fn(async () => terrainSupport), siteHover = hoverFeed(), userLocation = locationFeed()) {
   const identity = {}
   const map = new ContributionMap()
-  const states: MapLibreCanvasSurfaceState[] = []
+  const states: MapLifetimeState[] = []
   const logError = vi.fn()
   const failure = vi.fn()
   let active = true
   let raster!: FakeRasterDisplay
   const manager = new WorkspaceMapContributions({
-    onFailure: failure, loadTerrainSupport, onStateChange: (state) => states.push(state), logError, siteHover, userLocation,
+    onFailure: failure, loadTerrainSupport, onMapLifetimeChange: (state) => states.push(state), logError, siteHover, userLocation,
+    userLocationOverlay: USER_LOCATION_OVERLAY_PORT,
     createRasterDisplay: (_map, options) => { raster = new FakeRasterDisplay(map, options.onLayersChanged!); return raster },
   })
   manager.attach({ map, maplibre: {} as MapLibreApi, lifetime: { on() {}, off() {}, addCleanup() {} }, isCurrent: () => active })
@@ -174,6 +180,35 @@ function withSite(input: WorkspaceMapContributionSnapshot, pin: readonly [number
 }
 
 async function flush() { await Promise.resolve(); await Promise.resolve() }
+
+function createFeedComposition(
+  mapContributions: Parameters<typeof createWorkspaceRuntimeComposition>[0]['mapContributions'],
+  onControls: (contributions: { siteHover?: unknown; userLocation?: unknown }) => void,
+) {
+  const surfaces = createTestCanvasRuntimeSurfaces()
+  return createWorkspaceRuntimeComposition({
+    container: document.createElement('div'),
+    appAdapter: createDetachedCanvasRuntimeAppAdapter(),
+    targetPresentation: createDetachedSceneRuntimePanelTargetAdapter(),
+    mapContributions,
+    readSnapshot: () => null,
+  }, {
+    createRendererComposition: () => ({}) as SceneLayerFactory,
+    createRuntime: () => ({
+      cameraHost: {} as never, commandSurface: surfaces.commands, querySurface: surfaces.queries,
+      documentSurface: surfaces.documents, init: vi.fn(), unmountRenderer: vi.fn(), remountRenderer: vi.fn(),
+      destroy: vi.fn(), connectRenderTarget: vi.fn(() => () => {}),
+    }) as never,
+    createControls: (options) => {
+      onControls(options.contributions)
+      return { setAttributionCompact: vi.fn() } as never
+    },
+    createWorkspace: () => ({
+      requestGenerationDisconnect: vi.fn(async () => {}), activate: vi.fn(), teardown: vi.fn(async () => {}),
+      retry: vi.fn(() => false), updateMapContributions: vi.fn(), updateBackgroundPresentation: vi.fn(),
+    }),
+  })
+}
 
 describe('WorkspaceMapContributions', () => {
   it.each([
@@ -203,7 +238,7 @@ describe('WorkspaceMapContributions', () => {
     else f.manager.handleMapError({ sourceId: 'terrain-dem', error: new Error('terrain tile failed') })
     await flush()
     expect(f.failure).toHaveBeenCalledExactlyOnceWith(cleanup)
-    expect(f.states.at(-1)).toMatchObject({ status: 'error', terrainStatus: 'idle' })
+    expect(f.states.at(-1)).toMatchObject({ kind: 'failed' })
     const mutations = f.map.addSource.mock.calls.length
     f.manager.update(input)
     f.manager.admitStyle()
@@ -228,7 +263,7 @@ describe('WorkspaceMapContributions', () => {
     if (phase === 'live') f.manager.update(input)
     else f.manager.admitStyle()
     expect(f.failure).toHaveBeenCalledExactlyOnceWith(error)
-    expect(f.states.at(-1)).toMatchObject({ status: 'error', terrainStatus: 'idle' })
+    expect(f.states.at(-1)).toMatchObject({ kind: 'failed' })
     expect(f.map.sources.size).toBe(0)
     const mutations = f.map.addSource.mock.calls.length
     f.manager.update(input)
@@ -236,7 +271,7 @@ describe('WorkspaceMapContributions', () => {
     f.manager.dispose()
     expect(f.failure).toHaveBeenCalledOnce()
     expect(f.map.addSource).toHaveBeenCalledTimes(mutations)
-    expect(f.states.at(-1)?.status).toBe('error')
+    expect(f.states.at(-1)?.kind).toBe('failed')
   })
 
   it('treats ordering after an async terrain rebuild as a hard failure', async () => {
@@ -249,7 +284,7 @@ describe('WorkspaceMapContributions', () => {
     pending.resolve(terrainSupport)
     await flush()
     expect(f.failure).toHaveBeenCalledExactlyOnceWith(error)
-    expect(f.states.at(-1)).toMatchObject({ status: 'error', terrainStatus: 'idle' })
+    expect(f.states.at(-1)).toMatchObject({ kind: 'failed' })
   })
 
   it('keeps terrain source construction failures passive', async () => {
@@ -263,7 +298,7 @@ describe('WorkspaceMapContributions', () => {
     f.manager.admitStyle()
     await flush()
     expect(f.failure).not.toHaveBeenCalled()
-    expect(f.states.at(-1)).toMatchObject({ status: 'ready', terrainStatus: 'error' })
+    expect(readyLayers(f.states.at(-1))?.get('terrain')).toEqual({ kind: 'failed', reason: 'terrain' })
   })
 
   it('hands the latest immutable band to the renderer only once the style is ready, beneath the scene', () => {
@@ -272,19 +307,19 @@ describe('WorkspaceMapContributions', () => {
     expect(f.raster.syncs).toEqual([])
     f.manager.admitStyle()
     expect(f.raster.syncs.at(-1)).toEqual({ ids: ['lidar-b', 'lidar-a'], beforeId: 'canopi-shared-scene' })
-    expect(f.states.at(-1)?.status).toBe('ready')
+    expect(f.states.at(-1)?.kind).toBe('ready')
   })
 
   it('reorders renderer layers that arrive asynchronously into the band below the scene', () => {
     const f = fixture()
-    f.manager.update(snapshot(f.identity, { lidar: [layer('lidar-b'), layer('lidar-a')] }))
+    f.manager.update(withSite(snapshot(f.identity, { lidar: [layer('lidar-b'), layer('lidar-a')] }), [2.001, 48.001]))
     f.manager.admitStyle()
     f.raster.arrive('lidar-a')
     f.raster.arrive('lidar-b')
     expect(f.map.order.indexOf('basemap-raster')).toBeLessThan(f.map.order.indexOf('lidar-b'))
     expect(f.map.order.indexOf('lidar-b')).toBeLessThan(f.map.order.indexOf('lidar-a'))
     expect(f.map.order.indexOf('lidar-a')).toBeLessThan(f.map.order.indexOf('canopi-shared-scene'))
-    expect(f.map.order.indexOf('canopi-shared-scene')).toBeLessThan(f.map.order.indexOf('panel-target-hover-zones-fill'))
+    expect(f.map.order.indexOf('canopi-shared-scene')).toBeLessThan(f.map.order.indexOf('site-pin-ring'))
     expect(f.failure).not.toHaveBeenCalled()
   })
 
@@ -302,13 +337,13 @@ describe('WorkspaceMapContributions', () => {
   it('keeps a renderer failure passive for editing and the other contributions', () => {
     const f = fixture()
     f.raster.syncError = new Error('renderer rejected the band')
-    f.manager.update(snapshot(f.identity))
+    f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
     f.manager.admitStyle()
     expect(f.failure).not.toHaveBeenCalled()
-    expect(f.states.at(-1)?.status).toBe('ready')
-    expect(f.map.getLayer('panel-target-hover-zones-fill')).toBeTruthy()
+    expect(f.states.at(-1)?.kind).toBe('ready')
+    expect(f.map.getLayer('site-pin-ring')).toBeTruthy()
     expect(f.logError).toHaveBeenCalled()
-    expect(f.manager.handleMapError({ sourceId: 'mlrcog0-src-lidar-a', error: new Error('tile') })).toBe(true)
+    expect(f.manager.handleMapError({ sourceId: 'canopi-raster-src-lidar-a-r1', error: new Error('tile') })).toBe(true)
     expect(f.failure).not.toHaveBeenCalled()
   })
 
@@ -344,7 +379,7 @@ describe('WorkspaceMapContributions', () => {
     second.resolve(terrainSupport)
     await flush()
     expect(f.map.addSource).toHaveBeenCalledTimes(sourceCount)
-    expect(f.states.at(-1)?.terrainStatus).toBe('ready')
+    expect(readyLayers(f.states.at(-1))?.get('terrain')).toEqual({ kind: 'ready' })
   })
 
   it.each(['null', 'disposed', 'expired'] as const)('fences pending terrain after %s', async (reason) => {
@@ -363,7 +398,7 @@ describe('WorkspaceMapContributions', () => {
 
   it('fences reentrant disposal during a source mutation before another layer can be added', () => {
     const f = fixture()
-    f.manager.update(snapshot(f.identity))
+    f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
     f.map.addSource.mockImplementationOnce((id) => {
       f.map.sources.set(id, { setData: vi.fn() })
       f.manager.dispose()
@@ -371,7 +406,7 @@ describe('WorkspaceMapContributions', () => {
     f.manager.admitStyle()
     expect(f.map.addLayer).not.toHaveBeenCalled()
     expect(f.map.sources.size).toBe(0)
-    expect(f.states.at(-1)?.status).toBe('idle')
+    expect(f.states.at(-1)?.kind).toBe('released')
   })
 
   it('clears partial terrain if a source mutation synchronously disables terrain', async () => {
@@ -386,19 +421,19 @@ describe('WorkspaceMapContributions', () => {
     await flush()
     expect(f.map.getSource('terrain-dem')).toBeUndefined()
     expect(f.map.getLayer('hillshade-layer')).toBeUndefined()
-    expect(f.states.at(-1)?.terrainStatus).toBe('idle')
+    expect(readyLayers(f.states.at(-1))?.get('terrain')).toBeUndefined()
   })
 
   it('publishes terrain failure without disabling editing or other contributions', async () => {
     const f = fixture(vi.fn(async () => { throw new Error('terrain offline') }))
-    f.manager.update(snapshot(f.identity, { terrain: { ...snapshot(f.identity).terrain, hillshadeVisible: true } }))
+    f.manager.update(withSite(snapshot(f.identity, { terrain: { ...snapshot(f.identity).terrain, hillshadeVisible: true } }), [2.001, 48.001]))
     f.manager.admitStyle()
     await flush()
-    expect(f.states.at(-1)).toMatchObject({ status: 'ready', terrainStatus: 'error' })
+    expect(readyLayers(f.states.at(-1))?.get('terrain')).toEqual({ kind: 'failed', reason: 'terrain' })
     // The notice is a fixed sentence; engine text stays in the log, not in the state.
-    expect(f.states.at(-1)).not.toHaveProperty('terrainErrorMessage')
+    expect(JSON.stringify(f.states.at(-1))).not.toContain('terrain offline')
     expect(f.raster.syncs.at(-1)?.ids).toEqual(['lidar-a'])
-    expect(f.map.getLayer('panel-target-hover-zones-fill')).toBeTruthy()
+    expect(f.map.getLayer('site-pin-ring')).toBeTruthy()
   })
 
   it('publishes no engine text, so a terrain tile error with new text publishes no new state', async () => {
@@ -406,7 +441,7 @@ describe('WorkspaceMapContributions', () => {
     f.manager.update(snapshot(f.identity, { terrain: { ...snapshot(f.identity).terrain, hillshadeVisible: true } }))
     f.manager.admitStyle()
     await flush()
-    expect(f.states.at(-1)?.terrainStatus).toBe('error')
+    expect(readyLayers(f.states.at(-1))?.get('terrain')).toEqual({ kind: 'failed', reason: 'terrain' })
     const published = f.states.length
     // Each tile error carries its own engine text; the notice is the same fixed sentence.
     f.manager.handleMapError({ sourceId: 'terrain-dem', error: new Error('tile 12/3/4 failed') })
@@ -416,8 +451,9 @@ describe('WorkspaceMapContributions', () => {
     f.raster.added.push('lidar-a')
     f.map.order.push('lidar-a')
     f.manager.update(snapshot(f.identity))
-    expect(f.states.at(-1)?.status).toBe('error')
-    expect(JSON.stringify(f.states)).not.toMatch(/terrain offline|tile 12|order failed|secret/)
+    expect(f.states.at(-1)?.kind).toBe('failed')
+    expect(JSON.stringify(f.states, (_key, value) => value instanceof Map ? [...value.entries()] : value))
+      .not.toMatch(/terrain offline|tile 12|order failed|secret/)
   })
 
   it('ignores delayed source errors after contributions are disconnected', () => {
@@ -426,10 +462,10 @@ describe('WorkspaceMapContributions', () => {
     f.manager.admitStyle()
     f.manager.update(null)
     const published = f.states.length
-    expect(f.manager.handleMapError({ sourceId: 'mlrcog0-src-lidar-a' })).toBe(true)
+    expect(f.manager.handleMapError({ sourceId: 'canopi-raster-src-lidar-a-r1' })).toBe(true)
     expect(f.manager.handleMapError({ sourceId: 'terrain-dem' })).toBe(true)
     expect(f.states).toHaveLength(published)
-    expect(f.states.at(-1)?.status).toBe('idle')
+    expect(f.states.at(-1)?.kind).toBe('admitted')
   })
 
   it('disposes overlays, terrain, rasters and listeners once with idle state', async () => {
@@ -437,7 +473,7 @@ describe('WorkspaceMapContributions', () => {
     f.manager.update(snapshot(f.identity, { terrain: { ...snapshot(f.identity).terrain, hillshadeVisible: true } }))
     f.manager.admitStyle()
     await flush()
-    expect(f.states.at(-1)?.status).toBe('ready')
+    expect(f.states.at(-1)?.kind).toBe('ready')
     f.manager.dispose()
     const mutations = f.map.removeSource.mock.calls.length
     f.manager.dispose()
@@ -446,28 +482,27 @@ describe('WorkspaceMapContributions', () => {
     expect(f.map.removeSource).toHaveBeenCalledTimes(mutations)
     expect(f.map.sources.size).toBe(0)
     expect([...f.map.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true)
-    expect(f.states.at(-1)).toEqual(IDLE_MAPLIBRE_CANVAS_SURFACE_STATE)
+    expect(f.states.at(-1)).toEqual({ kind: 'released' })
   })
 
   describe('optional overlay failures', () => {
     it.each(['initial', 'live'] as const)('keeps the map ready when the overlay fails during %s work', (phase) => {
       const f = fixture()
-      const input = snapshot(f.identity)
+      const input = withSite(snapshot(f.identity), phase === 'live' ? null : [2.001, 48.001])
       f.manager.update(input)
       if (phase === 'live') f.manager.admitStyle()
       const error = new Error('overlay failed')
       const add = f.map.addLayer.getMockImplementation()!
       f.map.addLayer.mockImplementation((candidate) => {
-        if (String(candidate.id).startsWith('panel-target-')) throw error
+        if (String(candidate.id).startsWith('site-')) throw error
         add(candidate)
       })
       if (phase === 'live') {
-        // A new selection adds the selection overlay on the live map.
-        f.manager.update({ ...input, overlays: { ...input.overlays, selectedTargets: [{ kind: 'zone', zone_id: 'plot' }] } })
+        f.manager.update(withSite(input, [2.001, 48.001]))
       } else f.manager.admitStyle()
       expect(f.failure).not.toHaveBeenCalled()
-      expect(f.states.at(-1)).toMatchObject({ status: 'ready', layerSkipped: true })
-      expect(f.map.sources.has('panel-target-hover-source')).toBe(false)
+      expect(readyLayers(f.states.at(-1))?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
+      expect(f.map.sources.has('site-overlay-source')).toBe(false)
       expect(f.raster.disposed).toBe(false)
     })
 
@@ -477,15 +512,15 @@ describe('WorkspaceMapContributions', () => {
       const original = f.map[method].getMockImplementation()! as (...args: unknown[]) => void
       ;(f.map[method] as ReturnType<typeof vi.fn>).mockImplementation((...args: unknown[]) => {
         const id = typeof args[0] === 'string' ? args[0] : String((args[0] as { id?: unknown }).id)
-        if (id.startsWith('panel-target-')) throw error
+        if (id.startsWith('site-')) throw error
         original(...args)
       })
-      f.manager.update(snapshot(f.identity))
+      f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
       f.manager.admitStyle()
       expect(f.failure).not.toHaveBeenCalled()
-      expect(f.states.at(-1)).toMatchObject({ status: 'ready', layerSkipped: true })
-      expect(f.map.getSource('panel-target-hover-source')).toBeUndefined()
-      expect(f.map.order.some((id) => id.startsWith('panel-target-'))).toBe(false)
+      expect(readyLayers(f.states.at(-1))?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
+      expect(f.map.getSource('site-overlay-source')).toBeUndefined()
+      expect(f.map.order.some((id) => id.startsWith('site-'))).toBe(false)
       expect(f.logError).toHaveBeenCalledWith(expect.stringContaining('overlay'), error)
       // The other contributions are untouched.
       expect(f.raster.syncs.at(-1)?.ids).toEqual(['lidar-a'])
@@ -496,38 +531,38 @@ describe('WorkspaceMapContributions', () => {
       const add = f.map.addSource.getMockImplementation()!
       let broken = true
       f.map.addSource.mockImplementation((id, source) => {
-        if (broken && id.startsWith('panel-target-')) throw new Error('overlay rejected')
+        if (broken && id.startsWith('site-')) throw new Error('overlay rejected')
         add(id, source)
       })
-      f.manager.update(snapshot(f.identity))
+      const initial = withSite(snapshot(f.identity), [2.001, 48.001])
+      f.manager.update(initial)
       f.manager.admitStyle()
       const attempts = f.map.addSource.mock.calls.length
-      f.manager.update(snapshot(f.identity))
+      f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
       expect(f.map.addSource).toHaveBeenCalledTimes(attempts)
       expect(f.logError).toHaveBeenCalledOnce()
       broken = false
-      const next = snapshot(f.identity)
-      f.manager.update({ ...next, overlays: { ...next.overlays, selectedTargets: [{ kind: 'zone', zone_id: 'plot' }] } })
-      expect(f.map.getSource('panel-target-hover-source')).toBeTruthy()
-      expect(f.states.at(-1)).toMatchObject({ status: 'ready', layerSkipped: false })
+      f.manager.update(withSite(snapshot(f.identity), [2.002, 48.001]))
+      expect(f.map.getSource('site-overlay-source')).toBeTruthy()
+      expect(readyLayers(f.states.at(-1))?.get('library:skipped')).toBeUndefined()
     })
 
     it('skips the overlay on a MapLibre validation event that names its source', () => {
       const f = fixture()
       const add = f.map.addSource.getMockImplementation()!
       f.map.addSource.mockImplementation((id, source) => {
-        if (id.startsWith('panel-target-')) {
+        if (id.startsWith('site-')) {
           // MapLibre validates without throwing: it emits and does not add.
           expect(f.manager.handleMapError({ error: new Error(`sources.${id}: unknown property "id"`) })).toBe(true)
           return
         }
         add(id, source)
       })
-      f.manager.update(snapshot(f.identity))
+      f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
       f.manager.admitStyle()
       expect(f.failure).not.toHaveBeenCalled()
-      expect(f.states.at(-1)).toMatchObject({ status: 'ready', layerSkipped: true })
-      expect(f.map.order.some((id) => id.startsWith('panel-target-'))).toBe(false)
+      expect(readyLayers(f.states.at(-1))?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
+      expect(f.map.order.some((id) => id.startsWith('site-'))).toBe(false)
     })
 
     it('treats a failed overlay rollback as a hard failure', () => {
@@ -535,11 +570,11 @@ describe('WorkspaceMapContributions', () => {
       const addLayer = f.map.addLayer.getMockImplementation()!
       f.map.addLayer.mockImplementation((candidate) => {
         addLayer(candidate)
-        if (String(candidate.id).startsWith('panel-target-')) throw new Error('partial overlay')
+        if (String(candidate.id).startsWith('site-')) throw new Error('partial overlay')
       })
       const cleanup = new Error('overlay rollback failed')
       f.map.removeLayer.mockImplementation(() => { throw cleanup })
-      f.manager.update(snapshot(f.identity))
+      f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
       f.manager.admitStyle()
       expect(f.failure).toHaveBeenCalledExactlyOnceWith(cleanup)
     })
@@ -551,7 +586,7 @@ describe('WorkspaceMapContributions', () => {
       await flush()
       expect(f.manager.handleMapError({ error: new Error('layers.hillshade-layer.paint.hillshade-exaggeration: number expected') })).toBe(true)
       expect(f.failure).not.toHaveBeenCalled()
-      expect(f.states.at(-1)).toMatchObject({ status: 'ready', terrainStatus: 'error' })
+      expect(readyLayers(f.states.at(-1))?.get('terrain')).toEqual({ kind: 'failed', reason: 'terrain' })
     })
 
     it('draws the Site data pin above the panel Targets in the interaction-overlay band', () => {
@@ -559,7 +594,7 @@ describe('WorkspaceMapContributions', () => {
       f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
       f.manager.admitStyle()
       expect(f.map.getSource('site-overlay-source')).toBeTruthy()
-      expect(f.map.order.indexOf('panel-target-hover-plants')).toBeLessThan(f.map.order.indexOf('site-pin-ring'))
+      expect(f.map.order.indexOf('canopi-shared-scene')).toBeLessThan(f.map.order.indexOf('site-pin-ring'))
       expect(f.map.order.indexOf('site-pin-ring')).toBeLessThan(f.map.order.indexOf('site-pin-core'))
       f.manager.update(withSite(snapshot(f.identity), null))
       expect(f.map.getSource('site-overlay-source')).toBeUndefined()
@@ -575,35 +610,32 @@ describe('WorkspaceMapContributions', () => {
         add(candidate)
       })
       const selected = snapshot(f.identity)
-      const input = withSite({ ...selected, overlays: { ...selected.overlays, selectedTargets: [{ kind: 'zone', zone_id: 'plot' }] } }, [2.001, 48.001])
+      const input = withSite(selected, [2.001, 48.001])
       f.manager.update(input)
       f.manager.admitStyle()
       expect(f.failure).not.toHaveBeenCalled()
-      expect(f.map.getLayer('panel-target-selection-zones-line')).toBeTruthy()
       expect(f.map.order.some((id) => id.startsWith('site-'))).toBe(false)
-      expect(f.states.at(-1)).toMatchObject({ status: 'ready', layerSkipped: true })
+      expect(readyLayers(f.states.at(-1))?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
       const attempts = f.map.addLayer.mock.calls.length
-      // A new panel hover is a new Target set but the same pin: the panel overlay redraws, the site is not retried.
-      f.manager.update({ ...input, overlays: { ...input.overlays, hoveredTargets: [] } })
+      // A new snapshot with the same pin: the site is not retried.
+      f.manager.update({ ...input, overlays: { ...input.overlays } })
       expect(f.map.addLayer.mock.calls.slice(attempts).some(([candidate]) => String(candidate.id).startsWith('site-'))).toBe(false)
-      expect(f.map.getLayer('panel-target-selection-zones-line')).toBeTruthy()
       expect(f.logError).toHaveBeenCalledOnce()
       broken = false
       f.manager.update(withSite(input, [2.002, 48.001]))
       expect(f.map.getLayer('site-pin-core')).toBeTruthy()
-      expect(f.states.at(-1)).toMatchObject({ status: 'ready', layerSkipped: false })
+      expect(readyLayers(f.states.at(-1))?.get('library:skipped')).toBeUndefined()
     })
 
     it('routes a MapLibre error naming a site layer to the site key, leaving the selection highlight drawn', () => {
       const f = fixture()
       const selected = snapshot(f.identity)
-      f.manager.update(withSite({ ...selected, overlays: { ...selected.overlays, selectedTargets: [{ kind: 'zone', zone_id: 'plot' }] } }, [2.001, 48.001]))
+      f.manager.update(withSite(selected, [2.001, 48.001]))
       f.manager.admitStyle()
       expect(f.manager.handleMapError({ layer: { id: 'site-pin-core' }, error: new Error('site paint rejected') })).toBe(true)
       expect(f.failure).not.toHaveBeenCalled()
       expect(f.map.order.some((id) => id.startsWith('site-'))).toBe(false)
-      expect(f.map.getLayer('panel-target-selection-zones-line')).toBeTruthy()
-      expect(f.states.at(-1)).toMatchObject({ status: 'ready', layerSkipped: true })
+      expect(readyLayers(f.states.at(-1))?.get('library:skipped')).toEqual({ kind: 'skipped', reason: 'layer-skipped' })
       // A late error from a site layer already removed stays passive.
       f.manager.dispose()
       expect(f.manager.handleMapError({ sourceId: 'site-overlay-source', error: new Error('late') })).toBe(true)
@@ -627,7 +659,7 @@ describe('WorkspaceMapContributions', () => {
       f.manager.admitStyle()
       const rasterSyncs = f.raster.syncs.length
       const orderReads = f.map.getLayersOrder.mock.calls.length
-      const panelSource = f.map.getSource('panel-target-hover-source')!
+      const siteSource = f.map.getSource('site-overlay-source')!
       f.siteHover.push([2.0015, 48.001])
       const hoverSource = f.map.getSource('site-hover-source')!
       expect(hoverSource).toBeTruthy()
@@ -637,11 +669,11 @@ describe('WorkspaceMapContributions', () => {
       expect(hoverSource.setData).toHaveBeenCalledTimes(2)
       expect(f.raster.syncs).toHaveLength(rasterSyncs)
       expect(f.map.getLayersOrder).toHaveBeenCalledTimes(orderReads)
-      expect(panelSource.setData).not.toHaveBeenCalled()
+      expect(siteSource.setData).not.toHaveBeenCalled()
       // The terrain rebuild the drain started is still current: the hover moved no revision.
       terrain.resolve(terrainSupport)
       await flush()
-      expect(f.states.at(-1)).toMatchObject({ terrainStatus: 'ready' })
+      expect(readyLayers(f.states.at(-1))?.get('terrain')).toEqual({ kind: 'ready' })
       f.siteHover.push(null)
       expect(f.map.getSource('site-hover-source')).toBeUndefined()
     })
@@ -660,30 +692,8 @@ describe('WorkspaceMapContributions', () => {
     it('reaches the map from the composition\'s own effect, never through the contributions read', async () => {
       const hover = signal<readonly [number, number] | null>(null)
       const read = vi.fn(() => null)
-      const surfaces = createTestCanvasRuntimeSurfaces()
       let feed: Parameters<typeof fixture>[1] | undefined
-      const composition = createWorkspaceRuntimeComposition({
-        container: document.createElement('div'),
-        appAdapter: createDetachedCanvasRuntimeAppAdapter(),
-        targetPresentation: createDetachedSceneRuntimePanelTargetAdapter(),
-        mapContributions: { read, readSiteHover: () => hover.value },
-        readSnapshot: () => null,
-      }, {
-        createRendererComposition: () => ({}) as SharedMapSceneRendererComposition,
-        createRuntime: () => ({
-          cameraHost: {} as never, commandSurface: surfaces.commands, querySurface: surfaces.queries,
-          documentSurface: surfaces.documents, init: vi.fn(), unmountRenderer: vi.fn(), remountRenderer: vi.fn(),
-          destroy: vi.fn(), connectRenderTarget: vi.fn(() => () => {}),
-        }) as never,
-        createControls: (options) => {
-          feed = options.contributions.siteHover as typeof feed
-          return { setAttributionCompact: vi.fn() } as never
-        },
-        createWorkspace: () => ({
-          requestGenerationDisconnect: vi.fn(async () => {}), activate: vi.fn(), teardown: vi.fn(async () => {}),
-          retry: vi.fn(() => false), canRetry: vi.fn(() => false), updateMapContributions: vi.fn(), updateBackgroundPresentation: vi.fn(),
-        }),
-      })
+      const composition = createFeedComposition({ read, readSiteHover: () => hover.value }, (c) => { feed = c.siteHover as typeof feed })
       await composition.start()
       const f = fixture(undefined, feed!)
       f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
@@ -725,7 +735,7 @@ describe('WorkspaceMapContributions', () => {
       expect(f.failure).not.toHaveBeenCalled()
       expect(f.logError).toHaveBeenCalledOnce()
       expect(f.map.order.some((id) => id.startsWith('site-'))).toBe(false)
-      expect(f.map.getLayer('panel-target-hover-zones-fill')).toBeTruthy()
+      expect(f.raster.disposed).toBe(false)
     })
   })
 
@@ -753,7 +763,7 @@ describe('WorkspaceMapContributions', () => {
       // The terrain rebuild the drain started is still current: the reading moved no revision.
       terrain.resolve(terrainSupport)
       await flush()
-      expect(f.states.at(-1)).toMatchObject({ terrainStatus: 'ready' })
+      expect(readyLayers(f.states.at(-1))?.get('terrain')).toEqual({ kind: 'ready' })
       f.userLocation.push(null)
       expect(f.map.getSource('user-location-source')).toBeUndefined()
       expect(f.map.order.some((id) => id.startsWith('user-location-'))).toBe(false)
@@ -791,7 +801,7 @@ describe('WorkspaceMapContributions', () => {
 
     it('a failing write keeps the map and the other overlays, logs once without the error (it can echo the reading), and retries on the next fix', () => {
       const f = fixture()
-      f.manager.update(snapshot(f.identity))
+      f.manager.update(withSite(snapshot(f.identity), [2.001, 48.001]))
       f.manager.admitStyle()
       const add = f.map.addSource.getMockImplementation()!
       let broken = true
@@ -806,7 +816,7 @@ describe('WorkspaceMapContributions', () => {
       expect(JSON.stringify(f.logError.mock.calls)).not.toContain('2.00')
       expect(f.logError.mock.calls[0]).toHaveLength(1)
       expect(f.map.order.some((id) => id.startsWith('user-location-'))).toBe(false)
-      expect(f.map.getLayer('panel-target-hover-zones-fill')).toBeTruthy()
+      expect(f.map.getLayer('site-pin-ring')).toBeTruthy()
       broken = false
       f.userLocation.push(FIX)
       expect(f.map.getSource('user-location-source')).toBeTruthy()
@@ -815,30 +825,10 @@ describe('WorkspaceMapContributions', () => {
     it('reaches the map from the composition\'s own effect, never the contributions read, and hides during a story presentation (Q12)', async () => {
       const reading = signal<UserLocationReading | null>(null)
       const read = vi.fn(() => null)
-      const surfaces = createTestCanvasRuntimeSurfaces()
       let feed: Parameters<typeof fixture>[2] | undefined
-      const composition = createWorkspaceRuntimeComposition({
-        container: document.createElement('div'),
-        appAdapter: createDetachedCanvasRuntimeAppAdapter(),
-        targetPresentation: createDetachedSceneRuntimePanelTargetAdapter(),
-        mapContributions: { read, readUserLocation: () => reading.value },
-        readSnapshot: () => null,
-      }, {
-        createRendererComposition: () => ({}) as SharedMapSceneRendererComposition,
-        createRuntime: () => ({
-          cameraHost: {} as never, commandSurface: surfaces.commands, querySurface: surfaces.queries,
-          documentSurface: surfaces.documents, init: vi.fn(), unmountRenderer: vi.fn(), remountRenderer: vi.fn(),
-          destroy: vi.fn(), connectRenderTarget: vi.fn(() => () => {}),
-        }) as never,
-        createControls: (options) => {
-          expect(options.contributions.siteHover, 'Web has no chart hover').toBeUndefined()
-          feed = options.contributions.userLocation as typeof feed
-          return { setAttributionCompact: vi.fn() } as never
-        },
-        createWorkspace: () => ({
-          requestGenerationDisconnect: vi.fn(async () => {}), activate: vi.fn(), teardown: vi.fn(async () => {}),
-          retry: vi.fn(() => false), canRetry: vi.fn(() => false), updateMapContributions: vi.fn(), updateBackgroundPresentation: vi.fn(),
-        }),
+      const composition = createFeedComposition({ read, readUserLocation: () => reading.value }, (c) => {
+        expect(c.siteHover, 'Web has no chart hover').toBeUndefined()
+        feed = c.userLocation as typeof feed
       })
       await composition.start()
       const f = fixture(undefined, undefined, feed!)
@@ -879,10 +869,10 @@ describe('WorkspaceMapContributions', () => {
   })
 
   it('reads the Desktop pin and profile line into the snapshot in [lon, lat], and none in overview', () => {
-    designSessionStore.replaceCurrentDesignState({ name: 'Orchard' } as CanopiFile, null, 'Orchard')
+    const session = createTestSessionCore({ file: { name: 'Orchard' } as CanopiFile })
     selectPanel('site-data')
     try {
-      const adapter = createDesktopWorkspaceMapContributionAdapter()
+      const adapter = createDesktopWorkspaceMapContributionAdapter({ locationEnabled: true })
       const runtime = createTestCanvasQuerySurface()
       expect(adapter.read(runtime)?.overlays.site).toBeNull()
       setPin({ lon: 2.35, lat: 48.85 })
@@ -891,9 +881,9 @@ describe('WorkspaceMapContributions', () => {
       runtime.setPlacement({ x: 0, y: 0, scale: 0.01 })
       expect(adapter.read(runtime)?.overlays.site).toBeNull()
     } finally {
+      session.dispose()
       endSiteDataTransients()
       sidePanel.value = null
-      activePanel.value = 'canvas'
     }
   })
 })

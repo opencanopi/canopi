@@ -1,20 +1,11 @@
 import type { CanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
 import { CanvasPlantLabelResolver } from '../../canvas/runtime/plant-labels'
-import { CanvasSpeciesCache } from '../../canvas/runtime/species-cache'
+import { CanvasSpeciesCache } from './species-cache'
 import { speciesCatalogWorkbench } from '../plant-browser'
-import { finishSiteProfile } from '../lidar/profile'
-import { pinSiteDataPoint } from '../lidar/site-values'
-import { savedObjectStampWorkbench } from '../saved-object-stamps'
-import { createAppCanvasRuntimeAppAdapter, type CanvasRuntimeAppCapabilities } from './app-adapter'
-
-/**
- * Site data is Desktop's: a tap no tool uses pins, and Profile's finished line is profiled. The UI gallery, which stands
- * in for Desktop, hands its canvas the same two.
- */
-export const DESKTOP_SITE_DATA_CAPABILITIES: Pick<CanvasRuntimeAppCapabilities, 'pinAt' | 'finishProfile'> = Object.freeze({
-  pinAt: pinSiteDataPoint,
-  finishProfile: finishSiteProfile,
-})
+import { getLiveSessionCore } from '../document-session/live-core'
+import { designSessionStore } from '../document-session/store'
+import { placeStampThroughCore, savedObjectStampWorkbench } from '../saved-object-stamps'
+import { createAppCanvasRuntimeAppAdapter } from './app-adapter'
 
 export function createDesktopCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter {
   return createAppCanvasRuntimeAppAdapter({
@@ -24,8 +15,15 @@ export function createDesktopCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter 
       speciesCache: new CanvasSpeciesCache(),
     },
     savedObjectStamps: {
-      saveCurrentSelection: (capture) => savedObjectStampWorkbench.saveSelection(capture),
+      saveCurrentSelection: (capture) => savedObjectStampWorkbench.saveSelection({
+        ...capture,
+        design: capture.design !== undefined ? capture.design : designSessionStore.currentDesign.peek(),
+      }),
     },
-    ...DESKTOP_SITE_DATA_CAPABILITIES,
+    placeSavedStamp: (stamp, applyScene) => {
+      const core = getLiveSessionCore()
+      if (!core) return false
+      return placeStampThroughCore(core, stamp, () => applyScene()) !== null
+    },
   })
 }

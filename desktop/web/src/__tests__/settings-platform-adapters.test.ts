@@ -1,47 +1,101 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  DEFAULT_SETTINGS,
   SETTINGS_BASEMAP_STYLES,
   SETTINGS_LOCALES,
   SETTINGS_THEMES,
 } from '../generated/settings'
-import type { Settings } from '../types/settings'
-import { createDesktopSettingsPlatformAdapter } from '../platform/settings.desktop'
-import { createBrowserSettingsPlatformAdapter } from '../platform/settings.browser'
+import type { SettingsValues } from '../app/settings/field-table'
+import { decodeSettingsRecord } from '../app/settings/interpreter'
+import { createDesktopSettingsPlatformAdapter } from '../editions/desktop/settings'
+import { createBrowserSettingsPlatformAdapter } from '../editions/web/settings'
 import {
   createBrowserAppDataStore,
   type BrowserStorageAdapter,
 } from '../web/browser-app-data'
 
-function settings(overrides: Partial<Settings> = {}): Settings {
+const DEFAULT_SETTINGS_VALUES = decodeSettingsRecord(null).values
+
+function settings(overrides: Partial<SettingsValues> = {}): SettingsValues {
   return {
-    ...DEFAULT_SETTINGS,
+    ...decodeSettingsRecord(null).values,
     ...overrides,
   }
 }
 
-describe('settings platform adapters', () => {
-  it('delegates Desktop settings load and save to the injected transport', async () => {
-    const loaded = settings({ locale: 'fr' })
-    const getSettings = vi.fn(async () => loaded)
-    const setSettings = vi.fn(async (_settings: Settings) => undefined)
-    const adapter = createDesktopSettingsPlatformAdapter({ getSettings, setSettings })
+function rawSettings(overrides: Partial<SettingsValues> = {}): Record<string, unknown> {
+  return { ...settings(overrides) }
+}
 
-    await expect(adapter.load()).resolves.toBe(loaded)
+describe('settings platform adapters', () => {
+  it('delegates Desktop settings load and save to the injected record 2 transport', async () => {
+    const loaded = settings({ locale: 'fr', unit_system: 'us_customary', launch_check: false })
+    const getSettingsRecord = vi.fn(async () => ({
+      record: { version: 2, ...loaded },
+      reset_fields: [] as readonly string[],
+      newer_read_only: false,
+    }))
+    const patchSettingsRecord = vi.fn(async (_patch: Record<string, unknown>) => undefined)
+    const adapter = createDesktopSettingsPlatformAdapter({
+      getSettingsRecord,
+      patchSettingsRecord,
+      env: () => ({ languages: ['en-GB'], region: 'GB' }),
+    })
+
+    await expect(adapter.load()).resolves.toEqual(loaded)
     await expect(adapter.save(loaded)).resolves.toBeUndefined()
 
-    expect(getSettings).toHaveBeenCalledOnce()
-    expect(setSettings).toHaveBeenCalledOnce()
-    expect(setSettings).toHaveBeenCalledWith(loaded)
+    expect(getSettingsRecord).toHaveBeenCalledOnce()
+    expect(patchSettingsRecord).toHaveBeenCalledOnce()
+    expect(patchSettingsRecord).toHaveBeenCalledWith(loaded)
+  })
+
+  it('persists unit_system, launch_check, last_open_home, and unknown keys durably across Desktop relaunch (2e-2, #409 N4)', async () => {
+    let stored: Record<string, unknown> = {
+      version: 2,
+      ...settings({ last_open_home: null, unit_system: 'metric', launch_check: true }),
+      future_setting: 'kept',
+    }
+    const deps = {
+      getSettingsRecord: async () => ({
+        record: { ...stored },
+        reset_fields: [] as readonly string[],
+        newer_read_only: false,
+      }),
+      patchSettingsRecord: async (patch: Record<string, unknown>) => {
+        stored = { ...stored, ...patch, version: 2 }
+      },
+      env: () => ({ languages: ['en-GB'], region: 'GB' }),
+    }
+    const first = createDesktopSettingsPlatformAdapter(deps)
+    await first.load()
+    await first.savePatch?.(
+      {
+        unit_system: 'us_customary',
+        launch_check: false,
+        last_open_home: 'draft:draft-reopen-1',
+      },
+      settings({
+        unit_system: 'us_customary',
+        launch_check: false,
+        last_open_home: 'draft:draft-reopen-1',
+      }),
+    )
+
+    const relaunched = createDesktopSettingsPlatformAdapter(deps)
+    const reloaded = (await relaunched.load()) as SettingsValues
+    expect(reloaded.unit_system).toBe('us_customary')
+    expect(reloaded.launch_check).toBe(false)
+    expect(reloaded.last_open_home).toBe('draft:draft-reopen-1')
+    expect(stored.future_setting).toBe('kept')
   })
 
   it('loads the generated Rust default when browser settings are absent', async () => {
     const adapter = createBrowserSettingsPlatformAdapter({
       loadSettings: () => null,
       saveSettings: vi.fn(),
-    })
+    }, () => ({ languages: ['en-GB'], region: 'GB', os: 'linux' }))
 
-    expect(await adapter.load()).toEqual(DEFAULT_SETTINGS)
+    expect(await adapter.load()).toEqual(DEFAULT_SETTINGS_VALUES)
   })
 
   it('loads every valid browser settings field', async () => {
@@ -70,7 +124,7 @@ describe('settings platform adapters', () => {
       satellite_source: 'google_key',
     })
     const adapter = createBrowserSettingsPlatformAdapter({
-      loadSettings: () => stored,
+      loadSettings: () => ({ ...stored }),
       saveSettings: vi.fn(),
     })
 
@@ -80,7 +134,7 @@ describe('settings platform adapters', () => {
   it('accepts every generated Rust settings enum value', async () => {
     for (const locale of SETTINGS_LOCALES) {
       const adapter = createBrowserSettingsPlatformAdapter({
-        loadSettings: () => settings({ locale }),
+        loadSettings: () => rawSettings({ locale }),
         saveSettings: vi.fn(),
       })
       expect((await adapter.load()).locale).toBe(locale)
@@ -88,7 +142,7 @@ describe('settings platform adapters', () => {
 
     for (const theme of SETTINGS_THEMES) {
       const adapter = createBrowserSettingsPlatformAdapter({
-        loadSettings: () => settings({ theme }),
+        loadSettings: () => rawSettings({ theme }),
         saveSettings: vi.fn(),
       })
       expect((await adapter.load()).theme).toBe(theme)
@@ -96,7 +150,7 @@ describe('settings platform adapters', () => {
 
     for (const basemapStyle of SETTINGS_BASEMAP_STYLES) {
       const adapter = createBrowserSettingsPlatformAdapter({
-        loadSettings: () => settings({ basemap_style: basemapStyle }),
+        loadSettings: () => rawSettings({ basemap_style: basemapStyle }),
         saveSettings: vi.fn(),
       })
       expect((await adapter.load()).basemap_style).toBe(basemapStyle)
@@ -107,7 +161,7 @@ describe('settings platform adapters', () => {
     const adapter = createBrowserSettingsPlatformAdapter({
       loadSettings: () => ({ satellite_provider: 'eox', satellite_visible: true, satellite_opacity: 0.4 }),
       saveSettings: vi.fn(),
-    })
+    }, () => ({ languages: ['en-GB'], region: 'GB', os: 'linux' }))
 
     const loaded = await adapter.load()
     expect(loaded).toEqual(settings({ satellite_visible: true, satellite_opacity: 0.4 }))
@@ -118,7 +172,7 @@ describe('settings platform adapters', () => {
     const adapter = createBrowserSettingsPlatformAdapter({
       loadSettings: () => ({ locale: 'it', theme: 'dark' }),
       saveSettings: vi.fn(),
-    })
+    }, () => ({ languages: ['en-GB'], region: 'GB', os: 'linux' }))
 
     expect(await adapter.load()).toEqual(settings({ locale: 'it', theme: 'dark' }))
   })
@@ -156,7 +210,7 @@ describe('settings platform adapters', () => {
         unknown_setting: true,
       }),
       saveSettings: vi.fn(),
-    })
+    }, () => ({ languages: ['en-GB'], region: 'GB', os: 'linux' }))
 
     expect(await adapter.load()).toEqual(settings())
   })
@@ -205,7 +259,7 @@ describe('settings platform adapters', () => {
       name: 'Orchard pair',
       payload: { plants: 2 },
     }])
-    expect(store.loadSettings()).toEqual(settings({ locale: 'nl' }))
+    expect(await adapter.load()).toEqual(settings({ locale: 'nl' }))
   })
 })
 

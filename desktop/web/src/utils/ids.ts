@@ -2,7 +2,19 @@
 // Owner of the generic id minters (ids-only-in-minters, ADR 0024; §18 F17). Invariant: ids
 // are minted only by their minters; transport sequence numbers are never exported.
 
+import type { DraftId, OperationId } from '../generated/contracts'
+
 let fallbackCounter = 0
+
+/** Mints a branded `OperationId` (`u-<uuidv4>` or `s-<uuidv4>`, 2.1-M411, canopi-f47t.52.70). */
+export function mintOperationId(origin: 'u' | 's' = 'u'): OperationId {
+  return `${origin}-${createUuid()}` as OperationId
+}
+
+/** Mints a branded `DraftId` (`<uuidv4>`, 2.1-M547 / contracts §4). */
+export function mintDraftId(): DraftId {
+  return createUuid() as DraftId
+}
 
 export function createUuid(): string {
   const cryptoApi = globalThis.crypto as Crypto | undefined
@@ -23,15 +35,9 @@ export function createUuid(): string {
 function fillPseudoRandomBytes(bytes: Uint8Array): void {
   const counter = fallbackCounter++
   const now = Date.now()
-  for (let index = 0; index < bytes.length; index += 1) {
-    bytes[index] = Math.floor(Math.random() * 256)
-  }
-  for (let index = 0; index < 8; index += 1) {
-    bytes[index] = bytes[index]! ^ (Math.floor(now / (256 ** index)) & 0xff)
-  }
-  for (let index = 0; index < 4; index += 1) {
-    bytes[8 + index] = bytes[8 + index]! ^ (Math.floor(counter / (256 ** index)) & 0xff)
-  }
+  for (let i = 0; i < 16; i += 1) bytes[i] = (Math.random() * 256) | 0
+  for (let i = 0; i < 8; i += 1) bytes[i]! ^= Math.floor(now / 256 ** i) & 255
+  for (let i = 0; i < 4; i += 1) bytes[8 + i]! ^= Math.floor(counter / 256 ** i) & 255
 }
 
 function formatUuid(bytes: Uint8Array): string {

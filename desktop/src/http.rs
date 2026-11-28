@@ -1,5 +1,30 @@
 use std::time::Duration;
 
+/// Validates a geocoding URL before passing its canonical string to the HTTP client:
+/// requires `https`, an allowed host, no explicit port, no userinfo, and exact path `/search`.
+pub fn validate_geocoder_url(url: &str, allowed_hosts: &[&str]) -> Result<String, String> {
+    let parsed = reqwest::Url::parse(url).map_err(|e| format!("Invalid URL: {e}"))?;
+    if parsed.scheme() != "https" {
+        return Err("Only https geocoding URLs are allowed".to_owned());
+    }
+    if parsed.port().is_some() {
+        return Err("Explicit ports are not allowed for geocoding URLs".to_owned());
+    }
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err("Userinfo is not allowed in geocoding URLs".to_owned());
+    }
+    if parsed.path() != "/search" {
+        return Err("Only /search is allowed for geocoding URLs".to_owned());
+    }
+    if !parsed
+        .host_str()
+        .is_some_and(|host| allowed_hosts.contains(&host))
+    {
+        return Err("Geocoding host is not in GEOCODER_IDENTIFIED_HOSTS".to_owned());
+    }
+    Ok(parsed.into())
+}
+
 pub fn build_get_request(
     url: &str,
     user_agent: &str,
@@ -9,6 +34,7 @@ pub fn build_get_request(
         .header("User-Agent", user_agent)
         .config()
         .timeout_global(Some(timeout))
+        .max_redirects(0)
         .build()
 }
 

@@ -6,7 +6,7 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { currentCanvasSelection } from '../canvas/session-state'
-import type { SceneStore } from '../canvas/runtime/scene'
+import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import type { SceneInteractionEventHarness } from './support/canvas-interaction-events'
 import {
   contextMenuHost,
@@ -37,6 +37,9 @@ describe('SceneInteractionSession', () => {
     },
     () => ({ events }),
   )
+
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
+  const screen = (at: ScenePoint) => testView.view().worldToScreen(at)
 
   it('suppresses native context menus only on canvas interaction surfaces', () => {
     // The rotation handle sits above the drawn shapes (select/selection-hull.ts), so the selected zone must exist.
@@ -105,24 +108,26 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('select')
+    session.arm('select')
     deps.setSelection([plantTarget('plant-1')])
     const before = testView.viewport()
 
-    events.pointerDown({ x: 20, y: 30 }, { pointerId: 31 })
-    events.pointerMove({ x: 40, y: 50 }, { pointerId: 31, buttons: 1 })
+    events.pointerDown(screen({ x: 20, y: 30 }), { pointerId: 31 })
+    events.pointerMove(screen({ x: 40, y: 50 }), { pointerId: 31, buttons: 1 })
     // The right button joins the left one's pointer (a chord: no pointerdown), and Linux sends its menu at the press.
-    events.pointerMove({ x: 45, y: 55 }, { pointerId: 31, buttons: 3 })
-    const contextPoint = events.clientPoint({ x: 120, y: 30 })
+    events.pointerMove(screen({ x: 45, y: 55 }), { pointerId: 31, buttons: 3 })
+    const contextPoint = events.clientPoint(screen({ x: 120, y: 30 }))
     const contextMenu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: contextPoint.x, clientY: contextPoint.y })
     container.dispatchEvent(contextMenu)
-    events.pointerMove({ x: 50, y: 60 }, { pointerId: 31, buttons: 1 })
-    events.pointerUp({ x: 50, y: 60 }, { pointerId: 31 })
+    events.pointerMove(screen({ x: 50, y: 60 }), { pointerId: 31, buttons: 1 })
+    events.pointerUp(screen({ x: 50, y: 60 }), { pointerId: 31 })
 
     expect(contextMenu.defaultPrevented).toBe(true)
     expect(contextMenuHost.opened).toHaveLength(0)
     expect(currentCanvasSelection.value).toEqual(new Set(['plant-1']))
-    expect(store.persisted.plants.find((plant) => plant.id === 'plant-1')?.position).toEqual({ x: 50, y: 60 })
+    const moved = store.persisted.plants.find((plant) => plant.id === 'plant-1')?.position
+    expect(moved?.x).toBeCloseTo(50, 6)
+    expect(moved?.y).toBeCloseTo(60, 6)
     expect(onSceneEditCommit).toHaveBeenCalledOnce()
     expect(testView.viewport()).toEqual(before)
     session.dispose()
@@ -133,7 +138,7 @@ describe('SceneInteractionSession', () => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 20, y: 30 })]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
 
     events.pointerDown({ x: 20, y: 30 }, { button: 2 })
     const point = events.clientPoint({ x: 20, y: 30 })
@@ -158,7 +163,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool(tool)
+    session.arm(tool)
     const scene = structuredClone(store.persisted)
     const before = testView.viewport()
 
@@ -181,7 +186,9 @@ describe('SceneInteractionSession', () => {
   it('A9: a polygon draft keeps its corners on the ground through a right-drag pan, and its next click adds the third', () => {
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('polygon')
+    session.arm('polygon')
+    const first = world({ x: 20, y: 20 })
+    const second = world({ x: 80, y: 20 })
     events.pointerDown({ x: 20, y: 20 })
     events.pointerUp({ x: 20, y: 20 })
     events.pointerDown({ x: 80, y: 20 })
@@ -191,13 +198,15 @@ describe('SceneInteractionSession', () => {
     events.pointerMove({ x: 200, y: 100 }, { buttons: 2 })
     events.pointerUp({ x: 200, y: 100 }, { button: 2 })
     // The corners stayed on the ground: 100 px to the right on screen.
+    const third = world({ x: 180, y: 80 })
     events.pointerDown({ x: 180, y: 80 })
     events.pointerUp({ x: 180, y: 80 })
     events.keyDown({ key: 'Enter', target: container })
 
     expect(store.persisted.zones).toHaveLength(1)
     const points = store.persisted.zones[0]!.points
-    expect(points.map((point) => [point.x, point.y])).toEqual([[20, 20], [80, 20], [80, 80]])
+    expect(points).toEqual([first, second, third])
+    expect(third.x).toBeCloseTo(second.x, 6)
     expect(contextMenuHost.opened).toHaveLength(0)
     session.dispose()
   })
@@ -211,7 +220,7 @@ describe('SceneInteractionSession', () => {
     })
     const deps = { ...createInteractionDeps(container, store, testView), platform: MAC }
     const session = createTestSession(deps)
-    session.setTool('select')
+    session.arm('select')
     deps.setSelection([plantTarget('plant-2')])
 
     events.pointerDown({ x: 20, y: 30 }, { ctrlKey: true })
@@ -236,7 +245,7 @@ describe('SceneInteractionSession', () => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 20, y: 30 })]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('polygon')
+    session.arm('polygon')
     const barrel = { pointerType: 'pen', pointerId: 7, button: 2 } as const
 
     events.pointerDown({ x: 20, y: 30 }, barrel)
@@ -422,7 +431,7 @@ describe('SceneInteractionSession', () => {
     const onSceneEditCommit = vi.fn()
     const deps = createInteractionDeps(container, store, testView, { onSceneEditCommit })
     const session = createTestSession(deps)
-    session.setTool('rectangle')
+    session.arm('rectangle')
     enterOverview(testView)
     const scene = structuredClone(store.persisted)
     const before = testView.viewport()

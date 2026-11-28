@@ -5,7 +5,6 @@
 // point and a pinch never reaches a tool. Real tools, the real recogniser and the real DOM source, in jsdom.
 // Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { selectPlantStampSource } from '../canvas/plant-stamp-source'
 import { currentCanvasSelection } from '../canvas/session-state'
 import type { SceneStore, ScenePoint } from '../canvas/runtime/scene'
 import type {
@@ -48,6 +47,8 @@ describe('SceneInteractionSession: touch', () => {
     vi.useRealTimers()
   })
 
+  const world = (at: ScenePoint) => testView.view().screenToWorld(at)
+
   function createTestSession(deps: SceneInteractionSessionDeps): SceneInteractionSession {
     return fixture.createTestSession({ ...deps, renderer })
   }
@@ -75,14 +76,14 @@ describe('SceneInteractionSession: touch', () => {
     return (renderer.lastDraft()?.shapes ?? []).filter((shape) => shape.kind === 'circle-px').length
   }
 
-  function choosePlant(): void {
-    selectPlantStampSource({ canonical_name: 'Malus domestica', common_name: 'Apple', stratum: 'high', width_max_m: 4 })
+  const APPLE_SOURCE = {
+    kind: 'species' as const,
+    species: { canonical_name: 'Malus domestica', common_name: 'Apple', stratum: 'high', width_max_m: 4 },
   }
 
   it('a touch tap with Plant stamp places one plant at the down point', () => {
-    choosePlant()
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', APPLE_SOURCE)
 
     // A rolling tap: the finger moves 5 px and lifts 4 px from where it landed, within the 8 px touch slop.
     touchDown({ x: 100, y: 100 })
@@ -90,27 +91,26 @@ describe('SceneInteractionSession: touch', () => {
     touchUp({ x: 103, y: 104 })
 
     expect(store.persisted.plants).toHaveLength(1)
-    expect(store.persisted.plants[0]!.position).toEqual({ x: 100, y: 100 })
+    expect(store.persisted.plants[0]!.position).toEqual(world({ x: 100, y: 100 }))
     session.dispose()
   })
 
   it('a finger that slides past 8 px with Plant stamp places one plant at the press point', () => {
-    choosePlant()
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', APPLE_SOURCE)
 
     touchDown({ x: 100, y: 100 })
     expect(store.persisted.plants).toHaveLength(0)
     touchMove({ x: 112, y: 100 })
     touchUp({ x: 112, y: 100 })
 
-    expect(store.persisted.plants.map((plant) => plant.position)).toEqual([{ x: 100, y: 100 }])
+    expect(store.persisted.plants.map((plant) => plant.position)).toEqual([world({ x: 100, y: 100 })])
     session.dispose()
   })
 
   it('A16 a finger\'s tap moves the inspection lens to the tap, as a touch publish; a Pan-tool drag or a pinch moves it nowhere', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     // The lens's consumer (InspectionLens): it samples at each published point and keeps its point on null.
     const points: (PointerWorld | null)[] = []
     session.subscribePointerWorld((point) => { points.push(point) })
@@ -131,7 +131,7 @@ describe('SceneInteractionSession: touch', () => {
 
     // A finger dragging past its slop under the Pan tool pans the map; a pinch navigates: neither moves the lens.
     const before = published().length
-    session.setTool('hand')
+    session.arm('hand')
     touchDown({ x: 100, y: 100 })
     touchMove({ x: 115, y: 100 })
     touchMove({ x: 130, y: 100 })
@@ -142,9 +142,8 @@ describe('SceneInteractionSession: touch', () => {
   })
 
   it('E13 a pinch with Plant stamp places nothing', () => {
-    choosePlant()
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', APPLE_SOURCE)
     const scale = testView.view().pixelsPerMetre
 
     pinch({ x: 100, y: 100 }, { x: 200, y: 100 })
@@ -157,7 +156,7 @@ describe('SceneInteractionSession: touch', () => {
 
   it('E13 a pinch during a Polygon draft adds no corner', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('polygon')
+    session.arm('polygon')
     events.pointerDown({ x: 20, y: 20 }, { timeStamp: 0 })
     events.pointerUp({ x: 20, y: 20 }, { timeStamp: 10 })
     events.pointerDown({ x: 80, y: 20 }, { timeStamp: 1000 })
@@ -173,7 +172,7 @@ describe('SceneInteractionSession: touch', () => {
 
   it('a finger\'s double tap 20 px apart finishes a polygon with pointerdown detail 0, as Profile finishes (canopi-f47t.42 probe)', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('polygon')
+    session.arm('polygon')
     // Each down sends detail 0, as WebKitGTK's and Chromium's touch pointerdowns do; the recogniser counts the clicks.
     const tap = (at: ScenePoint, t: number) => {
       events.pointerDown(at, { ...finger(1, t), button: 0, buttons: 1, detail: 0 })
@@ -187,7 +186,7 @@ describe('SceneInteractionSession: touch', () => {
     tap({ x: 120, y: 120 }, 2300)
 
     expect(store.persisted.zones).toHaveLength(1)
-    expect(store.persisted.zones[0]!.points).toEqual([{ x: 20, y: 20 }, { x: 120, y: 20 }, { x: 120, y: 100 }])
+    expect(store.persisted.zones[0]!.points).toEqual([world({ x: 20, y: 20 }), world({ x: 120, y: 20 }), world({ x: 120, y: 100 })])
     session.dispose()
   })
 
@@ -197,7 +196,7 @@ describe('SceneInteractionSession: touch', () => {
     })
     const deps = createInteractionDeps(container, store, testView)
     const session = createTestSession(deps)
-    session.setTool('select')
+    session.arm('select')
     deps.setSelection([plantTarget('plant-1')])
 
     pinch({ x: 200, y: 200 }, { x: 300, y: 200 })
@@ -215,7 +214,7 @@ describe('SceneInteractionSession: touch', () => {
       ]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
 
     touchDown({ x: 100, y: 100 }, 1, 0)
     touchUp({ x: 100, y: 100 }, 1, 60)
@@ -233,15 +232,14 @@ describe('SceneInteractionSession: touch', () => {
 
   it('E14 a long press with Plant stamp opens the menu at the finger and places nothing, the lift included', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
-    choosePlant()
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('plant-stamp')
+    session.arm('plant-stamp', APPLE_SOURCE)
 
     touchDown({ x: 100, y: 100 })
     vi.advanceTimersByTime(499)
     expect(contextMenuHost.current).toBeNull()
     vi.advanceTimersByTime(101)
-    expect(contextMenuHost.current?.world).toEqual({ x: 100, y: 100 })
+    expect(contextMenuHost.current?.world).toEqual(world({ x: 100, y: 100 }))
     touchMove({ x: 104, y: 100 })
     touchUp({ x: 104, y: 100 })
 
@@ -253,7 +251,7 @@ describe('SceneInteractionSession: touch', () => {
   it('E14 a long press during a Polygon draft opens the menu and adds no corner', () => {
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('polygon')
+    session.arm('polygon')
     events.pointerDown({ x: 20, y: 20 }, { timeStamp: 0 })
     events.pointerUp({ x: 20, y: 20 }, { timeStamp: 10 })
     events.pointerDown({ x: 80, y: 20 }, { timeStamp: 1000 })
@@ -270,7 +268,7 @@ describe('SceneInteractionSession: touch', () => {
 
   it('a Text tap with a finger opens the note field focused at once, within the tap, so iOS shows its keyboard (A15)', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('text')
+    session.arm('text')
 
     touchDown({ x: 120, y: 90 })
     touchUp({ x: 121, y: 90 })
@@ -283,7 +281,7 @@ describe('SceneInteractionSession: touch', () => {
 
   it('blur during a pinch-twist keeps the view: the turn ends where it is, never restored (A6)', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const at = (deg: number, sign: 1 | -1) => ({
       x: 200 + sign * 50 * Math.cos((deg * Math.PI) / 180),
       y: 150 + sign * 50 * Math.sin((deg * Math.PI) / 180),
@@ -307,7 +305,7 @@ describe('SceneInteractionSession: touch', () => {
     // 0.12 px/m is just above overview (0.1 px/m): the pinch's first step enters it, and the camera publishes that frame mid-pinch.
     testView.setViewport({ x: 200, y: 150, scale: 0.12 })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
 
     touchDown({ x: 100, y: 150 }, 1, 0)
     touchDown({ x: 300, y: 150 }, 2, 10)
@@ -325,7 +323,7 @@ describe('SceneInteractionSession: touch', () => {
 
   it('a finger that drifts inside its slop before the second lands starts the pinch with no jump', () => {
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const before = testView.viewport()
 
     touchDown({ x: 100, y: 100 }, 1, 0)
@@ -347,7 +345,7 @@ describe('SceneInteractionSession: touch', () => {
       }]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const box = (selector: string) => [...container.querySelectorAll<HTMLElement>(selector)].map((element) =>
       `${element.style.width}×${element.style.height}`)
 
@@ -379,15 +377,15 @@ describe('SceneInteractionSession: touch', () => {
       ]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const widths = () => [...container.querySelectorAll<HTMLElement>('[data-canvas-handle^="rect-corner:"]')].map((element) => element.style.width)
 
     touchDown({ x: 140, y: 70 })
     touchUp({ x: 140, y: 70 })
     expect(widths()).toEqual(['44px', '44px', '44px', '44px'])
 
-    session.setTool('measurement-guide')
-    session.setTool('select')
+    session.arm('measurement-guide')
+    session.arm('select')
     expect(widths()).toEqual(['44px', '44px', '44px', '44px'])
 
     // A panel selects the other zone: the host hears no press.
@@ -403,7 +401,7 @@ describe('SceneInteractionSession: touch', () => {
     })
     const deps = { ...createInteractionDeps(container, store, testView), platform: { os: 'android', gestureEvents: false } as const }
     const session = createTestSession(deps)
-    session.setTool('select')
+    session.arm('select')
 
     // A panel selects the zone: the host has heard no pointer yet.
     deps.setSelection([{ kind: 'zone', id: 'zone-1' }])
@@ -423,7 +421,7 @@ describe('SceneInteractionSession: touch', () => {
       ]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const widths = () => [...container.querySelectorAll<HTMLElement>('[data-canvas-handle^="rect-corner:"]')].map((element) => element.style.width)
 
     events.pointerMove({ x: 140, y: 63 }, { pointerType: 'mouse', buttons: 0 })
@@ -447,7 +445,7 @@ describe('SceneInteractionSession: touch', () => {
       draft.zones = [makeRectZone('zone-1', [{ x: 40, y: 60 }, { x: 240, y: 60 }, { x: 240, y: 160 }, { x: 40, y: 160 }])]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
 
     touchDown({ x: 140, y: 45 })
     vi.advanceTimersByTime(600)
@@ -467,7 +465,7 @@ describe('SceneInteractionSession: touch', () => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 180, y: 120 })]
     })
     const session = createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
 
     // A tap 12 px inside the outline selects the zone; one 40 px inside clears it.
     touchDown({ x: 140, y: 72 }, 1, 0)

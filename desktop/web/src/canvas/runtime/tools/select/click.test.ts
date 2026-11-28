@@ -204,7 +204,7 @@ describe('Select clicks', () => {
     expect(h.store.session.selectedTargets).toEqual([APPLE])
 
     // Alt+drag from a selected object moves the selection as without Alt.
-    h.drag({ x: 50, y: 50 }, { x: 70, y: 60 }, { mods: { alt: true } })
+    h.drag(h.screen({ x: 50, y: 50 }), h.screen({ x: 70, y: 60 }), { mods: { alt: true } })
     expect(h.store.persisted.plants[0]!.position.x).toBeCloseTo(70, 6)
     expect(h.store.persisted.plants[0]!.position.y).toBeCloseTo(60, 6)
     expect(h.store.session.selectedTargets).toEqual([APPLE])

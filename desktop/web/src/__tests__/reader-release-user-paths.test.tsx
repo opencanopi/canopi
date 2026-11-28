@@ -30,10 +30,10 @@ import { WelcomeScreen } from '../components/shared/WelcomeScreen'
 import { StoreRefusedError } from '../failures/store-read'
 import type * as IpcDesignModule from '../ipc/design'
 import { readSpeciesListRecord } from '../platform/browser-record'
-import { browserSettingsPlatformAdapter } from '../platform/settings.browser'
+import { browserSettingsPlatformAdapter } from '../editions/web/settings'
 import type { SpeciesListItem } from '../types/species'
 import { browserAppDataStore } from '../web/browser-app-data'
-import { createReducedSpeciesCatalogAdapters, type ReducedSpeciesCatalogReader } from '../web/reduced-species-catalog'
+import { createReducedSpeciesCatalogAdapters, type ReducedSpeciesCatalogReader } from '../editions/web/reduced-species-catalog'
 
 const V3_SETTINGS_KEY = 'canopi:web-app-data:v3:settings'
 const V4_SETTINGS_KEY = 'canopi:web-app-data:v4:settings'
@@ -77,7 +77,7 @@ describe('reader release on Web: records from their 2.1 keys', () => {
     // A 2.0 tab's record beside the record 2.1 wrote: the 2.1 key is the user's latest choice.
     localStorage.setItem(V3_SETTINGS_KEY, JSON.stringify({ version: 3, settings: { locale: 'fr', theme: 'light' } }))
     localStorage.setItem(V4_SETTINGS_KEY, JSON.stringify({
-      version: 2,
+      version: 3,
       locale: 'de',
       theme: 'dark',
       snap_to_grid: true,

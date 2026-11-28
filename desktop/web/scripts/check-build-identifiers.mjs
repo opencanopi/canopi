@@ -22,16 +22,7 @@ const BUILDS = {
 export const DESKTOP_VENDOR_CHUNKS = {
   "i18n": ["i18next"],
   "maplibre-gl": ["maplibre-gl"],
-  "raster-display": [
-    "@chunkd/middleware", "@chunkd/source", "@chunkd/source-http", "@chunkd/source-memory", "@cogeotiff/core",
-    "@deck.gl/core", "@deck.gl/geo-layers", "@deck.gl/layers", "@deck.gl/mapbox", "@deck.gl/mesh-layers",
-    "@developmentseed/affine", "@developmentseed/geotiff",
-    "@loaders.gl/core", "@loaders.gl/images", "@loaders.gl/loader-utils", "@loaders.gl/schema", "@loaders.gl/worker-utils",
-    "@luma.gl/core", "@luma.gl/engine", "@luma.gl/gpgpu", "@luma.gl/shadertools", "@luma.gl/webgl", "@mapbox/tiny-sdf",
-    "@math.gl/core", "@math.gl/culling", "@math.gl/polygon", "@math.gl/types", "@math.gl/web-mercator",
-    "@probe.gl/env", "@probe.gl/log", "@probe.gl/stats", "earcut", "fzstd", "lerc", "maplibre-gl-raster", "mjolnir.js",
-  ],
-  "tauri": ["@tauri-apps/api", "@tauri-apps/plugin-dialog"],
+  "tauri": ["@tauri-apps/api"],
 };
 
 /**

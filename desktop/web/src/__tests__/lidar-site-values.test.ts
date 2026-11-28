@@ -2,6 +2,8 @@
 // sampler, the real transients and the test canvas query surface's pointer; only the native command is faked.
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LidarSamplePointsRequest, LidarSampleSeries } from '../generated/contracts'
+import { installEditionPorts } from '../platform/edition-ports'
+import { createTestEditionPorts } from './support/test-edition-ports'
 
 const native = vi.hoisted(() => ({
   requests: [] as LidarSamplePointsRequest[],
@@ -32,12 +34,12 @@ vi.mock('../ipc/lidar', async (importOriginal) => ({
 import { setCurrentCanvasSession } from '../canvas/session'
 import type { CanvasRuntimeSurfaces } from '../canvas/runtime/runtime'
 import type { PointerKind } from '../canvas/runtime/interaction-types'
-import { designSessionStore } from '../app/document-session/store'
-import { setLidarEntryVisibility } from '../app/lidar/actions'
-import { lidarLibrary } from '../app/lidar/library-store'
-import { endSiteDataTransients, pin, setPin } from '../app/lidar/site-transients'
-import { pinSiteDataPoint, siteValues } from '../app/lidar/site-values'
-import { activePanel, selectPanel, sidePanel } from '../app/shell/state'
+import { openTestDesign, replaceCurrentDesignState } from './support/design-session-state'
+import { setLidarEntryVisibility } from '../app/data-library/actions'
+import { lidarLibrary } from '../app/data-library/library-store'
+import { endSiteDataTransients, pin, setPin } from '../app/data-library/site-transients'
+import { siteValues } from '../app/data-library/site-values'
+import { selectPanel, sidePanel } from '../app/shell/state'
 import type { CanopiFile } from '../types/design'
 import { createTestCanvasQuerySurface, type TestCanvasQuerySurface } from './support/canvas-query-surface'
 import { librarySnapshot, slopeItem, slopeProvenance, sourceItem } from './support/library-fixtures'
@@ -50,14 +52,15 @@ let surface: TestCanvasQuerySurface
 function openDesign(entries: { id: string; visible: boolean; kind?: 'Source' | 'Derived' }[]): void {
   const design = {
     name: 'Orchard',
-    lidar: {
+    site_data: {
       visible: true,
       entries: entries.map(({ id, visible, kind = 'Source' }, order) => ({
         kind, id, name: id, visible, opacity: 1, order, ramp: null, reversed: false, range: null,
       })),
     },
   } as unknown as CanopiFile
-  designSessionStore.replaceCurrentDesignState(design, null, 'Orchard')
+  replaceCurrentDesignState(design, null, 'Orchard')
+  selectPanel('site-data')
 }
 
 /** Releases every held answer, including those the released ones let run, then answers at once again. */
@@ -84,7 +87,9 @@ function shown(): Record<string, unknown> | null {
 }
 
 describe('Site data row values', () => {
+  let disposePorts: () => void = () => undefined
   beforeEach(() => {
+    disposePorts = installEditionPorts(createTestEditionPorts())
     native.requests.length = 0
     native.empty.clear()
     native.refusals = 0
@@ -92,7 +97,6 @@ describe('Site data row values', () => {
     openDesign([{ id: 'mnt', visible: true }, { id: 'dsm', visible: true }])
     surface = createTestCanvasQuerySurface()
     setCurrentCanvasSession({ queries: surface } as unknown as CanvasRuntimeSurfaces)
-    activePanel.value = 'canvas'
     selectPanel('site-data')
   })
 
@@ -100,6 +104,7 @@ describe('Site data row values', () => {
     // A held answer would keep the shared sampler's lane busy for the next test.
     await releaseHeld()
     endSiteDataTransients()
+    disposePorts()
     sidePanel.value = null
     setCurrentCanvasSession(null)
     lidarLibrary.value = null
@@ -226,7 +231,16 @@ describe('Site data row values', () => {
     hover(10, 20)
     await flush()
     // Reopened from the keyboard: the pointer never leaves the map, and the rows to read are the same.
-    openDesign([{ id: 'mnt', visible: true }, { id: 'dsm', visible: true }])
+    await openTestDesign({
+      name: 'Orchard',
+      site_data: {
+        visible: true,
+        entries: [
+          { kind: 'Source', id: 'mnt', name: 'mnt', visible: true, opacity: 1, order: 0, ramp: null, reversed: false, range: null },
+          { kind: 'Source', id: 'dsm', name: 'dsm', visible: true, opacity: 1, order: 1, ramp: null, reversed: false, range: null },
+        ],
+      },
+    } as unknown as CanopiFile)
     await flush()
 
     // The answer asked for the closed session is dropped; the reopened session asks again at the same point.
@@ -297,8 +311,8 @@ describe('Site data row values', () => {
     expect(shown()).toEqual({ at: 'pin', dsm: { kind: 'value', value: 1.25 }, mnt: { kind: 'value', value: 1.25 } })
   })
 
-  it('pins the tap no tool uses as the WGS84 point the canvas drew there', () => {
-    pinSiteDataPoint({ x: 12, y: -30 })
+  it('pins the tapped point as the WGS84 point the canvas drew there', () => {
+    setPin(surface.sessionPlane.peek()!.toGeo({ x: 12, y: -30 }))
 
     expect(pin.value).toEqual(surface.sessionPlane.peek()!.toGeo({ x: 12, y: -30 }))
   })

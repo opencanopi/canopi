@@ -1,130 +1,64 @@
-//! The Desktop settings record, a row of the user DB, and the launch check beside it.
+//! The Desktop settings store (`settings.json` + write-once `settings.before-reset.json`,
+//! `2e-2`, ADR 0024, ADR 0026, `2.1-Q373`, `2.1-M550`).
 //!
-//! Record 1 is the form this build writes: no `version` key, read strictly. A record whose top-level integer `version`
-//! is 2 or more was saved by a newer Canopi (2.1-M480): its known fields are decoded one by one, an unknown literal or a
-//! retyped value taking that field's default and unknown keys ignored; it is never set aside and never written, so a
-//! change applies for the session only (2.1-Q320), and the settings report newer-read-only on their own, whatever the
-//! user DB's mode (A16, `services::health`). Its launch-check field is `check_updates_at_launch`, named for good.
+//! - **File authority.** Record 2 (`"version": 2`) lives in `data_dir/settings.json`, published
+//!   exclusively through `canopi_support::durable::publish_durably`.
+//! - **Migrate-once from SQLite.** When `settings.json` is absent, Desktop reads the legacy v2.0
+//!   `settings` and `updater.check_at_launch` rows from `user.db` (read-only), folds them into
+//!   record 2, and writes `settings.json` durably while leaving SQLite rows untouched for
+//!   emergency rollback to v2.0.5 (`2.1-Q373`, `2.1-M550`). Once `settings.json` exists, it
+//!   always wins on re-upgrade.
+//! - **Per-field reset.** Malformed individual fields reset only those fields, keeping every
+//!   valid field (including `google_maps_api_key`) and unknown keys intact, writing the original
+//!   raw JSON write-once to `settings.before-reset.json` (`Precondition::NotExists`), and saving
+//!   the repaired record 2 back to `settings.json`.
+//! - **Newer-read-only.** A record whose integer `version` exceeds `SETTINGS_CHAIN.current()`
+//!   (v3+) decodes known fields per-field without writing a byte and refuses all writes with
+//!   `StoreReadOnly { store: StoreId::Settings }` (`"store_read_only"`).
 
-use std::fmt::Display;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
+use canopi_support::durable::{
+    DurableError, OsDurableFs, Precondition, PublishSource, TargetLocks, publish_durably,
+};
+use canopi_types::health::{StoreHealth, StoreOpenStatus};
 use canopi_types::settings::{Locale, ScrollWheel, Settings};
+use canopi_types::store_chain::SETTINGS_CHAIN;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::db::{self, UserDb};
+use crate::services::settings_record::{
+    ParsedRecord, default_unit_system_for_locale, migrate_v1_object_to_v2, parse_raw_record,
+    read_file_if_exists, unit_system_value, validate_special_field,
+};
+use crate::target_locks::temporary_target_locks;
 
-pub fn get_settings(user_db: &UserDb) -> Result<Settings, String> {
-    get_settings_with_locale(
-        user_db,
-        sys_locale::get_locale().as_deref(),
-        std::env::consts::OS,
-    )
-}
+/// Durable settings file name inside `app_data_dir()`.
+pub const SETTINGS_FILE_NAME: &str = "settings.json";
 
-/// Saves the record; a refused write rejects with the silent `store_read_only` (2.1-M487).
-pub fn set_settings(user_db: &UserDb, settings: Settings) -> Result<(), String> {
-    let conn = user_db
-        .acquire_writable()
-        .ok_or(SettingsWriteError::ReadOnly)?;
-    refuse_newer(db::user_db::get_setting(&conn, "settings"))?;
-    let json = serde_json::to_string(&settings)
-        .map_err(|e| format!("Failed to serialize settings: {e}"))?;
-    db::user_db::set_setting(&conn, "settings", &json)
-        .map_err(db::user_db::write_refusal("Failed to save settings"))
-}
+/// Write-once backup of the raw settings record before its first reset.
+pub const SETTINGS_BEFORE_RESET_FILE_NAME: &str = "settings.before-reset.json";
 
-/// The first record `version` a newer Canopi writes; record 1 carries none.
-const NEWER_RECORD_VERSION: u64 = 2;
-
-/// Record 2's launch-check field (2.1-M480).
-const CHECK_UPDATES_AT_LAUNCH_FIELD: &str = "check_updates_at_launch";
-
-/// The settings row as this build reads it.
-enum StoredSettings {
-    /// No row: a first run.
-    Missing,
-    /// Record 1, read strictly.
-    Current(Settings),
-    /// Record 2 or later, as stored.
-    Newer(Map<String, Value>),
-    /// A row that is neither, with its text and the strict parse's error.
-    Unreadable(String, serde_json::Error),
-}
-
-/// The settings row, as `db::user_db::get_setting` answers it, read as this build reads it.
-fn read_stored(row: Result<Option<String>, impl Display>) -> Result<StoredSettings, String> {
-    let Some(serialized) = row.map_err(|e| format!("Failed to read settings: {e}"))? else {
-        return Ok(StoredSettings::Missing);
-    };
-    if let Ok(Value::Object(record)) = serde_json::from_str::<Value>(&serialized)
-        && record
-            .get("version")
-            .and_then(Value::as_u64)
-            .is_some_and(|version| version >= NEWER_RECORD_VERSION)
-    {
-        return Ok(StoredSettings::Newer(record));
-    }
-    Ok(match deserialize_settings(&serialized) {
-        Ok(settings) => StoredSettings::Current(settings),
-        Err(error) => StoredSettings::Unreadable(serialized, error),
-    })
-}
-
-/// A newer record's known fields, each decoded alone: one that does not decode keeps its default.
-fn decode_newer(record: &Map<String, Value>) -> Settings {
-    let Ok(Value::Object(mut known)) = serde_json::to_value(Settings::default()) else {
-        return Settings::default();
-    };
-    for (key, slot) in &mut known {
-        let Some(stored) = record.get(key) else {
-            continue;
-        };
-        let alone = Value::Object(Map::from_iter([(key.clone(), stored.clone())]));
-        if serde_json::from_value::<Settings>(alone).is_ok() {
-            *slot = stored.clone();
-        }
-    }
-    serde_json::from_value(Value::Object(known)).unwrap_or_default()
-}
-
-/// [`SettingsWriteError::ReadOnly`] when the settings row is a newer Canopi's; the caller holds a writable connection.
-fn refuse_newer(row: Result<Option<String>, impl Display>) -> Result<(), SettingsWriteError> {
-    match read_stored(row).map_err(SettingsWriteError::Failed)? {
-        StoredSettings::Newer(_) => Err(SettingsWriteError::ReadOnly),
-        _ => Ok(()),
-    }
-}
-
-/// Whether the stored record is a newer Canopi's, for the settings' health entry at startup; an unreadable row is
-/// not, since reading it reports it.
-pub(crate) fn record_is_newer(user_db: &UserDb) -> bool {
-    let row = db::user_db::get_setting(&user_db.acquire(), "settings");
-    matches!(read_stored(row), Ok(StoredSettings::Newer(_)))
-}
-
-/// The launch check's own user-DB key row (2.1-Q164, 2.1-M206): read and written only by the
-/// updater, never a field of the settings record, so a whole-record `set_settings` leaves it
-/// alone. Interim until 2e moves it (2.1-Q239, canopi-f47t.52.56).
+/// Legacy SQLite key folded into record 2's `launch_check` on first migration.
 const UPDATER_CHECK_AT_LAUNCH_KEY: &str = "updater.check_at_launch";
 
-/// Whether the updater checks at launch: record 2's field under a newer record, else the key row; missing or
-/// unreadable reads on.
-pub fn updater_check_at_launch(user_db: &UserDb) -> Result<bool, String> {
-    let conn = user_db.acquire();
-    if let StoredSettings::Newer(record) = read_stored(db::user_db::get_setting(&conn, "settings"))?
-    {
-        let field = record.get(CHECK_UPDATES_AT_LAUNCH_FIELD);
-        return Ok(field.and_then(Value::as_bool).unwrap_or(true));
-    }
-    let stored = db::user_db::get_setting(&conn, UPDATER_CHECK_AT_LAUNCH_KEY)
-        .map_err(|e| format!("Failed to read the launch check setting: {e}"))?;
-    Ok(stored.as_deref() != Some("false"))
+/// Snapshot returned by `get_settings_record` for the TS settings interpreter.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct SettingsRecordSnapshot {
+    /// Stored JSON object (always includes `"version"`, known fields, and any unknown keys).
+    pub record: Map<String, Value>,
+    /// Field keys reset during this read (empty when clean or newer-read-only).
+    pub reset_fields: Vec<String>,
+    /// True when the stored record was written by a newer Canopi (writes are refused).
+    pub newer_read_only: bool,
 }
 
 /// A settings write that did not land.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SettingsWriteError {
-    /// The settings refuse writes for this session: saved by a newer Canopi, or in a user DB that refuses writes.
+    /// The settings refuse writes for this session: saved by a newer Canopi, or in a read-only user DB.
     ReadOnly,
     /// The write failed; the text names what failed.
     Failed(String),
@@ -140,54 +74,366 @@ impl From<SettingsWriteError> for String {
     }
 }
 
-/// Stores whether the updater checks at launch; refused under a newer record, whose own field holds it.
-pub fn set_updater_check_at_launch(user_db: &UserDb, on: bool) -> Result<(), SettingsWriteError> {
-    let conn = user_db
-        .acquire_writable()
-        .ok_or(SettingsWriteError::ReadOnly)?;
-    refuse_newer(db::user_db::get_setting(&conn, "settings"))?;
-    db::user_db::set_setting(
-        &conn,
-        UPDATER_CHECK_AT_LAUNCH_KEY,
-        if on { "true" } else { "false" },
-    )
-    .map_err(|e| {
-        SettingsWriteError::Failed(format!("Failed to save the launch check setting: {e}"))
-    })
+/// Desktop settings store backed by `data_dir/settings.json` with one-time SQLite migration.
+#[derive(Clone)]
+pub struct DesktopSettingsStore {
+    data_dir: PathBuf,
+    user_db: UserDb,
+    locks: Arc<TargetLocks>,
 }
 
-/// Settings key that keeps the last settings record this build refused.
-const SET_ASIDE_SETTINGS_KEY: &str = "settings.set-aside";
+impl DesktopSettingsStore {
+    /// Creates a store rooted at `data_dir` with `user_db` used only for one-time migration.
+    pub fn new(data_dir: impl Into<PathBuf>, user_db: UserDb) -> Self {
+        Self {
+            data_dir: data_dir.into(),
+            user_db,
+            locks: Arc::clone(temporary_target_locks()),
+        }
+    }
 
-/// Read Desktop settings.
-///
-/// One rule covers every invalid value of record 1: it is read strictly,
-/// and a record that does not parse (malformed JSON, an unknown theme, locale
-/// or basemap style, a wrong type) is set aside under
-/// [`SET_ASIDE_SETTINGS_KEY`] and replaced by defaults. Unknown keys are not
-/// invalid; they are ignored and never re-emitted. A newer record is decoded
-/// field by field and never written; while the user DB refuses writes, a
-/// missing or unreadable record gives the defaults, neither set aside nor saved.
-///
-/// `os` is `std::env::consts::OS`, a parameter so tests choose it: the first-run
-/// record on macOS starts on Trackpad (2.1-Q309). `Settings::default()` stays
-/// host-independent because generated bindings are built from it.
-fn get_settings_with_locale(
+    /// Path to `settings.json`.
+    pub fn settings_path(&self) -> PathBuf {
+        self.data_dir.join(SETTINGS_FILE_NAME)
+    }
+
+    /// Path to write-once `settings.before-reset.json`.
+    pub fn before_reset_path(&self) -> PathBuf {
+        self.data_dir.join(SETTINGS_BEFORE_RESET_FILE_NAME)
+    }
+
+    /// Reads the typed v1 `Settings` view from `settings.json` (migrating once if absent).
+    pub fn get_settings(&self) -> Result<Settings, String> {
+        self.get_settings_with_env(sys_locale::get_locale().as_deref(), std::env::consts::OS)
+    }
+
+    /// Reads the full record 2 snapshot (including `unit_system`, `launch_check`,
+    /// `last_open_home`, unknown keys, `reset_fields`, and `newer_read_only`).
+    pub fn get_settings_record(&self) -> Result<SettingsRecordSnapshot, String> {
+        self.get_settings_record_with_env(sys_locale::get_locale().as_deref(), std::env::consts::OS)
+    }
+
+    /// Merges `patch` into `settings.json`, preserving untouched fields and unknown keys.
+    pub fn patch_settings_record(
+        &self,
+        patch: Map<String, Value>,
+    ) -> Result<(), SettingsWriteError> {
+        self.patch_settings_record_with_env(
+            patch,
+            sys_locale::get_locale().as_deref(),
+            std::env::consts::OS,
+        )
+    }
+
+    /// Saves the typed v1 `Settings` fields as a patch onto `settings.json`, preserving
+    /// record-2 fields (`unit_system`, `launch_check`, `last_open_home`) and unknown keys.
+    #[cfg(test)]
+    pub fn set_settings(&self, settings: Settings) -> Result<(), String> {
+        let Ok(Value::Object(patch)) = serde_json::to_value(&settings) else {
+            return Err("Failed to serialize settings".to_owned());
+        };
+        self.patch_settings_record(patch).map_err(String::from)
+    }
+
+    fn get_settings_with_env(
+        &self,
+        detected_os_locale: Option<&str>,
+        os: &str,
+    ) -> Result<Settings, String> {
+        let snapshot = self.get_settings_record_with_env(detected_os_locale, os)?;
+        Ok(decode_v1_settings(&snapshot.record))
+    }
+
+    fn get_settings_record_with_env(
+        &self,
+        detected_os_locale: Option<&str>,
+        os: &str,
+    ) -> Result<SettingsRecordSnapshot, String> {
+        let settings_path = self.settings_path();
+        if let Some(raw_bytes) = read_file_if_exists(&settings_path)
+            .map_err(|e| format!("Failed to read settings file: {e}"))?
+        {
+            let raw = String::from_utf8_lossy(&raw_bytes).into_owned();
+            return self.process_existing_file(&raw, detected_os_locale, os);
+        }
+
+        // Migrate-once from SQLite user.db (read-only; never mutates SQLite).
+        let can_write_file = self.user_db.acquire_writable().is_some();
+        let conn = self.user_db.acquire();
+        let legacy_row = db::user_db::get_setting(&conn, "settings")
+            .map_err(|e| format!("Failed to read legacy settings: {e}"))?;
+        let legacy_launch = db::user_db::get_setting(&conn, UPDATER_CHECK_AT_LAUNCH_KEY)
+            .map_err(|e| format!("Failed to read legacy launch check: {e}"))?;
+        drop(conn);
+
+        match legacy_row {
+            None => {
+                let mut record = build_default_record(detected_os_locale, os);
+                if let Some(raw_launch) = legacy_launch.as_deref() {
+                    record.insert(
+                        "launch_check".to_owned(),
+                        Value::Bool(raw_launch != "false"),
+                    );
+                }
+                if can_write_file {
+                    self.write_settings_file(&record)
+                        .map_err(|e| format!("Failed to save initial settings: {e}"))?;
+                }
+                Ok(SettingsRecordSnapshot {
+                    record,
+                    reset_fields: Vec::new(),
+                    newer_read_only: !can_write_file,
+                })
+            }
+            Some(raw) => self.migrate_legacy_row(
+                &raw,
+                legacy_launch.as_deref(),
+                can_write_file,
+                detected_os_locale,
+                os,
+            ),
+        }
+    }
+
+    fn process_existing_file(
+        &self,
+        raw: &str,
+        detected_os_locale: Option<&str>,
+        os: &str,
+    ) -> Result<SettingsRecordSnapshot, String> {
+        match parse_raw_record(raw) {
+            ParsedRecord::Newer(map) => Ok(SettingsRecordSnapshot {
+                record: decode_newer_record(&map, detected_os_locale, os),
+                reset_fields: Vec::new(),
+                newer_read_only: true,
+            }),
+            ParsedRecord::Current(map) => {
+                let (repaired, reset_fields) =
+                    validate_and_repair_record(map, detected_os_locale, os, false);
+                if !reset_fields.is_empty() {
+                    self.write_before_reset_once(raw.as_bytes());
+                    self.write_settings_file(&repaired)
+                        .map_err(|e| format!("Failed to save repaired settings: {e}"))?;
+                    log_settings_reset(&format!(
+                        "Reset invalid settings fields ({}); preserved valid fields",
+                        reset_fields.join(",")
+                    ));
+                }
+                Ok(SettingsRecordSnapshot {
+                    record: repaired,
+                    reset_fields,
+                    newer_read_only: false,
+                })
+            }
+            ParsedRecord::Migratable(map) => {
+                let migrated = migrate_v1_object_to_v2(map, None, detected_os_locale);
+                let (repaired, reset_fields) =
+                    validate_and_repair_record(migrated, detected_os_locale, os, false);
+                if !reset_fields.is_empty() {
+                    self.write_before_reset_once(raw.as_bytes());
+                    log_settings_reset(&format!(
+                        "Reset invalid settings fields during migration ({}); preserved valid fields",
+                        reset_fields.join(",")
+                    ));
+                }
+                self.write_settings_file(&repaired)
+                    .map_err(|e| format!("Failed to save migrated settings: {e}"))?;
+                Ok(SettingsRecordSnapshot {
+                    record: repaired,
+                    reset_fields,
+                    newer_read_only: false,
+                })
+            }
+            ParsedRecord::Unreadable(location) => {
+                self.write_before_reset_once(raw.as_bytes());
+                // The record may hold a credential, so only the parse position is logged.
+                log_settings_reset(&format!(
+                    "Set aside unreadable settings ({location}); using defaults"
+                ));
+                let defaults = build_default_record(detected_os_locale, os);
+                self.write_settings_file(&defaults)
+                    .map_err(|e| format!("Failed to save default settings: {e}"))?;
+                Ok(SettingsRecordSnapshot {
+                    record: defaults,
+                    reset_fields: vec!["*".to_owned()],
+                    newer_read_only: false,
+                })
+            }
+        }
+    }
+
+    fn migrate_legacy_row(
+        &self,
+        raw: &str,
+        legacy_launch: Option<&str>,
+        can_write_file: bool,
+        detected_os_locale: Option<&str>,
+        os: &str,
+    ) -> Result<SettingsRecordSnapshot, String> {
+        match parse_raw_record(raw) {
+            ParsedRecord::Newer(map) => Ok(SettingsRecordSnapshot {
+                record: decode_newer_record(&map, detected_os_locale, os),
+                reset_fields: Vec::new(),
+                newer_read_only: true,
+            }),
+            ParsedRecord::Current(map) | ParsedRecord::Migratable(map) => {
+                let migrated = migrate_v1_object_to_v2(map, legacy_launch, detected_os_locale);
+                let (repaired, reset_fields) =
+                    validate_and_repair_record(migrated, detected_os_locale, os, false);
+                if can_write_file {
+                    if !reset_fields.is_empty() {
+                        self.write_before_reset_once(raw.as_bytes());
+                        log_settings_reset(&format!(
+                            "Reset invalid legacy settings fields during migration ({}); preserved valid fields",
+                            reset_fields.join(",")
+                        ));
+                    }
+                    self.write_settings_file(&repaired)
+                        .map_err(|e| format!("Failed to save migrated settings: {e}"))?;
+                }
+                Ok(SettingsRecordSnapshot {
+                    record: repaired,
+                    reset_fields,
+                    newer_read_only: !can_write_file,
+                })
+            }
+            ParsedRecord::Unreadable(location) => {
+                let mut defaults = build_default_record(detected_os_locale, os);
+                if let Some(raw_launch) = legacy_launch {
+                    defaults.insert(
+                        "launch_check".to_owned(),
+                        Value::Bool(raw_launch != "false"),
+                    );
+                }
+                if can_write_file {
+                    self.write_before_reset_once(raw.as_bytes());
+                    log_settings_reset(&format!(
+                        "Set aside unreadable legacy settings ({location}); using defaults"
+                    ));
+                    self.write_settings_file(&defaults)
+                        .map_err(|e| format!("Failed to save default settings: {e}"))?;
+                }
+                Ok(SettingsRecordSnapshot {
+                    record: defaults,
+                    reset_fields: if can_write_file {
+                        vec!["*".to_owned()]
+                    } else {
+                        Vec::new()
+                    },
+                    newer_read_only: !can_write_file,
+                })
+            }
+        }
+    }
+
+    fn patch_settings_record_with_env(
+        &self,
+        patch: Map<String, Value>,
+        detected_os_locale: Option<&str>,
+        os: &str,
+    ) -> Result<(), SettingsWriteError> {
+        let snapshot = self
+            .get_settings_record_with_env(detected_os_locale, os)
+            .map_err(SettingsWriteError::Failed)?;
+        if snapshot.newer_read_only {
+            return Err(SettingsWriteError::ReadOnly);
+        }
+        let mut merged = snapshot.record;
+        for (key, value) in patch {
+            if key == "version" {
+                continue;
+            }
+            merged.insert(key, value);
+        }
+        merged.insert("version".to_owned(), Value::from(SETTINGS_CHAIN.current()));
+        self.write_settings_file(&merged)
+            .map_err(|e| SettingsWriteError::Failed(format!("Failed to save settings: {e}")))
+    }
+
+    fn write_settings_file(&self, record: &Map<String, Value>) -> Result<(), String> {
+        if let Err(error) = std::fs::create_dir_all(&self.data_dir) {
+            return Err(format!("could not create data folder: {error}"));
+        }
+        let bytes = serde_json::to_vec_pretty(&Value::Object(record.clone()))
+            .map_err(|e| format!("serialize settings: {e}"))?;
+        publish_durably(
+            &OsDurableFs,
+            &self.locks,
+            PublishSource::Bytes(&bytes),
+            &self.settings_path(),
+            "settings",
+            Precondition::Any,
+        )
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+    }
+
+    /// Writes `raw` to `settings.before-reset.json` only if it does not already exist.
+    fn write_before_reset_once(&self, raw: &[u8]) {
+        if std::fs::create_dir_all(&self.data_dir).is_err() {
+            return;
+        }
+        let result = publish_durably(
+            &OsDurableFs,
+            &self.locks,
+            PublishSource::Bytes(raw),
+            &self.before_reset_path(),
+            "settings-before-reset",
+            Precondition::NotExists,
+        );
+        if let Err(error) = result
+            && !matches!(error, DurableError::AlreadyExists)
+        {
+            tracing::info!("Could not write settings.before-reset.json: {error}");
+        }
+    }
+}
+
+/// Logs a settings reset notice without ever including raw settings content or credentials.
+fn log_settings_reset(message: &str) {
+    tracing::warn!("{message}");
+}
+
+/// Inspects `StoreId::Settings` startup health without writing any bytes.
+pub(crate) fn inspect_settings_health(
+    data_dir: &Path,
     user_db: &UserDb,
-    detected_os_locale: Option<&str>,
-    os: &str,
-) -> Result<Settings, String> {
-    let (conn, writable) = match user_db.acquire_writable() {
-        Some(conn) => (conn, true),
-        None => (user_db.acquire(), false),
-    };
-    let refused = match read_stored(db::user_db::get_setting(&conn, "settings"))? {
-        StoredSettings::Current(settings) => return Ok(settings),
-        StoredSettings::Newer(record) => return Ok(decode_newer(&record)),
-        StoredSettings::Unreadable(serialized, error) => Some((serialized, error)),
-        StoredSettings::Missing => None,
-    };
+    user_db_health: &StoreHealth,
+) -> StoreHealth {
+    let settings_path = data_dir.join(SETTINGS_FILE_NAME);
+    if let Ok(Some(bytes)) = read_file_if_exists(&settings_path) {
+        let raw = String::from_utf8_lossy(&bytes);
+        let status = match parse_raw_record(&raw) {
+            ParsedRecord::Newer(_) => StoreOpenStatus::NewerReadOnly,
+            _ => StoreOpenStatus::Ready,
+        };
+        return StoreHealth {
+            status,
+            notice: None,
+        };
+    }
 
+    let mut status = match &user_db_health.status {
+        StoreOpenStatus::SetAsideDamaged { .. } | StoreOpenStatus::Recovered { .. } => {
+            StoreOpenStatus::Ready
+        }
+        other => other.clone(),
+    };
+    if status == StoreOpenStatus::Ready && legacy_row_is_newer(user_db) {
+        status = StoreOpenStatus::NewerReadOnly;
+    }
+    StoreHealth {
+        status,
+        notice: None,
+    }
+}
+
+fn legacy_row_is_newer(user_db: &UserDb) -> bool {
+    let row = db::user_db::get_setting(&user_db.acquire(), "settings");
+    matches!(row, Ok(Some(raw)) if matches!(parse_raw_record(&raw), ParsedRecord::Newer(_)))
+}
+
+fn build_default_record(detected_os_locale: Option<&str>, os: &str) -> Map<String, Value> {
     let mut settings = Settings::default();
     if let Some(locale) = detect_initial_locale(detected_os_locale) {
         settings.locale = locale;
@@ -195,370 +441,121 @@ fn get_settings_with_locale(
     if os == "macos" {
         settings.scroll_wheel = ScrollWheel::Pan;
     }
-    if !writable {
-        return Ok(settings);
-    }
-    let json = serde_json::to_string(&settings)
-        .map_err(|e| format!("Failed to serialize settings: {e}"))?;
-    let transaction = conn
-        .unchecked_transaction()
-        .map_err(|e| format!("Failed to save initial settings: {e}"))?;
-    if let Some((serialized, error)) = &refused {
-        db::user_db::set_setting(&transaction, SET_ASIDE_SETTINGS_KEY, serialized)
-            .map_err(|e| format!("Failed to set aside invalid settings: {e}"))?;
-        // The record may hold a credential, so only the parse position is logged.
-        tracing::warn!(
-            "Set aside unreadable settings (line {}, column {}); using defaults",
-            error.line(),
-            error.column()
-        );
-    }
-    db::user_db::set_setting(&transaction, "settings", &json)
-        .map_err(|e| format!("Failed to save initial settings: {e}"))?;
-    transaction
-        .commit()
-        .map_err(|e| format!("Failed to save initial settings: {e}"))?;
-    Ok(settings)
+    let mut map = match serde_json::to_value(&settings) {
+        Ok(Value::Object(map)) => map,
+        _ => Map::new(),
+    };
+    map.insert("version".to_owned(), Value::from(SETTINGS_CHAIN.current()));
+    map.insert(
+        "unit_system".to_owned(),
+        unit_system_value(default_unit_system_for_locale(detected_os_locale)),
+    );
+    map.insert("last_open_home".to_owned(), Value::Null);
+    map.insert("launch_check".to_owned(), Value::Bool(true));
+    map
 }
 
-fn deserialize_settings(serialized: &str) -> Result<Settings, serde_json::Error> {
-    serde_json::from_str(serialized)
+/// Validates every known field of record 2 individually: valid fields and unknown keys are
+/// kept intact; invalid fields are replaced with their defaults and recorded in `reset_fields`.
+fn validate_and_repair_record(
+    mut record: Map<String, Value>,
+    detected_os_locale: Option<&str>,
+    os: &str,
+    keep_newer_version: bool,
+) -> (Map<String, Value>, Vec<String>) {
+    // Also fold legacy frozen `check_updates_at_launch` alias when `launch_check` is absent.
+    if !record.contains_key("launch_check")
+        && let Some(alias) = record.remove("check_updates_at_launch")
+    {
+        record.insert("launch_check".to_owned(), alias);
+    }
+
+    let defaults = build_default_record(detected_os_locale, os);
+    let mut reset_fields = Vec::new();
+
+    for (key, default_value) in &defaults {
+        if key == "version" {
+            continue;
+        }
+        let Some(stored) = record.get(key) else {
+            record.insert(key.clone(), default_value.clone());
+            continue;
+        };
+        let validated = match validate_special_field(key, stored) {
+            Some(result) => result,
+            None => {
+                let alone = Value::Object(Map::from_iter([(key.clone(), stored.clone())]));
+                serde_json::from_value::<Settings>(alone)
+                    .ok()
+                    .map(|_| stored.clone())
+            }
+        };
+        match validated {
+            Some(normalized) => {
+                record.insert(key.clone(), normalized);
+            }
+            None => {
+                record.insert(key.clone(), default_value.clone());
+                reset_fields.push(key.clone());
+            }
+        }
+    }
+
+    if !keep_newer_version {
+        record.insert("version".to_owned(), Value::from(SETTINGS_CHAIN.current()));
+    }
+
+    (record, reset_fields)
+}
+
+fn decode_newer_record(
+    record: &Map<String, Value>,
+    detected_os_locale: Option<&str>,
+    os: &str,
+) -> Map<String, Value> {
+    let (decoded, _ignored_resets) =
+        validate_and_repair_record(record.clone(), detected_os_locale, os, true);
+    decoded
+}
+
+fn decode_v1_settings(record: &Map<String, Value>) -> Settings {
+    let Ok(Value::Object(mut known)) = serde_json::to_value(Settings::default()) else {
+        return Settings::default();
+    };
+    for (key, slot) in &mut known {
+        let Some(stored) = record.get(key) else {
+            continue;
+        };
+        let alone = Value::Object(Map::from_iter([(key.clone(), stored.clone())]));
+        if serde_json::from_value::<Settings>(alone).is_ok() {
+            *slot = stored.clone();
+        }
+    }
+    serde_json::from_value(Value::Object(known)).unwrap_or_default()
 }
 
 fn detect_initial_locale(os_locale: Option<&str>) -> Option<Locale> {
-    let code = os_locale?
-        .split(['_', '-'])
-        .next()
-        .unwrap_or("en")
-        .to_lowercase();
+    canopi_types::locale::match_locale(os_locale)
+}
 
-    match code.as_str() {
-        "fr" => Some(Locale::Fr),
-        "es" => Some(Locale::Es),
-        "pt" => Some(Locale::Pt),
-        "it" => Some(Locale::It),
-        "zh" => Some(Locale::Zh),
-        "de" => Some(Locale::De),
-        "ja" => Some(Locale::Ja),
-        "ko" => Some(Locale::Ko),
-        "nl" => Some(Locale::Nl),
-        "ru" => Some(Locale::Ru),
-        _ => None,
-    }
+// Legacy compatibility helpers for in-memory reader-release tests that operate directly on `UserDb`.
+#[cfg(test)]
+pub(crate) fn get_settings(user_db: &UserDb) -> Result<Settings, String> {
+    let scratch = crate::test_scratch::TestScratch::new("settings-compat-read");
+    DesktopSettingsStore::new(scratch.path(), user_db.clone()).get_settings()
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{
-        get_settings_with_locale, set_settings, set_updater_check_at_launch,
-        updater_check_at_launch,
-    };
-    use crate::db::UserDb;
-    use canopi_types::settings::{BasemapStyle, Locale, ScrollWheel, Settings, Theme};
-    use rusqlite::Connection;
-
-    fn test_user_db() -> UserDb {
-        let conn = Connection::open_in_memory().unwrap();
-        UserDb::initialize(conn).unwrap()
-    }
-
-    #[test]
-    fn missing_fields_take_their_defaults() {
-        let settings = super::deserialize_settings(
-            r#"{"locale":"en","theme":"light","basemap_visible":true}"#,
-        )
-        .unwrap();
-
-        assert_eq!(settings.basemap_style, BasemapStyle::Liberty);
-    }
-
-    fn store_raw_settings(user_db: &UserDb, raw: &str) {
-        let conn = user_db.acquire();
-        crate::db::user_db::set_setting(&conn, "settings", raw).unwrap();
-    }
-
-    fn stored_setting(user_db: &UserDb, key: &str) -> Option<String> {
-        let conn = user_db.acquire();
-        crate::db::user_db::get_setting(&conn, key).unwrap()
-    }
-
-    #[test]
-    fn an_invalid_settings_record_is_set_aside_and_replaced_by_defaults() {
-        for raw in [
-            r#"{"locale":"en","theme":"sepia","google_maps_api_key":"SECRET-KEY"}"#,
-            r#"{"locale":"xx","google_maps_api_key":"SECRET-KEY"}"#,
-            r#"{"basemap_style":"ocean","google_maps_api_key":"SECRET-KEY"}"#,
-            r#"{"google_maps_api_key":"SECRET-KEY""#,
-        ] {
-            let user_db = test_user_db();
-            store_raw_settings(&user_db, raw);
-
-            let (settings, logs) = crate::services::design_files::capture_logs(|| {
-                get_settings_with_locale(&user_db, Some("fr_FR"), "linux")
-            });
-            let settings = settings.expect("invalid settings must not fail forever");
-
-            assert_eq!(settings.theme, Theme::Light, "{raw}");
-            assert_eq!(settings.locale, Locale::Fr, "{raw}");
-            assert_eq!(settings.google_maps_api_key, None, "{raw}");
-            assert_eq!(
-                stored_setting(&user_db, super::SET_ASIDE_SETTINGS_KEY).as_deref(),
-                Some(raw)
-            );
-            assert!(logs.contains("Set aside unreadable settings"), "{logs}");
-            assert!(!logs.contains("SECRET-KEY"), "{logs}");
-
-            let reread = get_settings_with_locale(&user_db, Some("en_US"), "linux").unwrap();
-            assert_eq!(reread.locale, Locale::Fr, "defaults were persisted");
-        }
-    }
-
-    #[test]
-    fn initializes_and_persists_detected_locale_on_first_read() {
-        let user_db = test_user_db();
-
-        let settings = get_settings_with_locale(&user_db, Some("fr_FR"), "linux").unwrap();
-
-        assert_eq!(settings.locale, Locale::Fr);
-
-        let persisted = get_settings_with_locale(&user_db, Some("en_US"), "linux").unwrap();
-        assert_eq!(persisted.locale, Locale::Fr);
-    }
-
-    /// Each language Canopi speaks is a first launch's locale on a system set to it, whatever the region or case.
-    #[test]
-    fn first_launch_takes_every_supported_system_language() {
-        let languages = [
-            ("es_ES.UTF-8", Locale::Es),
-            ("pt-BR", Locale::Pt),
-            ("it_IT", Locale::It),
-            ("zh-Hans-CN", Locale::Zh),
-            ("de_DE", Locale::De),
-            ("ja_JP", Locale::Ja),
-            ("ko-KR", Locale::Ko),
-            ("NL_be", Locale::Nl),
-            ("ru_RU", Locale::Ru),
-        ];
-        for (system, locale) in languages {
-            let settings =
-                get_settings_with_locale(&test_user_db(), Some(system), "linux").unwrap();
-            assert_eq!(settings.locale, locale, "{system}");
-        }
-        let unknown = get_settings_with_locale(&test_user_db(), Some("sv_SE"), "linux").unwrap();
-        assert_eq!(unknown.locale, Locale::En);
-    }
-
-    #[test]
-    fn saves_settings_round_trip() {
-        let user_db = test_user_db();
-        let settings = Settings {
-            locale: Locale::De,
-            theme: Theme::Dark,
-            basemap_style: BasemapStyle::Dark,
-            side_panel_width: Some(444),
-            saved_stamps_frame_height: Some(260),
-            ..Default::default()
-        };
-
-        set_settings(&user_db, settings.clone()).unwrap();
-
-        let stored = get_settings_with_locale(&user_db, Some("en_US"), "linux").unwrap();
-        assert_eq!(stored.locale, Locale::De);
-        assert_eq!(stored.theme, Theme::Dark);
-        assert_eq!(stored.basemap_style, BasemapStyle::Dark);
-        assert_eq!(stored.side_panel_width, Some(444));
-        assert_eq!(stored.saved_stamps_frame_height, Some(260));
-    }
-
-    /// The record 2.0.3 writes whole when its user changes any setting (every field of its
-    /// `Settings`, here with the theme changed): it knows nothing of the launch check.
-    const SETTINGS_RECORD_2_0_3: &str = r#"{"locale":"en","theme":"dark","snap_to_grid":true,
-        "side_panel_width":null,"saved_stamps_frame_height":null,"basemap_style":"liberty",
-        "basemap_visible":true,"basemap_opacity":1.0,"satellite_visible":false,
-        "satellite_opacity":1.0,"google_maps_api_key":null,"satellite_source":null,
-        "contour_visible":false,"contour_opacity":1.0,"contour_interval":0,
-        "hillshade_visible":false,"hillshade_opacity":0.55,"soften_background":false,
-        "plant_spacing_interval_m":0.5,"last_view":null,"used_canvas_tools":[],
-        "tool_names_visible":null,"single_key_shortcuts":true,"scroll_wheel":"zoom",
-        "new_design_satellite":false,"new_design_symbol_scale":1.0,"new_design_labels":"names"}"#;
-
-    /// plan:192, 2.1-M206: a beta user who reinstalls 2.0.3 and changes a setting there, then
-    /// comes back to 2.1, keeps the launch check they turned off. The updater lane's 2.0.3 run
-    /// only starts 2.0.3, which writes no valid record when idle, so this is the guard.
-    #[test]
-    fn a_2_0_3_whole_settings_record_write_leaves_the_launch_check_row() {
-        let user_db = test_user_db();
-        assert!(
-            updater_check_at_launch(&user_db).unwrap(),
-            "a missing row reads on"
-        );
-        set_settings(&user_db, Settings::default()).unwrap();
-        set_updater_check_at_launch(&user_db, false).unwrap();
-
-        store_raw_settings(&user_db, SETTINGS_RECORD_2_0_3);
-
-        assert!(!updater_check_at_launch(&user_db).unwrap());
-        assert_eq!(
-            get_settings_with_locale(&user_db, Some("en_US"), "linux")
-                .unwrap()
-                .theme,
-            Theme::Dark
-        );
-        set_updater_check_at_launch(&user_db, true).unwrap();
-        assert!(updater_check_at_launch(&user_db).unwrap());
-    }
-
-    fn stored_keys(record: &str) -> Vec<String> {
-        let value: serde_json::Value = serde_json::from_str(record).unwrap();
-        let mut keys: Vec<String> = value.as_object().unwrap().keys().cloned().collect();
-        keys.sort();
-        keys
-    }
-
-    /// 2.1-Q309: a new Mac profile starts on Trackpad; the record it writes is the record every
-    /// first launch writes (no new key, 2.1-M473), and "pan" is the literal 2.0.3 already reads.
-    #[test]
-    fn u_canopi_pqxl_macos_first_launch_defaults_the_pointing_device_to_trackpad() {
-        let user_db = test_user_db();
-
-        let settings = get_settings_with_locale(&user_db, Some("en_US"), "macos").unwrap();
-
-        assert_eq!(settings.scroll_wheel, ScrollWheel::Pan);
-        let stored = stored_setting(&user_db, "settings").expect("first launch stores the record");
-        let value: serde_json::Value = serde_json::from_str(&stored).unwrap();
-        assert_eq!(value["scroll_wheel"], "pan", "2.0.3 reads the literal pan");
-        assert_eq!(
-            stored_keys(&stored),
-            stored_keys(&serde_json::to_string(&Settings::default()).unwrap()),
-            "no new stored key"
-        );
-        assert_eq!(
-            Settings::default().scroll_wheel,
-            ScrollWheel::Zoom,
-            "the host-independent default stays Mouse"
-        );
-        assert_eq!(
-            get_settings_with_locale(&user_db, Some("en_US"), "linux")
-                .unwrap()
-                .scroll_wheel,
-            ScrollWheel::Pan,
-            "the stored choice is kept"
-        );
-    }
-
-    #[test]
-    fn u_canopi_pqxl_a_set_aside_record_on_macos_defaults_to_trackpad() {
-        let user_db = test_user_db();
-        store_raw_settings(&user_db, r#"{"theme":"sepia","scroll_wheel":"zoom"}"#);
-
-        let settings = get_settings_with_locale(&user_db, Some("en_US"), "macos").unwrap();
-
-        assert_eq!(settings.scroll_wheel, ScrollWheel::Pan);
-        assert!(stored_setting(&user_db, super::SET_ASIDE_SETTINGS_KEY).is_some());
-    }
-
-    #[test]
-    fn u_canopi_pqxl_an_existing_zoom_record_on_macos_stays_mouse() {
-        let user_db = test_user_db();
-        store_raw_settings(&user_db, SETTINGS_RECORD_2_0_3);
-
-        let settings = get_settings_with_locale(&user_db, Some("en_US"), "macos").unwrap();
-
-        assert_eq!(settings.scroll_wheel, ScrollWheel::Zoom);
-        assert_eq!(
-            stored_setting(&user_db, "settings").as_deref(),
-            Some(SETTINGS_RECORD_2_0_3),
-            "the stored record is not rewritten"
-        );
-    }
-
-    fn all_rows(user_db: &UserDb) -> Vec<(String, String)> {
-        let conn = user_db.acquire();
-        let mut rows = conn.prepare("SELECT key, value FROM settings").unwrap();
-        let rows = rows.query_map([], |row| Ok((row.get(0)?, row.get(1)?)));
-        rows.unwrap().map(Result::unwrap).collect()
-    }
-
-    /// A field 2.1 retypes or gives a literal this build lacks takes that field's default; the rest apply, nothing is
-    /// set aside and nothing written (2.1-M480).
-    #[test]
-    fn r2_canopi_f47t_52_271_settings_record_2_with_an_unknown_literal_or_a_retyped_field_takes_that_fields_default()
-     {
-        let user_db = test_user_db();
-        store_raw_settings(
-            &user_db,
-            r#"{"version":3,"locale":"de","theme":7,"basemap_style":"terrain","side_panel_width":"wide",
-            "scroll_wheel":"fling","snap_to_grid":false,"check_updates_at_launch":"no","unit_system":"us"}"#,
-        );
-        let before = all_rows(&user_db);
-
-        let read = get_settings_with_locale(&user_db, Some("fr_FR"), "macos").unwrap();
-
-        assert_eq!((read.locale, read.snap_to_grid), (Locale::De, false));
-        assert_eq!(
-            (read.theme, read.basemap_style, read.side_panel_width),
-            (Theme::Light, BasemapStyle::Liberty, None)
-        );
-        assert_eq!(read.scroll_wheel, ScrollWheel::Zoom, "the field's default");
-        assert!(updater_check_at_launch(&user_db).unwrap());
-        assert_eq!(all_rows(&user_db), before, "nothing set aside or written");
-    }
-
-    /// Record 2 can sit in user DB 9 on beta profiles (A16): the user DB stays writable and only the settings refuse.
-    #[test]
-    fn r2_canopi_f47t_52_271_user_db_9_with_settings_record_2_refuses_only_the_settings_writes() {
-        let user_db = test_user_db();
-        store_raw_settings(&user_db, r#"{"version":2,"theme":"dark"}"#);
-        let before = all_rows(&user_db);
-
-        assert_eq!(
-            set_settings(&user_db, Settings::default()),
-            Err("store_read_only".to_owned())
-        );
-        assert_eq!(
-            set_updater_check_at_launch(&user_db, false),
-            Err(super::SettingsWriteError::ReadOnly)
-        );
-        assert_eq!(all_rows(&user_db), before);
-        let starred = crate::services::plant_browser::toggle_favorite(&user_db, "Malus".into());
-        assert!(
-            starred.is_ok(),
-            "the user DB itself is writable: {starred:?}"
-        );
-    }
-
-    /// Record 1, with no version or `version` 1, reads strictly and is written as before, the launch check on its row.
-    #[test]
-    fn r2_canopi_f47t_52_271_settings_record_1_is_unchanged() {
-        let user_db = test_user_db();
-        store_raw_settings(&user_db, r#"{"version":1,"theme":"sepia"}"#);
-        get_settings_with_locale(&user_db, None, "linux").unwrap();
-        assert!(stored_setting(&user_db, super::SET_ASIDE_SETTINGS_KEY).is_some());
-
-        store_raw_settings(
-            &user_db,
-            r#"{"theme":"dark","check_updates_at_launch":false}"#,
-        );
-        assert!(
-            updater_check_at_launch(&user_db).unwrap(),
-            "record 1 has no such field"
-        );
-        set_updater_check_at_launch(&user_db, false).unwrap();
-        assert!(!updater_check_at_launch(&user_db).unwrap());
-        set_settings(&user_db, Settings::default()).unwrap();
-        assert!(
-            !stored_setting(&user_db, "settings")
-                .unwrap()
-                .contains("version")
-        );
-    }
-
-    #[test]
-    fn u_canopi_pqxl_other_systems_start_on_mouse() {
-        for os in ["windows", "linux"] {
-            let user_db = test_user_db();
-            let settings = get_settings_with_locale(&user_db, Some("en_US"), os).unwrap();
-            assert_eq!(settings.scroll_wheel, ScrollWheel::Zoom, "{os}");
-        }
-    }
+pub(crate) fn set_settings(user_db: &UserDb, settings: Settings) -> Result<(), String> {
+    let scratch = crate::test_scratch::TestScratch::new("settings-compat-write");
+    DesktopSettingsStore::new(scratch.path(), user_db.clone()).set_settings(settings)
 }
+
+#[cfg(test)]
+pub(crate) fn record_is_newer(user_db: &UserDb) -> bool {
+    legacy_row_is_newer(user_db)
+}
+
+#[cfg(test)]
+#[path = "settings_tests.rs"]
+mod tests;

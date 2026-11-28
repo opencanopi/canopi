@@ -3,8 +3,17 @@ import {
   formatShortcut,
   isCharacterKeyShortcut,
 } from '../shell-commands/shortcut-text'
-import type { ToolId } from '../../canvas/runtime/tool-id'
-import { canvasEditAvailable, type CanvasEditSelectionAvailability } from './edit-availability'
+import {
+  commandApplicability,
+  commandRowFor,
+  EDITION_CAPABILITIES,
+  TOOL_IDS,
+  TOOL_ROWS,
+  type CommandContext,
+  type EditionCapabilityId,
+  type SelectionAvailabilityContext,
+  type ToolId,
+} from '../command-table'
 import type { LocaleKey } from '../../generated/locale-keys'
 
 /**
@@ -15,7 +24,9 @@ import type { LocaleKey } from '../../generated/locale-keys'
 export type CanvasToolId = Exclude<ToolId, 'saved-object-stamp'>
 
 /** The tools that only look at a Design: all a read-only Session arms (2.1-M478). */
-const CANVAS_READ_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['select', 'hand'])
+const CANVAS_READ_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(
+  TOOL_IDS.filter((id) => TOOL_ROWS[id].readOnly),
+)
 
 /** Tool rail groups, top to bottom. Only `zones` carries a heading. */
 type CanvasToolGroupId = 'navigate' | 'plant' | 'zones' | 'annotate'
@@ -109,12 +120,12 @@ export interface CanvasCommandProjectionState {
   /** False in overview, where Design objects are hidden and cannot change (the mutating edits); tools stay enabled. */
   readonly spatialEditingAvailable: boolean
   /**
-   * The Design Session is read-only (a Design a newer Canopi saved, 2.1-M478): only Select and Pan arm, and Undo, Redo
+   * The Design Session is read-only (2.1-M478, Q347): only Select and Pan arm, and Undo, Redo
    * and every edit that changes an object are off.
    */
   readonly readOnly: boolean
   /** What the selection's commands can do; null with nothing selected. */
-  readonly selection: CanvasEditSelectionAvailability | null
+  readonly selection: SelectionAvailabilityContext | null
   /** The re-origin hold (a press, a tool transient or a text entry): Cut and Delete wait (U39). */
   readonly held: boolean
   /** Some Design Object is locked, so Unlock all has something to do. */
@@ -382,38 +393,77 @@ export const canvasCommandDefinitions: readonly CanvasCommandDefinition[] = [
   },
 ]
 
+const ALL_CAPABILITIES: readonly EditionCapabilityId[] = EDITION_CAPABILITIES.map((row) => row.id)
+
+const EDIT_ACTION_COMMAND_ID: Readonly<Record<CanvasEditAction, CanvasCommandId>> = {
+  cut: 'canvas.cut',
+  copy: 'canvas.copy',
+  paste: 'canvas.paste',
+  duplicate: 'canvas.duplicateSelected',
+  delete: 'canvas.deleteSelected',
+  'select-all': 'canvas.selectAll',
+  'select-same-species': 'canvas.selectSameSpecies',
+  deselect: 'canvas.clearSelection',
+  group: 'canvas.groupSelected',
+  ungroup: 'canvas.ungroupSelected',
+  'bring-to-front': 'canvas.bringToFront',
+  'send-to-back': 'canvas.sendToBack',
+  rotate: 'canvas.rotateSelected',
+  lock: 'canvas.lockSelected',
+  unlock: 'canvas.unlockSelected',
+  'unlock-all': 'canvas.unlockAll',
+  'save-as-stamp': 'canvas.saveSelectionAsStamp',
+}
+
+const VIEW_ACTION_COMMAND_ID: Readonly<Record<CanvasViewAction, CanvasCommandId>> = {
+  'zoom-in': 'view.zoomIn',
+  'zoom-out': 'view.zoomOut',
+  'fit-to-design': 'view.fitToDesign',
+  'zoom-to-selection': 'view.zoomToSelection',
+  'reset-north': 'view.resetNorth',
+  'turn-view-left': 'view.turnViewLeft',
+  'turn-view-right': 'view.turnViewRight',
+  'search-place': 'view.searchPlace',
+  'cycle-labels': 'view.cycleLabels',
+}
+
+function commandIdForIntent(intent: Exclude<CanvasCommandIntent, { readonly type: 'select-tool' }>): CanvasCommandId {
+  switch (intent.type) {
+    case 'undo': return 'edit.undo'
+    case 'redo': return 'edit.redo'
+    case 'toggle-grid': return 'canvas.toggleGrid'
+    case 'toggle-snap-to-grid': return 'canvas.toggleSnapToGrid'
+    case 'view': return VIEW_ACTION_COMMAND_ID[intent.action]
+    case 'edit': return EDIT_ACTION_COMMAND_ID[intent.action]
+  }
+}
+
 export function isCanvasCommandDisabled(
   intent: CanvasCommandIntent,
   state: CanvasCommandProjectionState,
 ): boolean {
-  const readOnly = state.readOnly
-  switch (intent.type) {
-    case 'select-tool':
-      // Only a read-only Session greys a tool: before the canvas mounts a tool primes the one it starts with, and in
-      // overview arming fits the Design first (app/keyboard/arming.ts).
-      return readOnly && !CANVAS_READ_TOOLS.has(intent.tool)
-    case 'undo':
-      return readOnly || !state.canUndo
-    case 'redo':
-      return readOnly || !state.canRedo
-    case 'toggle-grid':
-    case 'toggle-snap-to-grid':
-      return !state.canvasAvailable
-    case 'view':
-      return !state.canvasAvailable || (intent.action === 'zoom-to-selection' && state.selection === null)
-    case 'edit':
-      return !canvasEditAvailable(intent.action, {
-        canvasAvailable: state.canvasAvailable,
-        overview: !state.spatialEditingAvailable,
-        readOnly,
-        selection: state.selection,
-        held: state.held,
-        lockedObjectsPresent: state.lockedObjectsPresent,
-        // The menu bar and the palette keep Paste enabled, a no-op without a clipboard (U54 Q5): the one difference
-        // from the canvas menu, which reads the clipboard.
-        canPaste: true,
-      })
+  if (intent.type === 'select-tool') {
+    // Only a read-only Session greys a tool: before the canvas mounts a tool primes the one it starts with, and in
+    // overview arming fits the Design first (app/keyboard/arming.ts).
+    return state.readOnly && !CANVAS_READ_TOOLS.has(intent.tool)
   }
+  const ctx: CommandContext = {
+    capabilities: ALL_CAPABILITIES,
+    hasDesign: true,
+    revertAvailable: false,
+    canvasAvailable: state.canvasAvailable,
+    spatialEditingAvailable: state.spatialEditingAvailable,
+    readOnly: state.readOnly,
+    selection: state.selection,
+    held: state.held,
+    lockedObjectsPresent: state.lockedObjectsPresent,
+    // The menu bar and the palette keep Paste enabled, a no-op without a clipboard (U54 Q5): the one difference
+    // from the canvas menu, which reads the clipboard.
+    canPaste: true,
+    canUndo: state.canUndo,
+    canRedo: state.canRedo,
+  }
+  return commandApplicability(commandRowFor(commandIdForIntent(intent)), ctx) !== 'enabled'
 }
 
 interface CreateCanvasCommandProjectionOptions {

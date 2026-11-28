@@ -2,13 +2,17 @@
 // Owner of the CanopiFile serializer (no-canopifile-literal, ADR 0026; §18 F28) until 2b's
 // platform/design-core.ts. Invariant: production code builds a CanopiFile only here and in the generated defaults.
 
+import type { GeoPointV10 } from '../../../generated/contracts'
+
 import { allocateSpeciesCodes } from '../species-key'
+export { allocateSpeciesCodes }
 import type {
   Annotation,
   CanopiFile,
   Layer,
   MeasurementGuide,
   ObjectGroup,
+  ObjectGroupMember,
   PlacedPlant,
   Zone,
 } from '../../../types/design'
@@ -18,12 +22,12 @@ import {
   createSessionPlane,
   DEFAULT_NEW_DESIGN_VIEW,
   sessionPlaneOriginForPoints,
-  type GeoPosition,
   type SessionPlane,
-} from '../../session-plane'
+} from '../../../geo/session-plane'
 import {
   hydrateGeoEllipse,
   hydrateGeoPoint,
+  isEllipseZoneWithRadii,
   serializeGeoEllipse,
   serializeGeoPoint,
 } from './geo-frame'
@@ -32,6 +36,7 @@ import type {
   SceneLayerEntity,
   SceneMeasurementGuideEntity,
   SceneObjectGroupEntity,
+  SceneObjectGroupMember,
   ScenePersistedState,
   ScenePlantEntity,
   SceneSessionState,
@@ -52,9 +57,75 @@ export interface SceneHydration {
   readonly plane: SessionPlane
 }
 
+const LAYER_KNOWN_KEYS = new Set(['name', 'visible', 'locked', 'opacity'])
+const PLANT_KNOWN_KEYS = new Set([
+  'id', 'locked', 'canonical_name', 'common_name', 'color', 'symbol', 'pinned_name',
+  'position', 'rotation', 'canopy_spread_m', 'notes', 'planted_date', 'quantity',
+])
+const ZONE_KNOWN_KEYS = new Set([
+  'id', 'name', 'locked', 'zone_type', 'points', 'rotation', 'fill_color', 'stroke_color', 'opacity', 'notes',
+])
+const ANNOTATION_KNOWN_KEYS = new Set([
+  'id', 'locked', 'annotation_type', 'position', 'text', 'font_size', 'rotation',
+])
+const GUIDE_KNOWN_KEYS = new Set(['id', 'locked', 'start', 'end'])
+const GROUP_KNOWN_KEYS = new Set(['id', 'locked', 'name', 'members'])
+const GROUP_MEMBER_KNOWN_KEYS = new Set(['kind', 'id'])
+
+function extractUnknownKeys(
+  wire: object,
+  knownKeys: ReadonlySet<string>,
+): Record<string, unknown> | undefined {
+  let unknown: Record<string, unknown> | undefined
+  for (const [key, value] of Object.entries(wire)) {
+    if (knownKeys.has(key)) continue
+    if (!unknown) unknown = {}
+    Object.defineProperty(unknown, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    })
+  }
+  return unknown
+}
+
+function withUnknownFields<T extends object>(
+  known: T,
+  unknownFields: Record<string, unknown> | undefined,
+): T {
+  if (!unknownFields) return known
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(unknownFields)) {
+    Object.defineProperty(out, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    })
+  }
+  return Object.assign(out, known)
+}
+
+function cloneUnknownFields(
+  unknownFields: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!unknownFields) return undefined
+  const out: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(unknownFields)) {
+    Object.defineProperty(out, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    })
+  }
+  return out
+}
+
 // Every stored lon/lat of a Design, used to centre its session plane.
-export function designGeoPositions(file: CanopiFile): GeoPosition[] {
-  const positions: GeoPosition[] = []
+export function designGeoPositions(file: CanopiFile): GeoPointV10[] {
+  const positions: GeoPointV10[] = []
   for (const plant of file.plants) positions.push(plant.position)
   for (const zone of file.zones) positions.push(...zone.points)
   for (const annotation of file.annotations ?? []) positions.push(annotation.position)
@@ -66,7 +137,7 @@ export function designGeoPositions(file: CanopiFile): GeoPosition[] {
 // `emptyOrigin` for a Design without objects) and hydrates plane metres.
 export function hydrateSceneFromDesign(
   file: CanopiFile,
-  emptyOrigin: GeoPosition = DEFAULT_NEW_DESIGN_VIEW,
+  emptyOrigin: GeoPointV10 = DEFAULT_NEW_DESIGN_VIEW,
 ): SceneHydration {
   const plane = createSessionPlane(sessionPlaneOriginForPoints(designGeoPositions(file), emptyOrigin))
   return { persisted: hydrateScenePersistedStateInFrame(file, plane), plane }
@@ -142,46 +213,52 @@ export function cloneSceneSessionState(state: SceneSessionState): SceneSessionSt
 }
 
 function hydrateLayerEntity(layer: Layer): SceneLayerEntity {
+  const unknownFields = extractUnknownKeys(layer, LAYER_KNOWN_KEYS)
   return {
     kind: 'layer',
     name: layer.name,
     visible: layer.visible,
-    locked: layer.locked,
+    locked: layer.locked ?? false,
     opacity: layer.opacity,
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function serializeLayerEntity(layer: SceneLayerEntity): Layer {
-  return {
+  return withUnknownFields({
     name: layer.name,
     visible: layer.visible,
     locked: layer.locked,
     opacity: layer.opacity,
-  }
+  }, layer.unknownFields)
 }
 
 function cloneLayerEntity(layer: SceneLayerEntity): SceneLayerEntity {
+  const unknownFields = cloneUnknownFields(layer.unknownFields)
   return {
     ...layer,
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function hydratePlantEntity(plant: PlacedPlant, plane: SessionPlane): ScenePlantEntity {
+  const unknownFields = extractUnknownKeys(plant, PLANT_KNOWN_KEYS)
   return {
     kind: 'plant',
     id: plant.id,
     locked: plant.locked ?? false,
     canonicalName: plant.canonical_name,
-    commonName: plant.common_name,
-    color: plant.color,
+    commonName: plant.common_name ?? null,
+    color: plant.color ?? null,
     symbol: plant.symbol ?? null,
     pinnedName: plant.pinned_name ?? false,
-    canopySpreadM: plant.scale,
+    canopySpreadM: plant.canopy_spread_m ?? null,
     position: hydrateGeoPoint(plane, plant.position),
-    rotationDeg: plant.rotation,
-    notes: plant.notes,
-    plantedDate: plant.planted_date,
-    quantity: plant.quantity,
+    rotationDeg: plant.rotation ?? null,
+    notes: plant.notes ?? null,
+    plantedDate: plant.planted_date ?? null,
+    quantity: plant.quantity ?? null,
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
@@ -195,8 +272,7 @@ function serializePlantEntity(plant: ScenePlantEntity, plane: SessionPlane): Pla
     pinned_name: plant.pinnedName === true,
     position: serializeGeoPoint(plane, plant.position),
     rotation: plant.rotationDeg,
-    // The file's `scale` field is the plant's canopy spread in metres.
-    scale: plant.canopySpreadM,
+    canopy_spread_m: plant.canopySpreadM,
     notes: plant.notes,
     planted_date: plant.plantedDate,
     quantity: plant.quantity,
@@ -204,55 +280,67 @@ function serializePlantEntity(plant: ScenePlantEntity, plane: SessionPlane): Pla
   if (plant.symbol != null) {
     serialized.symbol = plant.symbol
   }
-  return serialized
+  return withUnknownFields(serialized, plant.unknownFields)
 }
 
 function clonePlantEntity(plant: ScenePlantEntity): ScenePlantEntity {
+  const unknownFields = cloneUnknownFields(plant.unknownFields)
   return {
     ...plant,
     position: { ...plant.position },
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function hydrateZoneEntity(zone: Zone, plane: SessionPlane): SceneZoneEntity {
+  const unknownFields = extractUnknownKeys(zone, ZONE_KNOWN_KEYS)
   return {
     kind: 'zone',
     id: zone.id,
     name: zone.name ?? null,
     locked: zone.locked ?? false,
     zoneType: zone.zone_type,
-    points: zone.zone_type === 'ellipse' && zone.points.length >= 2
+    points: isEllipseZoneWithRadii(zone)
       ? hydrateGeoEllipse(plane, [zone.points[0]!, zone.points[1]!])
       : zone.points.map((point) => hydrateGeoPoint(plane, point)),
     rotationDeg: zone.rotation ?? 0,
-    fillColor: zone.fill_color,
-    notes: zone.notes,
+    fillColor: zone.fill_color ?? null,
+    ...(zone.stroke_color !== undefined ? { strokeColor: zone.stroke_color } : {}),
+    ...(zone.opacity !== undefined ? { opacity: zone.opacity } : {}),
+    notes: zone.notes ?? null,
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function serializeZoneEntity(zone: SceneZoneEntity, plane: SessionPlane): Zone {
-  return {
+  const serialized: Zone = {
     id: zone.id,
     name: zone.name,
     locked: zone.locked,
     zone_type: zone.zoneType,
-    points: zone.zoneType === 'ellipse' && zone.points.length >= 2
+    points: isEllipseZoneWithRadii(zone)
       ? serializeGeoEllipse(plane, zone.points[0]!, zone.points[1]!)
       : zone.points.map((point) => serializeGeoPoint(plane, point)),
     rotation: zone.rotationDeg,
     fill_color: zone.fillColor,
     notes: zone.notes,
   }
+  if (zone.strokeColor !== undefined) serialized.stroke_color = zone.strokeColor
+  if (zone.opacity !== undefined) serialized.opacity = zone.opacity
+  return withUnknownFields(serialized, zone.unknownFields)
 }
 
 function cloneZoneEntity(zone: SceneZoneEntity): SceneZoneEntity {
+  const unknownFields = cloneUnknownFields(zone.unknownFields)
   return {
     ...zone,
     points: zone.points.map(clonePoint),
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function hydrateAnnotationEntity(annotation: Annotation, plane: SessionPlane): SceneAnnotationEntity {
+  const unknownFields = extractUnknownKeys(annotation, ANNOTATION_KNOWN_KEYS)
   return {
     kind: 'annotation',
     id: annotation.id,
@@ -261,12 +349,13 @@ function hydrateAnnotationEntity(annotation: Annotation, plane: SessionPlane): S
     position: hydrateGeoPoint(plane, annotation.position),
     text: annotation.text,
     fontSize: annotation.font_size,
-    rotationDeg: annotation.rotation,
+    rotationDeg: annotation.rotation ?? null,
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function serializeAnnotationEntity(annotation: SceneAnnotationEntity, plane: SessionPlane): Annotation {
-  return {
+  return withUnknownFields({
     id: annotation.id,
     locked: annotation.locked,
     annotation_type: annotation.annotationType,
@@ -274,13 +363,15 @@ function serializeAnnotationEntity(annotation: SceneAnnotationEntity, plane: Ses
     text: annotation.text,
     font_size: annotation.fontSize,
     rotation: annotation.rotationDeg,
-  }
+  }, annotation.unknownFields)
 }
 
 function cloneAnnotationEntity(annotation: SceneAnnotationEntity): SceneAnnotationEntity {
+  const unknownFields = cloneUnknownFields(annotation.unknownFields)
   return {
     ...annotation,
     position: clonePoint(annotation.position),
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
@@ -288,57 +379,87 @@ function hydrateMeasurementGuideEntity(
   guide: MeasurementGuide,
   plane: SessionPlane,
 ): SceneMeasurementGuideEntity {
+  const unknownFields = extractUnknownKeys(guide, GUIDE_KNOWN_KEYS)
   return {
     kind: 'measurement-guide',
     id: guide.id,
     locked: guide.locked ?? false,
     start: hydrateGeoPoint(plane, guide.start),
     end: hydrateGeoPoint(plane, guide.end),
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function serializeMeasurementGuideEntity(guide: SceneMeasurementGuideEntity, plane: SessionPlane): MeasurementGuide {
-  return {
+  return withUnknownFields({
     id: guide.id,
     locked: guide.locked,
     start: serializeGeoPoint(plane, guide.start),
     end: serializeGeoPoint(plane, guide.end),
-  }
+  }, guide.unknownFields)
 }
 
 function cloneMeasurementGuideEntity(
   guide: SceneMeasurementGuideEntity,
 ): SceneMeasurementGuideEntity {
+  const unknownFields = cloneUnknownFields(guide.unknownFields)
   return {
     ...guide,
     start: clonePoint(guide.start),
     end: clonePoint(guide.end),
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
+function hydrateGroupMemberKind(kind: ObjectGroupMember['kind']): SceneObjectGroupMember['kind'] {
+  return kind === 'measurement_guide' ? 'measurement-guide' : kind
+}
+
+function serializeGroupMemberKind(kind: SceneObjectGroupMember['kind']): ObjectGroupMember['kind'] {
+  return kind === 'measurement-guide' ? 'measurement_guide' : kind
+}
+
 function hydrateGroupEntity(group: ObjectGroup): SceneObjectGroupEntity {
+  const unknownFields = extractUnknownKeys(group, GROUP_KNOWN_KEYS)
+  const members: SceneObjectGroupMember[] = group.members.map((member) => {
+    const memberUnknown = extractUnknownKeys(member, GROUP_MEMBER_KNOWN_KEYS)
+    return {
+      kind: hydrateGroupMemberKind(member.kind),
+      id: member.id,
+      ...(memberUnknown !== undefined ? { unknownFields: memberUnknown } : {}),
+    }
+  })
   return {
     kind: 'group',
     id: group.id,
     locked: group.locked ?? false,
-    name: group.name,
-    members: cloneSceneObjectGroupMembers(group.members),
+    name: group.name ?? null,
+    members,
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 
 function serializeGroupEntity(group: SceneObjectGroupEntity): ObjectGroup {
-  return {
+  const members: ObjectGroupMember[] = group.members.map((member) =>
+    withUnknownFields(
+      { kind: serializeGroupMemberKind(member.kind), id: member.id },
+      member.unknownFields,
+    ),
+  )
+  return withUnknownFields({
     id: group.id,
     locked: group.locked,
     name: group.name,
-    members: cloneSceneObjectGroupMembers(group.members),
-  }
+    members,
+  }, group.unknownFields)
 }
 
 function cloneGroupEntity(group: SceneObjectGroupEntity): SceneObjectGroupEntity {
+  const unknownFields = cloneUnknownFields(group.unknownFields)
   return {
     ...group,
     members: cloneSceneObjectGroupMembers(group.members),
+    ...(unknownFields !== undefined ? { unknownFields } : {}),
   }
 }
 

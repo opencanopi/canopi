@@ -27,12 +27,11 @@ import { InspectionLens } from '../components/canvas/InspectionLens'
 import { PhoneToolRow, ToolCard } from '../components/canvas/ToolCard'
 import {
   IDLE_CANVAS_TOOL_GUIDANCE,
-  setCanvasTool,
   setCanvasToolGuidance,
   type CanvasPlantRowGuidance,
 } from '../canvas/session-state'
 import type { CanvasInspectionHandle } from '../canvas/inspection'
-import { framingRect } from '../canvas/runtime/view/fit'
+import { framingRect } from '../geo/view/fit'
 import type { ScenePersistedState } from '../canvas/runtime/scene'
 import { plantFinderMapMatches, zoomToPlantFinderMatches } from '../app/plant-finder/map-matches'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
@@ -501,7 +500,7 @@ describe('visible map area', () => {
       expect(visibleMapFrame.value[edge]).toBe(0)
 
       await act(async () => {
-        setCanvasTool('plant-spacing')
+        surfaces.commands.tools.arm('plant-spacing')
         setCanvasToolGuidance({ ...IDLE_CANVAS_TOOL_GUIDANCE, gesture: true, plantRow: row })
       })
       expect(visibleMapFrame.value[edge]).toBe(cover)
@@ -510,7 +509,7 @@ describe('visible map area', () => {
 
       // Back to Select: the room comes back.
       await act(async () => {
-        setCanvasTool('select')
+        surfaces.commands.tools.arm('select')
         setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
       })
       expect(visibleMapFrame.value[edge]).toBe(0)
@@ -518,7 +517,7 @@ describe('visible map area', () => {
       render(null, container)
       container.remove()
       releaseArea()
-      setCanvasTool('select')
+      surfaces.commands.tools.arm('select')
       setCanvasToolGuidance(IDLE_CANVAS_TOOL_GUIDANCE)
     }
   })
@@ -531,19 +530,19 @@ describe('visible map area', () => {
     const camera = createTestView({ screen: { width: 1280, height: 800 }, viewport: { x: 240, y: 0, scale: 8 } })
     camera.navigation.setFramingInsets(insets)
     expect(camera.navigation.focusTemporaryBounds({ minX: 0, minY: 0, maxX: 10, maxY: 10 }, { paddingCssPx: 72 })).toBe(true)
-    const viewport = camera.viewport()
+    const focusedView = camera.view()
+    const focusedCentre = focusedView.worldToScreen({ x: 5, y: 5 })
     // The bounds' centre lands on the visible area's centre, not the window's.
-    expect(5 * viewport.scale + viewport.x).toBeCloseTo(236 + 588 / 2)
-    expect(5 * viewport.scale + viewport.y).toBeCloseTo(60 + 684 / 2)
+    expect(focusedCentre.x).toBeCloseTo(236 + 588 / 2)
+    expect(focusedCentre.y).toBeCloseTo(60 + 684 / 2)
     // And the whole bounds fits between the rails and the dock.
-    expect(10 * viewport.scale + viewport.x).toBeLessThanOrEqual(1280 - 456 - 72 + 1e-6)
-    expect(viewport.x).toBeGreaterThanOrEqual(236 + 72 - 1e-6)
+    expect(focusedView.worldToScreen({ x: 10, y: 5 }).x).toBeLessThanOrEqual(1280 - 456 - 72 + 1e-6)
+    expect(focusedView.worldToScreen({ x: 0, y: 5 }).x).toBeGreaterThanOrEqual(236 + 72 - 1e-6)
 
     const scene = emptyScene({ x: 0, y: 0 }, { x: 40, y: 20 })
     camera.setScene(scene)
     camera.navigation.zoomToFit()
-    const fitted = camera.viewport()
-    const centre = { x: 20 * fitted.scale + fitted.x, y: 10 * fitted.scale + fitted.y }
+    const centre = camera.view().worldToScreen({ x: 20, y: 10 })
     expect(centre.x).toBeCloseTo(236 + 588 / 2, 0)
     expect(centre.y).toBeCloseTo(60 + 684 / 2, 0)
   })
@@ -742,7 +741,7 @@ describe('visible map area', () => {
     const at = (x: number, y: number) => geoAt(x, y, { lon: 0, lat: 0 })
     const plant = (id: string, x: number, y: number, canonical: string): CanopiFile['plants'][number] => ({
       id, canonical_name: canonical, common_name: null, color: null, position: at(x, y), rotation: null,
-      scale: null, notes: null, planted_date: null, quantity: 1, locked: false,
+      canopy_spread_m: null, notes: null, planted_date: null, quantity: 1, locked: false,
     })
     try {
       host.surfaces.documents.loadDocument({

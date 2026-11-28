@@ -16,9 +16,10 @@ import { chordMatches, chordsOfShortcut } from '../../app/keyboard/key-chord'
 import { pushKeyScope } from '../../app/keyboard/keymap'
 import { mapSelectionHeading } from '../../app/map-selection/summary-text'
 import { openSpeciesDetail } from '../../app/plant-detail/actions'
-import { locale, singleKeyShortcuts } from '../../app/settings/state'
+import { locale, singleKeyShortcuts, unitSystem } from '../../app/settings/state'
 import { requestCalendarAdd } from '../../app/timeline/calendar-request'
 import type { CanvasContextMenuRequest } from '../../canvas/runtime/app-adapter'
+import { editionPorts, hasEditionPorts } from '../../platform/edition-ports'
 import { t } from '../../i18n'
 import { ContextMenu } from '../shared/ActionMenu'
 
@@ -44,7 +45,7 @@ function OpenCanvasContextMenu({ request, profileLine }: {
   const selectionSummary = useMapSelectionSummary()
   const targets = request.selection ? request.selection.editableTargets.length + request.selection.lockedTargets.length : 0
   const summary = targets ? selectionSummary : null
-  const heading = summary ? mapSelectionHeading(summary, locale.value) : null
+  const heading = summary ? mapSelectionHeading(summary, locale.value, unitSystem.value) : null
   usePointMenuKeys(request)
   const entries = buildCanvasContextMenuEntries(request, {
     translate: t,
@@ -56,6 +57,7 @@ function OpenCanvasContextMenu({ request, profileLine }: {
     setUnitCost: requestBudgetPrice,
     profileLine,
     readOnly: designSessionStore.isReadOnly(),
+    ...(hasEditionPorts() ? { capabilities: [...editionPorts().capabilities] } : {}),
   })
   return (
     <ContextMenu

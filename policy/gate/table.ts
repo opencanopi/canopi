@@ -2,7 +2,7 @@
 // ADR 0028 Agent enforcement; design check AR11, AR20). Each check has a stable id, the command it runs from its
 // directory (leading NAME=value words are its environment) and what it needs; each area maps its anchored path regexes
 // (never globs: picomatch through policy/check.mjs is the one glob engine) to its checks per lane, and renders its
-// AGENTS.md Quality gates row from a template whose `{id}` placeholders name its checks (agents-rows.ts). An area's
+// docs/quality-gates.md Quality gates row from a template whose `{id}` placeholders name its checks (agents-rows.ts). An area's
 // scans are the files its source-text tests read: they select those tests, never a check or a CI job. table-faults.ts
 // refuses a malformed table naming this file, before any plan is made.
 
@@ -91,7 +91,7 @@ const ACTIONLINT_VERSION = '1.7.12'
  * desktop, of the format worker's module (canopi-format-wasm, cargo-about's second run) and of the workspace members they
  * depend on (the crates cargo-about lists), cargo-about's config and template,
  * the generator and its hand rows, and the file itself. */
-const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-format|canopi-format-wasm)/Cargo\.toml$`,
+const NOTICES_INPUTS = [String.raw`^Cargo\.lock$`, String.raw`^(desktop|canopi-types|canopi-redact|canopi-support|canopi-format|canopi-format-wasm)/Cargo\.toml$`,
   String.raw`^desktop/web/package-lock\.json$`, String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
   String.raw`^about\.(toml|hbs)$`, String.raw`^scripts/(generate_notices\.mjs|notices-hand-rows\.json)$`]
 
@@ -123,18 +123,17 @@ export const TABLE: Table = {
     'platform-tests': { command: 'CI job platform-tests: the native tests on macOS and Windows', shown: 'build.yml platform-tests', ciOnly: true },
     'packaging': { command: 'CI job build: the Linux and Apple silicon installers', shown: 'build.yml build', ciOnly: true },
     'packaging-every-platform': { command: 'CI job build: every platform\'s installer', shown: 'build.yml build', ciOnly: true },
-    // The policy checker runs one lane per run, each through a package script that is that one command (design check
-    // AR8, amending 2.1-M223): lane-unrun reads these checks, so each lane's families and planted cases have a check and a
-    // self-test here. The push lane holds the clippy and cargo families, which build canopi-desktop: SKIP_DB (no catalog
-    // DB in CI).
-    'policy-check': web('npm run test:policies:check'),
-    'policy-self-test': web('npm run test:policies:self-test'),
-    'policy-check-push': web(`${SKIP_DB} npm run test:policies:push`, { cargo: true }),
-    'policy-self-test-push': web(`${SKIP_DB} npm run test:policies:push:self-test`, { cargo: true }),
-    'policy-bundle': web('npm run test:policies:bundle'),
-    'policy-self-test-bundle': web('npm run test:policies:bundle:self-test'),
-    'policy-a11y': web('npm run test:policies:a11y'),
-    'policy-self-test-a11y': web('npm run test:policies:a11y:self-test'),
+    // The policy checker runs one lane per run directly from the repo root (canopi-6a36; design check AR8, amending
+    // 2.1-M223): lane-unrun reads these commands straight off the table without parsing package.json. The push lane
+    // holds the clippy and cargo families, which build canopi-desktop: SKIP_DB (no catalog DB in CI).
+    'policy-check': { command: 'node policy/check.mjs' },
+    'policy-self-test': { command: 'node policy/check.mjs --self-test' },
+    'policy-check-push': { command: `${SKIP_DB} node policy/check.mjs --lane push`, cargo: true },
+    'policy-self-test-push': { command: `${SKIP_DB} node policy/check.mjs --self-test --lane push`, cargo: true },
+    'policy-bundle': { command: 'node policy/check.mjs --family bundle-size' },
+    'policy-self-test-bundle': { command: 'node policy/check.mjs --self-test --family bundle-size' },
+    'policy-a11y': { command: 'node policy/check.mjs --family axe' },
+    'policy-self-test-a11y': { command: 'node policy/check.mjs --self-test --family axe' },
     'policy-node-tests': web('npm run test:policies:node'),
     'policy-generate': web('npm run test:policies:generate'),
     'policy-generate-self-test': web('npm run test:policies:generate:self-test'),
@@ -184,8 +183,8 @@ export const TABLE: Table = {
     // the Commit gate runs it on every PR, so a scratch/ branch the pre-push hook let through unstamped never merges a
     // new marker (2.1-Q328, 2.1-Q329).
     'prepush-checks': { command: 'node policy/gate/cli.mjs prepush-checks --base origin/main' },
-    // The plan names the families a change's paths reach (CHEAP_FAMILIES) after `--`.
-    'cheap-families': web('npm run test:policies:family --'),
+    // The plan names the families a change's paths reach (CHEAP_FAMILIES) as `--family <id>` args (canopi-6a36).
+    'cheap-families': { command: 'node policy/check.mjs' },
     'actionlint': { command: 'node policy/gate/cli.mjs actionlint' },
     // Both builds' chunks parsed by the oldest engines in their pinned images: Debian 12's JavaScriptCore (A15) and the
     // engine floor's WebKit (desktop/web/engine-floor.ts, 2.1-M490).
@@ -203,19 +202,19 @@ export const TABLE: Table = {
       shown: 'pdf-production-probe.yml', ciOnly: true, on: ['pull_request', 'push', 'workflow_dispatch'] },
     'engine-floor-probe': { command: 'CI workflow engine-floor-probe.yml: both editions and the format worker booted in WebKit images on both sides of the floor, the listener page in three engines',
       shown: 'engine-floor-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
-    'macos-signing-probe': { command: 'CI workflow macos-signing-probe.yml: today\'s quarantined Mac bundle against an ad-hoc signed one, read by codesign, spctl, syspolicy_check and Gatekeeper',
-      shown: 'macos-signing-probe.yml', ciOnly: true, on: ['pull_request', 'workflow_dispatch'] },
     'phone-smoke': { command: 'CI workflow phone-smoke.yml: Safari in iOS simulators and Chrome on an Android emulator',
       shown: 'phone-smoke.yml', ciOnly: true, on: ['pull_request', 'push', 'schedule', 'workflow_dispatch'] },
     'seed': { command: 'CI workflow seed-lane.yml: the suites from random seeds, with their planted failures', shown: 'seed-lane.yml',
       ciOnly: true, on: ['pull_request', 'push', 'schedule'] },
     'update-channel': { command: 'CI workflow update-channel.yml: the update channels moved for a published release',
       shown: 'update-channel.yml', ciOnly: true, on: ['release', 'workflow_dispatch'] },
+    'geolibre-sidecar': { command: 'CI workflow geolibre-sidecar.yml: prebuild the pinned GeoLibre CLI sidecar assets per revision',
+      shown: 'geolibre-sidecar.yml', ciOnly: true, on: ['push', 'workflow_dispatch'] },
   },
   areas: ([
     {
       name: 'rust', label: 'Rust',
-      row: '`{cargo-locked}`; `{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `cd desktop/web && {policy-check-push}`; '
+      row: '`{cargo-locked}`; `{fmt}`; `{clippy}`; `{cov}` above its floor (it runs the workspace tests); `{policy-check-push}`; '
         + 'CI `{platform-tests}` and `{packaging}`',
       // Beyond the sources and manifests, what the Rust build and tests read: the desktop shell outside desktop/web (Tauri
       // config, capabilities, icons), the shared contracts and their generator, the scripts and fixtures Rust tests
@@ -225,7 +224,7 @@ export const TABLE: Table = {
         String.raw`^\.cargo/`, String.raw`^\.github/workflows/release-candidate\.yml$`, String.raw`^desktop/(?!web/)`,
         String.raw`^(canopi-types|bindings-gen)/`, String.raw`^desktop/web/src/maplibre/raster-display/fixtures/`,
         String.raw`^scripts/(build-geolibre-cli\.sh|schema-contract\.json|species_catalog_contract\.py|species_search_normalization\.py|web_catalog_artifact_contract\.py)$`],
-      actions: ['install-linux-deps', 'cargo-policy-tools', 'build-geolibre-cli', 'package-desktop'],
+      actions: ['install-linux-deps', 'cargo-policy-tools', 'build-geolibre-cli', 'package-desktop', 'setup-rust', 'setup-frontend'],
       full: ['cargo-locked', 'fmt', 'clippy', 'cov', 'policy-check-push', 'platform-tests', 'packaging'],
       affected: ['cargo-locked', 'fmt', 'clippy', 'cargo-test', 'policy-check-push'],
       commit: ['fmt', ...POLICY_COMMIT],
@@ -237,7 +236,7 @@ export const TABLE: Table = {
       // invokes one too, so it selects the area as well.
       patterns: [String.raw`^desktop/src/.*\.rs$`, String.raw`^desktop/web/src/ipc/`],
       ratchet: 'policy/ratchets/invoke-only-in-ipc.json',
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-rust', 'setup-frontend'],
       full: ['native-command-policy'],
       coveredBy: ['cargo-test'],
     },
@@ -251,18 +250,19 @@ export const TABLE: Table = {
       name: 'shared-contracts', label: 'Shared contracts (`canopi-types/`, `en.json`)',
       row: '`cd desktop/web && {check-types}` (stale: `npm run gen:types`); `{unicode-facts}`',
       patterns: [String.raw`^canopi-types/`, String.raw`^bindings-gen/`, String.raw`^desktop/web/src/i18n/en\.json$`,
-        String.raw`^desktop/web/src/generated/`, String.raw`^desktop/src/(db/plant_filter_fields|design/new_design_defaults|services/lidar/analysis_registry_generated)\.rs$`,
+        String.raw`^desktop/web/src/generated/`, String.raw`^desktop/src/(db/plant_filter_fields|db/query_builder/translate_value|services/lidar/analysis_registry_generated)\.rs$`,
         String.raw`^scripts/(species_catalog_contract\.py|web_catalog_artifact_contract\.py|species_search_normalization\.py|schema-contract\.json)$`,
         String.raw`^rust-toolchain\.toml$`, String.raw`^scripts/species_search_unicode_facts\.py$`, String.raw`^\.python-version$`],
+      actions: ['setup-rust', 'setup-frontend'],
       full: ['check-types', 'unicode-facts'],
       commit: ['check-types'],
     },
     {
       // `^policy/` and the ast-grep config run the policy lane; the typecheck holds the gallery's project (DR17).
       name: 'frontend', label: 'Frontend',
-      row: '`cd desktop/web && {typecheck} && {coverage} && {policy-check} && {policy-node-tests} && '
+      row: '`cd desktop/web && {typecheck} && {coverage} && {policy-node-tests} && '
         + '{policy-generate} && {policy-generate-self-test} && {ast-grep-test} && {build} && {build-web} && '
-        + '{policy-bundle} && {notices}`; `{gate-coverage}`; `{oldest-engine}`',
+        + '{notices}`; `{policy-check}`; `{policy-bundle}`; `{gate-coverage}`; `{oldest-engine}`',
       // The notices' inputs select it too: Cargo.lock, whose crates THIRD_PARTY_NOTICES.md and third-party-notices.test.ts
       // name (17a86728d left them stale), and the npm lockfile; the affected lane runs check:notices for them alone.
       // And the crates the Web build compiles into the format worker's module (`build:format-wasm`, Step 2.0.4), whose
@@ -272,7 +272,7 @@ export const TABLE: Table = {
       full: ['typecheck', 'coverage', ...POLICY_COMMIT, 'build', 'build-web', 'policy-bundle', 'notices', 'gate-coverage', 'oldest-engine'],
       affected: ['typecheck'],
       affectedWhen: { notices: NOTICES_INPUTS },
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-rust'],
       commit: ['typecheck'],
       // What toolchain-typecheck.test.ts reads for a bare compiler run (2.1-Q205), beyond desktop/web.
       scans: [String.raw`^\.githooks/`, String.raw`^\.github/workflows/[^/]+\.ya?ml$`, String.raw`^scripts/.+\.(sh|py|mjs|js|ts)$`,
@@ -284,16 +284,16 @@ export const TABLE: Table = {
       // imports, which the gate's Vitest project never runs), and the adapters' inputs, each the tool or config an
       // adapter runs: ast-grep and suppressions read sgconfig.yml; oxlint, knip, jscpd, dependency-cruiser and tsc run
       // desktop/web's locked packages with its tsconfigs and their own configs (.oxlintrc.json, knip.json, the three
-      // .dependency-cruiser*.cjs, /.jscpd.json); osv-scanner reads osv-scanner.toml; clippy runs the pinned toolchain with
+      // dynamic .dependency-cruiser*.cjs loaders, /.jscpd.json); osv-scanner reads osv-scanner.toml; clippy runs the pinned toolchain with
       // clippy.toml; cargo-deny reads deny.toml; agent-hooks runs policy/gate/agent-hooks.ts. A config edit that silences
       // a rule is caught only by these planted cases (planted-silent). A push adapter's change runs the push check too.
       name: 'policy-tooling', label: 'Policy tooling (`policy/`, an adapter\'s tool or config)',
-      row: '`cd desktop/web && {policy-self-test} && {policy-self-test-push} && {policy-check-push} && {policy-self-test-bundle}`',
+      row: '`{policy-self-test}`; `{policy-self-test-push}`; `{policy-check-push}`; `{policy-self-test-bundle}`',
       patterns: [String.raw`^policy/`, String.raw`^sgconfig\.yml$`, String.raw`^desktop/web/package(-lock)?\.json$`,
         String.raw`^desktop/web/tsconfig[^/]*\.json$`, String.raw`^(rust-toolchain|clippy|deny)\.toml$`,
         String.raw`^desktop/web/(\.oxlintrc\.json|knip\.json|\.dependency-cruiser[^/]*\.cjs)$`,
         String.raw`^(\.jscpd\.json|osv-scanner\.toml)$`],
-      actions: ['install-linux-deps', 'cargo-policy-tools'],
+      actions: ['install-linux-deps', 'cargo-policy-tools', 'setup-rust', 'setup-frontend'],
       full: ['policy-self-test', 'policy-self-test-push', 'policy-check-push', 'policy-self-test-bundle'],
     },
     {
@@ -307,7 +307,7 @@ export const TABLE: Table = {
         String.raw`^desktop/tauri[^/]*\.json$`, String.raw`^desktop/tauri\.conf`,
         String.raw`^scripts/(build-geolibre-cli\.sh|smoke-bundled-sidecar\.sh|check_windows_manifest\.py)$`,
         String.raw`^desktop/web/package[^/]*\.json$`, String.raw`^\.github/tauri-branch-nsis\.json$`],
-      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
+      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop', 'setup-rust', 'setup-frontend'],
       full: ['packaging-every-platform'],
     },
     {
@@ -325,8 +325,9 @@ export const TABLE: Table = {
       row: 'CI `{release-build}`',
       workflow: '.github/workflows/release-candidate.yml',
       patterns: [String.raw`^\.github/tauri-release-updater\.json$`, String.raw`^scripts/release_smoke\.py$`,
-        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/(updater-e2e|rollback)\.yml$`],
-      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop'],
+        String.raw`^desktop/tauri\.conf\.json$`, String.raw`^desktop/tauri\.macos\.conf\.json$`, String.raw`^\.github/workflows/(updater-e2e|rollback)\.yml$`,
+        String.raw`^desktop/web/e2e-release/`],
+      actions: ['install-linux-deps', 'build-geolibre-cli', 'package-desktop', 'setup-rust', 'setup-frontend'],
       full: ['release-build'],
     },
     {
@@ -348,13 +349,14 @@ export const TABLE: Table = {
       patterns: [String.raw`^desktop/src/services/species_catalog`, String.raw`^desktop/src/db/`,
         String.raw`^scripts/(test_)?species_catalog_contract\.py$`, String.raw`^scripts/schema-contract\.json$`,
         String.raw`^canopi-types/plant-filter-fields\.json$`],
+      actions: ['setup-frontend'],
       full: ['species-contract', 'species-tests'],
     },
     {
       name: 'lidar', label: 'LiDAR services',
-      row: 'the engine lane (CI job `{lidar-native}`) and the comparison lane ([data library](docs/guides/data-library.md))',
+      row: 'the engine lane (CI job `{lidar-native}`) and the comparison lane ([data library](guides/data-library.md))',
       patterns: [String.raw`^desktop/src/services/lidar/`],
-      actions: ['install-linux-deps', 'build-geolibre-cli'],
+      actions: ['install-linux-deps', 'build-geolibre-cli', 'setup-rust'],
       full: ['lidar-native', 'lidar-comparison'],
     },
     {
@@ -362,7 +364,7 @@ export const TABLE: Table = {
       row: 'CI `{desktop-real-app}`',
       workflow: '.github/workflows/desktop-real-app.yml',
       patterns: [String.raw`^desktop/`, String.raw`^canopi-types/`, String.raw`^Cargo\.lock$`],
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-rust', 'setup-frontend'],
       full: ['desktop-real-app'],
     },
     {
@@ -371,12 +373,12 @@ export const TABLE: Table = {
       // so the called workflow runs the pair after its browser jobs. Only the Web Edition, the gallery, the version About
       // shows (tauri.conf.json) and the policy checker that gates the axe reports reach the browsers.
       name: 'web-browsers', label: 'Web Edition browsers and axe reports',
-      row: 'CI `{web-browsers}`, then `cd desktop/web && {policy-self-test-a11y} && {policy-a11y}`',
+      row: 'CI `{web-browsers}`, then `{policy-self-test-a11y}`; `{policy-a11y}`',
       workflow: '.github/workflows/web-edition-browsers.yml',
       // The format worker's module instantiated in every engine: the crates it is built from (Step 2.0.4).
       patterns: [String.raw`^desktop/web/(?!.*\.md$)`, String.raw`^desktop/tauri\.conf\.json$`, String.raw`^policy/`,
         String.raw`^canopi-(redact|format|format-wasm)/`],
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-frontend', 'setup-rust'],
       full: ['web-browsers', 'policy-self-test-a11y', 'policy-a11y'],
     },
     {
@@ -398,7 +400,7 @@ export const TABLE: Table = {
         String.raw`^desktop/web/src/(app/shell/close-guard\.ts|app\.tsx|components/shared/(AboutCanopi|Settings)Dialog\.tsx)$`,
         String.raw`^desktop/web/src/(components/(shared/NoticeRow\.tsx|workspace/launch-notices\.ts)|failures/notices\.ts)$`,
         String.raw`^\.github/tauri-release-updater\.json$`],
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-rust', 'setup-frontend'],
       full: ['updater-e2e'],
     },
     {
@@ -415,7 +417,7 @@ export const TABLE: Table = {
         String.raw`^desktop/tests/rollback_reader(\.rs$|/)`, String.raw`^spec/(rollback|web/frozen)/`,
         String.raw`^desktop/web/src/(platform/(browser-record|draft-records\.browser|settings\.browser)\.ts|web/browser-app-data\.ts|failures/health-presentation\.ts)$`,
         String.raw`^desktop/web/e2e-rollback/`, String.raw`^policy/gate/rollback-refs\.ts$`],
-      actions: ['install-linux-deps'],
+      actions: ['install-linux-deps', 'setup-frontend', 'setup-rust'],
       full: ['rollback'],
     },
     {
@@ -451,10 +453,10 @@ export const TABLE: Table = {
     docsOnly: String.raw`^(\.beads/|docs/|\.interface-design/)|\.md$`,
     notDocs: String.raw`(^|/)THIRD_PARTY_NOTICES\.md$`,
     docsValidator: String.raw`^scripts/(test_)?check_docs[a-z_]*\.py$`,
-    webModule: String.raw`^desktop/web/((?:src|ui-gallery)/.*\.(?:tsx?|css))$`,
+    webModule: String.raw`^desktop/web/(src/.*\.(?:tsx?|css))$`,
     spec: String.raw`^desktop/web/(e2e/.*\.spec\.ts)$`,
     e2eCanvas: String.raw`^desktop/web/src/(styles/|app/shell/visible-map-area\.ts$)`,
-    e2eGallery: String.raw`^desktop/web/(src/components/|ui-gallery/)`,
+    e2eGallery: String.raw`^desktop/web/(src/(?:components|editions/gallery)/|gallery\.html$)`,
     // The gate's own files and tests: all of policy/ (the gate, the modules it imports, the adapters, ratchets, schema
     // and layers it judges with, and the cases its tests read; a planted repository copies the tree), the hooks and all of
     // .github/ (ci-parity.test.ts reads every workflow and install-linux-deps, package-desktop.test.ts the package action
@@ -479,12 +481,7 @@ export const TABLE: Table = {
   },
   ci: {
     'changes': { base: CI_SETUP, diff: CI_SETUP, packaging: CI_SETUP },
-    'docs': { 'Install frontend deps': CI_SETUP },
-    'rust': { 'Install frontend deps': CI_SETUP },
-    'policy-tooling': { 'Install frontend deps': CI_SETUP },
-    'shared-contracts': { 'Install frontend deps': CI_SETUP },
     'workflows': { 'Install the pinned actionlint': CI_SETUP },
-    'scripts': { 'Install frontend deps': CI_SETUP },
     'frontend': { 'Install frontend deps and fetch the locked crates': CI_SETUP, 'Download and verify the Web catalog': CI_SETUP,
       'Package and verify the Web Edition as a release would': 'web-release' },
     'lidar-native': { '*': 'lidar-native' },
@@ -496,7 +493,7 @@ export const TABLE: Table = {
     'desktop-real-app.yml real-app': { '*': 'desktop-real-app' },
     'web-edition-browsers.yml browsers': { '*': 'web-browsers' },
     'web-edition-browsers.yml format-core-engines': { '*': 'web-browsers' },
-    'web-edition-browsers.yml a11y-policy': { 'Install frontend deps': CI_SETUP, 'Trust the workspace for the planted cases': CI_SETUP },
+    'web-edition-browsers.yml a11y-policy': { 'Trust the workspace for the planted cases': CI_SETUP },
     // The macOS self-update probe runs on a dispatch or a Release Candidate only, never called by build.yml (2.1-Q136).
     'updater-e2e.yml updater': { '*': 'updater-e2e' },
     'updater-e2e.yml macos-probe': { '*': 'updater-e2e' },
@@ -507,12 +504,14 @@ export const TABLE: Table = {
     'release-candidate.yml smoke-linux': { '*': 'release-build' },
     'release-candidate.yml smoke-windows': { '*': 'release-build' },
     'release-candidate.yml web': { '*': 'release-build' },
+    'release-candidate.yml e2e-release': { '*': 'release-build' },
     'release-candidate.yml manifest': { '*': 'release-build' },
     // The workflows outside Build & Test: the Commit gate's steps are gate calls; each other one is its own lane, and
     // cache-prune.yml deletes superseded caches, judging nothing.
-    'commit-gate.yml gate': { 'Install frontend deps': CI_SETUP },
     'cache-prune.yml prune': { '*': CI_SETUP },
     'advisories.yml advisories': { '*': 'advisories' },
+    'geolibre-sidecar.yml build': { '*': 'geolibre-sidecar' },
+    'geolibre-sidecar.yml publish': { '*': 'geolibre-sidecar' },
     'mutation.yml plan': { '*': 'mutation' },
     'mutation.yml stryker': { '*': 'mutation' },
     'mutation.yml cargo-mutants': { '*': 'mutation' },
@@ -526,8 +525,6 @@ export const TABLE: Table = {
     'rollback.yml writer': { '*': 'rollback' },
     'rollback.yml reader-desktop': { '*': 'rollback' },
     'rollback.yml reader-web': { '*': 'rollback' },
-    'macos-signing-probe.yml probe': { '*': 'macos-signing-probe' },
-    'macos-signing-probe.yml verdict': { '*': 'macos-signing-probe' },
     'phone-smoke.yml ios': { '*': 'phone-smoke' },
     'phone-smoke.yml android-plan': { '*': 'phone-smoke' },
     'phone-smoke.yml android': { '*': 'phone-smoke' },

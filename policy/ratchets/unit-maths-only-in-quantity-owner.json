@@ -1,0 +1,5 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "unit-maths-only-in-quantity-owner",
+  "entries": {}
+}

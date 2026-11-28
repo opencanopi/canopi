@@ -18,7 +18,7 @@ import type {
   ReducedSpeciesCatalogReader,
   ReducedSpeciesImageRow,
   ReducedSpeciesRow,
-} from '../../web/reduced-species-catalog'
+} from '../../editions/web/reduced-species-catalog'
 
 // 0: the whole search text; 1: a prefix; 2: every token somewhere in the name.
 type SpeciesSearchMatchTier = 0 | 1 | 2

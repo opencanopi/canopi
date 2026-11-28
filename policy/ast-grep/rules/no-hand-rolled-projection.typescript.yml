@@ -2,14 +2,15 @@
 id: no-hand-rolled-projection.typescript
 language: typescript
 severity: error
-message: "no hand-rolled projection outside the view module; the reviewed entries are sizes, never positions (P3b); owner desktop/web/src/canvas/runtime/view; example desktop/web/src/canvas/runtime/inspection-lens-drawing.ts"
+message: "no hand-rolled projection outside the view module; the reviewed entries are sizes, never positions (P3b); owner desktop/web/src/geo/view; example desktop/web/src/canvas/runtime/inspection-lens-drawing.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
-  - "{desktop/web,policy/fixtures/rules/*}/src/canvas/runtime/view/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/geo/view/**"
   - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-pdf/**"
 utils:
   # an operand whose text ends in `.scale`, as P3b's `\.scale\s*[*+/]` read it: the member itself, or a binary whose

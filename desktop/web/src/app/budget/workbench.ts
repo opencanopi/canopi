@@ -8,7 +8,7 @@ import {
   type BudgetPlanningRow,
 } from '../planning-projection'
 import { createPanelTargetPresentationController } from '../panel-targets/presentation'
-import { setBudgetCurrency, setPlantBudgetPrice } from '../design-edit'
+import { deletePlantBudgetPrice, setBudgetCurrency, setPlantBudgetPrice } from '../design-edit'
 import { designSessionStore } from '../document-session/store'
 import { usePlanningViewState, type BudgetSort } from '../planning-view/state'
 import { currentCanvasQuerySurface, currentCanvasSpeciesFocusCommands } from '../../canvas/session'
@@ -21,7 +21,6 @@ import {
 } from '../plant-finder/quick-filters'
 import { useMapSelectionSpecies } from '../plant-finder/selection'
 import { usePlantFinder } from '../plant-finder/use-plant-finder'
-import { isCancelledFailure } from '../../failures/ipc-failure'
 import { exportBudgetCsv } from './export'
 import { budgetPriceRequest } from './price-request'
 import {
@@ -74,6 +73,7 @@ export interface BudgetItemWorkbench {
   readonly startPriceEdit: (canonical: string) => void
   readonly commitPriceEdit: (canonical: string, advance?: boolean) => boolean
   readonly cancelPriceEdit: () => void
+  readonly deletePlantPrice: (canonical: string) => void
   readonly formatCurrency: (amount: number) => string
   readonly exportCsv: () => Promise<void>
 }
@@ -187,6 +187,13 @@ export function useBudgetItemWorkbench(): BudgetItemWorkbench {
       editingIdentityRef.current = null
       return false
     }
+    if (editPrice.value.trim() === '') {
+      if (shownPriceRef.current !== null) deletePlantBudgetPrice(canonical)
+      priceInvalid.value = false
+      editingCanonical.value = null
+      editingIdentityRef.current = null
+      return true
+    }
     const parsed = validateBudgetPriceDraft(editPrice.value, activeLocale)
     if (!parsed.valid) {
       priceInvalid.value = true
@@ -271,7 +278,6 @@ export function useBudgetItemWorkbench(): BudgetItemWorkbench {
         || identity !== designSessionStore.sessionIdentity.peek()
       ) return
       exportPending.value = false
-      if (isCancelledFailure(error)) return
       exportFailed.value = true
       console.error('Budget export failed:', error)
     }
@@ -326,6 +332,7 @@ export function useBudgetItemWorkbench(): BudgetItemWorkbench {
     startPriceEdit,
     commitPriceEdit,
     cancelPriceEdit,
+    deletePlantPrice: deletePlantBudgetPrice,
     formatCurrency,
     exportCsv,
   }

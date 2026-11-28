@@ -14,6 +14,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, matchesGlob, relative, sep } from 'node:path'
+import { vitestWorkers } from './vitest-workers.mjs'
 
 export const COVERAGE_FAMILY = 'policy/ratchets/coverage.json'
 export const TOOL = 'policy-gate'
@@ -47,13 +48,14 @@ export function gateCovPlan(root) {
 /**
  * Vitest's arguments, from desktop/web, for the project's run writing its coverage map to `reports`: the family's
  * patterns, which Vitest matches at any depth (it reads none above its root), and no threshold, since the floors judge
- * the merged totals of the files inMeasure keeps.
+ * the merged totals of the files inMeasure keeps. Respects CANOPI_VITEST_WORKERS / VITEST_WORKERS (canopi-hcv2).
  * @param {{ include: string[], exclude: string[] }} plan
  * @param {string} reports
+ * @param {NodeJS.ProcessEnv} [env]
  */
-export function vitestArgs(plan, reports) {
+export function vitestArgs(plan, reports, env = process.env) {
   const deep = (/** @type {string} */ glob) => `**/${glob}`
-  return ['run', '--project', TOOL, '--maxWorkers=4', '--coverage', '--coverage.allowExternal', '--coverage.reporter=json',
+  return ['run', '--project', TOOL, `--maxWorkers=${vitestWorkers(env).workers}`, '--coverage', '--coverage.allowExternal', '--coverage.reporter=json',
     `--coverage.reportsDirectory=${reports}`, ...plan.include.map((g) => `--coverage.include=${deep(g)}`),
     ...plan.exclude.map((g) => `--coverage.exclude=${deep(g)}`),
     ...METRICS.map((m) => `--coverage.thresholds.${m}=0`)]

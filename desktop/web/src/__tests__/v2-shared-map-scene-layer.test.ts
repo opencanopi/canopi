@@ -1,43 +1,106 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi, type MockInstance } from 'vitest'
+import type * as PixiModule from 'pixi.js'
 import { Container, Text, Ticker, WebGLRenderer, type WebGLOptions } from 'pixi.js'
-import {
-  createSharedMapSceneLayer,
-  sharedPixiRendererInitOptions,
-  type SharedMapSceneMap,
-  type SharedPixiRenderer,
-} from '../maplibre/shared-scene-layer'
-import { createSharedMapSceneRendererComposition } from '../maplibre/shared-scene-renderer'
-import { createPixiScenePresentation, type PixiScenePresentation } from '../canvas/runtime/renderers/pixi-scene'
+import { createSceneHostLayer, type SceneHostLayer, type SceneHostLayerOptions, type SceneHostMap } from '../maplibre/scene-host-layer'
+import { createPixiScenePainter } from '../canvas/runtime/renderers/pixi-scene-painter'
+import type * as PixiSceneModule from '../canvas/runtime/renderers/pixi-scene'
+import { createPixiScenePresentation, type PixiScenePresentation, type PixiScenePresentationOptions } from '../canvas/runtime/renderers/pixi-scene'
+import type { SceneRendererSnapshot, SceneRenderTarget } from '../canvas/runtime/renderers/scene-types'
 import type { ScenePlantEntity } from '../canvas/runtime/scene'
 import { SceneRuntimeRenderScheduler } from '../canvas/runtime/scene-runtime/render-scheduler'
 import { getCanvasTextOpacity } from '../canvas/runtime/text-visibility'
-import { SETTLE_MS } from '../canvas/runtime/view/frame-source'
+import { SETTLE_MS } from '../geo/view/frame-source'
 import type { DraftPresentation } from '../canvas/runtime/tools/draft'
 import { createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import { createTestView, type TestView } from './support/test-view'
 import './support/camera-tolerance'
 
+const pixiMocks = vi.hoisted(() => ({
+  nextRenderer: null as (() => SharedPixiRenderer) | null,
+  nextStage: null as (() => Container) | null,
+  nextPresentation: null as ((input: PixiScenePresentationOptions) => PixiScenePresentation) | null,
+}))
+
+vi.mock('pixi.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof PixiModule>()
+  const PatchedWebGLRenderer = new Proxy(actual.WebGLRenderer, {
+    construct(target, args, newTarget) {
+      const fn = pixiMocks.nextRenderer
+      if (fn) { pixiMocks.nextRenderer = null; return fn() }
+      return Reflect.construct(target, args, newTarget)
+    },
+  })
+  const PatchedContainer = new Proxy(actual.Container, {
+    construct(target, args, newTarget) {
+      const fn = pixiMocks.nextStage
+      if (fn) { pixiMocks.nextStage = null; return fn() }
+      return Reflect.construct(target, args, newTarget)
+    },
+  })
+  return { ...actual, WebGLRenderer: PatchedWebGLRenderer, Container: PatchedContainer }
+})
+
+vi.mock('../canvas/runtime/renderers/pixi-scene', async (importOriginal) => {
+  const actual = await importOriginal<typeof PixiSceneModule>()
+  return {
+    ...actual,
+    createPixiScenePresentation(input: PixiScenePresentationOptions): PixiScenePresentation {
+      const fn = pixiMocks.nextPresentation
+      if (fn) { pixiMocks.nextPresentation = null; return fn(input) }
+      return actual.createPixiScenePresentation(input)
+    },
+  }
+})
+
 function createCanvas(): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
-  Object.defineProperties(canvas, {
-    clientWidth: { value: 200, writable: true },
-    clientHeight: { value: 100, writable: true },
-    width: { value: 400, writable: true },
-    height: { value: 200, writable: true },
-  })
+  Object.defineProperties(canvas, { clientWidth: { value: 200, writable: true }, clientHeight: { value: 100, writable: true }, width: { value: 400, writable: true }, height: { value: 200, writable: true } })
   return canvas
 }
 
 /** A MapLibre map as the layer sees it; `project` and `getPitch` are there only to show that the layer never asks them. */
-function createMap(canvas: HTMLCanvasElement): SharedMapSceneMap & { project: ReturnType<typeof vi.fn>; getPitch: ReturnType<typeof vi.fn> } {
-  return {
-    getCanvas: () => canvas,
-    getPitch: vi.fn(() => 0),
-    project: vi.fn(() => ({ x: 0, y: 0 })),
-    triggerRepaint: vi.fn(),
-  }
+function createMap(canvas: HTMLCanvasElement): SceneHostMap & { project: ReturnType<typeof vi.fn>; getPitch: ReturnType<typeof vi.fn> } {
+  return { getCanvas: () => canvas, getPitch: vi.fn(() => 0), project: vi.fn(() => ({ x: 0, y: 0 })), triggerRepaint: vi.fn() }
+}
+
+interface SharedPixiRenderer {
+  init(options: Partial<WebGLOptions>): Promise<void>
+  render(options: { readonly container: Container; readonly clear: false }): void
+  resize(width: number, height: number, resolution: number): void
+  resetState(): void
+  destroy(options: { readonly removeView: false }): void
+  readonly context: { readonly extensions: { loseContext?: { loseContext(): void } } }
+  readonly events?: { setTargetElement(element: HTMLElement | null): void }
+}
+
+interface TestSceneLayerOptions extends Omit<SceneHostLayerOptions<SceneRendererSnapshot, DraftPresentation | null>, 'painter'> {
+  readonly createRenderer?: () => SharedPixiRenderer
+  readonly createStage?: () => Container
+  readonly createPresentation?: (input: PixiScenePresentationOptions) => PixiScenePresentation
+}
+
+function createSharedMapSceneLayer(options: TestSceneLayerOptions): SceneHostLayer<SceneRendererSnapshot, DraftPresentation | null> & SceneRenderTarget {
+  const inner = createPixiScenePainter()
+  return createSceneHostLayer({
+    id: options.id,
+    frames: options.frames,
+    ...(options.onAttached ? { onAttached: options.onAttached } : {}),
+    ...(options.onFailure ? { onFailure: options.onFailure } : {}),
+    painter: {
+      async init(surface) {
+        pixiMocks.nextRenderer = options.createRenderer ?? null
+        pixiMocks.nextStage = options.createStage ?? null
+        pixiMocks.nextPresentation = options.createPresentation ?? null
+        try { await inner.init(surface) } finally { pixiMocks.nextRenderer = null; pixiMocks.nextStage = null; pixiMocks.nextPresentation = null }
+      },
+      resize: (size) => inner.resize(size),
+      paint: (frame) => inner.paint(frame),
+      setDraft: (draft) => inner.setDraft(draft),
+      dispose: () => inner.dispose(),
+    },
+  })
 }
 
 /** The runtime's camera on the canvas's 200 × 100 CSS px at density 2, plane origin at (40, 30), 4 px/m. */
@@ -56,14 +119,31 @@ function nodes(root: Container): Container[] {
 }
 
 function createRenderer(init = vi.fn(async () => {})): SharedPixiRenderer {
-  return {
-    init,
-    render: vi.fn(),
-    resize: vi.fn(),
-    resetState: vi.fn(),
-    destroy: vi.fn(),
-    context: { extensions: { loseContext: { loseContext: vi.fn() } } },
-  }
+  return { init, render: vi.fn(), resize: vi.fn(), resetState: vi.fn(), destroy: vi.fn(), context: { extensions: { loseContext: { loseContext: vi.fn() } } } }
+}
+
+async function mountSceneLayer(options: {
+  readonly frames?: SceneHostLayerOptions<SceneRendererSnapshot, DraftPresentation | null>['frames']
+  readonly renderer?: SharedPixiRenderer
+  readonly snapshot?: SceneRendererSnapshot
+} = {}) {
+  const canvas = createCanvas()
+  const map = createMap(canvas)
+  const renderer = options.renderer ?? createRenderer()
+  const camera = createFrames()
+  const presentation = { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
+  const adapter = createSharedMapSceneLayer({
+    id: 'v2-scene',
+    frames: options.frames ?? camera.frames,
+    createRenderer: () => renderer,
+    createStage: () => ({ destroy: vi.fn() }) as never,
+    createPresentation: () => presentation,
+  })
+  const gl = {} as WebGL2RenderingContext
+  await adapter.initialize(map, gl)
+  adapter.layer.onAdd!(map as never, gl)
+  adapter.setSnapshot(options.snapshot ?? createTestSceneRendererSnapshot())
+  return { canvas, map, renderer, camera, presentation, adapter, gl }
 }
 
 describe('createSharedMapSceneLayer', () => {
@@ -86,17 +166,6 @@ describe('createSharedMapSceneLayer', () => {
     const canvas = createCanvas()
     const map = createMap(canvas)
     const gl = {} as WebGL2RenderingContext
-    const options: Partial<WebGLOptions> = sharedPixiRendererInitOptions({ canvas, context: gl, width: 200, height: 100, resolution: 2 })
-    expect(options).toEqual({
-      canvas, context: gl, width: 200, height: 100, resolution: 2,
-      autoDensity: false, antialias: true, backgroundAlpha: 0, clearBeforeRender: false, premultipliedAlpha: true,
-      skipExtensionImports: true,
-      eventMode: 'none',
-      eventFeatures: { move: false, globalMove: false, click: false, wheel: false },
-      textureGCActive: false,
-      renderableGCActive: false,
-    })
-
     const setTargetElement = vi.fn()
     const renderer: SharedPixiRenderer = { ...createRenderer(), events: { setTargetElement } }
     const adapter = createSharedMapSceneLayer({
@@ -109,7 +178,15 @@ describe('createSharedMapSceneLayer', () => {
 
     await adapter.initialize(map, gl)
 
-    expect(renderer.init).toHaveBeenCalledWith(expect.objectContaining({ canvas, context: gl, skipExtensionImports: true, eventMode: 'none' }))
+    expect(renderer.init).toHaveBeenCalledWith({
+      canvas, context: gl, width: 200, height: 100, resolution: 2,
+      autoDensity: false, antialias: true, backgroundAlpha: 0, clearBeforeRender: false, premultipliedAlpha: true,
+      skipExtensionImports: true,
+      eventMode: 'none',
+      eventFeatures: { move: false, globalMove: false, click: false, wheel: false },
+      textureGCActive: false,
+      renderableGCActive: false,
+    })
     expect(setTargetElement).toHaveBeenCalledWith(null)
     expect(Ticker.system.started).toBe(false)
     await adapter.dispose()
@@ -120,9 +197,10 @@ describe('createSharedMapSceneLayer', () => {
     const map = createMap(canvas)
     const renderer = createRenderer()
     const presentation = { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
+    const camera = createFrames()
     const adapter = createSharedMapSceneLayer({
       id: 'v2-scene',
-      frames: createFrames().frames,
+      frames: camera.frames,
       createRenderer: () => renderer,
       createStage: () => ({ destroy: vi.fn() }) as never,
       createPresentation: () => presentation,
@@ -141,7 +219,7 @@ describe('createSharedMapSceneLayer', () => {
     adapter.layer.render(gl, {} as never)
 
     expect(presentation.present).toHaveBeenCalledOnce()
-    expect(presentation.present.mock.calls[0]![0].planar.affine).toEqual([4, 0, 0, 4, 40, 30])
+    expect(presentation.present.mock.calls[0]![0].planar.affine).toEqual(camera.view().planar.affine)
     expect(presentation.present.mock.calls[0]![1]).toBe(snapshot)
     expect(renderer.render).toHaveBeenCalledWith(expect.objectContaining({ clear: false }))
     expect(renderer.resetState).toHaveBeenCalledOnce()
@@ -150,7 +228,7 @@ describe('createSharedMapSceneLayer', () => {
     expect(presentation.present).toHaveBeenCalledOnce()
     expect(renderer.init).toHaveBeenCalledOnce()
     expect(renderer.render).toHaveBeenCalledTimes(2)
-    expect(adapter.diagnostics).toMatchObject({ phase: 'attached', sceneSyncCount: 1 })
+    expect(adapter.phase).toBe('attached')
   })
 
   it('rasterizes scene text at twice the MapLibre canvas density', async () => {
@@ -174,19 +252,7 @@ describe('createSharedMapSceneLayer', () => {
   })
 
   it('the layer never derives a transform', async () => {
-    const canvas = createCanvas()
-    const map = createMap(canvas)
-    const camera = createFrames()
-    const presentation = { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
-    const adapter = createSharedMapSceneLayer({
-      id: 'v2-scene', frames: camera.frames, createRenderer: () => createRenderer(),
-      createStage: () => ({ destroy: vi.fn() }) as never,
-      createPresentation: () => presentation,
-    })
-    const gl = {} as WebGL2RenderingContext
-    await adapter.initialize(map, gl)
-    adapter.layer.onAdd!(map as never, gl)
-    adapter.setSnapshot(createTestSceneRendererSnapshot())
+    const { map, camera, presentation, adapter, gl } = await mountSceneLayer()
 
     // The frame's own view, in CSS px whatever the canvas density (400 × 200 backing pixels here).
     adapter.layer.render(gl, {} as never)
@@ -205,20 +271,7 @@ describe('createSharedMapSceneLayer', () => {
   })
 
   it('resynchronizes presentation after a MapLibre-owned resize even when the camera is unchanged', async () => {
-    const canvas = createCanvas()
-    const map = createMap(canvas)
-    const renderer = createRenderer()
-    const camera = createFrames()
-    const presentation = { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
-    const adapter = createSharedMapSceneLayer({
-      id: 'v2-scene', frames: camera.frames, createRenderer: () => renderer,
-      createStage: () => ({ destroy: vi.fn() }) as never,
-      createPresentation: () => presentation,
-    })
-    const gl = {} as WebGL2RenderingContext
-    await adapter.initialize(map, gl)
-    adapter.layer.onAdd!(map as never, gl)
-    adapter.setSnapshot(createTestSceneRendererSnapshot())
+    const { canvas, renderer, camera, presentation, adapter, gl } = await mountSceneLayer()
     adapter.layer.render(gl, {} as never)
 
     Object.defineProperties(canvas, { clientWidth: { value: 300 }, clientHeight: { value: 150 } })
@@ -231,7 +284,8 @@ describe('createSharedMapSceneLayer', () => {
     expect(presentation.present).toHaveBeenCalledTimes(2)
     expect(presentation.present.mock.calls[1]![0].screen).toMatchObject({ width: 300, height: 150 })
     expect(renderer.render).toHaveBeenCalledTimes(2)
-    expect(adapter.diagnostics.sceneSyncCount).toBe(1)
+    expect(presentation.present).toHaveBeenCalledTimes(2)
+    expect(presentation.present.mock.calls[1]![1]).toBeUndefined()
     await adapter.dispose()
   })
 
@@ -251,7 +305,7 @@ describe('createSharedMapSceneLayer', () => {
     await disposal
 
     expect(renderer.destroy).toHaveBeenCalledOnce()
-    expect(adapter.diagnostics.phase).toBe('disposed')
+    expect(adapter.phase).toBe('disposed')
   })
 
   // ADR 0004: nothing reloads the style, so the owner disposes the layer only right before MapLibre removes the map.
@@ -274,23 +328,11 @@ describe('createSharedMapSceneLayer', () => {
     expect(settled).toBe('disposed')
     expect(renderer.destroy).toHaveBeenCalledOnce()
     expect(renderer.context.extensions.loseContext).toBeUndefined()
-    expect(adapter.diagnostics.phase).toBe('disposed')
+    expect(adapter.phase).toBe('disposed')
   })
 
   it('lets MapLibre resize first without changing its backing dimensions', async () => {
-    const canvas = createCanvas()
-    const map = createMap(canvas)
-    const renderer = createRenderer()
-    const presentation = { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
-    const adapter = createSharedMapSceneLayer({
-      id: 'v2-scene', frames: createFrames().frames, createRenderer: () => renderer,
-      createStage: () => ({ destroy: vi.fn() }) as never,
-      createPresentation: () => presentation,
-    })
-    const gl = {} as WebGL2RenderingContext
-    await adapter.initialize(map, gl)
-    adapter.layer.onAdd!(map as never, gl)
-    adapter.setSnapshot(createTestSceneRendererSnapshot())
+    const { canvas, renderer, presentation, adapter, gl } = await mountSceneLayer()
 
     Object.defineProperties(canvas, { clientWidth: { value: 300 }, clientHeight: { value: 150 } })
     canvas.width = 600
@@ -330,7 +372,7 @@ describe('createSharedMapSceneLayer', () => {
     expect(onFailure).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
       message: 'presentation failed',
     }))
-    expect(adapter.diagnostics.phase).toBe('failed')
+    expect(adapter.phase).toBe('failed')
     await adapter.dispose()
   })
 
@@ -344,7 +386,7 @@ describe('createSharedMapSceneLayer', () => {
       createRenderer: () => createRenderer(),
       createStage: () => ({ destroy: vi.fn() }) as never,
       createPresentation: (input) => {
-        requestRepaint = input.requestRepaint
+        requestRepaint = input.requestRepaint ?? null
         return { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
       },
     })
@@ -355,19 +397,7 @@ describe('createSharedMapSceneLayer', () => {
   })
 
   it('a frame with a new view and a new snapshot presents once', async () => {
-    const canvas = createCanvas()
-    const map = createMap(canvas)
-    const camera = createFrames()
-    const presentation = { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
-    const adapter = createSharedMapSceneLayer({
-      id: 'v2-scene', frames: camera.frames, createRenderer: () => createRenderer(),
-      createStage: () => ({ destroy: vi.fn() }) as never,
-      createPresentation: () => presentation,
-    })
-    const gl = {} as WebGL2RenderingContext
-    await adapter.initialize(map, gl)
-    adapter.layer.onAdd!(map as never, gl)
-    adapter.setSnapshot(createTestSceneRendererSnapshot())
+    const { camera, presentation, adapter, gl } = await mountSceneLayer()
     adapter.layer.render(gl, {} as never)
 
     // An edit lands during a zoom: one present draws the new snapshot under the new view.
@@ -378,7 +408,6 @@ describe('createSharedMapSceneLayer', () => {
 
     expect(presentation.present).toHaveBeenCalledTimes(2)
     expect(presentation.present).toHaveBeenLastCalledWith(camera.view(), edited, false)
-    expect(adapter.diagnostics.sceneSyncCount).toBe(2)
     await adapter.dispose()
   })
 
@@ -453,7 +482,7 @@ describe('createSharedMapSceneLayer', () => {
       adapter.layer.onAdd!(map as never, gl)
 
       await expect(adapter.dispose()).rejects.toThrow('context lost')
-      expect(adapter.diagnostics.phase).toBe('disposed')
+      expect(adapter.phase).toBe('disposed')
       const repaints = vi.mocked(map.triggerRepaint).mock.calls.length
       camera.setViewport({ x: 40, y: 30, scale: 7 })
       vi.advanceTimersByTime(SETTLE_MS)
@@ -489,15 +518,15 @@ describe('createSharedMapSceneLayer', () => {
       prepareSceneRender: async () => ({ publish: () => createTestSceneRendererSnapshot() }),
       placeOpenedDesign: () => {},
     })
-    const composition = createSharedMapSceneRendererComposition((target) => scheduler.connect(target))
     const presentation = { dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }
     const canvas = createCanvas()
     const map = createMap(canvas)
     const gl = {} as WebGL2RenderingContext
-    const layer = composition.createLayer({
+    const layer = createSharedMapSceneLayer({
       id: 'v2-scene', frames: createFrames().frames, createRenderer: () => createRenderer(),
       createStage: () => ({ destroy: vi.fn() }) as never,
       createPresentation: () => presentation,
+      onAttached: (target) => scheduler.connect(target),
     })
     scheduler.mount(document.createElement('div'))
     const draft: DraftPresentation = {
@@ -521,5 +550,21 @@ describe('createSharedMapSceneLayer', () => {
     scheduler.setDraft(draft)
     expect(presentation.setDraft).toHaveBeenCalledTimes(2)
     await layer.dispose()
+  })
+
+  it('detaches Pixi events and stops Ticker.system even when renderer.init rejects', async () => {
+    const map = createMap(createCanvas())
+    const setTargetElement = vi.fn()
+    const renderer: SharedPixiRenderer = { ...createRenderer(vi.fn(async () => { throw new Error('webgl init failed') })), events: { setTargetElement } }
+    const adapter = createSharedMapSceneLayer({
+      id: 'v2-scene', frames: createFrames().frames, createRenderer: () => renderer,
+      createStage: () => ({ destroy: vi.fn() }) as never,
+      createPresentation: () => ({ dispose: vi.fn(), resize: vi.fn(), present: vi.fn(), setDraft: vi.fn() }),
+    })
+    Ticker.system.start()
+    await expect(adapter.initialize(map, {} as WebGL2RenderingContext)).rejects.toThrow('webgl init failed')
+    expect(setTargetElement).toHaveBeenCalledWith(null)
+    expect(Ticker.system.started).toBe(false)
+    expect(adapter.phase).toBe('failed')
   })
 })

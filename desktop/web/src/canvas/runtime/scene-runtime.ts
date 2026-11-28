@@ -1,9 +1,7 @@
 import { batch, effect, type ReadonlySignal } from '@preact/signals'
 import { setCanvasDesignPinHovered, setCanvasSelection, setCanvasToolGuidance } from '../session-state'
-import { refreshCanvasColorCache } from '../theme-refresh'
+import { markCanvasPaintChanged, refreshCanvasColorCache } from '../theme-refresh'
 import { onAnnotationFontLoad } from './annotation-layout'
-import { getMapBackdropInk, setCanvasMapBackdrop } from './scene-visuals'
-import { DEFAULT_PLANT_DISPLAY, setCanvasPlantDisplay } from './plant-display'
 import {
   createSceneInteractionSession,
   type SceneInteractionSession,
@@ -32,9 +30,9 @@ import type {
   CanvasQuerySurface,
 } from './runtime'
 import type { SceneCanvasQuerySurface } from './query-surface'
-import { targets, speciesTarget } from '../../target'
+import { targets } from '../../target'
 import { runCanvasRuntimeCleanups, throwCanvasRuntimeCleanupErrors } from './cleanup'
-import type { CameraDriverHost } from './view/camera-driver'
+import type { CameraDriverHost } from '../../geo/view/camera-driver'
 import type { SceneRenderTarget } from './renderers/scene-types'
 
 export type SceneCanvasRuntimeOptions = SceneRuntimeConstructionOptions
@@ -46,13 +44,12 @@ export class SceneCanvasRuntime {
   /** The Design's canvas chrome shows (document surface): the grid draws only while it does. */
   private _chromeShown = false
 
-  constructor(options: SceneCanvasRuntimeOptions = {}) {
+  constructor(options: SceneCanvasRuntimeOptions) {
     this._construction = createSceneRuntimeConstruction(options, {
       resolveHighlightedTargets: (scene) => this._resolveHighlightedTargets(scene),
       incrementPlantNamesRevision: () => this._incrementPlantNamesRevision(),
       setSelection: (targets) => this._setSelection(targets),
       prepareForDocumentReplacement: () => this._prepareForDocumentReplacement(),
-      syncHoveredCanvasTargets: (target) => this._syncHoveredCanvasTargets(target),
       syncCanvasSignalsFromScene: () => this._syncCanvasSignalsFromScene(),
       invalidate: () => this._invalidate(),
       incrementSceneRevision: () => this._incrementSceneRevision(),
@@ -67,6 +64,8 @@ export class SceneCanvasRuntime {
         const interaction = this._interaction
         this._interaction = null
         this._querySurface.bindPointerWorld(null)
+        this._querySurface.bindEmptyGroundTap(null)
+        this._querySurface.bindToolState(null)
         try {
           interaction?.dispose()
         } finally {
@@ -78,10 +77,14 @@ export class SceneCanvasRuntime {
       canRedoTransientHistory: () => this._interaction?.canRedoTransientHistory() ?? false,
       undoTransientHistory: () => this._interaction?.undoTransientHistory() ?? false,
       redoTransientHistory: () => this._interaction?.redoTransientHistory() ?? false,
-      setInteractionTool: (id) => {
-        this._interaction?.setTool(id)
+      armInteractionTool: (id, source, request) => {
+        if (!this._interaction) {
+          const detached = { kind: 'detached' } as const
+          request?.onSettled?.(detached)
+          return { settled: Promise.resolve(detached), cancel() {} }
+        }
+        return this._interaction.arm(id, source, request)
       },
-      readInteractionTool: () => this._interaction?.tool ?? null,
       holdsReorigin: () => this._interaction?.holdsReorigin() ?? false,
       plantRowSpacing: {
         input: (text) => this._interaction?.plantRowSpacing.input(text),
@@ -211,19 +214,18 @@ export class SceneCanvasRuntime {
       sceneEdits: this._sceneCommands,
       commandAdmission: this._sceneCommands,
       settledReader: this._settledReader,
-      pinAt: this._appAdapter.pinAt,
-      finishProfile: this._appAdapter.finishProfile,
       getDesignObjectSelection: () => this._querySurface.getDesignObjectSelection(),
       selectionCommands: this._commandSurface.sceneEdits,
       contextualCommands: this._commandSurface.sceneEdits.saveSelectionAsObjectStamp
         ? { saveSelectionAsObjectStamp: this._commandSurface.sceneEdits.saveSelectionAsObjectStamp }
         : undefined,
       contextMenu: this._appAdapter.contextMenu,
-      setTool: (id) => this._commandSurface.tools.setTool(id),
       render: () => this._invalidate(),
       readSnapToGridEnabled: () => this._appAdapter.settings.readSnapToGridEnabled(),
       readScrollWheel: () => this._appAdapter.settings.readScrollWheel(),
       readPlantSpacingIntervalMeters: () => this._appAdapter.settings.readPlantSpacingIntervalMeters(),
+      readUnitSystem: () => this._appAdapter.settings.readUnitSystem?.() ?? 'metric',
+      readLocale: () => this._appAdapter.settings.readLocale(),
       commitPlantSpacingIntervalMeters: (meters) =>
         this._appAdapter.settings.commitPlantSpacingIntervalMeters(meters),
       translate: this._appAdapter.translate,
@@ -244,6 +246,8 @@ export class SceneCanvasRuntime {
     })
     const interaction = this._interaction
     this._querySurface.bindPointerWorld((listener) => interaction.subscribePointerWorld(listener))
+    this._querySurface.bindEmptyGroundTap((listener) => interaction.subscribeEmptyGroundTap(listener))
+    this._querySurface.bindToolState(interaction.toolState)
     await this._rendering.renderScene()
   }
 
@@ -287,6 +291,8 @@ export class SceneCanvasRuntime {
     const interaction = this._interaction
     this._interaction = null
     this._querySurface.bindPointerWorld(null)
+    this._querySurface.bindEmptyGroundTap(null)
+    this._querySurface.bindToolState(null)
     try {
       interaction?.dispose()
     } finally {
@@ -341,9 +347,12 @@ export class SceneCanvasRuntime {
   }
 
   private _resetTransientRuntimeState(): void {
-    resetTransientRuntimeState((id) => {
-      this._commandSurface.tools.setTool(id)
-    })
+    resetTransientRuntimeState(
+      (id) => {
+        this._commandSurface.tools.arm(id)
+      },
+      this._appAdapter.closePlantAppearance,
+    )
   }
 
   private _prepareForDocumentReplacement(): void {
@@ -353,14 +362,6 @@ export class SceneCanvasRuntime {
     ], 'Scene Canvas document replacement preparation failed')
   }
 
-  private _syncHoveredCanvasTargets(target: SceneDesignObjectTarget | null): void {
-    const plant = target?.kind === 'plant'
-      ? this._sceneState.persisted.plants.find((entry) => entry.id === target.id)
-      : null
-    const targets = plant ? [speciesTarget(plant.canonicalName)] : []
-    this._panelTargetAdapter.setCanvasHoverTargets(targets)
-  }
-
   private _setHoveredTarget(
     target: SceneDesignObjectTarget | null,
     options: { invalidate?: boolean } = {},
@@ -368,11 +369,9 @@ export class SceneCanvasRuntime {
     const invalidate = options.invalidate ?? true
     const current = this._sceneState.session.hoveredTarget
     if (current === null ? target === null : target !== null && sceneTargetKey(current) === sceneTargetKey(target)) {
-      this._syncHoveredCanvasTargets(target)
       return
     }
     this._sceneSession.setHoveredTarget(target)
-    this._syncHoveredCanvasTargets(target)
     if (invalidate) this._invalidate()
   }
 
@@ -381,8 +380,6 @@ export class SceneCanvasRuntime {
   }
 
   private _installEffects(): void {
-    // The display is module state shared with drawing and hit testing; the next runtime starts from the default.
-    this._disposeEffects.push(() => { setCanvasPlantDisplay(DEFAULT_PLANT_DISPLAY) })
     this._disposeEffects.push(...installSceneRuntimeEffects({
       onTheme: () => {
         const container = this._rendering.container
@@ -397,16 +394,21 @@ export class SceneCanvasRuntime {
         this._construction.inspection.refresh()
         this._invalidate()
       },
+      onUnitSystem: () => {
+        this._interaction?.refreshTranslations()
+        this._invalidate()
+      },
       onChromeOverlay: () => {
         this._syncEditingAids()
       },
       onMapBackdrop: (backdrop) => {
-        if (!setCanvasMapBackdrop(backdrop)) return
+        if (!this._presentation.setMapBackdrop(backdrop)) return
+        markCanvasPaintChanged()
         this._syncEditingAids()
         this._invalidate()
       },
       onPlantDisplay: (display) => {
-        if (!setCanvasPlantDisplay(display)) return
+        if (!this._presentation.setPlantDisplay(display)) return
         this._construction.inspection.refresh()
         this._invalidate()
       },
@@ -450,7 +452,9 @@ export class SceneCanvasRuntime {
    * grid is scene content, so a change syncs the scene; the same aids again change nothing.
    */
   private _syncEditingAids(): void {
-    const ink = this._chromeShown && this._appAdapter.settings.readChromeOverlay().gridVisible ? getMapBackdropInk() : null
+    const ink = this._chromeShown && this._appAdapter.settings.readChromeOverlay().gridVisible
+      ? this._presentation.getBackdropInk()
+      : null
     const editingAids = ink ? { grid: { ink: ink.grid, majorInk: ink.gridMajor } } : null
     if (this._presentation.setEditingAids(editingAids)) this._invalidate()
   }

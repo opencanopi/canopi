@@ -208,5 +208,14 @@ class InventoryPhaseHolds(unittest.TestCase):
         errors = check_inventory(ROOT, phase_close="2.0.4", registry=list_rules(ROOT))
         self.assertFalse([error for error in errors if ": adr-0026-the-rollback-lane-step-2 " in error], errors)
 
+    def test_table_row_ledger_is_checked_against_decisions_file_canopi_tdmos(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            root = policy_root(d, {"docs/decisions/2-1.md": "| 2.1-M530 | 2026-11-16 | ok |\n",
+                "policy/rules.json": {"version": 1, "phases": ["2g"], "rules": [{"id": "ok", "ledger": "2.1-M530"}, {"id": "bad", "ledger": "2.1-M529"}]},
+                "policy/inventory.json": {"version": 1, "rows": [{"id": "k", "doc": "docs/decisions/2-1.md", "quote": "| 2.1-M530 |", "state": "advice"}]}})
+            errors = check_inventory(root, registry=({"ok", "bad"}, set()))
+            self.assertEqual(len(errors), 1); self.assertIn("bad", errors[0]); self.assertIn("2.1-M529", errors[0])
+
 if __name__ == "__main__":
     unittest.main()

@@ -12,9 +12,9 @@ Rules for Canopi agents. A rule that matters has a test; one without is marked (
 
 - **Preserve user work.** Run `git status --short --branch` before editing; pre-existing dirty or untracked files are the user's: never stage, revert or stash them, nor run `reset --hard` or `checkout -- <file>` unless asked. The stash stack is shared; set work aside with a WIP commit. Enforced by `agent-hooks.ts`.
 - **Behavioural test first, then the fix.** Bug fixes carry a regression test whose title names the bead; a change to what it asserts names the user's decision id in the commit. A test is deleted only in a commit adding its replacement (title quoted) or retiring it (`Retires-test: <title> — <why no user sees it>`) with the code it covered (none if it tested only a doc). A seam change (renderer, camera, map, input) also gets a test through the real implementation or browser (advice). Tests sit beside their module; `desktop/web/src/__tests__/` holds only cross-module suites.
-- **Gates run on the changed area** (table below). Build and fix agents stop at the commit hook plus the tests they touch; the main agent runs the full gate before each CI probe and the push lane before each push. A gate you cannot run goes in the bead and handoff with command, reason and residual risk. Coverage floors rise at milestones and never fall for the same file set (ADR 0028); on a merge conflict keep the higher.
+- **Gates run on the changed area** ([Quality gates](docs/quality-gates.md)). Build and fix agents stop at the commit hook plus the tests they touch; the main agent runs the full gate before each CI probe and the push lane before each push. A gate you cannot run goes in the bead and handoff with command, reason and residual risk. Coverage floors rise at milestones and never fall for the same file set (ADR 0028); on a merge conflict keep the higher.
 - **Size limits** are met by splitting along a seam that stands alone, never by removing a test, assertion or rule; those go only when redundant, dead or wrong (2.1-Q338; advice).
-- **Authorities are exclusive.** `DESIGN_FILE_FIELDS` (`canopi-types/src/design.rs`) gives each Design field one owner: `Scene`, the scene runtime, or `Document`, Design Edit. The map layer store owns map layers; settings own device state. Panels read the canvas by read-only queries; only the canvas draws highlights. Enforced by `document-format-contract.test.ts` and the policy rules `plant-highlight-only-in-canvas` and `design-edit-authority-only-in-core`.
+- **Authorities are exclusive.** Session core (`app/document-session/core/`) owns session, home, save, `DesignScope`, dirty (`rev > ackRev`) and Undo (ADR 0024). `DESIGN_FILE_FIELDS` (`canopi-types/src/design.rs`) assigns each: `Document` (`app/design-edit/`), `Scene` (`core.recordSceneEdit()`), or `Format` (`2.1-M121`). Settings (`app/settings/`) own device state and map layers (`app/map-layers/`: actions/reads). Only the canvas draws highlights. Enforced by `document-format-contract.test.ts`, `session-suite.test.ts`, `plant-highlight-only-in-canvas` and `scene-writes-only-in-authority`.
 - **Coordinates.** Files store WGS84 lon/lat; runtime geometry is metres in the session plane; camera moves never move objects (ADR 0001).
 - **Native execution.** Every `#[tauri::command]` is executor-backed async or a reviewed bounded synchronous command; no blocking filesystem, SQLite, network, process or unbounded CPU work in one. Enforced by `native_command_policy::tests` and `clippy.toml`.
 - **Secrets.** The Google Maps key never reaches Designs, exports, snapshots, logs, diagnostics or the page markup while masked; map errors go through `failures/redact.ts`. The location reading (dot, accuracy, time) never reaches a Design, Draft, export, snapshot, saved view, log or diagnostics; a camera saved while following is a view. Enforced by `settings-sections.test.tsx`, `map-background.test.ts`, `map-error-redaction.test.ts`, `workspace-map-controls.test.ts`, `problem-report-diagnostics.test.ts`, `my-location-trust.test.ts` and `my-location.spec.ts`.
@@ -27,27 +27,7 @@ Rules for Canopi agents. A rule that matters has a test; one without is marked (
 
 ## Quality gates
 
-| Change | Run |
-|---|---|
-| Rust | `cargo fetch --locked`; `cargo fmt --all -- --check`; `CANOPI_SKIP_BUNDLED_DB=1 cargo clippy --workspace --all-targets -- -D warnings`; `CANOPI_SKIP_BUNDLED_DB=1 node policy/gate/cli.mjs cov` above its floor (it runs the workspace tests); `cd desktop/web && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push`; CI `build.yml platform-tests` and `build.yml build` |
-| A `#[tauri::command]` | `CANOPI_SKIP_BUNDLED_DB=1 cargo test -p canopi-desktop native_command_policy::tests` |
-| Shared contracts (`canopi-types/`, `en.json`) | `cd desktop/web && npm run check:types` (stale: `npm run gen:types`); `python3 scripts/species_search_unicode_facts.py check` |
-| Frontend | `cd desktop/web && npm run typecheck && npm run test:coverage -- --maxWorkers=4 --project web && npm run test:policies:check && npm run test:policies:node && npm run test:policies:generate && npm run test:policies:generate:self-test && npm run test:policies:ast-grep && npm run build:desktop:bundle && npm run build:web:bundle && npm run test:policies:bundle && npm run check:notices`; `node policy/gate/cli.mjs gate-cov`; `node policy/gate/cli.mjs oldest-engine` |
-| Policy tooling (`policy/`, an adapter's tool or config) | `cd desktop/web && npm run test:policies:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push:self-test && CANOPI_SKIP_BUNDLED_DB=1 npm run test:policies:push && npm run test:policies:bundle:self-test` |
-| Desktop packaging inputs | CI `build.yml build` on every platform |
-| Release build inputs | CI `build.yml release-build` |
-| Supply chain (lockfiles, `policy/advisories.json`) | CI `build.yml supply-chain` |
-| Species catalog queries | `python3 scripts/species_catalog_contract.py check` and its Python tests |
-| LiDAR services | the engine lane (CI job `lidar-native`) and the comparison lane ([data library](docs/guides/data-library.md)) |
-| Desktop real app | CI `build.yml real-app` |
-| Web Edition browsers and axe reports | CI `build.yml web-browsers`, then `cd desktop/web && npm run test:policies:a11y:self-test && npm run test:policies:a11y` |
-| Updater | CI `build.yml updater` |
-| Store readers and frozen store forms | CI `build.yml rollback` |
-| CI workflows (`.github/`) | `node policy/gate/cli.mjs actionlint` |
-| Script tests | `python3 -m unittest discover -s scripts` |
-| Docs | `python3 scripts/check_docs.py` and its `--drift origin/main` (validator changes: `python3 -m unittest scripts.test_check_docs`); `python3 scripts/check_playwright_pins.py` |
-
-Docs-only changes skip code gates; say so in the handoff.
+See [Quality gates](docs/quality-gates.md) (generated from `policy/gate/table.ts` via `node policy/gate/cli.mjs agents-rows --write`). Docs-only changes skip code gates; say so in the handoff.
 
 ## Working method
 

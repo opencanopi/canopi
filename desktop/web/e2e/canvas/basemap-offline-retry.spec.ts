@@ -3,21 +3,18 @@
 // layers, so Retry keeps the same map, camera and drawn Design. The offline rule (../support/offline.ts) aborts the
 // Basemap's style; "reconnecting" answers it in the page with a small style whose credits show once it installs.
 import { fileURLToPath } from 'node:url'
+import { routeMinimalBasemap } from '../support/basemap'
+import { chooseFixtureFromStart } from '../support/layout'
 import { designMap, expectCanvasDrawn } from '../support/canvas'
 import { expect, test } from '../support/offline'
 
 const FIXTURE = fileURLToPath(new URL('../fixtures/canvas-base.canopi', import.meta.url))
 /** Marks the map canvas that opened offline, so the check can see Retry kept it. */
 const OFFLINE_MAP = 'data-e2e-offline-map'
-const BASEMAP_CREDITS = '<a href="https://openfreemap.org">OpenFreeMap</a> Data from <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 
 test('a Basemap that could not load offline installs on the same map after reconnecting and Retry', async ({ page }) => {
   await page.goto('')
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: /Open a \.canopi file…/ }).first().click(),
-  ])
-  await chooser.setFiles(FIXTURE)
+  await chooseFixtureFromStart(page, FIXTURE)
   await expect(designMap(page)).toBeVisible()
   await expectCanvasDrawn(page)
 
@@ -30,17 +27,7 @@ test('a Basemap that could not load offline installs on the same map after recon
 
   // Reconnect: page routes take precedence over the offline rule's context route.
   let styleRequests = 0
-  await page.route('https://tiles.openfreemap.org/styles/**', (route) => {
-    styleRequests += 1
-    return route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({
-        version: 8,
-        sources: { openmaptiles: { type: 'geojson', data: { type: 'FeatureCollection', features: [] }, attribution: BASEMAP_CREDITS } },
-        layers: [{ id: 'water', type: 'fill', source: 'openmaptiles', paint: { 'fill-color': '#a0c8f0' } }],
-      }),
-    })
-  })
+  await routeMinimalBasemap(page, { onRequest: () => { styleRequests += 1 } })
   await notice.getByRole('button', { name: 'Retry', exact: true }).click()
 
   await expect(page.getByText('Basemap couldn’t load')).toHaveCount(0)

@@ -1,9 +1,10 @@
 import { SceneCanvasRuntime, type SceneCanvasRuntimeOptions } from '../../canvas/runtime/scene-runtime'
 import type { CanvasRuntimeSurfaces } from '../../canvas/runtime/runtime'
 import { createForwardingCanvasKeyboardPort } from '../../canvas/runtime/keyboard-port'
-import type { CameraDriverHost } from '../../canvas/runtime/view/camera-driver'
+import type { CameraDriverHost } from '../../geo/view/camera-driver'
+import { createDetachedCanvasRuntimeAppAdapter } from './detached-canvas-app-adapter'
 
-export interface TestCanvasRuntimeHostOptions extends SceneCanvasRuntimeOptions {
+export interface TestCanvasRuntimeHostOptions extends Partial<SceneCanvasRuntimeOptions> {
   /** The map's size in CSS px: the runtime is resized to it before init, as the map container reports its size. */
   readonly screen?: { readonly width: number; readonly height: number }
 }
@@ -24,7 +25,10 @@ export interface CanvasRuntimeHost {
 export function createLiveTestCanvasRuntimeHost(
   { screen, ...options }: TestCanvasRuntimeHostOptions = {},
 ): CanvasRuntimeHost {
-  const runtime = new SceneCanvasRuntime(options)
+  const runtime = new SceneCanvasRuntime({
+    ...options,
+    appAdapter: options.appAdapter ?? createDetachedCanvasRuntimeAppAdapter(),
+  })
   if (screen) runtime.documentSurface.resize(screen.width, screen.height)
   return {
     cameraHost: runtime.cameraHost,

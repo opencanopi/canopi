@@ -99,8 +99,11 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     repo.commit(`docs: settle the budget (${M_ROW})`)
     const lower = () => {
       const doc = repo.json('policy/ratchets/bundle-size.json') as { budgets: Record<string, { ceiling: number }> }
-      const entry = doc.budgets['desktop chunk: Notice']
-      if (entry) entry.ceiling -= 6
+      const key = Object.keys(doc.budgets)[0]
+      expect(key, 'bundle-size.json must contain at least one budget entry').toBeDefined()
+      const entry = key ? doc.budgets[key] : undefined
+      expect(entry, `budget entry ${key} must exist`).toBeDefined()
+      entry!.ceiling -= 6
       repo.write({ 'policy/ratchets/bundle-size.json': `${JSON.stringify(doc, null, 2)}\n` })
     }
     lower()
@@ -136,12 +139,11 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(status, out).toBe(1)
   })
 
-  it('canopi-f47t.52.240: a Rewords-test chain across commits routes the net reword', () => {
+  it('canopi-f47t.52.240: a quoted replacement routes a test reworded across commits', () => {
     repo.write({ [FILE]: KEPT.replace('keeps the second behaviour', 'keeps behaviour two') })
     repo.commit('test(frontend): a new name')
     repo.write({ [FILE]: KEPT.replace('keeps the second behaviour', 'holds behaviour two') })
-    const { status, out } = verdict(repo.commit('test(frontend): a better name\n\nRewords-test: keeps the second behaviour -> '
-      + 'keeps behaviour two\nRewords-test: keeps behaviour two -> holds behaviour two'))
+    const { status, out } = verdict(repo.commit("test(frontend): a better name 'holds behaviour two'"))
     expect(out).not.toContain('gate-test-')
     expect(status, out).toBe(0)
   })
@@ -161,21 +163,26 @@ describe('a PR judged on its net change (2.1-Q272)', () => {
     expect(status, out).toBe(1)
   })
 
-  it('canopi-f47t.52.240: a family is judged for its ledger id in the commit that creates it, so a later re-point to another row passes', () => {
-    const family = (ledger: string) => `${JSON.stringify({ version: 1, family: 'planted-family', ledger, tool: 'suppressions',
-      scope: ['src/**'], lane: 'commit', keys: 'path', entries: { 'src/a.ts': { count: 1 } } }, null, 2)}\n`
-    repo.write({ 'policy/ratchets/planted-family.json': family(Q_ROW) })
-    repo.commit(`feat: a new family under ${Q_ROW}`)
-    repo.write({ 'policy/ratchets/planted-family.json': family(M_ROW) })
-    const repointed = verdict(repo.commit('chore: re-point the family to its M row'))
-    expect(repointed.out).not.toContain('gate-first-baseline')
-    expect(repointed.status, repointed.out).toBe(0)
-    repo.git('reset', '-q', '--hard', repo.base)
-    repo.write({ 'policy/ratchets/planted-family.json': family(M_ROW) })
-    repo.commit('feat: a new family')
-    const late = verdict(repo.commit(`docs: the family's row is ${M_ROW}`))
-    expect(late.out).toContain('gate-first-baseline: planted-family: created')
-    expect(late.status, late.out).toBe(1)
+  it('canopi-uxyr: narrowing a derived rule scope in rules.json requires an open bead and a merge-base Q or M row', () => {
+    const rules = repo.json('policy/rules.json') as { rules: { id: string, scope?: string[], lane?: string }[] }
+    const narrowed = { ...rules, rules: rules.rules.map((r) => (r.id === 'no-edition-check' ? { ...r, scope: ['desktop/web/src/app/**'] } : r)) }
+    repo.write({ 'policy/rules.json': `${JSON.stringify(narrowed, null, 2)}\n` })
+    const deniedScope = verdict(repo.commit('refactor(policy): narrow scope without authority'))
+    expect(deniedScope.out).toContain('gate-loosening-authority: no-edition-check: header')
+    expect(deniedScope.status, deniedScope.out).toBe(1)
+
+    repo.at(repo.base)
+    const laterLane = { ...rules, rules: rules.rules.map((r) => (r.id === 'no-edition-check' ? { ...r, lane: 'push' } : r)) }
+    repo.write({ 'policy/rules.json': `${JSON.stringify(laterLane, null, 2)}\n` })
+    const deniedLane = verdict(repo.commit('refactor(policy): move to push lane without authority'))
+    expect(deniedLane.out).toContain('gate-loosening-authority: no-edition-check: header')
+    expect(deniedLane.status, deniedLane.out).toBe(1)
+
+    repo.at(repo.base)
+    repo.write({ 'policy/rules.json': `${JSON.stringify(narrowed, null, 2)}\n` })
+    const allowed = verdict(repo.commit(`refactor(policy): narrow scope with authority (${OPEN_BEAD}, ${M_ROW})`))
+    expect(allowed.out).not.toContain('gate-loosening-authority')
+    expect(allowed.status, allowed.out).toBe(0)
   })
 
   it('canopi-f47t.52.240: a Q row routes a test loss only from a commit that touched its file, never from an unrelated commit', () => {

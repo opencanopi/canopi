@@ -1,9 +1,9 @@
 {
   "contract_version": 1,
   "facts": {
-    "current_version": 9,
+    "current_version": 10,
     "missing_version": 1,
-    "future_version_policy": "newer_read_only",
+    "future_version_policy": "refuse_newer",
     "error_kinds": [
       "invalid_version",
       "unsupported_version",
@@ -1319,7 +1319,7 @@
     {
       "id": "reject-future-version",
       "input": {
-        "version": 10
+        "version": 11
       },
       "error_kind": "unsupported_version",
       "error_path": "$.version"
@@ -4045,7 +4045,7 @@
         "updated_at": "2026-09-25T00:00:00.000Z"
       },
       "error_kind": "invalid_document",
-      "error_path": "$.plants[0].scale"
+      "error_path": "$.plants[0].canopy_spread_m"
     },
     {
       "id": "reject-annotation-font-size-zero",
@@ -4112,7 +4112,7 @@
         }
       },
       "error_kind": "invalid_document",
-      "error_path": "$.lidar.entries[0].opacity"
+      "error_path": "$.site_data.entries[0].opacity"
     },
     {
       "id": "reject-lidar-custom-range-min-not-below-max",
@@ -4152,7 +4152,7 @@
         }
       },
       "error_kind": "invalid_document",
-      "error_path": "$.lidar.entries[0].range"
+      "error_path": "$.site_data.entries[0].range"
     },
     {
       "id": "reject-lidar-custom-range-non-finite-min",
@@ -4228,7 +4228,7 @@
         }
       },
       "error_kind": "invalid_document",
-      "error_path": "$.lidar.entries[0].name"
+      "error_path": "$.site_data.entries[0].name"
     },
     {
       "id": "reject-lidar-entry-without-name",

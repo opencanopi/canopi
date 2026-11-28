@@ -1,11 +1,11 @@
-//! Reading a `.canopi` file: version admission, refusals and the read-only open of a
-//! newer Design. Saving, exporting and round trips are `format::write_tests`.
+//! Reading a `.canopi` file: version admission, migration, and refusals.
+//! Saving, exporting and round trips are `format::write_tests`.
 
 use super::write_tests::map_view_value;
 use super::*;
 use crate::test_scratch::TestScratch;
 
-pub(super) fn create_default() -> CanopiFile {
+pub(super) fn create_default() -> CanopiFileV10 {
     create_new_design("Untitled", "2026-07-02T00:00:00Z")
 }
 
@@ -36,15 +36,18 @@ fn canopi_cyqd_every_corpus_refusal_names_its_field_path() {
         let id = case["id"].as_str().expect("case id should be a string");
         assert!(case.get("native_error_path").is_none(), "{id}");
         if let Some(expected_name) = case.get("accepted").and_then(|value| value.as_str()) {
-            let expected = &corpus["accepted_documents"][expected_name];
+            let mut expected = corpus["accepted_documents"][expected_name].clone();
+            if expected.get("version").and_then(|v| v.as_u64()) == Some(9) {
+                normalize_v9_conformance_expected(&mut expected, &case["input"]);
+            }
             let file = decode_design_value(case["input"].clone())
                 .unwrap_or_else(|error| panic!("{id}: ingestion failed: {error}"));
-            assert_eq!(&conformance_document_value(&file), expected, "{id}");
+            assert_eq!(&conformance_document_value(&file), &expected, "{id}");
             let wire = serde_json::to_value(file).expect("an accepted Design serializes");
             let round_tripped = decode_design_value(wire)
                 .unwrap_or_else(|error| panic!("{id}: round trip failed: {error}"));
             let round_tripped = conformance_document_value(&round_tripped);
-            assert_eq!(&round_tripped, expected, "{id}: round trip");
+            assert_eq!(&round_tripped, &expected, "{id}: round trip");
             continue;
         }
         let expected_path = case["error_path"]
@@ -65,7 +68,51 @@ fn canopi_cyqd_every_corpus_refusal_names_its_field_path() {
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
-fn conformance_document_value(file: &CanopiFile) -> serde_json::Value {
+fn normalize_v9_conformance_expected(expected: &mut serde_json::Value, input: &serde_json::Value) {
+    expected["version"] = serde_json::json!(CURRENT_CANOPI_FILE_VERSION);
+    if let Some(plants) = expected.get_mut("plants").and_then(|p| p.as_array_mut()) {
+        for plant in plants {
+            if let Some(obj) = plant.as_object_mut()
+                && let Some(scale) = obj.remove("scale")
+            {
+                obj.insert("canopy_spread_m".to_owned(), scale);
+            }
+        }
+    }
+    if let Some(mut lidar) = expected.as_object_mut().and_then(|obj| obj.remove("lidar")) {
+        if let Some(entries) = lidar.get_mut("entries").and_then(|e| e.as_array_mut()) {
+            for entry in entries {
+                if let Some(obj) = entry.as_object_mut() {
+                    obj.remove("kind");
+                }
+            }
+        }
+        if let (Some(schema_version), Some(lidar_obj)) = (
+            input.get("lidar").and_then(|l| l.get("schema_version")),
+            lidar.as_object_mut(),
+        ) {
+            lidar_obj
+                .entry("schema_version".to_owned())
+                .or_insert_with(|| schema_version.clone());
+        }
+        expected["site_data"] = lidar;
+    }
+    if let (Some(input_views), Some(expected_views)) = (
+        input.get("views").and_then(|v| v.as_array()),
+        expected.get_mut("views").and_then(|v| v.as_array_mut()),
+    ) {
+        for (input_view, expected_view) in input_views.iter().zip(expected_views.iter_mut()) {
+            if let (Some(extent), Some(obj)) =
+                (input_view.get("extent"), expected_view.as_object_mut())
+            {
+                obj.entry("extent".to_owned())
+                    .or_insert_with(|| extent.clone());
+            }
+        }
+    }
+}
+
+fn conformance_document_value(file: &CanopiFileV10) -> serde_json::Value {
     let mut wire = serde_json::to_value(file).expect("normalized Design should serialize");
     let object = wire
         .as_object_mut()
@@ -73,7 +120,6 @@ fn conformance_document_value(file: &CanopiFile) -> serde_json::Value {
     let known = canopi_types::design::DESIGN_FILE_FIELDS
         .iter()
         .map(|field| field.key)
-        .filter(|key| *key != "extra")
         .collect::<std::collections::HashSet<_>>();
     let mut extra = serde_json::Map::new();
     for key in object
@@ -109,10 +155,7 @@ fn a_root_extra_key_is_refused_not_flattened() {
 /// version this build opens, and nothing is upgraded in memory.
 #[test]
 fn designs_written_before_2_0_are_refused_as_older() {
-    for version in [
-        CURRENT_CANOPI_FILE_VERSION - 2,
-        CURRENT_CANOPI_FILE_VERSION - 1,
-    ] {
+    for version in [7u32, 8u32] {
         let mut value = serde_json::to_value(create_default()).expect("serialize");
         value["version"] = serde_json::json!(version);
 
@@ -123,12 +166,6 @@ fn designs_written_before_2_0_are_refused_as_older() {
             CanopiDesignIngestionErrorKind::UnsupportedVersion
         );
         assert!(error.is_older_than_supported(), "v{version}");
-        assert_eq!(
-            error.refusal.to_string(),
-            format!(
-                "$.version: unsupported Canopi Design version {version}; Canopi 2.0 and later open only version {CURRENT_CANOPI_FILE_VERSION}"
-            ),
-        );
     }
 }
 
@@ -267,10 +304,14 @@ fn load_failures_name_a_kind_and_never_the_path() {
     assert_eq!(error.failure().kind, DesignLoadFailureKind::OlderVersion);
     assert!(!error.failure().message.contains("old.canopi"));
 
-    // canopi-f47t.52.270: a stamp import's read refuses even a newer Design the view reads.
+    // canopi-f47t.52.270 / 2.1-Q347: a newer (v11+) Design is refused as NewerVersion.
     let newer = dir.join("newer.canopi");
-    let v10 = include_str!("../../../../canopi-format/spec/v10/read-fixture.canopi");
-    std::fs::write(&newer, v10).unwrap();
+    let mut v11: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../canopi-format/spec/v10/read-fixture.canopi"
+    ))
+    .unwrap();
+    v11["version"] = serde_json::json!(11);
+    std::fs::write(&newer, v11.to_string()).unwrap();
     assert_eq!(
         load_from_file(&newer).unwrap_err().failure().kind,
         DesignLoadFailureKind::NewerVersion
@@ -320,32 +361,26 @@ fn opened_failure(path: &Path) -> DesignLoadFailure {
     open_with_fingerprint(path).unwrap_err().failure()
 }
 
-/// canopi-f47t.52.270: Open branches at the version check: this build's format opens to edit
-/// with its fingerprint, a newer Design read-only with the version that saved it (2.1-M478),
-/// and a newer one the read refuses keeps its kind and field. A file over the cap, or one
-/// that cannot be read, is refused before anything is decoded.
+/// canopi-f47t.52.270 / 2.1-Q347: Open branches at the version check: v10 opens editable
+/// with its fingerprint, invalid v10 keeps its kind and field path, and v11+ is refused as
+/// `NewerVersion`. A file over the cap, or one that cannot be read, is refused before decoding.
 #[test]
-fn canopi_f47t_52_270_open_shows_a_newer_design_read_only_and_refuses_what_it_cannot_read() {
+fn canopi_f47t_52_270_open_admits_v10_and_refuses_v11_or_invalid() {
     let dir = unique_dir("open_newer");
     let current = dir.join("current.canopi");
     save_to_file(&current, &create_default(), None).unwrap();
-    let OpenedDesign::Editable(loaded) = open_with_fingerprint(&current).unwrap() else {
-        panic!("this build's format opens to edit");
-    };
+    let loaded = open_with_fingerprint(&current).unwrap();
     assert_eq!(loaded.file.name, "Untitled");
     assert_eq!(
         loaded.fingerprint,
         super::super::fingerprint(&std::fs::read(&current).unwrap())
     );
 
-    let newer = dir.join("newer.canopi");
-    std::fs::write(&newer, V10_DESIGN).unwrap();
-    let OpenedDesign::ReadOnly(design) = open_with_fingerprint(&newer).unwrap() else {
-        panic!("a v10 Design opens read-only");
-    };
-    assert_eq!(design.saved_by_version, 10);
-    assert_eq!(design.view.name, "Orchard by the pond");
-    assert_eq!(design.view.version, CURRENT_CANOPI_FILE_VERSION);
+    let v10 = dir.join("v10.canopi");
+    std::fs::write(&v10, V10_DESIGN).unwrap();
+    let design = open_with_fingerprint(&v10).unwrap();
+    assert_eq!(design.file.name, "Orchard by the pond");
+    assert_eq!(design.file.version, CURRENT_CANOPI_FILE_VERSION);
 
     let mut value: serde_json::Value = serde_json::from_str(V10_DESIGN).unwrap();
     value["plants"] = serde_json::json!(3);

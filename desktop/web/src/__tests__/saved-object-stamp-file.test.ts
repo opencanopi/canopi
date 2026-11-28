@@ -8,7 +8,7 @@ import {
 import type { CanopiFile } from '../types/design'
 import { CURRENT_CANOPI_FILE_VERSION } from '../generated/canopi-design-format'
 import { roundGeoPosition } from '../canvas/runtime/scene'
-import { createSessionPlane } from '../canvas/session-plane'
+import { createSessionPlane } from '../geo/session-plane'
 import { geoAt } from './support/geo-design'
 import { locale } from '../app/settings/state'
 
@@ -133,10 +133,10 @@ describe('Saved Object Stamp file composition', () => {
       pinned_name: false,
       position: stampGeo(10, 20),
       rotation: 15,
-      scale: 2,
+      canopy_spread_m: 2,
       notes: null,
       planted_date: null,
-      quantity: null,
+      quantity: 1,
     }])
     expect(file.zones).toEqual([{
       id: 'zone-source',
@@ -213,7 +213,7 @@ describe('Saved Object Stamp file composition', () => {
         symbol: 'canopy',
         position: geoAt(10, 20),
         rotation: 30,
-        scale: 2,
+        canopy_spread_m: 2,
         notes: 'nursery note',
         planted_date: '2026-04-01',
         quantity: 5,
@@ -298,7 +298,7 @@ describe('Saved Object Stamp file composition', () => {
         symbol: null,
         position: geoAt(10, 20),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: null,
@@ -376,7 +376,7 @@ describe('Saved Object Stamp file composition', () => {
         color: null,
         position: geoAt(0, 0),
         rotation: null,
-        scale: null,
+        canopy_spread_m: null,
         notes: null,
         planted_date: null,
         quantity: null,

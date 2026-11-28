@@ -1,0 +1,5 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "scale-only-through-plane",
+  "entries": {}
+}

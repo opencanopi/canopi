@@ -10,13 +10,15 @@ import {
 import { usePlantFinder } from '../../app/plant-finder/use-plant-finder'
 import type { PlantFinderHit } from '../../app/plant-finder/matcher'
 import { selectPanel } from '../../app/shell/state'
+import { armCanvasTool } from '../../app/keyboard/arming'
 import {
   recentPlantStampSources,
-  selectPlantStampSource,
   type PlantStampSource,
-} from '../../canvas/plant-stamp-source'
-import { currentCanvasQuerySurface } from '../../canvas/session'
+} from '../../canvas/stamp-drag-data'
+import { currentCanvasQuerySurface, currentCanvasTool } from '../../canvas/session'
 import { t } from '../../i18n'
+import { locale } from '../../app/settings/state'
+import { compareSpeciesByShownName } from '../../utils/species-sort'
 import { MatchText, PlantFinder, StratumFormFilters } from '../shared/PlantFinder'
 import { SpeciesCommonName } from '../shared/SpeciesIdentity'
 import { clearHoveredPanelTargets, setHoveredPanelTargets } from '../../app/panel-targets/presentation'
@@ -82,7 +84,7 @@ export function SpeciesChooser({ autoFocus, focusRequest, onChosen, onEscape }: 
   }, [focusRequest])
 
   function choose(entry: ChooserSpecies): void {
-    selectPlantStampSource(entry.source)
+    armCanvasTool(currentCanvasTool.peek(), { from: 'card', source: { kind: 'species', species: entry.source } })
     onChosen()
   }
 
@@ -159,7 +161,7 @@ function OptionList({ entries, onChoose }: {
         const common = entry.shownName
         const canonical = entry.source.canonical_name
         const marks = (text: string) => hit?.marks.find((mark) => mark.text === text)?.ranges ?? []
-        const placement = speciesPlacementAppearance(scene, { canonicalName: canonical, stratum: entry.source.stratum })
+        const placement = speciesPlacementAppearance(scene, canonical)
         const appearance = { ...placement, color: displayedPlantColor(placement.color, canonical) }
         return (
           <li key={canonical}>
@@ -269,7 +271,12 @@ function designSpecies(): readonly { source: PlantStampSource, englishName?: str
   const shown = (entry: { source: PlantStampSource, englishName?: string }) => (
     entry.englishName ?? entry.source.common_name ?? entry.source.canonical_name
   )
+  const activeLocale = locale.value
   return [...bySpecies.values()]
-    .sort((left, right) => right.count - left.count || shown(left).localeCompare(shown(right)))
+    .sort((left, right) => right.count - left.count || compareSpeciesByShownName(
+      { shownName: shown(left), canonicalName: left.source.canonical_name },
+      { shownName: shown(right), canonicalName: right.source.canonical_name },
+      activeLocale,
+    ))
     .map(({ source, englishName }) => ({ source, englishName }))
 }

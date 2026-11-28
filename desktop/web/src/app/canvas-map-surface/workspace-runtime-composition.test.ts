@@ -3,23 +3,22 @@
 import { signal } from '@preact/signals'
 import { describe, expect, it, vi } from 'vitest'
 import { mapAttributionFolded } from '../shell/visible-map-area'
-import { createDetachedCanvasRuntimeAppAdapter } from '../../canvas/runtime/app-adapter'
+import { createDetachedCanvasRuntimeAppAdapter } from '../../__tests__/support/detached-canvas-app-adapter'
 import { CanvasRuntimeCleanupError } from '../../canvas/runtime/cleanup'
 import { createDetachedSceneRuntimePanelTargetAdapter } from '../../canvas/runtime/scene-runtime/panel-target-adapter'
 import type { SceneCanvasRuntimeOptions } from '../../canvas/runtime/scene-runtime'
 import type { CanvasDocumentSurface } from '../../canvas/runtime/runtime'
 import type { WorkspaceMapContributionSnapshot, WorkspaceMapContributionAdapter } from './workspace-map-contribution-adapter'
 import type { MapBackgroundPresentation } from '../../maplibre/map-background'
-import type { SharedMapSceneRendererComposition } from '../../maplibre/shared-scene-renderer'
+import type { SceneLayerFactory } from './scene-layer-factory'
 import type { SceneRenderTarget } from '../../canvas/runtime/renderers/scene-types'
 import {
   createTestCanvasDocumentSurface,
   createTestCanvasRuntimeSurfaces,
 } from '../../__tests__/support/canvas-runtime-surfaces'
 import { createTestCanvasQuerySurface } from '../../__tests__/support/canvas-query-surface'
-import { createSessionPlane, geographicViewOfCamera } from '../../canvas/session-plane'
-import { stageScaleToMapZoom } from '../../canvas/projection'
-import { createViewReadSurface, SETTLE_MS } from '../../canvas/runtime/view/frame-source'
+import { createSessionPlane, geographicViewOfCamera } from '../../geo/session-plane'
+import { createViewReadSurface, SETTLE_MS } from '../../geo/view/frame-source'
 import { createTestView } from '../../__tests__/support/test-view'
 import type {
   WorkspaceActivationOptions,
@@ -142,7 +141,7 @@ describe('createWorkspaceRuntimeComposition', () => {
     const next: WorkspaceMapContributionSnapshot = {
       sessionIdentity: initial.sessionIdentity, lidar: [],
       terrain: { contourIntervalMeters: 1, contoursVisible: false, contoursOpacity: 1, hillshadeVisible: false, hillshadeOpacity: 1, isDark: false },
-      overlays: { runtime: { getSceneSnapshot: vi.fn() }, location: { lat: 0, lon: 0 }, hoveredTargets: [], selectedTargets: [] , site: null },
+      overlays: { site: null },
     }
     contribution.value = next
     await vi.waitFor(() => expect(fixture.workspace.updateMapContributions).toHaveBeenLastCalledWith(next))
@@ -250,11 +249,11 @@ describe('createWorkspaceRuntimeComposition', () => {
 
       expect(onViewSettled).toHaveBeenCalledOnce()
       const { width, height } = fixture.view.view().screen
-      const centre = SETTLE_PLANE.toGeo({ x: (width / 2 - 30) / 2, y: (height / 2 - 5) / 2 })
+      const centre = SETTLE_PLANE.toGeo(fixture.view.view().screenToWorld({ x: width / 2, y: height / 2 }))
       const view = onViewSettled.mock.calls[0]![0]
       expect(view.lon).toBeCloseTo(centre.lon, 6)
       expect(view.lat).toBeCloseTo(centre.lat, 6)
-      expect(view.zoom).toBeCloseTo(stageScaleToMapZoom(2, SETTLE_PLANE.origin.lat), 6)
+      expect(view.zoom).toBeCloseTo(createSessionPlane({ lon: 0, lat: SETTLE_PLANE.origin.lat }).zoomForPixelsPerMetre(2), 6)
       vi.advanceTimersByTime(lastViewDelay * 4)
       expect(onViewSettled).toHaveBeenCalledOnce()
 
@@ -378,7 +377,7 @@ function compositionFixture(options: CompositionFixtureOptions) {
   }
   const rendererComposition = {
     createLayer: vi.fn(),
-  } as unknown as SharedMapSceneRendererComposition
+  } as unknown as SceneLayerFactory
   const createRendererComposition = vi.fn((_connect: (target: SceneRenderTarget) => () => void) => rendererComposition)
   const controls = {
     createMap: vi.fn(),
@@ -396,11 +395,9 @@ function compositionFixture(options: CompositionFixtureOptions) {
     activate: vi.fn(options.activate ?? (async () => 'shared-ready' as const)),
     teardown: vi.fn(options.teardown ?? (async () => {})),
     retry: vi.fn(() => false),
-    canRetry: vi.fn(() => false),
     updateMapContributions: vi.fn(),
     updateBackgroundPresentation: vi.fn(),
   } satisfies WorkspaceGenerationLifecycle & {
-    canRetry(): boolean
     updateMapContributions(snapshot: WorkspaceMapContributionSnapshot | null): void
     updateBackgroundPresentation(presentation: MapBackgroundPresentation): void
   }

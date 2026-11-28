@@ -8,7 +8,8 @@ import '../../../__tests__/support/camera-tolerance'
 
 import { createTestRendererView, createTestSceneRendererSnapshot } from '../../../__tests__/support/scene-renderer-snapshot'
 import { CANVAS_CHROME_FONT_FAMILY } from '../../chrome-fonts'
-import { getCanvasColor } from '../../theme-refresh'
+import { readCanvasPaintTokens, type CanvasPaintTokens } from '../../theme-refresh'
+const getCanvasColor = (name: keyof CanvasPaintTokens) => readCanvasPaintTokens()[name]
 import { getAnnotationPresentation } from '../annotation-layout'
 import { buildPlantPresentationEntries, resolvePlantDisplayColor } from '../plant-presentation'
 import { getDraftLabelVisual, OVERLAY_CASING_EXTRA_PX } from '../scene-visuals'
@@ -189,39 +190,42 @@ describe('draft layer', () => {
   it('each draft shape renders in world units', () => {
     const layer = mountLayer()
     layer.setDraft(everyShape())
-    layer.setView(at({ x: 100, y: 50 }, 10))
+    const view = at({ x: 100, y: 50 }, 10)
+    layer.setView(view)
 
-    // The world container carries the placement; world shapes keep their metres.
     expect(global(layer.worldDraftRoot)).toEqual({ x: 100, y: 50 })
-    expect(layer.worldDraftRoot.scale.x).toBeCloseTo(10, 9)
+    layer.worldDraftRoot.updateLocalTransform()
+    expect(layer.worldDraftRoot.localTransform.a).toBeCloseTo(view.planar.affine[0], 9)
     const [polyline, polygon, quad, ellipse, zoneGhost, ...extraWorld] = layer.worldDraftRoot.children as Graphics[]
     const zoneOutline = zoneGhost!.children[1] as Graphics
     expect(extraWorld).toEqual([])
     expect(tracedPoints(paintInstructions(polyline!, 'stroke')[1]!)).toEqual([{ x: 1, y: 2 }, { x: 3, y: 2 }])
     expect(tracedPoints(paintInstructions(polygon!, 'fill')[0]!)).toEqual([{ x: 0, y: 0 }, { x: 2, y: 0 }, { x: 2, y: 2 }])
-    expect(tracedPoints(paintInstructions(quad!, 'fill')[0]!))
-      .toEqual([{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 4 }, { x: 0, y: 4 }])
+    expect(tracedPoints(paintInstructions(quad!, 'fill')[0]!)).toEqual([{ x: 0, y: 0 }, { x: 5, y: 0 }, { x: 5, y: 4 }, { x: 0, y: 4 }])
     const ellipsePoints = tracedPoints(paintInstructions(ellipse!, 'fill')[0]!)
     expect(ellipsePoints.length).toBeGreaterThanOrEqual(48)
     // Turned 90°: radiusX runs along world y.
     for (const point of ellipsePoints) {
       expect(((point.x - 10) / 2) ** 2 + ((point.y - 10) / 3) ** 2).toBeCloseTo(1, 6)
     }
-    expect(pathSteps(paintInstructions(zoneOutline, 'stroke')[0]!).find((step) => step.action === 'rect')?.data.slice(0, 4))
-      .toEqual([0, 0, 2, 1])
+    expect(pathSteps(paintInstructions(zoneOutline, 'stroke')[0]!).find((step) => step.action === 'rect')?.data.slice(0, 4)).toEqual([0, 0, 2, 1])
 
-    // Upright parts sit at the global point of their world anchor, in CSS px.
+    // Upright parts sit at the global point of their world anchor, in CSS px (Float32Array projection).
     const [marker, label, plantGhost, stampPlants, noteMarker, noteText, ...extraScreen] = layer.billboardDraftRoot.children
     expect(extraScreen).toEqual([])
-    expect(global(marker!)).toEqual({ x: 120, y: 70 })
-    expect(pathSteps(paintInstructions(marker as Graphics, 'stroke')[0]!).find((step) => step.action === 'circle')?.data.slice(0, 3))
-      .toEqual([0, 0, 1.75])
+    const expectNear = (actual: { x: number; y: number }, expected: { x: number; y: number }) => {
+      expect(actual.x).toBeCloseTo(expected.x, 4); expect(actual.y).toBeCloseTo(expected.y, 4)
+    }
+    expectNear(global(marker!), view.worldToScreen({ x: 2, y: 2 }))
+    expect(pathSteps(paintInstructions(marker as Graphics, 'stroke')[0]!).find((step) => step.action === 'circle')?.data.slice(0, 3)).toEqual([0, 0, 1.75])
     // A 40 × 16 text in a measure chip (2 × 5 padding, 1 px border) centred on the anchor plus its offset.
-    expect(global(label!)).toEqual({ x: 130 - 26, y: 70 - 11 })
-    expect(global((plantGhost as Container).children[0]!)).toEqual({ x: 140, y: 80 })
-    expect(global((stampPlants as Container).children[0]!)).toEqual({ x: 160, y: 60 })
-    expect(global(noteMarker!)).toEqual({ x: 110, y: 100 })
-    expect(global(noteText!)).toEqual({ x: 110, y: 100 })
+    const labelAt = view.worldToScreen({ x: 3, y: 1 })
+    expectNear(global(label!), { x: Math.round(labelAt.x - 26), y: Math.round(labelAt.y + 10 - 11) })
+    expectNear(global((plantGhost as Container).children[0]!), view.worldToScreen({ x: 4, y: 3 }))
+    expectNear(global((stampPlants as Container).children[0]!), view.worldToScreen({ x: 6, y: 1 }))
+    const noteAt = view.worldToScreen({ x: 1, y: 5 })
+    expectNear(global(noteMarker!), noteAt)
+    expectNear(global(noteText!), noteAt)
     expect((noteText as Text).text).toBe('Pond edge')
     expect(noteText!.rotation).toBeCloseTo(Math.PI / 6)
   })
@@ -412,21 +416,20 @@ describe('draft layer', () => {
     const layer = mountLayer(snapshot)
     const plant = createPlant({ color: '#AA3311' })
     layer.setDraft({ shapes: [{ kind: 'ghost', entity: { kind: 'plant', plant, mark: 'dot' }, opacity: 0.35 }] })
-    layer.setView(at({ x: 10, y: 20 }, 30))
+    const view = at({ x: 10, y: 20 }, 30)
+    layer.setView(view)
 
     const [dot, ...rest] = layer.billboardDraftRoot.children
     expect(rest).toEqual([])
     expect(dot).toBeInstanceOf(Graphics)
-    expect(global(dot!)).toEqual({ x: 130, y: 110 })
+    expect(global(dot!).x).toBeCloseTo(view.worldToScreen(plant.position).x, 4); expect(global(dot!).y).toBeCloseTo(view.worldToScreen(plant.position).y, 4)
     // One flat disc, so the shape's opacity needs no composite.
     expect(dot!.alpha).toBe(0.35)
     expect(dot!.filters ?? []).toEqual([])
-    const entry = buildPlantPresentationEntries([plant], {
-      plants: snapshot.scene.plants, pixelsPerMetre: 30, speciesCache: snapshot.speciesCache,
-    }, new Set())[0]!
+    const entry = buildPlantPresentationEntries([plant], { plants: snapshot.scene.plants, pixelsPerMetre: 30, speciesCache: snapshot.speciesCache }, new Set())[0]!
     const fills = paintInstructions(dot as Graphics, 'fill')
     expect(fills).toHaveLength(1)
-    expect(fills[0]!.data.style).toMatchObject({ color: pixiColor(resolvePlantDisplayColor(plant, snapshot.speciesCache)), alpha: 1 })
+    expect(fills[0]!.data.style).toMatchObject({ color: pixiColor(resolvePlantDisplayColor(plant)), alpha: 1 })
     expect(pathSteps(fills[0]!).find((step) => step.action === 'circle')?.data.slice(0, 3)).toEqual([0, 0, entry.radiusScreenPx])
     expect(paints(dot as Graphics, 'stroke')).toEqual([])
   })
@@ -439,17 +442,16 @@ describe('draft layer', () => {
     const layer = mountLayer(snapshot)
     const ghost = { ...source, id: 'row-ghost', position: { x: 10, y: 0 } }
     layer.setDraft({ shapes: [{ kind: 'ghost', entity: { kind: 'plant', plant: ghost, mark: 'dot', sizeFrom: source.position }, opacity: 0.35 }] })
-    layer.setView(at({ x: 10, y: 20 }, 30))
+    const view = at({ x: 10, y: 20 }, 30)
+    layer.setView(view)
 
-    const radiusAt = (plant: ScenePlantEntity) => buildPlantPresentationEntries([plant], {
-      plants: snapshot.scene.plants, pixelsPerMetre: 30, speciesCache: snapshot.speciesCache,
-    }, new Set())[0]!.radiusScreenPx
+    const radiusAt = (plant: ScenePlantEntity) => buildPlantPresentationEntries([plant], { plants: snapshot.scene.plants, pixelsPerMetre: 30, speciesCache: snapshot.speciesCache }, new Set())[0]!.radiusScreenPx
     expect(radiusAt(source)).toBeLessThan(radiusAt(ghost))
 
     const [dot, ...rest] = layer.billboardDraftRoot.children
     expect(rest).toEqual([])
     // The disc stays at the ghost; only its size comes from sizeFrom.
-    expect(global(dot!)).toEqual({ x: 310, y: 20 })
+    expect(global(dot!).x).toBeCloseTo(view.worldToScreen(ghost.position).x, 4); expect(global(dot!).y).toBeCloseTo(view.worldToScreen(ghost.position).y, 4)
     const fills = paintInstructions(dot as Graphics, 'fill')
     expect(fills).toHaveLength(1)
     expect(pathSteps(fills[0]!).find((step) => step.action === 'circle')?.data.slice(0, 3)).toEqual([0, 0, radiusAt(source)])
@@ -466,9 +468,7 @@ describe('draft layer', () => {
     layer.setDraft({ shapes: [{ kind: 'ghost', entity: { kind: 'plant', plant: ghost, mark: 'dot', sizeFrom: source.position }, opacity: 0.35 }] })
     layer.setView(at({ x: 10, y: 20 }, 30))
 
-    const presented = buildPlantPresentationEntries([source], {
-      plants: snapshot.scene.plants, pixelsPerMetre: 30, speciesCache: snapshot.speciesCache,
-    }, new Set())[0]!.radiusScreenPx
+    const presented = buildPlantPresentationEntries([source], { plants: snapshot.scene.plants, pixelsPerMetre: 30, speciesCache: snapshot.speciesCache }, new Set())[0]!.radiusScreenPx
     expect(presented).toBeLessThan(2)
 
     const [dot, ...rest] = layer.billboardDraftRoot.children
@@ -694,35 +694,30 @@ describe('draft layer', () => {
 
   it('repositions upright parts on a move and redraws them on a zoom', () => {
     const layer = mountLayer()
-    layer.setDraft({ shapes: [
-      { kind: 'circle-px', center: { x: 1, y: 1 }, radiusPx: 4, style: { token: 'draft', widthPx: 1, dash: [2, 2] } },
-      { kind: 'ghost', entity: { kind: 'plant', plant: createPlant({ position: { x: 2, y: 2 } }), mark: 'symbol' }, opacity: 0.5 },
-    ] })
+    layer.setDraft({ shapes: [{ kind: 'circle-px', center: { x: 1, y: 1 }, radiusPx: 4, style: { token: 'draft', widthPx: 1, dash: [2, 2] } }, { kind: 'ghost', entity: { kind: 'plant', plant: createPlant({ position: { x: 2, y: 2 } }), mark: 'symbol' }, opacity: 0.5 }] })
     layer.setView(at({ x: 0, y: 0 }, 10))
     const [marker, plantGhost] = layer.billboardDraftRoot.children
     const plant = (plantGhost as Container).children[0]!
-    layer.setView(at({ x: 7, y: 9 }, 10))
+    const movedView = at({ x: 7, y: 9 }, 10)
+    layer.setView(movedView)
     expect(layer.billboardDraftRoot.children[0]).toBe(marker)
-    expect(global(marker!)).toEqual({ x: 17, y: 19 })
-    expect(global(plant)).toEqual({ x: 27, y: 29 })
+    expect(global(marker!)).toEqual(movedView.worldToScreen({ x: 1, y: 1 }))
+    expect(global(plant)).toEqual(movedView.worldToScreen({ x: 2, y: 2 }))
 
     // Pixel-sized dashes do not depend on the scale.
     const dashes = subPathLengths(paintInstructions(marker as Graphics, 'stroke')[1]!)
     for (const dash of dashes.slice(0, -1)) expect(dash).toBeCloseTo(2, 1)
 
-    layer.setView(at({ x: 7, y: 9 }, 20))
+    const zoomedView = at({ x: 7, y: 9 }, 20)
+    layer.setView(zoomedView)
     expect(layer.billboardDraftRoot.children[0]).not.toBe(marker)
     expect(marker!.destroyed).toBe(true)
-    expect(global(layer.billboardDraftRoot.children[0]!)).toEqual({ x: 27, y: 29 })
+    expect(global(layer.billboardDraftRoot.children[0]!)).toEqual(zoomedView.worldToScreen({ x: 1, y: 1 }))
   })
 
   it('draws a fill-only polygon, nothing for a one-point polyline, and a dashed quad', () => {
     const layer = mountLayer()
-    layer.setDraft({ shapes: [
-      { kind: 'polygon', points: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }], style: { token: 'draft', widthPx: 0 }, fill: { token: 'draft-fill' } },
-      { kind: 'polyline', points: [{ x: 0, y: 0 }], style: { token: 'draft', widthPx: 2 } },
-      { kind: 'quad', corners: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], style: { token: 'draft', widthPx: 1, dash: [3, 3] }, fill: { token: 'draft-fill' } },
-    ] })
+    layer.setDraft({ shapes: [{ kind: 'polygon', points: [{ x: 0, y: 0 }, { x: 4, y: 0 }, { x: 4, y: 4 }], style: { token: 'draft', widthPx: 0 }, fill: { token: 'draft-fill' } }, { kind: 'polyline', points: [{ x: 0, y: 0 }], style: { token: 'draft', widthPx: 2 } }, { kind: 'quad', corners: [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 1, y: 1 }, { x: 0, y: 1 }], style: { token: 'draft', widthPx: 1, dash: [3, 3] }, fill: { token: 'draft-fill' } }] })
     layer.setView(at({ x: 0, y: 0 }, 1))
     const [fillOnly, single, dashedQuad] = layer.worldDraftRoot.children as Graphics[]
     expect(paints(fillOnly!, 'stroke')).toEqual([])

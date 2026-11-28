@@ -1,0 +1,5 @@
+{
+  "$schema": "./ratchet.schema.json",
+  "family": "canvas-host-lifecycle-only-in-canvas-host",
+  "entries": {}
+}

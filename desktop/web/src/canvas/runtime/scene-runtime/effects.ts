@@ -1,7 +1,7 @@
 import { effect } from '@preact/signals'
 import type { CanvasRuntimePlantDisplayAdapter, CanvasRuntimeSettingsAdapter } from '../app-adapter'
 import type { PlantDisplay } from '../plant-display'
-import type { ViewFrameSource } from '../view/types'
+import type { ViewFrameSource } from '../../../geo/view/types'
 import type { CanvasMapBackdrop } from '../scene-visuals'
 import {
   runCanvasRuntimeCleanups,
@@ -11,6 +11,7 @@ import {
 interface SceneRuntimeEffectsDeps {
   onTheme: () => void
   onLocale: () => void
+  onUnitSystem?: () => void
   onChromeOverlay: () => void
   onMapBackdrop: (backdrop: CanvasMapBackdrop) => void
   onPlantDisplay: (display: PlantDisplay) => void
@@ -21,7 +22,7 @@ interface SceneRuntimeEffectsDeps {
   onCameraFrame: () => void
   settings: Pick<
     CanvasRuntimeSettingsAdapter,
-    'subscribeTheme' | 'subscribeLocale' | 'subscribeChromeOverlay' | 'subscribeMapBackdrop'
+    'subscribeTheme' | 'subscribeLocale' | 'subscribeUnitSystem' | 'subscribeChromeOverlay' | 'subscribeMapBackdrop'
   >
   subscribePanelOriginTargetChanges(onChange: () => void): () => void
 }
@@ -40,6 +41,9 @@ export function installSceneRuntimeEffects(deps: SceneRuntimeEffectsDeps): Array
     }))
     disposers.push(deps.settings.subscribeTheme(deps.onTheme))
     disposers.push(deps.settings.subscribeLocale(deps.onLocale))
+    if (deps.settings.subscribeUnitSystem && deps.onUnitSystem) {
+      disposers.push(deps.settings.subscribeUnitSystem(deps.onUnitSystem))
+    }
     disposers.push(deps.settings.subscribeChromeOverlay(deps.onChromeOverlay))
     disposers.push(deps.settings.subscribeMapBackdrop(deps.onMapBackdrop))
     if (deps.plantDisplay) disposers.push(deps.plantDisplay.subscribe(deps.onPlantDisplay))

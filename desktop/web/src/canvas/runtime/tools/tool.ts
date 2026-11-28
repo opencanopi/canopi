@@ -20,19 +20,19 @@
 // import these types from tool.ts, draft.ts or the same defining modules. Any later type import must keep
 // tools-reach-no-maplibre-or-pixi true.
 
-import type { CancelReason, PointerKind, ToolHandleId, ToolId } from '../interaction-types'
+import type { CancelReason, PointerKind, ToolHandleId, ToolId, ToolSource } from '../interaction-types'
 import type { DraftPresentation, ToolHandle } from './draft'
-import type { WorldPoint, WorldQuad, WorldVector } from '../view/types'
+import type { GroundMeasure } from '../../../geo/session-plane'
+import type { ScreenPoint, WorldPoint, WorldQuad, WorldVector } from '../../../geo/view/types'
 import type { ScenePersistedState, ScenePlantEntity, SceneLayerEntity } from '../scene/types'
 import type { SceneDesignObjectSelection, SceneDesignObjectTarget } from '../scene/design-object-targets'
 import type { SceneEditCoordinator } from '../scene-runtime/transactions'
 import type { SceneArrangementTemplate } from '../scene-runtime/arrangement-placement'
 import type { CanvasDesignObjectSelectionModel } from '../runtime'
 import type { CanvasToolGuidance } from '../../session-state'
-import type { PlantStampSourceInput } from '../../plant-stamp-source'
-import type { SavedObjectStampPayload } from '../../saved-object-stamp-payload'
 import type { PointAction, PointMenuItem } from '../../point-editor/rules'
 import type { LocaleKey } from '../../../generated/locale-keys'
+import type { UnitSystem } from '../../../utils/format'
 
 /** Modifiers by meaning, resolved per platform and per phase by the ToolHost. */
 export interface ToolModifiers {
@@ -156,7 +156,11 @@ export interface ToolView {
   metresPerPixelAt(p: WorldPoint): number
   screenDistance(a: WorldPoint, b: WorldPoint): number
   screenAxesInWorld(): { readonly right: WorldVector; readonly down: WorldVector }
-  /** Screen-aligned rectangle from two world corners: rotationDeg = the bearing (in [0, 360)). Shift's square and circle use `square`. */
+  /** Linear part of `worldToScreen`: maps a world-metre delta to its exact CSS-pixel delta at any bearing/anisotropy. */
+  worldDeltaToScreen(delta: WorldVector): ScreenPoint
+  /** Exact inverse of `worldDeltaToScreen`: maps a CSS-pixel delta to its world-metre delta. */
+  screenDeltaToWorld(delta: ScreenPoint): WorldVector
+  /** True ground rectangle at the view's bearing from two world corners: rotationDeg = the bearing (in [0, 360)). Shift's square and circle use `square`. */
   screenAlignedRect(a: WorldPoint, b: WorldPoint, options?: { readonly square?: boolean }):
     { readonly center: WorldPoint; readonly width: number; readonly height: number; readonly rotationDeg: number }
 }
@@ -165,12 +169,16 @@ export interface ToolView {
 /** Read-only scene queries: in 0B a façade over today's linear hit tests at the frame's pixelsPerMetre (the index comes later). */
 export interface ToolScene {
   readonly persisted: Readonly<ScenePersistedState>
+  /** True WGS84 ground measure for the open Design's session plane (contracts §20). */
+  readonly groundMeasure?: GroundMeasure
   hitAt(world: WorldPoint, filter: HitFilter): HitTarget | null
   hitInQuad(quad: WorldQuad): readonly HitTarget[]
   nearestPlant(world: WorldPoint): { readonly plant: ScenePlantEntity; readonly distanceM: number } | null
   /** How the scene presents a plant now: the name in today's order (localised, stored common,
    *  canonical), the display colour and the symbol radius in CSS px. For tool-card names, row glyphs and the source ring. */
   plantPresentation(plant: ScenePlantEntity): { readonly commonName: string; readonly color: string; readonly radiusPx: number }
+  /** Active plant symbol scale for detail layout collision checks (defaults to 1 when omitted in unit stubs). */
+  readonly plantSymbolScale?: number
   isLayerOpenForCreation(layer: SceneLayerKind): boolean
   selection(): SceneDesignObjectSelection
   selectionModel(): SelectionReadModel         // memoised by reference: the same Scene, selection and scale return the same model
@@ -192,9 +200,8 @@ export interface ToolEffects {
   requestTextEntry(request: TextEntryRequest, submit: (text: string) => 'close' | 'keep', onCancel?: () => void): void
   closeTextEntry(): void
   requestFocus(target: 'map'): void                         // ToolHostDeps.focus (CanvasFocusPort, §1.6), implemented by the FocusOwner
-  /** Profile only (canopi-f47t.42): hands the finished line (2+ points) to the Site data profile (ToolHostDeps.finishProfile);
-   *  the tool then requests Select. */
-  finishProfile(points: readonly WorldPoint[]): void
+  /** Settles the active map input request (Profile line, Site data pin) once with `value`. */
+  completeRequest(value: unknown): void
   /** A drag refused by a lock, once per refused drag (Select's press on a locked object; 2.1-Q177): ToolHostDeps
    *  .lockedMoveRefused, which raises the lock toast. */
   refuseLockedMove(): void
@@ -203,6 +210,8 @@ export interface ToolEffects {
 export interface ToolSettingsPort {
   plantSpacingIntervalM(): number
   commitPlantSpacingIntervalM(metres: number): void
+  unitSystem?(): UnitSystem
+  locale?(): string
 }
 
 export interface ToolContext {
@@ -264,9 +273,4 @@ export type ToolConstraint =
   | { readonly kind: 'direction'; readonly origin: WorldPoint; readonly stepDeg: 45 }
   | { readonly kind: 'rotation-delta'; readonly pivot: WorldPoint; readonly startDeg: number; readonly stepDeg: 15 }
 
-/** Arming payloads that today arrive through module-level signals. */
-export type ToolSource =
-  | { readonly kind: 'species'; readonly species: PlantStampSourceInput }
-  /** name: armCanvasTool writes it for the tool card (readSavedObjectStampName); the tool ignores it; sources the session
-   *  rebuilds from the read models omit it. */
-  | { readonly kind: 'saved-stamp'; readonly stamp: SavedObjectStampPayload; readonly name?: string | null }
+export type { ToolSource } from '../interaction-types'

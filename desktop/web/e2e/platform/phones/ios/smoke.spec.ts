@@ -4,14 +4,14 @@
 // the simulator's own GPU process crash, proven by its log and handled by the app (simulator-verdict.ts): that passes
 // as ENV, and the job prints the warning (phone-smoke.yml).
 import { execFile } from 'node:child_process'
-import { writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { homedir, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { promisify } from 'node:util'
 import { $, browser, expect } from '@wdio/globals'
 import { pollThroughBusy } from './busy-poll'
-import { CONTEXT_LOSS_ERROR, logStart, pageFailureVerdict, type DesignShell } from './simulator-verdict'
-import { waitForStartScreen } from './start-screen-wait'
+import { CONTEXT_LOSS_ERROR, logStart, pageFailureVerdict, simulatorLog, type DesignShell } from './simulator-verdict'
+import { pollStartScreen } from './start-screen-wait'
 
 const APP_URL = process.env.CANOPI_E2E_APP_URL ?? 'http://localhost:4174/web.html'
 const tablet = (process.env.CANOPI_IOS_DEVICE ?? '').startsWith('iPad')
@@ -164,7 +164,7 @@ async function designShell(): Promise<DesignShell> {
     const startScreen = document.querySelector('[data-start-screen]')
     const startShown = startScreen !== null && startScreen.getClientRects().length > 0 && getComputedStyle(startScreen).visibility !== 'hidden'
     const shell = document.querySelector('[data-testid="browser-app-shell"]')
-    const phoneLayout = shell?.getAttribute('data-phone-layout') ?? null
+    const phoneLayout = shell?.getAttribute('data-layout') ?? null
     return {
       startScreenGone: !startShown,
       workspace: document.querySelector('[data-testid="web-canvas-workspace"]') !== null,
@@ -177,24 +177,20 @@ async function designShell(): Promise<DesignShell> {
   }, tablet)
 }
 
-/**
- * The simulator's GPU and Safari log from the tap on (an earlier crash proves nothing about this one), read here
- * because the verdict depends on it (a step that greps it could pass on its own), and kept in the artifacts. A read
- * that fails gives no log, so the verdict is APP.
- */
-async function simulatorLog(since: Date): Promise<{ log: string, problem: string }> {
+/** The simulator log for the verdict (simulator-verdict.ts simulatorLog), read from the simulator this smoke drives. */
+async function readSimulatorLog(since: Date): Promise<{ log: string, problem: string }> {
   const udid = process.env.CANOPI_IOS_UDID
   if (!udid) return { log: '', problem: 'CANOPI_IOS_UDID is not set' }
-  try {
-    const { stdout } = await promisify(execFile)('xcrun', [
+  return simulatorLog({
+    show: async () => (await promisify(execFile)('xcrun', [
       'simctl', 'spawn', udid, 'log', 'show', '--start', logStart(since), '--style', 'compact',
       '--predicate', 'process CONTAINS "GPU" OR process CONTAINS "MobileSafari"',
-    ], { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, timeout: 120_000 })
-    writeFileSync(join(ARTIFACTS, 'simulator-gpu.log'), stdout)
-    return { log: stdout, problem: '' }
-  } catch (error) {
-    return { log: '', problem: `the simulator log could not be read: ${messageOf(error)}` }
-  }
+    ], { encoding: 'utf8', maxBuffer: 512 * 1024 * 1024, timeout: 120_000 })).stdout,
+    systemLog: () => {
+      try { return readFileSync(join(homedir(), 'Library/Logs/CoreSimulator', udid, 'system.log'), 'utf8') } catch { return undefined }
+    },
+    save: (name, text) => writeFileSync(join(ARTIFACTS, name), text),
+  })
 }
 
 /**
@@ -211,7 +207,7 @@ async function contextLossVerdict(tappedAt: Date): Promise<void> {
     shell = await designShell()
   }
   const { errors } = await readProbe()
-  const { log, problem } = await simulatorLog(tappedAt)
+  const { log, problem } = await readSimulatorLog(tappedAt)
   const verdict = pageFailureVerdict(errors, log, shell)
   if (verdict.kind === 'APP') {
     throw new Error(`APP: New Design was clicked and ${verdict.reason} (file an app bead with it)${problem ? `; ${problem}` : ''}`)
@@ -230,11 +226,12 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     const page = process.env.CANOPI_E2E_PLANTED_PAGE ?? APP_URL
     await browser.url(page)
     const startScreen = $('[data-start-screen]')
-    // The lane's planted-page step requires "the start screen was not displayed", printed only for wdio's own wait
-    // timeout (the page loaded and never showed the start screen). A debugger busy with the loading page is asked again
-    // until the deadline (canopi-f47t.52.261); any other error, such as a session that died during the wait
-    // (WebDriverAgent crash, invalid session id, ECONNRESET), is rethrown unchanged and fails that step.
-    await waitForStartScreen((timeout) => startScreen.waitForDisplayed({ timeout }), page, 90_000)
+    // Single-shot poll loop (canopi-5kel): retries immediately after a 30 s Safari debugger timeout instead of letting
+    // wdio's waitForDisplayed stall until 90 s; preserves "the start screen was not displayed" for the planted-page step.
+    await pollStartScreen(() => browser.execute(() => {
+      const el = document.querySelector('[data-start-screen]')
+      return el !== null && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden'
+    }), page, 90_000)
     await expect(startScreen.$('h1')).toHaveText('Canopi')
     expect(await overflow()).toBeLessThanOrEqual(0)
 
@@ -259,8 +256,8 @@ describe(`the Web Edition in Safari on an ${tablet ? 'iPad' : 'iPhone'}`, () => 
     await waitForDesign(tappedAt)
     const shell = $('[data-testid="browser-app-shell"]')
     await expect(shell).toBeDisplayed()
-    if (tablet) await expect(shell).not.toHaveAttribute('data-phone-layout')
-    else await expect(shell).toHaveAttribute('data-phone-layout', 'portrait')
+    if (tablet) await expect(shell).not.toHaveAttribute('data-layout')
+    else await expect(shell).toHaveAttribute('data-layout', 'portrait')
     expect(await overflow()).toBeLessThanOrEqual(0)
     // One tap is one New Design: a doubled click would test the replacement path, not a user's single tap.
     expect((await newDesignClicks()).length).toBe(1)

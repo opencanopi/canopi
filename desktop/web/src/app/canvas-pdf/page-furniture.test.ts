@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs'
 import { expect, it } from 'vitest'
+import { getScaleBarDisplay } from '../../canvas/map-scale'
+import { formatScaleBarDistance, type UnitSystem } from '../../utils/format'
+import { MM } from './page-drawing'
 import { groundScale } from './page-furniture'
 import { createPdfTextEngine, type PdfFontId } from './text'
 import type { PdfOperation } from './types'
@@ -18,18 +21,37 @@ function arrow(operations: readonly PdfOperation[]) {
 }
 
 it('groundScale turns the arrow by northAngleDeg', () => {
-  const upright = arrow(groundScale(page, 'en', text(), 'N'))
+  const upright = arrow(groundScale(page, 'en', text(), 'N', 0, 1, 'metric'))
   expect(upright.tip.x).toBeCloseTo(upright.notch.x, 6)
   expect(upright.tip.y).toBeLessThan(upright.notch.y)
-  expect(arrow(groundScale(page, 'en', text(), 'N', 0))).toEqual(upright)
+  expect(arrow(groundScale(page, 'en', text(), 'N', 0, 1, 'metric'))).toEqual(upright)
   // A layout turned to 90 has east up, so north points left on paper.
-  const turned = arrow(groundScale(page, 'en', text(), 'N', -90))
+  const turned = arrow(groundScale(page, 'en', text(), 'N', -90, 1, 'metric'))
   expect(turned.tip.y).toBeCloseTo(turned.notch.y, 6)
   expect(turned.tip.x).toBeLessThan(turned.notch.x)
   // The letter sits beyond the tip, level on paper.
   expect(turned.letter.rotation).toBe(0)
   expect(turned.letter.x + turned.letter.line.width).toBeLessThan(turned.tip.x)
-  const half = arrow(groundScale(page, 'en', text(), 'N', -30))
+  const half = arrow(groundScale(page, 'en', text(), 'N', -30, 1, 'metric'))
   const direction = Math.atan2(half.tip.y - half.notch.y, half.tip.x - half.notch.x) * 180 / Math.PI
   expect(direction).toBeCloseTo(-90 - 30, 6)
+})
+
+it('PDF and zoom-group scale bars label the same distance the same way, in both unit systems', () => {
+  const engine = text()
+  const systems: readonly UnitSystem[] = ['metric', 'us_customary']
+  for (const system of systems) {
+    for (const maxMeters of [0.6, 5, 35, 500, 2000]) {
+      // Match the PDF 35 mm budget and zoom-group 125 px budget to the same maxMeters.
+      const pdfPage = { width: 600, height: 800, pointsPerMeter: (35 * MM) / maxMeters }
+      const ops = groundScale(pdfPage, 'en-US', engine, 'N', 0, 1, system)
+      const labels = ops
+        .filter((op): op is Extract<PdfOperation, { kind: 'text' }> => op.kind === 'text')
+        .map((op) => op.line.runs.map((r) => r.text).join(''))
+      const pdfDistanceLabel = labels.find((label) => label !== '0' && label !== 'N')!
+      const zoomBar = getScaleBarDisplay(125 / maxMeters, system)
+      const zoomDistanceLabel = formatScaleBarDistance(zoomBar.meters, system, 'en-US')
+      expect(pdfDistanceLabel).toBe(zoomDistanceLabel)
+    }
+  }
 })

@@ -12,7 +12,7 @@ import type * as PlantBrowserModule from '../../app/plant-browser'
 import type * as WorkbenchModule from '../../app/saved-object-stamps/workbench'
 import type * as FavoritesPanelModule from './FavoritesPanel'
 import type { SavedObjectStamp } from '../../types/saved-object-stamps'
-import { readSavedObjectStampDragData } from '../../canvas/saved-object-stamp-source'
+import { readSavedObjectStampDropSource } from '../../canvas/stamp-drag-data'
 import { createTestSpeciesCatalogWorkbench, makeSpeciesListItem } from '../../__tests__/support/species-catalog-workbench'
 import type { SpeciesListItem } from '../../types/species'
 
@@ -131,7 +131,7 @@ describe('Favorites with a saved stamp a newer Canopi wrote (canopi-f47t.52.271)
     const { event, data } = dragStart()
     body.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
-    expect(readSavedObjectStampDragData(data as unknown as DataTransfer)).toBeNull()
+    expect(readSavedObjectStampDropSource({ dataTransfer: data } as unknown as DragEvent)).toBeNull()
   })
 
   it('canopi-f47t.52.271: Alt+ArrowUp on the older stamp below it sends no reorder naming the v3 row', async () => {

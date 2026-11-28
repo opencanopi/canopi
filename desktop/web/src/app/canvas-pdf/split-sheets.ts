@@ -27,8 +27,19 @@ function splitFieldBounds(bounds: PrintBounds, plants: readonly PrintPlant[]): P
  * about one pivot: the split's centre, or `pivot` when the page is itself a split sheet. At any later angle they then
  * tile the ground turned about that pivot, as the area they replace would be.
  */
-export function splitPrintArea(ground: PrintBounds, plants: readonly PrintPlant[], frame: PageFrame, pivot?: PrintPoint): { bounds: PrintBounds; pivot: PrintPoint }[] {
+export function splitPrintArea(
+  ground: PrintBounds,
+  plants: readonly PrintPlant[],
+  frame: PageFrame,
+  pivot?: PrintPoint,
+  splitId?: string,
+): { bounds: PrintBounds; pivot: PrintPoint; angleDeg: number; splitId?: string }[] {
   const turned = frame.angleDeg ? plants.map(plant => ({ ...plant, position: frame.toFrame(plant.position) })) : plants
   const about = pivot ?? frame.fromFrame({ x: ground.x + ground.width / 2, y: ground.y + ground.height / 2 })
-  return splitFieldBounds(ground, turned).map(bounds => ({ bounds: areaFromFrame(frame, bounds, about), pivot: about }))
+  return splitFieldBounds(ground, turned).map(bounds => ({
+    bounds: areaFromFrame(frame, bounds, about),
+    pivot: about,
+    angleDeg: frame.angleDeg,
+    ...(splitId ? { splitId } : {}),
+  }))
 }

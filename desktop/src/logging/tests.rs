@@ -392,6 +392,15 @@ fn twenty_old_daily_files_leave_fourteen_and_no_other_file_is_touched() {
     }
 }
 
+#[test]
+fn open_appender_runs_cleanly_before_logs_folder_exists() {
+    let scratch = TestScratch::new("logging-missing-folder");
+    let missing_logs_dir = scratch.join("nested").join("logs");
+    assert!(!missing_logs_dir.exists());
+    drop(open_appender(&missing_logs_dir).expect("appender creates missing logs folder"));
+    assert!(missing_logs_dir.is_dir());
+}
+
 /// 2.1-M459 on the native ring: a repeat (same lane, code, op and redacted detail) counts on
 /// its held entry and takes the newest place, so a burst of busy refusals never pushes out the
 /// failure the user is reporting; the operation stays out of the key.

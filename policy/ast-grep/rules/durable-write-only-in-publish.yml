@@ -3,7 +3,7 @@
 id: durable-write-only-in-publish
 language: rs
 severity: error
-message: "durable-write-only-in-publish (§18 R8): a file is written, renamed or copied into place (fs::write, rename, copy, File::create, OpenOptions, persist) only by publish_durably behind DurableFs; an interim site ratchet that 2b and N1 replace with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner none; target canopi-support/src/durable.rs (2b); example none yet"
+message: "durable-write-only-in-publish (§18 R8): a file is written, renamed or copied into place (fs::write, rename, copy, File::create, OpenOptions, persist) only by publish_durably behind DurableFs; an interim site ratchet that 2b and N1 replace with clippy disallowed-methods in the change that builds the owner. ADR 0023; owner canopi-support/src/durable.rs; target canopi-support/src/durable.rs (2b); example canopi-support/src/durable.rs"
 # rust-scope: desktop/src
 files:
   - "desktop/src/**/*.rs"
@@ -12,19 +12,22 @@ ignores:
   - "desktop/src/commands/design/tests.rs"
   - "desktop/src/db/test_support.rs"
   - "desktop/src/db/plant_filter_fields.rs"
+  - "desktop/src/db/query_builder/translate_value.rs"
   - "desktop/src/db/schema_contract_generated.rs"
   - "desktop/src/db/species_search_normalization/tests.rs"
   - "desktop/src/db/user_db/error_tests.rs"
   - "desktop/src/design/format/tests.rs"
-  - "desktop/src/design/new_design_defaults.rs"
   - "desktop/src/host/dialogs/tests.rs"
+  - "desktop/src/host/home/tests.rs"
   - "desktop/src/ci_lane_policy.rs"
   - "desktop/src/module_layering.rs"
   - "desktop/src/module_layering/**"
   - "desktop/src/native_command_policy.rs"
+  - "desktop/src/native_command_policy/**"
   - "desktop/src/test_scratch.rs"
   - "desktop/src/logging/tests.rs"
   - "desktop/src/module_layering/tests.rs"
+  - "desktop/src/native_command_policy/tests/**"
   - "desktop/src/native_operation/tests.rs"
   - "desktop/src/native_operation/tests/**"
   - "desktop/src/services/lidar/analyses/tests/**"
@@ -48,19 +51,23 @@ ignores:
   - "desktop/src/services/lidar/source_meta/tests.rs"
   - "desktop/src/services/settings_reader_release_tests.rs"
   - "desktop/src/services/problem_report/tests.rs"
+  - "desktop/src/services/settings_tests.rs"
   - "desktop/src/services/species_catalog_read/test_support.rs"
   - "canopi-types/src/design/tests.rs"
   - "canopi-types/src/failure/tests.rs"
+  - "canopi-types/src/store_chain/tests.rs"
   - "canopi-types/src/views/tests.rs"
   - "canopi-redact/src/tests.rs"
   - "canopi-redact/src/table_generated.rs"
-  - "canopi-format/src/read/tests.rs"
-  - "canopi-format/src/read/version_tests.rs"
+  - "canopi-format/src/conformance_tests.rs"
+  - "canopi-format/src/core_tests.rs"
   - "canopi-format/src/schema/tests.rs"
   - "canopi-format/src/v10/read_types_tests.rs"
   - "canopi-format-wasm/src/tests.rs"
   - "bindings-gen/src/plan_support.rs"
   - "bindings-gen/src/species_search_normalization/tests.rs"
+  - "canopi-support/src/durable.rs"
+  - "policy/fixtures/rules/*/canopi-support/src/durable.rs"
 rule:
   all:
     - kind: call_expression

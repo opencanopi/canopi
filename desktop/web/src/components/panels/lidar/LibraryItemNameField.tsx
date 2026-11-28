@@ -1,5 +1,5 @@
 import { useId } from 'preact/hooks'
-import { uniqueItemName } from '../../../app/lidar/library-items'
+import { uniqueItemName } from '../../../app/data-library/library-items'
 import { t } from '../../../i18n'
 import styles from './data-library.module.css'
 

@@ -7,7 +7,7 @@ import type { RichTextBlock, RichTextSpan } from '../../types/design'
 // three marks and links with an allowed scheme; everything else (scripts,
 // styles, images, attributes, unknown elements) is dropped or read as text.
 
-type Marks = Pick<RichTextSpan, 'bold' | 'italic' | 'link'>
+type Marks = { bold: boolean; italic: boolean; link: string | null }
 
 const PLAIN: Marks = { bold: false, italic: false, link: null }
 

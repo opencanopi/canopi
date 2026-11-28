@@ -23,11 +23,11 @@ import {
   toolRailRoom,
   visibleMapFrame,
 } from '../app/shell/visible-map-area'
-import { activePanel, navigateTo, selectPanel, sidePanel, type SidePanel } from '../app/shell/state'
+import { navigateTo, selectPanel, sidePanel, type SidePanel } from '../app/shell/state'
 import { locale } from '../app/settings/state'
 import type { PanelRailCommand } from '../components/shared/PanelRail'
 import { PHONE_SHEET_TABS, PhoneSheet } from '../components/shared/PhoneSheet'
-import { browserPhoneSheetTabs } from '../web/browser-shell-commands'
+import { browserPhoneSheetTabs } from '../editions/web/browser-shell-commands'
 import {
   WorkspaceComposition,
   type WorkspacePanelProjection,
@@ -70,7 +70,6 @@ describe('phone layout', () => {
     document.body.innerHTML = ''
     document.body.appendChild(container)
     locale.value = 'en'
-    activePanel.value = 'canvas'
     sidePanel.value = null
     phoneLayout.value = null
     phoneSheetOpenHeight.value = 'half'
@@ -449,15 +448,12 @@ describe('phone layout', () => {
     strip.remove()
   })
 
-  it('keeps the primary views (the Design map and Templates) in More, where they switch the map without opening the sheet', async () => {
+  it('keeps the primary views in More when multiple primary views exist, where they switch without opening the sheet', async () => {
     const switchView = vi.fn()
-    expect(browserPhoneSheetTabs({ primary: ['canvas'], design: ['layers'], planning: ['calendar'] })).toEqual(['layers', 'calendar'])
-    expect(browserPhoneSheetTabs({ primary: ['canvas', 'templates'], design: ['layers'], planning: ['calendar'] }))
-      .toEqual(['layers', 'calendar', 'canvas', 'templates'])
+    expect(browserPhoneSheetTabs({ design: ['layers'], planning: ['calendar'] })).toEqual(['layers', 'calendar'])
     function WithViews() {
       const views: PanelRailCommand[] = [
         { panel: 'canvas', id: 'nav.canvas', label: 'Design canvas', disabled: false, active: true, action: switchView },
-        { panel: 'templates', id: 'nav.templates', label: 'Templates', disabled: false, active: false, action: switchView },
       ]
       return <PhoneSheet layout="portrait" tabs={[...tabs(), ...views]}>{sidePanel.value ? <div /> : null}</PhoneSheet>
     }
@@ -470,7 +466,7 @@ describe('phone layout', () => {
     expect(switchView).not.toHaveBeenCalled()
     await act(async () => { container.querySelector<HTMLButtonElement>('[data-sheet-more]')!.click() })
     const items = Array.from(document.querySelectorAll('[role="menuitemcheckbox"], [role="menuitem"], [role="menuitemradio"]')).map((item) => item.textContent)
-    expect(items.slice(-2)).toEqual(['Design canvas', 'Templates'])
+    expect(items.slice(-1)).toEqual(['Design canvas'])
   })
 
   it('measures a side sheet as the right edge even when it is narrow', () => {

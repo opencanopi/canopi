@@ -10,10 +10,11 @@ import { resetFrontendDiagnosticsForTests, ringEntries } from '../../failures/ri
 import { openProblemReportDialog, problemReportSubmission } from '../../app/problem-report/submission'
 import { problemReportDialogOpen } from '../../app/problem-report/state'
 import { beforePaint, holdAfterPaint } from '../../__tests__/support/before-paint'
+import { createTestDesignCore } from '../../__tests__/support/design-wire'
 import { replaceCurrentDesignState } from '../../__tests__/support/design-session-state'
-import { designSessionStore } from '../../app/document-session/store'
-import { desktopProblemReport } from '../../platform/problem-report.desktop'
-import { createBrowserProblemReportWriter, type BrowserProblemReportWriter } from '../../platform/problem-report.browser'
+import { installEditionPorts, type EditionPorts } from '../../platform/edition-ports'
+import { desktopProblemReport } from '../../editions/desktop/problem-report'
+import { createBrowserProblemReportWriter, type BrowserProblemReportWriter } from '../../editions/web/problem-report'
 import en from '../../i18n/en.json'
 import type { CanopiFile } from '../../types/design'
 import { ProblemReportDialog } from './ProblemReportDialog'
@@ -31,7 +32,7 @@ vi.mock('../../ipc/problem-report', () => ({
 
 function makeDesign(): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name: 'Secret Orchard',
     description: 'Private notes',
     plant_species_colors: {},
@@ -43,7 +44,7 @@ function makeDesign(): CanopiFile {
       color: null,
       position: { lon: 2.3522, lat: 48.8566 },
       rotation: null,
-      scale: null,
+      canopy_spread_m: null,
       notes: null,
       planted_date: null,
       quantity: 1,
@@ -70,6 +71,7 @@ const ISSUES_URL = 'https://github.com/opencanopi/canopi/issues'
 
 let container: HTMLDivElement
 let uninstallPort: () => void
+let uninstallEditionPorts: () => void
 let webWriter: BrowserProblemReportWriter | null
 
 /** The Web writer, installed in place of Desktop's; its download is stubbed. */
@@ -112,6 +114,7 @@ beforeEach(() => {
   document.body.textContent = ''
   document.body.appendChild(container)
   webWriter = null
+  uninstallEditionPorts = installEditionPorts({ designCore: createTestDesignCore() } as unknown as EditionPorts)
   uninstallPort = problemReportSubmission.installPort(desktopProblemReport)
   openProblemReportDialog()
   mocks.createProblemReport.mockReset()
@@ -127,6 +130,7 @@ afterEach(() => {
   container.remove()
   problemReportSubmission.close()
   uninstallPort()
+  uninstallEditionPorts()
   webWriter?.dispose()
   vi.restoreAllMocks()
 })
@@ -268,11 +272,12 @@ describe('ProblemReportDialog', () => {
     })
     await send()
 
-    // The frontend sends its own sections; the report is one zip with no summary file (2.1-Q277). The empty ring sends
-    // no text, so the native writer marks it empty (canopi-f47t.52.36).
+    // The frontend sends its own sections (including TS-supplied settings_summary); the report is one zip with no
+    // summary file (2.1-Q277). The empty ring sends no text, so the native writer marks it empty (canopi-f47t.52.36).
     expect(mocks.createProblemReport).toHaveBeenCalledWith({
       sections: [
         { id: 'description', text: 'Canvas froze after placing a species' },
+        { id: 'settings_summary', text: expect.any(String) },
       ],
       current_design: null,
     })
@@ -294,52 +299,14 @@ describe('ProblemReportDialog', () => {
       checkbox.dispatchEvent(new Event('change', { bubbles: true }))
     })
     await send()
+    await vi.waitFor(() => expect(mocks.createProblemReport).toHaveBeenCalledOnce())
 
     const request = mocks.createProblemReport.mock.calls[0]![0]
-    expect(request.current_design).toContain('"name": "Secret Orchard"')
     const attached = JSON.parse(request.current_design) as Record<string, unknown>
+    expect(attached.name).toBe('Secret Orchard')
     expect((attached.plants as Array<{ position: unknown }>)[0]!.position).toEqual({ lon: 2.3522, lat: 48.8566 })
     expect(attached.future_top_level).toEqual({ keep: true })
     expect(attached).not.toHaveProperty('extra')
-  })
-
-  it('canopi-v4kj: the Design row is left out for a Design a newer Canopi saved, open read-only, and kept for a storage-unchecked Draft', async () => {
-    const designRow = () => container.querySelector('input[name="current_design"]')
-    designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard', { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
-    await show()
-    expect(designRow()).toBeNull()
-    expect(container.textContent).not.toContain('Include current Design')
-    await send()
-    expect(mocks.createProblemReport.mock.calls[0]![0].current_design).toBeNull()
-
-    render(null, container)
-    problemReportSubmission.close()
-    openProblemReportDialog()
-    designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard', { kind: 'read-only', origin: 'storage-unchecked' })
-    await show()
-    expect(designRow()).not.toBeNull()
-
-    render(null, container)
-    replaceCurrentDesignState(makeDesign(), null, 'Secret Orchard')
-    await show()
-    expect(designRow()).not.toBeNull()
-  })
-
-  it('canopi-v4kj: a Design row ticked before a newer Design opens is dropped with the row, never blocking the report', async () => {
-    await show()
-    const checkbox = container.querySelector('input[name="current_design"]') as HTMLInputElement
-    await act(async () => {
-      checkbox.checked = true
-      checkbox.dispatchEvent(new Event('change', { bubbles: true }))
-    })
-    await act(async () => {
-      designSessionStore.replaceCurrentDesignState(makeDesign(), null, 'Orchard 2.1', { kind: 'read-only', origin: 'newer-version', savedByVersion: 10 })
-    })
-    expect(container.querySelector('input[name="current_design"]')).toBeNull()
-    await send()
-
-    expect(container.querySelector('[role="alert"]')).toBeNull()
-    expect(mocks.createProblemReport.mock.calls[0]![0].current_design).toBeNull()
   })
 
   it('Show again shows the saved zip by its file name; when the folder cannot be shown, the zip is said to be kept (2.1-Q276)', async () => {

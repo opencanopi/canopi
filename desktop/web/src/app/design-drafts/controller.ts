@@ -1,6 +1,6 @@
 import { signal, type ReadonlySignal } from '@preact/signals'
 import { deleteDesignDraft, listDesignDrafts } from '../../ipc/design'
-import type { DesignDraftSummary } from '../../types/design'
+import type { DesignDraftSummary } from '../../generated/contracts'
 
 /** Desktop Design Drafts listed on the welcome screen. */
 export interface DesignDraftsController {

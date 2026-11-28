@@ -1,4 +1,5 @@
 import { getRevealedAnnotationId } from '../annotation-layout'
+import type { SessionPlane } from '../../../geo/session-plane'
 import { createUuid } from '../../../utils/ids'
 import type { PlantPresentationContext } from '../plant-presentation'
 import { normalizeHexColor } from '../../plant-colors'
@@ -23,6 +24,7 @@ import {
   lockedSceneDesignObjectTargets,
   lockedSceneGroupMembers,
   normalizeSceneDesignObjectTargets,
+  pruneGroupDeletedMembers,
   resolveSceneObjectGroupMembers,
   resolvePlantSymbolForPlant,
   resolvePlantSymbolId,
@@ -40,38 +42,24 @@ import {
   resolveSelectedEntitySets,
   type SceneClipboardPayload,
 } from './clipboard'
-import {
-  createSceneArrangementPlacement,
-  type SceneArrangementPlacement,
-} from './arrangement-placement'
+import { createSceneArrangementPlacement, type SceneArrangementPlacement } from './arrangement-placement'
 import {
   getCombinedTargetBounds,
   getDesignObjectSelectionModel,
   getSelectedTopLevelTargets,
+  screenAlignedTargetsCenter,
   type SceneSelectionReadModelOptions,
   type SceneSelectionTarget,
 } from './selection'
-import {
-  applyRotationTransformToDraft,
-  captureRotationTransformState,
-  centerOfBounds,
-} from './selection-rotation'
-import {
-  getSameSpeciesReferenceCanonicalName,
-  getSelectablePlantIdsForSpecies,
-} from './species-selection'
-import type {
-  SceneCommandAdmission,
-  SceneEditCoordinator,
-  SettledSceneReader,
-} from './transactions'
+import { applyRotationTransformToDraft, captureRotationTransformState, centerOfBounds } from './selection-rotation'
+import { getSameSpeciesReferenceCanonicalName, getSelectablePlantIdsForSpecies } from './species-selection'
+import type { SceneCommandAdmission, SceneEditCoordinator, SettledSceneReader } from './transactions'
 
 const EMPTY_PLANT_COLOR_CONTEXT: SelectedPlantColorContext = {
   plantIds: [],
   singleSpeciesCanonicalName: null,
   singleSpeciesCommonName: null,
   sharedCurrentColor: null,
-  suggestedColor: null,
   singleSpeciesDefaultColor: null,
 }
 
@@ -102,8 +90,10 @@ interface SceneRuntimeMutationControllerOptions {
     getViewportScale(): number
     createPlantPresentationContext(viewportScale?: number): PlantPresentationContext
     getLocalizedCommonNames(): ReadonlyMap<string, string | null>
-    getSuggestedPlantColor(canonicalName: string): string | null
+    getSuggestedPlantColor?(): string | null
   }
+  /** Live camera bearing in degrees (2.1-Q89: screen-aligned pivot/anchor on a turned map); defaults to 0. */
+  getBearingDeg?(): number
   invalidateScene(): void
 }
 
@@ -115,6 +105,7 @@ export class SceneRuntimeMutationController {
   private readonly _settledReader: SettledSceneReader
   private readonly _arrangementPlacement: SceneArrangementPlacement
   private readonly _presentation: SceneRuntimeMutationControllerOptions['presentation']
+  private readonly _getBearingDeg: () => number
   private readonly _invalidateScene: () => void
   private _clipboard: SceneClipboardPayload | null = null
   private _normalPasteCount = 0
@@ -127,6 +118,7 @@ export class SceneRuntimeMutationController {
     this._settledReader = options.settledReader
     this._arrangementPlacement = createSceneArrangementPlacement({ sceneEdits: options.sceneEdits })
     this._presentation = options.presentation
+    this._getBearingDeg = options.getBearingDeg ?? (() => 0)
     this._invalidateScene = options.invalidateScene
   }
 
@@ -220,39 +212,38 @@ export class SceneRuntimeMutationController {
     return this._runCommandWhenSettled(() => this._renameZoneWhenSettled(zoneId, name), false)
   }
 
+  runSettledMutation(
+    label: string,
+    guard: { readonly layer?: string; readonly target?: SceneDesignObjectTarget } | null,
+    prepare: (persisted: ScenePersistedState, plane: SessionPlane) => ((draft: ScenePersistedState) => void) | null,
+  ): boolean {
+    return this._runCommandWhenSettled(() => {
+      const persisted = this._sceneStore.persisted
+      if (guard?.layer && !isSceneLayerEditable(persisted, guard.layer)) return false
+      if (guard?.target && (isSceneDesignObjectLocked(persisted, guard.target)
+        || persisted.groups.some((g) => g.locked && g.members.some((m) => m.kind === guard.target!.kind && m.id === guard.target!.id)))) return false
+      const mutate = prepare(persisted, this._sceneStore.sessionPlane)
+      if (!mutate) return false
+      this._sceneEdits.run(label, (tx) => tx.mutate(mutate))
+      return true
+    }, false)
+  }
+
   setSelectedPlantColor(color: string | null): number {
-    return this._runCommandWhenSettled(
-      () => this._setSelectedPlantColorWhenSettled(color),
-      0,
-    )
+    return this._runCommandWhenSettled(() => this._setSelectedPlantColorWhenSettled(color), 0)
   }
-
   setSelectedPlantSymbol(symbol: PlantSymbolId | null): number {
-    return this._runCommandWhenSettled(
-      () => this._setSelectedPlantSymbolWhenSettled(symbol),
-      0,
-    )
+    return this._runCommandWhenSettled(() => this._setSelectedPlantSymbolWhenSettled(symbol), 0)
   }
-
   setPlantColorForSpecies(canonicalName: string, color: string | null): number {
-    return this._runCommandWhenSettled(
-      () => this._setPlantColorForSpeciesWhenSettled(canonicalName, color),
-      0,
-    )
+    return this._runCommandWhenSettled(() => this._setPlantColorForSpeciesWhenSettled(canonicalName, color), 0)
   }
-
   setPlantSymbolForSpecies(canonicalName: string, symbol: PlantSymbolId): number {
-    return this._runCommandWhenSettled(
-      () => this._setPlantSymbolForSpeciesWhenSettled(canonicalName, symbol),
-      0,
-    )
+    return this._runCommandWhenSettled(() => this._setPlantSymbolForSpeciesWhenSettled(canonicalName, symbol), 0)
   }
 
   private _runCommandWhenSettled<T>(operation: () => T, busyResult: T): T {
-    return this._commandAdmission.runWhenSettled(
-      operation,
-      busyResult,
-    )
+    return this._commandAdmission.runWhenSettled(operation, busyResult)
   }
 
   private _copyWhenSettled(): void {
@@ -372,17 +363,8 @@ export class SceneRuntimeMutationController {
           .filter((guide) => !deleted.measurementGuideIds.has(guide.id))
         draft.groups = draft.groups
           .filter((group) => !deleted.groupIds.has(group.id))
-          .map((group) => ({
-            ...group,
-            members: group.members.filter((member) =>
-              !(
-                (member.kind === 'plant' && deleted.plantIds.has(member.id))
-                || (member.kind === 'zone' && deleted.zoneIds.has(member.id))
-                || (member.kind === 'annotation' && deleted.annotationIds.has(member.id))
-              ),
-            ),
-          }))
-          .filter((group) => group.members.length >= 2)
+          .map((group) => pruneGroupDeletedMembers(group, deleted))
+          .filter((group): group is SceneObjectGroupEntity => group !== null)
       })
       tx.setSelection([])
     })
@@ -392,34 +374,22 @@ export class SceneRuntimeMutationController {
     const persisted = this._sceneStore.persisted
     const targets: SceneDesignObjectTarget[] = []
     const groupedMemberKeys = getSceneGroupedMemberKeys(persisted)
-
-    if (isSceneLayerEditable(persisted, 'plants')) {
-      for (const plant of persisted.plants) {
-        if (groupedMemberKeys.has(sceneTargetKey({ kind: 'plant', id: plant.id })) || plant.locked) continue
-        targets.push({ kind: 'plant', id: plant.id })
+    const addUngrouped = (
+      layer: string,
+      kind: 'plant' | 'zone' | 'annotation' | 'measurement-guide',
+      items: readonly { readonly id: string; readonly locked: boolean }[],
+    ) => {
+      if (!isSceneLayerEditable(persisted, layer)) return
+      for (const item of items) {
+        if (!item.locked && !groupedMemberKeys.has(sceneTargetKey({ kind, id: item.id }))) {
+          targets.push({ kind, id: item.id })
+        }
       }
     }
-
-    if (isSceneLayerEditable(persisted, 'zones')) {
-      for (const zone of persisted.zones) {
-        if (groupedMemberKeys.has(sceneTargetKey({ kind: 'zone', id: zone.id })) || zone.locked) continue
-        targets.push({ kind: 'zone', id: zone.id })
-      }
-    }
-
-    if (isSceneLayerEditable(persisted, 'annotations')) {
-      for (const annotation of persisted.annotations) {
-        if (groupedMemberKeys.has(sceneTargetKey({ kind: 'annotation', id: annotation.id })) || annotation.locked) continue
-        targets.push({ kind: 'annotation', id: annotation.id })
-      }
-    }
-
-    if (isSceneLayerEditable(persisted, 'measurement-guides')) {
-      for (const guide of persisted.measurementGuides) {
-        if (guide.locked) continue
-        targets.push({ kind: 'measurement-guide', id: guide.id })
-      }
-    }
+    addUngrouped('plants', 'plant', persisted.plants)
+    addUngrouped('zones', 'zone', persisted.zones)
+    addUngrouped('annotations', 'annotation', persisted.annotations)
+    addUngrouped('measurement-guides', 'measurement-guide', persisted.measurementGuides)
 
     for (const group of persisted.groups) {
       if (
@@ -501,7 +471,19 @@ export class SceneRuntimeMutationController {
     const selection = this._getSelectionModel()
     const state = captureRotationTransformState(this._sceneStore.persisted, selection)
     if (!state || !selection.bounds) return
-    const pivot = centerOfBounds(selection.bounds)
+    const bearingDeg = this._getBearingDeg()
+    // 2.1-Q89: On a turned map, rotation pivots on the centre of the screen-aligned box.
+    const pivot = hasNonZeroBearing(bearingDeg)
+      ? screenAlignedTargetsCenter(
+          this._sceneStore.persisted,
+          [...selection.editableTargets, ...selection.lockedTargets],
+          {
+            ...this._getSelectionReadModelOptions(),
+            revealedAnnotationId: getRevealedAnnotationId(this._sceneStore.session.selectedTargets),
+          },
+          bearingDeg,
+        ) ?? centerOfBounds(selection.bounds)
+      : centerOfBounds(selection.bounds)
     this._sceneEdits.run('rotate-selected', (tx) => {
       tx.mutate((draft) => applyRotationTransformToDraft(draft, state, pivot, turn))
     })
@@ -602,9 +584,6 @@ export class SceneRuntimeMutationController {
       singleSpeciesCanonicalName,
       singleSpeciesCommonName,
       sharedCurrentColor,
-      suggestedColor: singleSpeciesCanonicalName
-        ? this._presentation.getSuggestedPlantColor(singleSpeciesCanonicalName)
-        : null,
       singleSpeciesDefaultColor,
     }
   }
@@ -830,16 +809,24 @@ export class SceneRuntimeMutationController {
       measurementGuides: payload.measurementGuides,
       groups: payload.groups,
     }
-    const bounds = getCombinedTargetBounds(
-      clipboardScene,
-      payload.sourceTargets,
-      {
-        ...this._getSelectionReadModelOptions(),
-        revealedAnnotationId: getRevealedAnnotationId(payload.sourceTargets),
-      },
-    )
+    const readOptions = {
+      ...this._getSelectionReadModelOptions(),
+      revealedAnnotationId: getRevealedAnnotationId(payload.sourceTargets),
+    }
+    const bearingDeg = this._getBearingDeg()
+    // 2.1-Q89: On a turned map, paste anchors on the centre of the screen-aligned box.
+    if (hasNonZeroBearing(bearingDeg)) {
+      const screenCenter = screenAlignedTargetsCenter(clipboardScene, payload.sourceTargets, readOptions, bearingDeg)
+      if (screenCenter) return screenCenter
+    }
+    const bounds = getCombinedTargetBounds(clipboardScene, payload.sourceTargets, readOptions)
     return bounds ? centerOfBounds(bounds) : null
   }
+}
+
+function hasNonZeroBearing(bearingDeg: number): boolean {
+  const normalized = ((bearingDeg % 360) + 360) % 360
+  return normalized > 1e-6 && Math.abs(normalized - 360) > 1e-6
 }
 
 function normalPasteOffset(step: number): ScenePoint {
@@ -877,7 +864,7 @@ function createGroupSelectedPlan(
       if (!group) continue
       selectedGroupIds.add(group.id)
       for (const member of resolveSceneObjectGroupMembers(persisted, group)) {
-        members.push({ kind: member.kind, id: member.id })
+        members.push(member)
       }
       continue
     }

@@ -1,32 +1,20 @@
-use canopi_types::design::{
-    CanopiFile, DesignLoadFailure, DesignSaveOutcome, DesignSummary, LoadedDesign,
-};
+#[cfg(test)]
+use canopi_types::design::DesignSaveOutcome;
+use canopi_types::design::{DesignLoadFailure, DesignSummary, LoadedDesign, v10::CanopiFileV10};
 use std::path::{Path, PathBuf};
 
 use crate::db::{UserDb, user_db::write_refusal};
 use crate::design::format;
-type OpenedLoad = format::OpenedDesign<LoadedDesign>;
 
 const RECENT_DESIGNS_LIMIT: usize = 20;
 
-pub fn new_design() -> Result<CanopiFile, String> {
-    Ok(format::create_new_design("Untitled", now_iso8601()))
-}
-
-fn now_iso8601() -> String {
-    let seconds = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_secs();
-    crate::design::unix_to_iso8601(seconds)
-}
-
 /// Save a Design to its file. With `expected_fingerprint`, a file changed
 /// outside Canopi since then is left alone and reported as a conflict.
+#[cfg(test)]
 pub fn save_design(
     user_db: &UserDb,
     path: String,
-    content: CanopiFile,
+    content: CanopiFileV10,
     expected_fingerprint: Option<String>,
 ) -> Result<DesignSaveOutcome, String> {
     let dest = std::path::PathBuf::from(&path);
@@ -48,28 +36,29 @@ pub fn save_design(
     }
 }
 
-pub fn export_design_file(path: String, content: CanopiFile) -> Result<String, String> {
+pub fn export_design_file(path: String, content: CanopiFileV10) -> Result<String, String> {
     let dest = std::path::PathBuf::from(&path);
     format::export_to_file(&dest, &content)?;
     tracing::info!("Design file exported");
     Ok(path)
 }
 
-/// Open a Design: to edit, read-only when newer (2.1-M478), refused when older (ADR 0021).
-pub fn load_design(user_db: &UserDb, path: String) -> Result<OpenedLoad, DesignLoadFailure> {
+/// Open a Design: v9 migrates in place to v10, v10 opens directly, v1..v8 refuse as older,
+/// v11+ refuse as newer (ADR 0021, 2.1-Q347).
+pub fn load_design(user_db: &UserDb, path: String) -> Result<LoadedDesign, DesignLoadFailure> {
     let dest = std::path::PathBuf::from(&path);
     let opened = format::open_with_fingerprint(&dest).map_err(|error| {
         tracing::info!(kind = ?error.failure().kind, "Design could not be opened");
         error.failure()
     })?;
-    try_record_recent(user_db, &path, opened.name());
+    try_record_recent(user_db, &path, &opened.file.name);
     tracing::info!("Design loaded");
     Ok(opened)
 }
 
 /// Read a Design file for a stamp import, without listing it as recent.
 /// Failures are typed like `load_design`'s, so an older file says why.
-pub fn load_design_file(path: String) -> Result<CanopiFile, DesignLoadFailure> {
+pub fn load_design_file(path: String) -> Result<CanopiFileV10, DesignLoadFailure> {
     let dest = std::path::PathBuf::from(&path);
     let design = format::load_from_file(&dest).map_err(|error| {
         tracing::info!(kind = ?error.failure().kind, "Design could not be read for import");
@@ -297,15 +286,15 @@ mod tests {
     use crate::db::UserDb;
     use crate::services::folder_reveal::recording::{RecordingRevealer, Shown};
     use crate::test_scratch::TestScratch;
+    use canopi_types::design::v10::CanopiFileV10;
     use canopi_types::design::{
-        CanopiFile, DesignLoadFailure, DesignLoadFailureKind, DesignSaveOutcome, DesignSummary,
-        LoadedDesign,
+        DesignLoadFailure, DesignLoadFailureKind, DesignSaveOutcome, DesignSummary, LoadedDesign,
     };
     use rusqlite::Connection;
     use std::path::PathBuf;
 
-    fn loaded_design(outcome: Result<super::OpenedLoad, DesignLoadFailure>) -> LoadedDesign {
-        outcome.expect("the Design loads").editable()
+    fn loaded_design(outcome: Result<LoadedDesign, DesignLoadFailure>) -> LoadedDesign {
+        outcome.expect("the Design loads")
     }
 
     fn test_user_db() -> UserDb {
@@ -313,7 +302,7 @@ mod tests {
         UserDb::initialize(conn).unwrap()
     }
 
-    fn test_design(name: &str) -> CanopiFile {
+    fn test_design(name: &str) -> CanopiFileV10 {
         crate::design::format::create_new_design(name, "2026-07-02T00:00:00Z")
     }
 
@@ -326,6 +315,8 @@ mod tests {
             path: path.to_owned(),
             name: name.to_owned(),
             updated_at: "2026-07-02T00:00:00Z".to_owned(),
+            grant: None,
+            recent_id: None,
         }
     }
 
@@ -704,7 +695,6 @@ mod tests {
             "changed by another program"
         );
         assert!(get_recent_files(&user_db).unwrap().is_empty());
-
         let _ = std::fs::remove_file(&path);
     }
 
@@ -715,12 +705,10 @@ mod tests {
         let path = temp_design_path(&scratch, "reveal");
         let listed = path.to_string_lossy().into_owned();
         save_design(&user_db, listed.clone(), test_design("Reveal"), None).unwrap();
-
         let file = recent_design_file(&user_db, &listed).unwrap();
         let revealer = RecordingRevealer::default();
         show_design_in_folder(&file, &revealer).unwrap();
         assert_eq!(revealer.shown(), vec![Shown::Item(path.clone())]);
-
         let no_file_manager = RecordingRevealer::without_file_manager();
         show_design_in_folder(&file, &no_file_manager).unwrap();
         assert_eq!(
@@ -730,7 +718,6 @@ mod tests {
                 Shown::Folder(path.parent().unwrap().to_path_buf())
             ]
         );
-
         let unlisted = scratch.join("not-a-recent-design.canopi");
         let error = recent_design_file(&user_db, &unlisted.to_string_lossy()).unwrap_err();
         assert!(!error.contains("not-a-recent-design"), "{error}");
@@ -740,11 +727,12 @@ mod tests {
     #[test]
     fn a_listed_design_without_a_folder_has_nothing_to_show() {
         let user_db = test_user_db();
-        {
-            let conn = user_db.acquire();
-            crate::db::recent_files::record_recent_file(&conn, "orchard.canopi", "Orchard")
-                .unwrap();
-        }
+        crate::db::recent_files::record_recent_file(
+            &user_db.acquire(),
+            "orchard.canopi",
+            "Orchard",
+        )
+        .unwrap();
         let error = recent_design_file(&user_db, "orchard.canopi").unwrap_err();
         assert_eq!(error, "This Design has no folder to show.");
     }

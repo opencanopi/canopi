@@ -9,9 +9,8 @@ export function setBudgetCurrency(currency: string): void {
     return {
       ...design,
       budget_currency: currency,
-      budget: design.budget.map((item) => ({ ...item, currency })),
     }
-  })
+  }, 'budget.currency')
 }
 
 export function setPlantBudgetPrice(canonicalName: string, unitCost: number): void {
@@ -21,21 +20,15 @@ export function setPlantBudgetPrice(canonicalName: string, unitCost: number): vo
     const currency = design.budget_currency ?? DEFAULT_BUDGET_CURRENCY
     const budget = design.budget
     const index = budget.findIndex((item) => {
-      if (item.category !== 'plants') return false
       const itemTarget = getBudgetSpeciesTarget(item)
       return itemTarget !== null && targets.equals(itemTarget, target)
     })
     const existing = index !== -1 ? budget[index] : undefined
-    if (existing && existing.unit_cost === sanitized && existing.currency === currency) return design
+    if (existing && existing.unit_cost === sanitized) return design
 
-    const next: BudgetItem = {
-      target,
-      category: 'plants',
-      description: canonicalName,
-      quantity: existing?.quantity ?? 0,
-      unit_cost: sanitized,
-      currency,
-    }
+    const next: BudgetItem = existing
+      ? { ...existing, unit_cost: sanitized }
+      : { target, unit_cost: sanitized }
 
     return {
       ...design,
@@ -44,5 +37,17 @@ export function setPlantBudgetPrice(canonicalName: string, unitCost: number): vo
         ? [...budget, next]
         : budget.map((item, itemIndex) => (itemIndex === index ? next : item)),
     }
-  })
+  }, 'budget.price')
+}
+
+export function deletePlantBudgetPrice(canonicalName: string): void {
+  const target = speciesBudgetTarget(canonicalName)
+  editCurrentDesign((design) => {
+    const nextBudget = design.budget.filter((item) => {
+      const itemTarget = getBudgetSpeciesTarget(item)
+      return itemTarget === null || !targets.equals(itemTarget, target)
+    })
+    if (nextBudget.length === design.budget.length) return design
+    return { ...design, budget: nextBudget }
+  }, 'budget.delete')
 }

@@ -6,13 +6,12 @@ import {
 } from '../app/design-edit/core'
 import { speciesBudgetTarget } from '../target'
 import {
+  designDirty,
   designSessionFixture,
   currentDesign,
-  nonCanvasRevision,
 } from './support/design-session-state'
 
 beforeEach(() => {
-  designSessionFixture.nonCanvasRevision = 0
   designSessionFixture.file = {
     version: 9,
     name: 'test',
@@ -39,21 +38,21 @@ describe('Design Edit core', () => {
 
     const next = editCurrentDesign((current) => current)
 
-    expect(next).toBe(design)
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(next).toStrictEqual(design)
+    expect(designDirty.value).toBe(false)
   })
 
   it('reconciles derived Design content without recording user intent', () => {
     reconcileCurrentDesign((design) => ({ ...design, name: 'updated' }))
 
     expect(currentDesign.value?.name).toBe('updated')
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
   })
 
   it('avoids dirty revision for no-op array updates', () => {
     editDesignArray('timeline', (timeline) => timeline)
 
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
   })
 
   it('records user intent for changed array updates', () => {
@@ -67,6 +66,6 @@ describe('Design Edit core', () => {
     }])
 
     expect(currentDesign.value?.budget).toHaveLength(1)
-    expect(nonCanvasRevision.value).toBe(1)
+    expect(designDirty.value).toBe(true)
   })
 })

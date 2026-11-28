@@ -174,6 +174,15 @@
   min-width: 0;
 }
 
+.itemNote {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
 .itemShortcut {
   flex-shrink: 0;
   margin-left: auto;
@@ -194,27 +203,27 @@
   background: var(--color-border);
 }
 
-/* Web on phones, on its side too (`data-phone-layout` on the Web shell): one Menu button. */
-:global([data-phone-layout]) .compactGroup {
+/* Web on phones, on its side too (`data-layout` on the Web shell): one Menu button. */
+:global([data-layout]) .compactGroup {
   display: block;
 }
 
-:global([data-phone-layout]) .fullGroup {
+:global([data-layout]) .fullGroup {
   display: none;
 }
 
-:global([data-phone-layout]) .compactGroup .trigger {
+:global([data-layout]) .compactGroup .trigger {
   width: var(--control-size-touch);
   height: var(--control-size-touch);
   justify-content: center;
   padding: 0;
 }
 
-:global([data-phone-layout]) .menu {
+:global([data-layout]) .menu {
   max-width: calc(100vw - 2 * var(--chrome-inset));
 }
 
-:global([data-phone-layout]) .submenu {
+:global([data-layout]) .submenu {
   position: static;
   min-width: 0;
   max-height: none;
@@ -224,10 +233,10 @@
   box-shadow: none;
 }
 
-:global([data-phone-layout]) .item {
+:global([data-layout]) .item {
   min-height: var(--control-size-touch);
 }
 
-:global([data-phone-layout]) .itemShortcut {
+:global([data-layout]) .itemShortcut {
   display: none;
 }

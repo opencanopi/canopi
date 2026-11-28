@@ -8,6 +8,7 @@
  */
 import type { FailureCode, StoreHealth, StoreId, StoreNotice, StoreOpenStatus } from '../generated/contracts'
 import type { LocaleKey } from '../generated/locale-keys'
+import { storeResetFieldsText } from './health'
 import type { NoticeSpec } from './notices'
 import type { ReportOrigin } from './report'
 
@@ -55,17 +56,12 @@ const NEWER_READ_ONLY: { readonly [S in StoreId]?: LocaleKey } = {
 
 const error = (message: LocaleKey, actions: readonly HealthAction[] = []): StoreMessage => ({ tone: 'error', message, actions })
 
-function unavailableMessage(store: StoreId, status: StatusOf<'unavailable'>): StoreMessage {
-  const { code } = status
-  if (code.kind === 'plant_db_unavailable') {
-    return error(code.cause === 'missing' ? 'health.plantDbMissing' : 'health.plantDbCorrupt')
-  }
+function unavailableMessage(store: StoreId, { code }: StatusOf<'unavailable'>): StoreMessage {
+  if (code.kind === 'plant_db_unavailable') return error(code.cause === 'missing' ? 'health.plantDbMissing' : 'health.plantDbCorrupt')
   if (store === 'library_catalogue') return error('canvas.lidar.library.unavailable')
   // Settings could not be read: defaults for the session, the saved record left untouched (2.1-Q295).
   if (store === 'settings') return error('health.settingsUnavailable', ['retry', 'report'])
-  const refused = WRITES_REFUSED[store]
-  if (refused) return error(refused, ['report'])
-  return error('health.storeUnavailable', ['report'])
+  return error(WRITES_REFUSED[store] ?? 'health.storeUnavailable', ['report'])
 }
 
 const MESSAGE_BY_STATUS: { readonly [K in Kind]: StatusRule<K> } = {
@@ -138,7 +134,10 @@ export function noticeForStore(store: StoreId, entry: StoreHealth, actions: Heal
     out.push(spec(statusNoticeKey(store, entry.status), status, actions, origin(store, code, entry.status.kind)))
   }
   if (entry.notice !== null) {
-    const told = spec(`${oneTimeNoticePrefix(store)}${entry.notice}`, MESSAGE_BY_NOTICE[entry.notice], actions, origin(store, null, entry.notice))
+    const base = MESSAGE_BY_NOTICE[entry.notice]
+    const list = entry.notice === 'fields_reset' ? storeResetFieldsText(store) : ''
+    const message: StoreMessage = list ? { ...base, params: { fields: list } } : base
+    const told = spec(`${oneTimeNoticePrefix(store)}${entry.notice}`, message, actions, origin(store, null, list ? `${entry.notice}: ${list}` : entry.notice))
     out.push({ ...told, onDismiss: actions.dismissNotice })
   }
   return out
@@ -163,28 +162,28 @@ function origin(store: StoreId, code: FailureCode | null, state: string): Report
 }
 
 function spec(key: string, message: StoreMessage, actions: HealthActions, from: ReportOrigin): NoticeSpec {
-  const { report, retry } = actions
-  const handlers: Record<HealthAction, (() => void) | null> = {
-    retry: retry ? () => retry.run() : null,
-    report: report ? () => report(from) : null,
-    update: actions.update,
-  }
+  const { report, retry, update } = actions
+  const busy: LocaleKey = 'notice.tryingAgain'
   const runs = message.actions.flatMap((action): NonNullable<NoticeSpec['action']>[] => {
-    const run = handlers[action]
+    const run = action === 'retry' ? (retry ? () => retry.run() : null)
+      : action === 'report' ? (report ? () => report(from) : null)
+      : update
     if (!run) return []
-    // Try again reads busy while its read runs, so a press that fails again still shows it ran.
-    const busy: LocaleKey = 'notice.tryingAgain'
-    return [{ label: ACTION_LABEL[action], run, ...(action === 'retry' && retry ? { busy: { label: busy, now: () => retry.running() } } : {}) }]
+    return [{
+      label: ACTION_LABEL[action],
+      run,
+      ...(action === 'retry' && retry ? { busy: { label: busy, now: () => retry.running() } } : {}),
+    }]
   })
   return {
     key,
     message: message.message,
-    ...(message.params ? { params: message.params } : {}),
-    ...(message.title ? { title: message.title } : {}),
     tone: message.tone,
-    ...(runs[0] ? { action: runs[0] } : {}),
-    ...(runs[1] ? { secondaryAction: runs[1] } : {}),
     source: 'health',
+    ...(message.params && { params: message.params }),
+    ...(message.title && { title: message.title }),
+    ...(runs[0] && { action: runs[0] }),
+    ...(runs[1] && { secondaryAction: runs[1] }),
   }
 }
 

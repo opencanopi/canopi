@@ -160,10 +160,3 @@ function readAsDataUrl(file: Blob): Promise<string> {
     reader.readAsDataURL(file)
   })
 }
-
-
-/** An image size for people: "1.4 MB" in the interface language. */
-export function formatImageBytes(bytes: number, locale: string): string {
-  return new Intl.NumberFormat(locale, { style: 'unit', unit: 'megabyte', maximumFractionDigits: 1 })
-    .format(Math.max(0.1, bytes / (1024 * 1024)))
-}

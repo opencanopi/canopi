@@ -1,33 +1,33 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { parseCssDeclarations } from './support/architecture/css-facts'
 
 function readCssSource(path: string): string {
   return readFileSync(`src/${path}`, 'utf8')
 }
 
 function classZIndex(path: string, className: string): number {
-  const source = readCssSource(path)
-  const rule = new RegExp(`\\.${className}\\s*\\{(?<body>[\\s\\S]*?)\\}`).exec(source)
-  if (!rule?.groups?.body) throw new Error(`Missing .${className} CSS rule in ${path}`)
-  const declaration = /z-index:\s*(?:(?<value>-?\d+)|var\((?<token>--z-[a-z-]+)\))\s*;/.exec(rule.groups.body)
-  if (declaration?.groups?.value) return Number.parseInt(declaration.groups.value, 10)
-  if (declaration?.groups?.token) return scaleToken(declaration.groups.token)
+  const decl = parseCssDeclarations(`src/${path}`, readCssSource(path))
+    .find((d) => d.rule === `.${className}` && d.property === 'z-index')
+  if (!decl) throw new Error(`Missing .${className} z-index declaration in ${path}`)
+  if (/^-?\d+$/.test(decl.value)) return Number.parseInt(decl.value, 10)
+  const token = /^var\((--z-[a-z-]+)\)$/.exec(decl.value)?.[1]
+  if (token) return scaleToken(token)
   throw new Error(`Missing .${className} z-index declaration`)
 }
 
 /** Resolves a stacking scale token from global.css. */
 function scaleToken(name: string): number {
-  const match = new RegExp(`${name}:\\s*(-?\\d+)`).exec(readCssSource('styles/global.css'))
-  if (!match?.[1]) throw new Error(`Missing ${name} in global.css`)
-  return Number.parseInt(match[1], 10)
+  const decl = parseCssDeclarations('src/styles/global.css', readCssSource('styles/global.css'))
+    .find((d) => d.property === name)
+  if (!decl || !/^-?\d+$/.test(decl.value)) throw new Error(`Missing ${name} in global.css`)
+  return Number.parseInt(decl.value, 10)
 }
 
 function ruleBody(path: string, selector: string): string {
-  const source = readCssSource(path)
-  const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const rule = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{(?<body>[^}]*)\\}`, 'm').exec(source)
-  if (!rule?.groups?.body) throw new Error(`Missing ${selector} CSS rule in ${path}`)
-  return rule.groups.body
+  const decls = parseCssDeclarations(`src/${path}`, readCssSource(path)).filter((d) => d.rule === selector && d.atRules.length === 0)
+  if (decls.length === 0) throw new Error(`Missing ${selector} CSS rule in ${path}`)
+  return decls.map((d) => `${d.property}: ${d.value};`).join('\n')
 }
 
 describe('floating chrome layering', () => {
@@ -35,7 +35,7 @@ describe('floating chrome layering', () => {
     // The last background layer is the surface, so the map never shows through the tint.
     const onSurface = /background:\s*linear-gradient\(var\(--color-danger-bg\),\s*var\(--color-danger-bg\)\),\s*var\(--color-surface\)\s*;/
     // The Web shell keeps no notice row of its own: its notices are the one notice row's (2.1-Q290).
-    expect(readCssSource('web/BrowserAppShell.module.css')).not.toMatch(/\.notice\b/)
+    expect(readCssSource('editions/web/BrowserAppShell.module.css')).not.toMatch(/\.notice\b/)
     // The one notice row (Desktop's foot, Web's title-bar row) lays its error and warning tints on the surface too.
     expect(ruleBody('components/shared/NoticeRow.module.css', '.row [data-notice-tone="error"]')).toMatch(onSurface)
     expect(ruleBody('components/shared/NoticeRow.module.css', '.row [data-notice-tone="warning"]'))
@@ -48,7 +48,7 @@ describe('floating chrome layering', () => {
   it('stacks the Web notice row under the title bar and phone search card and over the phone sheet', () => {
     const notice = classZIndex('components/shared/NoticeRow.module.css', 'belowTitleBar')
     expect(classZIndex('components/shared/WorkspaceTitleBar.module.css', 'titleBar')).toBeGreaterThan(notice)
-    expect(classZIndex('web/BrowserAppShell.module.css', 'phoneSearch')).toBeGreaterThan(notice)
+    expect(classZIndex('editions/web/BrowserAppShell.module.css', 'phoneSearch')).toBeGreaterThan(notice)
     expect(notice).toBeGreaterThan(classZIndex('components/shared/PhoneSheet.module.css', 'sheet'))
     expect(readCssSource('components/shared/NoticeRow.module.css')).toMatch(/\.belowTitleBar\s*\{[^}]*z-index:\s*var\(--z-shell-notice\)/)
   })

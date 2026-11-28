@@ -1,11 +1,6 @@
 import { WorkspaceMapContributions, type WorkspaceMapContributionsOptions } from './workspace-map-contributions'
 import type { WorkspaceMapContributionSnapshot } from './workspace-map-contribution-adapter'
 import { MapLibreSurface, type MapLibreSurfaceLifetime } from '../../maplibre/surface'
-import {
-  MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID,
-  MAPLIBRE_SATELLITE_LAYER_ID,
-  MAPLIBRE_SATELLITE_SOURCE_ID,
-} from '../../maplibre/config'
 import { BasemapTileAuth } from '../../maplibre/basemap-tile-auth'
 import {
   mountMapBackground,
@@ -13,17 +8,15 @@ import {
   type MapBackgroundMap,
   type MapBackgroundPresentation,
 } from '../../maplibre/map-background'
-import { OPENFREEMAP_LAYER_PREFIX, OPENFREEMAP_SOURCE_PREFIX } from '../../maplibre/openfreemap-basemap'
-import { mapErrorResourceId } from '../../maplibre/map-error-owner'
 import { redact, redactError } from '../../failures/redact'
-import { reportMapError, reportMapSourceFailure } from '../../maplibre/map-errors'
-import { UNAVAILABLE_MAPLIBRE_CANVAS_SURFACE_STATE } from '../../maplibre/canvas-surface-state'
+import { reportMapError, reportMapFailure, reportMapSourceFailure } from '../../maplibre/map-errors'
+import type { LayerSlotId, MapFailureCause, MapLifetimeState } from '../../maplibre/map-lifetime'
 import { readSatelliteConfig } from '../settings/satellite-config'
 import {
   createWorkspaceMapLibreMap,
   type WorkspaceMapSnapshot,
 } from '../../maplibre/workspace-map'
-import type { ViewScreen } from '../../canvas/runtime/view/types'
+import type { ViewScreen } from '../../geo/view/types'
 import {
   createMapLayerStackDescriptors,
   reconcileMapLayerStack,
@@ -80,6 +73,7 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
   private readonly surface: MapLibreSurface
   private readonly logError: (message?: unknown, ...optionalParams: unknown[]) => void
   private attempt: WorkspaceMapAttempt | null = null
+  private attemptCount = 0
   private attributionCompact: boolean | null = null
 
   constructor(private readonly options: WorkspaceActivationMapControlsOptions) {
@@ -97,16 +91,20 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
     } else {
       this.releaseAttempt(previous)
     }
+    const attemptNumber = ++this.attemptCount
     if (!(this.options.canCreateWebGL2Context ?? canCreateWebGL2Context)()) {
-      // No map attempt exists to publish its failure, so publish it here.
-      this.publishUnavailable()
+      // No map attempt exists to publish its failure, so record and emit it here (contracts §2, §6).
+      reportMapFailure('webgl2_unavailable', 'WebGL2 is unavailable for the shared workspace map.')
+      this.emitMapLifetime({ kind: 'failed', attempt: attemptNumber, cause: 'no-webgl2' })
       return Promise.reject(new WorkspaceWebGL2UnavailableError())
     }
+    this.emitMapLifetime({ kind: 'creating', attempt: attemptNumber })
 
     return new Promise<WorkspaceActivationMap>((resolve, reject) => {
       const attempt: WorkspaceMapAttempt = {
         contributions: new WorkspaceMapContributions({
           ...this.options.contributions,
+          attempt: attemptNumber,
           logError: this.logError,
           onFailure: (error) => this.failAttempt(attempt, error),
         }),
@@ -162,13 +160,9 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
           const reportMapError = (event: unknown) => {
             if (!isLive()) return
             if (attempt.admitted && attempt.contributions.handleMapError(event)) return
-            // The Basemap's sprite or TileJSON failed (offline): its notice shows, the map keeps drawing.
+            // Background errors (Basemap style/sprite/TileJSON/layers, Satellite tiles) stay passive on the background slot (canopi-tihc, canopi-m6sm).
             if (attempt.admitted && attempt.background?.claimMapError(event)) {
               reportMapSourceFailure('MapLibre workspace basemap resource failed to load:', event)
-              return
-            }
-            if (attempt.admitted && isPassiveBasemapError(event)) {
-              reportMapSourceFailure('Passive MapLibre workspace basemap error:', event)
               return
             }
             const error = mapError(event)
@@ -185,7 +179,7 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
               this.rejectAttempt(attempt, error)
               return
             }
-            this.failAttempt(attempt, error)
+            this.failAttempt(attempt, error, 'context-lost')
           }
           const handleStyleLoad = () => {
             if (!isLive()) return
@@ -219,6 +213,7 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
             this.rejectAttempt(
               attempt,
               new Error('MapLibre did not expose a WebGL2 context for shared rendering.'),
+              'webgl2_unavailable',
             )
             return
           }
@@ -261,6 +256,16 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
     if (!attempt || attempt.released || attempt.failureReported || !attempt.admitted) return
     // The latest presentation again: a Basemap that is not installed, or whose resources failed, is downloaded again.
     attempt.background?.retry(attempt.presentation)
+  }
+
+  retryLayer(slot: LayerSlotId): void {
+    if (slot === 'background') {
+      this.retryBasemap()
+      return
+    }
+    const attempt = this.attempt
+    if (!attempt || attempt.released || attempt.failureReported || !attempt.admitted) return
+    attempt.contributions.retryLayer(slot)
   }
 
   setAttributionCompact(compact: boolean): void {
@@ -310,9 +315,9 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
     attempt.contributions.restack()
   }
 
-  private publishUnavailable(): void {
+  private emitMapLifetime(state: MapLifetimeState): void {
     try {
-      this.options.contributions.onStateChange?.(UNAVAILABLE_MAPLIBRE_CANVAS_SURFACE_STATE)
+      this.options.contributions.onMapLifetimeChange?.(state)
     } catch (observerError) {
       this.logError('Map state observer failed:', observerError)
     }
@@ -352,13 +357,14 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
     }
   }
 
-  private failAttempt(attempt: WorkspaceMapAttempt, error: unknown): void {
+  private failAttempt(attempt: WorkspaceMapAttempt, error: unknown, cause: MapFailureCause = 'engine-start'): void {
     if (attempt.released || attempt.failureReported) return
     attempt.failureReported = true
     attempt.pendingPresentationSync = false
     const failure = mapError(error)
     attempt.pendingFailure = failure
-    attempt.contributions.dispose(failure)
+    reportMapFailure('map_unavailable', failure.message, failure)
+    attempt.contributions.dispose(failure, cause)
     if (!attempt.settled) {
       this.rejectAttempt(attempt, failure)
       return
@@ -366,10 +372,20 @@ export class WorkspaceMapControls implements WorkspaceActivationMapControls {
     attempt.failureReporter?.(failure)
   }
 
-  private rejectAttempt(attempt: WorkspaceMapAttempt, error: unknown): void {
+  private rejectAttempt(
+    attempt: WorkspaceMapAttempt,
+    error: unknown,
+    failureCode: 'map_unavailable' | 'webgl2_unavailable' = 'map_unavailable',
+  ): void {
     if (attempt.settled) return
     attempt.settled = true
-    if (!(error instanceof WorkspaceAcquisitionCancelled)) attempt.pendingFailure ??= mapError(error)
+    if (!(error instanceof WorkspaceAcquisitionCancelled)) {
+      const failure = mapError(error)
+      attempt.pendingFailure ??= failure
+      if (!attempt.failureReported) {
+        reportMapFailure(failureCode, failure.message, failure)
+      }
+    }
     attempt.signal.removeEventListener('abort', attempt.abort)
     attempt.reject(error)
     this.releaseAttempt(attempt)
@@ -417,17 +433,6 @@ function contextLossError(event: unknown): Error {
     event instanceof Error
       ? event.message
       : 'MapLibre WebGL context was lost while preparing the shared workspace.',
-  )
-}
-
-function isPassiveBasemapError(event: unknown): boolean {
-  const id = mapErrorResourceId(event)
-  return id !== null && (
-    id === MAPLIBRE_SATELLITE_SOURCE_ID
-    || id === MAPLIBRE_SATELLITE_LAYER_ID
-    || id === MAPLIBRE_BASEMAP_BACKGROUND_LAYER_ID
-    || id.startsWith(OPENFREEMAP_SOURCE_PREFIX)
-    || id.startsWith(OPENFREEMAP_LAYER_PREFIX)
   )
 }
 

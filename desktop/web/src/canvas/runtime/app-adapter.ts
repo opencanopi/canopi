@@ -1,7 +1,8 @@
 import type { ReadonlySignal } from '@preact/signals'
 import type { CanopiFile } from '../../types/design'
 import type { PointAction } from '../point-editor/rules'
-import { FALLBACK_PLANT_SPACING_INTERVAL_M } from '../plant-spacing-interval'
+import type { SavedObjectStampPayload } from '../saved-object-stamp-payload'
+import type { SceneCommand } from './scene-commands'
 import type {
   CanvasPlantLabelSource,
   CanvasSpeciesPresentationCache,
@@ -15,14 +16,29 @@ import type {
   CanvasSceneEditCommandSurface,
 } from './runtime'
 import type { LocaleKey } from '../../generated/locale-keys'
+import type { UnitSystem } from '../../utils/format'
 
 interface CanvasRuntimeChromeSettingsSnapshot {
   /** The grid; the app hides it while it presents the map. */
   readonly gridVisible: boolean
 }
 
-interface CanvasRuntimeCleanStateAdapter {
-  setCanvasClean(clean: boolean): void
+export interface CanvasRuntimeSceneSessionAdapter {
+  readonly canUndo: ReadonlySignal<boolean>
+  readonly canRedo: ReadonlySignal<boolean>
+  recordSceneEdit(
+    label: string,
+    command: SceneCommand,
+    options?: { readonly remainingPlantSpecies?: ReadonlySet<string> },
+  ): void
+  /** Compound placement hook for v3 saved object stamps (2.1-M88, 2.1-M89, 2.1-Q155, 2.1-Q168, 2.1-Q354). */
+  placeSavedStamp?(
+    stamp: SavedObjectStampPayload,
+    applyScene: () => { readonly command: SceneCommand; readonly rollback: () => void; readonly idRemap: ReadonlyMap<string, string> },
+  ): boolean
+  undo(): void
+  redo(): void
+  remapSceneCommands?(map: (command: SceneCommand) => SceneCommand): void
 }
 
 export interface CanvasRuntimeDocumentCompositionInput {
@@ -39,10 +55,16 @@ export interface CanvasRuntimeSavedObjectStampCapture {
   readonly scene: ScenePersistedState
   readonly selection: CanvasDesignObjectSelectionModel
   readonly localizedCommonNames: ReadonlyMap<string, string | null>
+  readonly design?: CanopiFile | null
 }
 
 export interface CanvasRuntimeSavedObjectStampAdapter {
   saveCurrentSelection(capture: CanvasRuntimeSavedObjectStampCapture): void | Promise<unknown>
+  /** Optional compound placement hook for v3 saved object stamps (2.1-M88, 2.1-M89, 2.1-Q155, 2.1-Q168, 2.1-Q354). */
+  placeSavedStamp?(
+    stamp: SavedObjectStampPayload,
+    applyScene: () => { readonly command: SceneCommand; readonly rollback: () => void; readonly idRemap: ReadonlyMap<string, string> },
+  ): boolean
 }
 
 /** The scene edits a right-click menu may run; there is no other mutation path. */
@@ -150,6 +172,7 @@ export type CanvasScrollWheelSetting = 'zoom' | 'pan'
 
 export interface CanvasRuntimeSettingsAdapter {
   readLocale(): string
+  readUnitSystem?(): UnitSystem
   readChromeOverlay(): CanvasRuntimeChromeSettingsSnapshot
   readSnapToGridEnabled(): boolean
   /** Settings › Canvas › Pointing device: what a plain wheel does; pinch and Ctrl wheel always zoom. */
@@ -163,6 +186,7 @@ export interface CanvasRuntimeSettingsAdapter {
   toggleSnapToGrid(): void
   subscribeTheme(onChange: () => void): () => void
   subscribeLocale(onChange: () => void): () => void
+  subscribeUnitSystem?(onChange: () => void): () => void
   subscribeChromeOverlay(onChange: () => void): () => void
   /** Calls `onChange` now and whenever the map background under the Design changes. */
   subscribeMapBackdrop(onChange: (backdrop: CanvasMapBackdrop) => void): () => void
@@ -185,20 +209,13 @@ export type CanvasRuntimeTranslator = (
 ) => string
 
 export interface CanvasRuntimeAppAdapter {
-  readonly cleanState: CanvasRuntimeCleanStateAdapter
+  readonly sceneSession?: CanvasRuntimeSceneSessionAdapter
   readonly document: CanvasRuntimeDocumentAdapter
   readonly savedObjectStamps?: CanvasRuntimeSavedObjectStampAdapter
   /** Absent in a detached runtime, where right-click only suppresses the native menu. */
   readonly contextMenu?: CanvasRuntimeContextMenuAdapter
-  /**
-   * The Site data pin (canopi-f47t.42, spec §3.8): a Select tap on empty ground or any Pan-tool tap pins this Scene point
-   * once the tool has heard the tap (ToolHostDeps.pin). Injected rather than imported, so the generic runtime stays
-   * independent of the LiDAR feature; the edition decides per call whether the Site data panel is open. Absent on Web.
-   */
-  readonly pinAt?: (point: { readonly x: number; readonly y: number }) => void
-  /** The Site data profile (canopi-f47t.42, spec §1.10): the Profile tool's finished line, in Scene points (ToolHostDeps
-   *  .finishProfile). Absent on Web. */
-  readonly finishProfile?: (points: readonly { readonly x: number; readonly y: number }[]) => void
+  /** Closes any open plant colour or symbol popover on transient runtime reset. Absent in a detached runtime. */
+  readonly closePlantAppearance?: () => void
   readonly presentationData?: CanvasRuntimePresentationDataAdapter
   /** Absent in a detached runtime, which draws the default display. */
   readonly plantDisplay?: CanvasRuntimePlantDisplayAdapter
@@ -218,81 +235,4 @@ export interface CanvasRuntimeAppAdapter {
 /** How a tool's focus request (ToolEffects.requestFocus) leaves the runtime. The FocusOwner implements it. */
 export interface CanvasFocusPort {
   focusMap(): void
-}
-
-export function createDetachedCanvasRuntimeAppAdapter(): CanvasRuntimeAppAdapter {
-  let gridVisible = false
-  let snapToGrid = false
-  let plantSpacingIntervalM = FALLBACK_PLANT_SPACING_INTERVAL_M
-
-  return {
-    cleanState: {
-      setCanvasClean: () => {},
-    },
-    document: {
-      composeDocumentForSave: composeDetachedCanvasDocument,
-    },
-    translate: detachedCanvasRuntimeTranslator,
-    isReadOnly: () => false,
-    settings: {
-      readLocale: () => 'en',
-      readChromeOverlay: () => ({ gridVisible }),
-      readSnapToGridEnabled: () => snapToGrid,
-      readScrollWheel: () => 'zoom',
-      readPlantSpacingIntervalMeters: () => plantSpacingIntervalM,
-      commitPlantSpacingIntervalMeters: (meters) => {
-        plantSpacingIntervalM = meters
-      },
-      toggleGridVisible: () => {
-        gridVisible = !gridVisible
-      },
-      toggleSnapToGrid: () => {
-        snapToGrid = !snapToGrid
-      },
-      subscribeTheme: subscribeImmediately,
-      subscribeLocale: subscribeImmediately,
-      subscribeChromeOverlay: subscribeImmediately,
-      subscribeMapBackdrop: (onChange) => {
-        onChange('basemap')
-        return () => {}
-      },
-    },
-  }
-}
-
-function detachedCanvasRuntimeTranslator(
-  key: string,
-  options?: Readonly<Record<string, unknown>>,
-): string {
-  return typeof options?.defaultValue === 'string' ? options.defaultValue : key
-}
-
-function subscribeImmediately(onChange: () => void): () => void {
-  onChange()
-  return () => {}
-}
-
-function composeDetachedCanvasDocument({
-  metadata,
-  document,
-  canvas,
-}: CanvasRuntimeDocumentCompositionInput): CanopiFile {
-  return {
-    ...document,
-    ...canvas,
-    name: metadata.name,
-    description: metadata.description ?? document.description ?? null,
-    consortiums: document.consortiums,
-    timeline: document.timeline,
-    budget: document.budget,
-    budget_currency: document.budget_currency,
-    created_at: document.created_at,
-    extra: normalizeDetachedExtra(document.extra),
-  }
-}
-
-/** The Design's `extra`, all of it Design Edit's: the scene owns no `extra` key. */
-function normalizeDetachedExtra(extra: CanopiFile['extra']): Record<string, unknown> {
-  if (!extra || typeof extra !== 'object' || Array.isArray(extra)) return {}
-  return { ...extra }
 }

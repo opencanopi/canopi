@@ -1,8 +1,12 @@
 export {
-  reconcileCurrentDesign,
+  isAdmittedColourRange,
+  isAdmittedOpacity,
+} from './admission'
+export {
   setDesignName,
 } from './core'
 export {
+  deletePlantBudgetPrice,
   setBudgetCurrency,
   setPlantBudgetPrice,
 } from './budget'
@@ -20,21 +24,23 @@ export {
   deleteSavedView,
   recaptureSavedView,
   renameSavedView,
-  restoreSavedView,
-  type SavedViewDeletion,
 } from './views'
+export {
+  endPrintSetupCoalesce,
+  readPrintSetup,
+  writePrintSetup,
+} from './print-setup'
 export {
   addStory,
   addStoryStep,
   deleteStory,
   deleteStoryStep,
   duplicateStoryStep,
+  editWithinImageLimit,
   moveStoryStep,
   moveStoryStepToStory,
   renameStory,
   reorderStorySteps,
-  restoreStory,
-  restoreStoryStep,
   updateStoryStep,
   type StoryEditOutcome,
 } from './stories'

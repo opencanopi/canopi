@@ -1,0 +1,28 @@
+# surface-or-map-state-only-in-host-and-lifetime (ADR 0024, 2.1-M144): no useState or signal
+# holding CanvasSurfaceState or MapLifetimeState outside canvas-host.ts and map-lifetime.ts.
+id: surface-or-map-state-only-in-host-and-lifetime.typescript
+language: typescript
+severity: error
+message: "No useState or signal may hold CanvasSurfaceState or MapLifetimeState outside canvas-host.ts and map-lifetime.ts (ADR 0024, 2.1-M144); owner desktop/web/src/app/canvas-map-surface/canvas-host.ts; example desktop/web/src/app/canvas-map-surface/canvas-host.ts"
+files:
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
+ignores:
+  - "{desktop/web,policy/fixtures/rules/*}/src/__tests__/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-map-surface/canvas-host.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/canvas-map-surface/use-canvas-host.ts"
+  - "{desktop/web,policy/fixtures/rules/*}/src/maplibre/map-lifetime.ts"
+rule:
+  kind: call_expression
+  all:
+    - has:
+        field: function
+        kind: identifier
+        regex: ^(useState|signal)$
+    - has:
+        stopBy: end
+        any:
+          - kind: type_identifier
+          - kind: identifier
+        regex: ^(CanvasSurfaceState|MapLifetimeState|IDLE_CANVAS_SURFACE_STATE)$

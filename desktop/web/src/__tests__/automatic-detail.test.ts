@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { getCanvasDetailLayout, getCanvasPlantNameLabels } from '../canvas/runtime/automatic-detail'
 import { getAnnotationPresentation, isPointInAnnotationPresentation } from '../canvas/runtime/annotation-layout'
+import { DEFAULT_PLANT_DISPLAY } from '../canvas/runtime/plant-display'
 import { SceneStore, type ScenePlantEntity } from '../canvas/runtime/scene'
+import { selectionExtentPoints } from '../canvas/runtime/scene-extent'
+import { getCombinedTargetBounds } from '../canvas/runtime/scene-runtime/selection'
+import { hitTestTopLevel, queryQuadTopLevel } from '../canvas/runtime/tools/hit-testing'
 import { createTestRendererView, createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 
 function plant(id: string, x: number, y: number): ScenePlantEntity {
@@ -66,6 +70,20 @@ describe('Automatic Detail', () => {
       .toEqual(['Menthe verte', 'Menthe verte'])
   })
 
+  it('includes the species code on pinned plants when codes mode is active', () => {
+    const base = createTestSceneRendererSnapshot({
+      scene: {
+        plants: [{ ...plant('a', 0, 0), pinnedName: true }, plant('b', 1, 0)],
+        plantSpeciesCodes: { 'Mentha spicata': 'MSP' },
+      },
+    })
+    const snapshot = { ...base, plantLabels: 'codes' as const }
+    expect(getCanvasPlantNameLabels(snapshot, 400).map((label) => ({ id: label.plantId, text: label.text }))).toEqual([
+      { id: 'a', text: 'MSP · Menthe verte' },
+      { id: 'b', text: 'MSP' },
+    ])
+  })
+
   it('keeps collision admission stable during panning and a round trip through overview zoom', () => {
     const snapshot = createTestSceneRendererSnapshot({
       scene: { plants: [plant('a', 0, 0), plant('b', .4, 0), plant('c', .8, 0)] },
@@ -108,5 +126,59 @@ describe('Automatic Detail', () => {
     const hidden = { ...snapshot, scene: { ...snapshot.scene,
       layers: [{ kind: 'layer' as const, name: 'plants', visible: false, locked: false, opacity: 1 }] } }
     expect(getCanvasPlantNameLabels(hidden, pixelsPerMetre)).toEqual([])
+  })
+
+  it('keeps hit-testing and selection bounds aligned with detail layout when symbolScale !== 1', () => {
+    // At scale 20 px/m, a plant at (0,0) with default symbolScale=1 leaves a note at x=1.2m clear,
+    // while symbolScale=2.5 expands the plant box so the note collapses to its compact marker.
+    const { scene } = createTestSceneRendererSnapshot({
+      scene: {
+        plants: [plant('p1', 0, 0)],
+        annotations: [{ kind: 'annotation', id: 'note', annotationType: 'text', position: { x: 1.2, y: 0 },
+          text: 'Nearby planting note', fontSize: 16, rotationDeg: 0, locked: false }],
+      },
+    })
+    const scale = 20
+    expect(getCanvasDetailLayout(scene, scale, 1).annotationIds.has('note')).toBe(true)
+    expect(getCanvasDetailLayout(scene, scale, 2.5).annotationIds.has('note')).toBe(false)
+
+    const scaledContext = {
+      plants: scene.plants,
+      pixelsPerMetre: scale,
+      speciesCache: new Map(),
+      plantDisplay: { ...DEFAULT_PLANT_DISPLAY, symbolScale: 2.5 },
+    }
+    const defaultContext = {
+      plants: scene.plants,
+      pixelsPerMetre: scale,
+      speciesCache: new Map(),
+      plantDisplay: { ...DEFAULT_PLANT_DISPLAY, symbolScale: 1 },
+    }
+
+    // Far edge of the text box (x = 4m) hits the note when symbolScale=1, but misses when collapsed at symbolScale=2.5.
+    const textFarEdge = { x: 4, y: 0 }
+    expect(hitTestTopLevel(scene, textFarEdge, scale, 'mouse', new Map(), () => defaultContext)).toEqual({ kind: 'annotation', id: 'note' })
+    expect(hitTestTopLevel(scene, textFarEdge, scale, 'mouse', new Map(), () => scaledContext)).toBeNull()
+
+    const farQuad = [{ x: 3.5, y: -1 }, { x: 4.5, y: -1 }, { x: 4.5, y: 1 }, { x: 3.5, y: 1 }]
+    expect(queryQuadTopLevel(scene, farQuad, scale, new Map(), () => defaultContext)).toEqual([{ kind: 'annotation', id: 'note' }])
+    expect(queryQuadTopLevel(scene, farQuad, scale, new Map(), () => scaledContext)).toEqual([])
+
+    const defaultBounds = getCombinedTargetBounds(scene, [{ kind: 'annotation', id: 'note' }], {
+      annotationViewportScale: scale,
+      plantContext: defaultContext,
+      revealedAnnotationId: null,
+    })!
+    const scaledBounds = getCombinedTargetBounds(scene, [{ kind: 'annotation', id: 'note' }], {
+      annotationViewportScale: scale,
+      plantContext: scaledContext,
+      revealedAnnotationId: null,
+    })!
+    expect(scaledBounds.maxX - scaledBounds.minX).toBeLessThan(defaultBounds.maxX - defaultBounds.minX)
+
+    const defaultExtent = selectionExtentPoints(scene, [{ kind: 'annotation', id: 'note' }], { plantContext: defaultContext })(scale)
+    const scaledExtent = selectionExtentPoints(scene, [{ kind: 'annotation', id: 'note' }], { plantContext: scaledContext })(scale)
+    const widthOf = (pts: readonly { readonly x: number }[]) => Math.max(...pts.map((p) => p.x)) - Math.min(...pts.map((p) => p.x))
+    expect(widthOf(scaledExtent)).toBeLessThan(widthOf(defaultExtent))
   })
 })

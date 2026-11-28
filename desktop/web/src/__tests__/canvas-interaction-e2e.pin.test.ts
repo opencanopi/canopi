@@ -4,12 +4,12 @@
 // recogniser, router and tool host, with the real tools, reach the app adapter's pinAt. A tap no tool uses pins: a
 // Select tap on empty ground (after Select clears the selection) or any Pan-tool tap. Each press sends pointerdown
 // detail 0, as WebKitGTK does. Shared fakes, helpers and fixture: support/canvas-interaction-setup.ts.
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { snapToGridEnabled } from '../app/settings/state'
 
 vi.mock('../ipc/species', async (importOriginal) => ({
   ...await importOriginal<typeof IpcSpeciesModule>(),
   getSpeciesBatch: vi.fn(async () => []),
-  getFlowerColorBatch: vi.fn(async () => []),
   getCommonNames: vi.fn(async () => ({})),
 }))
 
@@ -18,7 +18,9 @@ import type { ScenePoint, SceneStore } from '../canvas/runtime/scene'
 import type { SceneInteractionSession, SceneInteractionSessionDeps } from '../canvas/runtime/interaction-session'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
 import { createDesktopCanvasRuntimeAppAdapter } from '../app/canvas-runtime/desktop-adapter'
-import { endSiteDataTransients, pin, profileLine } from '../app/lidar/site-transients'
+import { armProfile } from '../app/data-library/profile'
+import { endSiteDataTransients, pin, profileLine } from '../app/data-library/site-transients'
+import '../app/data-library/site-values'
 import { selectPanel, sidePanel } from '../app/shell/state'
 import { setCurrentCanvasSession } from '../canvas/session'
 import {
@@ -49,10 +51,15 @@ describe('SceneInteractionSession: the Site data pin', () => {
     () => ({ events }),
   )
 
-  function createPinSession(): { session: SceneInteractionSession; pinAt: ReturnType<typeof vi.fn> } {
+  function createPinSession(): {
+    session: SceneInteractionSession
+    pinAt: ReturnType<typeof vi.fn>
+  } {
     const pinAt = vi.fn()
-    const deps: SceneInteractionSessionDeps = { ...createInteractionDeps(container, store, testView), pinAt }
-    return { session: fixture.createTestSession(deps), pinAt }
+    const deps: SceneInteractionSessionDeps = createInteractionDeps(container, store, testView)
+    const session = fixture.createTestSession(deps)
+    session.subscribeEmptyGroundTap(pinAt)
+    return { session, pinAt }
   }
 
   /** A mouse click whose pointerdown sends detail 0, as WebKitGTK's does; `t` keeps clicks apart in time. */
@@ -63,13 +70,13 @@ describe('SceneInteractionSession: the Site data pin', () => {
 
   const world = (at: ScenePoint) => testView.view().screenToWorld(at)
 
-  it('(canopi-qd2k) a Select click on empty ground, inside a zone too, clears the selection and pins; a click on a plant or a zone\'s outline selects only', () => {
+  it('(canopi-qd2k, 2.1-Q364) a Select click on empty ground, inside a zone too, clears the selection and pins; a click on a plant or a zone\'s outline selects only', () => {
     store.updatePersisted((draft) => {
       draft.plants = [makePlant('plant-1', 'Malus domestica', { x: 20, y: 30 })]
       draft.zones = [makeRectZone('zone-1', [{ x: 200, y: 150 }, { x: 280, y: 150 }, { x: 280, y: 210 }, { x: 200, y: 210 }])]
     })
     const { session, pinAt } = createPinSession()
-    session.setTool('select')
+    session.arm('select')
 
     click({ x: 20, y: 30 }, 0)
     expect(currentCanvasSelection.value).toEqual(new Set(['plant-1']))
@@ -80,7 +87,7 @@ describe('SceneInteractionSession: the Site data pin', () => {
     click({ x: 120, y: 260 }, 2000)
     expect(currentCanvasSelection.value.size).toBe(0)
     expect(pinAt).toHaveBeenCalledTimes(1)
-    expect(pinAt).toHaveBeenCalledWith(world({ x: 120, y: 260 }))
+    expect(pinAt).toHaveBeenLastCalledWith(world({ x: 120, y: 260 }))
 
     // Inside the zone, away from its outline, is empty ground: it pins (the user's decision of 2026-10-14).
     click({ x: 240, y: 152 }, 3000)
@@ -93,15 +100,16 @@ describe('SceneInteractionSession: the Site data pin', () => {
 
   it('a band from empty ground and a Polygon corner never pin; a still Pan-tool click pins, a Pan-tool drag does not', () => {
     const { session, pinAt } = createPinSession()
-    session.setTool('select')
+    session.arm('select')
     events.pointerDown({ x: 100, y: 100 }, { button: 0, buttons: 1, detail: 0 })
     events.pointerMove({ x: 160, y: 140 }, { buttons: 1 })
     events.pointerUp({ x: 160, y: 140 }, { button: 0 })
 
-    session.setTool('polygon')
+    session.arm('polygon')
     click({ x: 50, y: 50 }, 1000)
+    expect(pinAt).not.toHaveBeenCalled()
 
-    session.setTool('hand')
+    session.arm('hand')
     events.pointerDown({ x: 100, y: 100 }, { button: 0, buttons: 1, detail: 0, timeStamp: 2000 })
     events.pointerMove({ x: 140, y: 100 }, { buttons: 1, timeStamp: 2020 })
     events.pointerUp({ x: 140, y: 100 }, { button: 0, timeStamp: 2040 })
@@ -109,13 +117,13 @@ describe('SceneInteractionSession: the Site data pin', () => {
 
     click({ x: 300, y: 200 }, 3000)
     expect(pinAt).toHaveBeenCalledTimes(1)
-    expect(pinAt).toHaveBeenCalledWith(world({ x: 300, y: 200 }))
+    expect(pinAt).toHaveBeenLastCalledWith(world({ x: 300, y: 200 }))
     session.dispose()
   })
 
-  it('a finger\'s rolling Select tap on empty ground pins at the down point', () => {
+  it('a finger\'s rolling Select tap on empty ground pins', () => {
     const { session, pinAt } = createPinSession()
-    session.setTool('select')
+    session.arm('select')
     const finger = { pointerType: 'touch', pointerId: 1, isPrimary: true, detail: 0 }
 
     events.pointerDown({ x: 150, y: 120 }, { ...finger, button: 0, buttons: 1 })
@@ -148,7 +156,7 @@ describe('SceneInteractionSession: readouts under a still pointer', () => {
   it('a camera move under a still mouse republishes the pointer once the camera settles, so row values follow the ground', () => {
     vi.useFakeTimers()
     const session = fixture.createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const points: unknown[] = []
     session.subscribePointerWorld((point) => { points.push(point) })
 
@@ -172,7 +180,7 @@ describe('SceneInteractionSession: readouts under a still pointer', () => {
   it('a still mouse that goes through overview and back republishes the ground under it once settled (or null), never the ground from before', () => {
     vi.useFakeTimers()
     const session = fixture.createTestSession(createInteractionDeps(container, store, testView))
-    session.setTool('select')
+    session.arm('select')
     const points: unknown[] = []
     session.subscribePointerWorld((point) => { points.push(point) })
 
@@ -202,11 +210,11 @@ describe('the canvas runtime: the Site data pin', () => {
     document.body.replaceChildren()
   })
 
-  it('a Select click on empty ground reaches the edition\'s pinAt capability through the app adapter', async () => {
+  it('a Select click on empty ground reaches subscribeEmptyGroundTap through the live runtime', async () => {
     const pinAt = vi.fn()
     const host = createLiveTestCanvasRuntimeHost({
       screen: { width: 400, height: 300 },
-      appAdapter: createAppCanvasRuntimeAppAdapter({ presentationData: {}, pinAt }),
+      appAdapter: createAppCanvasRuntimeAppAdapter({ presentationData: {} }),
     })
     hosts.push(host)
     const container = document.createElement('div')
@@ -220,8 +228,10 @@ describe('the canvas runtime: the Site data pin', () => {
     placeOnHost(host.cameraHost, host.surfaces.queries.sessionPlane.peek()!, { x: 0, y: 0, scale: 1 })
     expect(host.cameraHost.frames.viewFrame.peek().mode).toBe('site')
 
+    const unsub = host.surfaces.queries.subscribeEmptyGroundTap!(pinAt)
     events.pointerDown({ x: 100, y: 80 }, { button: 0, buttons: 1, detail: 0 })
     events.pointerUp({ x: 100, y: 80 }, { button: 0, buttons: 0, detail: 0 })
+    unsub()
 
     const expected = host.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: 100, y: 80 })
     expect(pinAt).toHaveBeenCalledTimes(1)
@@ -235,7 +245,12 @@ describe('Desktop: the pin and profile hand-offs reach Site data in lon/lat', ()
   const harnesses: SceneInteractionEventHarness[] = []
   const hosts: CanvasRuntimeHost[] = []
 
+  beforeEach(() => {
+    snapToGridEnabled.value = false
+  })
+
   afterEach(async () => {
+    snapToGridEnabled.value = true
     endSiteDataTransients()
     setCurrentCanvasSession(null)
     sidePanel.value = null
@@ -265,12 +280,19 @@ describe('Desktop: the pin and profile hand-offs reach Site data in lon/lat', ()
     const { host, events, plane } = await desktopRuntime()
     selectPanel('site-data')
 
-    events.pointerDown({ x: 100, y: 80 }, { button: 0, buttons: 1, detail: 0 })
-    events.pointerUp({ x: 100, y: 80 }, { button: 0, buttons: 0, detail: 0 })
+    events.pointerDown({ x: 100, y: 80 }, { button: 0, buttons: 1, detail: 0, timeStamp: 0 })
+    events.pointerUp({ x: 100, y: 80 }, { button: 0, buttons: 0, detail: 0, timeStamp: 50 })
 
-    const expected = plane.toGeo(host.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: 100, y: 80 }))
-    expect(pin.value?.lon).toBeCloseTo(expected.lon, 9)
-    expect(pin.value?.lat).toBeCloseTo(expected.lat, 9)
+    const first = plane.toGeo(host.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: 100, y: 80 }))
+    expect(pin.value?.lon).toBeCloseTo(first.lon, 9)
+    expect(pin.value?.lat).toBeCloseTo(first.lat, 9)
+
+    // Click again to move the pin (2.1-Q364).
+    events.pointerDown({ x: 200, y: 120 }, { button: 0, buttons: 1, detail: 0, timeStamp: 1000 })
+    events.pointerUp({ x: 200, y: 120 }, { button: 0, buttons: 0, detail: 0, timeStamp: 1050 })
+    const second = plane.toGeo(host.cameraHost.frames.viewFrame.peek().view.screenToWorld({ x: 200, y: 120 }))
+    expect(pin.value?.lon).toBeCloseTo(second.lon, 9)
+    expect(pin.value?.lat).toBeCloseTo(second.lat, 9)
 
     placeOnHost(host.cameraHost, plane, { x: 0, y: 0, scale: 0.0001 })
     expect(host.cameraHost.frames.viewFrame.peek().mode).toBe('overview')
@@ -287,11 +309,20 @@ describe('Desktop: the pin and profile hand-offs reach Site data in lon/lat', ()
   })
 
   it('a finished profile line becomes the Site data profile in lon/lat', async () => {
-    const { appAdapter, plane } = await desktopRuntime()
-    selectPanel('site-data')
+    const { host, events, plane } = await desktopRuntime()
+    armProfile('panel')
 
-    appAdapter.finishProfile!([{ x: 0, y: 0 }, { x: 30, y: 40 }])
+    for (const [at, t] of [[{ x: 0, y: 0 }, 0], [{ x: 30, y: 40 }, 1000], [{ x: 30, y: 40 }, 1200]] as const) {
+      events.pointerDown(at, { button: 0, buttons: 1, detail: 0, timeStamp: t })
+      events.pointerUp(at, { button: 0, buttons: 0, detail: 0, timeStamp: t + 50 })
+    }
 
-    expect(profileLine.value).toEqual([plane.toGeo({ x: 0, y: 0 }), plane.toGeo({ x: 30, y: 40 })])
+    const view = host.cameraHost.frames.viewFrame.peek().view
+    const expected = [{ x: 0, y: 0 }, { x: 30, y: 40 }].map((at) => plane.toGeo(view.screenToWorld(at)))
+    expect(profileLine.value).toHaveLength(2)
+    profileLine.value!.forEach((point, index) => {
+      expect(point.lon).toBeCloseTo(expected[index]!.lon, 9)
+      expect(point.lat).toBeCloseTo(expected[index]!.lat, 9)
+    })
   })
 })

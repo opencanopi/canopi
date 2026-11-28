@@ -1,6 +1,6 @@
 // Tool rail and action glyphs on the 20×20 grid: 1.6 stroke, round caps, currentColor.
 
-import type { ToolId } from '../../canvas/runtime/tool-id'
+import type { ToolId } from '../../app/command-table'
 
 interface IconProps {
   className?: string

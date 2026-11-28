@@ -4,6 +4,7 @@ import {
   KNOWN_CANOPI_KEYS,
 } from '../../generated/known-canopi-keys'
 import type { KnownCanopiKey } from '../../generated/known-canopi-keys'
+import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
 import type { CanopiFile } from '../../types/design'
 
 export { DEFAULT_BUDGET_CURRENCY }
@@ -25,7 +26,14 @@ const DOCUMENT_FILE_KNOWN_KEYS = KNOWN_CANOPI_KEYS
 
 const KNOWN_CANOPI_KEY_SET = new Set<string>(DOCUMENT_FILE_KNOWN_KEYS)
 /** Optional sections a Design writes only when it has them (the Rust side skips them when None). */
-const WRITTEN_ONLY_WHEN_PRESENT: ReadonlySet<KnownCanopiKey> = new Set(['lidar', 'map_view'])
+const WRITTEN_ONLY_WHEN_PRESENT: ReadonlySet<KnownCanopiKey> = new Set([
+  'budget_ext',
+  'site_data',
+  'plant_display',
+  'print_setup',
+  'map_view',
+])
+
 function normalizePersistedExtra(extra: CanopiFile['extra']): Record<string, unknown> {
   if (!extra || typeof extra !== 'object' || Array.isArray(extra)) return {}
   const normalized: Record<string, unknown> = {}
@@ -44,7 +52,7 @@ function normalizePersistedExtra(extra: CanopiFile['extra']): Record<string, unk
 export function extractDocumentExtra(raw: Record<string, unknown>): Record<string, unknown> {
   const extra: Record<string, unknown> = {}
   for (const key of Object.keys(raw)) {
-    if (!KNOWN_CANOPI_KEY_SET.has(key)) {
+    if (key !== 'extra' && !KNOWN_CANOPI_KEY_SET.has(key)) {
       Object.defineProperty(extra, key, {
         configurable: true,
         enumerable: true,
@@ -56,14 +64,19 @@ export function extractDocumentExtra(raw: Record<string, unknown>): Record<strin
   return extra
 }
 
-export function normalizeLoadedDocument(file: CanopiFile): CanopiFile {
-  return {
-    ...normalizeDocumentKnownFields(file),
+function mergeDocumentFields<T extends object>(base: T, patch: Partial<T>): T {
+  return Object.assign({}, base, patch)
+}
+
+export function normalizeLoadedDocument(file: CanopiFile | Record<string, unknown>): CanopiFile {
+  const rawRecord = file as Record<string, unknown>
+  const normalized = normalizeDocumentKnownFields(rawRecord)
+  return mergeDocumentFields(normalized, {
     extra: {
-      ...normalizePersistedExtra(file.extra),
-      ...extractDocumentExtra(file as unknown as Record<string, unknown>),
+      ...normalizePersistedExtra(rawRecord.extra as CanopiFile['extra']),
+      ...extractDocumentExtra(rawRecord),
     },
-  }
+  })
 }
 
 /**
@@ -76,10 +89,7 @@ export function normalizeNewDocument(file: CanopiFile, keepExtraKeys: readonly s
   for (const key of keepExtraKeys) {
     if (Object.prototype.hasOwnProperty.call(persisted, key)) extra[key] = persisted[key]
   }
-  return {
-    ...normalizeDocumentKnownFields(file),
-    extra,
-  }
+  return mergeDocumentFields(normalizeDocumentKnownFields(file), { extra })
 }
 
 export function composeDocumentForSave({
@@ -91,26 +101,29 @@ export function composeDocumentForSave({
   const normalizedCanvas = normalizeDocumentKnownFields(canvas)
   const composed = composeKnownDocumentFields(normalizedDocument, normalizedCanvas)
 
-  return {
-    ...composed,
+  return mergeDocumentFields(composed, {
     name: metadata.name,
     description: metadata.description ?? composed.description ?? null,
-  }
+  })
 }
 
 function composeKnownDocumentFields(
   document: CanopiFile,
   canvas: CanopiFile,
 ): CanopiFile {
-  const output: Partial<Record<KnownCanopiKey, unknown>> = {}
+  const patch: Partial<Record<KnownCanopiKey, unknown>> = {}
 
   // `extra` is all Design Edit's, like every 'document' field: the scene owns no `extra` key (ADR 0011).
   for (const key of DOCUMENT_FILE_KNOWN_KEYS) {
     const value = ownedFieldSource(key, document, canvas)[key]
     if (WRITTEN_ONLY_WHEN_PRESENT.has(key) && value == null) continue
-    output[key] = value
+    patch[key] = value
   }
-  return output as CanopiFile
+  const composed = mergeDocumentFields(document, patch as Partial<CanopiFile>)
+  for (const key of WRITTEN_ONLY_WHEN_PRESENT) {
+    if (patch[key] == null) delete (composed as unknown as Record<string, unknown>)[key]
+  }
+  return composed
 }
 
 function ownedFieldSource(
@@ -118,33 +131,117 @@ function ownedFieldSource(
   document: CanopiFile,
   canvas: CanopiFile,
 ): CanopiFile {
-  return DOCUMENT_FILE_FIELD_OWNERS[key] === 'scene' ? canvas : document
+  return DOCUMENT_FILE_FIELD_OWNERS[key] === 'scene' || key === 'updated_at' ? canvas : document
 }
 
-function normalizeDocumentKnownFields(file: CanopiFile): CanopiFile {
-  return {
-    version: file.version,
-    name: file.name,
-    description: file.description ?? null,
-    plant_species_colors: file.plant_species_colors,
-    plant_species_symbols: file.plant_species_symbols ?? {},
-    plant_species_codes: file.plant_species_codes ?? {},
-    layers: file.layers,
-    plants: file.plants,
-    zones: file.zones,
-    annotations: file.annotations ?? [],
-    measurement_guides: file.measurement_guides ?? [],
-    consortiums: file.consortiums ?? [],
-    groups: file.groups ?? [],
-    timeline: file.timeline ?? [],
-    budget: file.budget ?? [],
-    budget_currency: file.budget_currency ?? DEFAULT_BUDGET_CURRENCY,
-    ...(file.lidar == null ? {} : { lidar: file.lidar }),
-    views: file.views ?? [],
-    stories: file.stories ?? [],
-    ...(file.map_view == null ? {} : { map_view: file.map_view }),
-    created_at: file.created_at,
-    updated_at: file.updated_at,
-    extra: normalizePersistedExtra(file.extra),
+type DefaultKind = 'str' | 'null' | 'obj' | 'arr' | 'currency'
+
+const KNOWN_FIELD_DEFAULTS: ReadonlyArray<readonly [KnownCanopiKey, DefaultKind]> = [
+  ['name', 'str'],
+  ['description', 'null'],
+  ['plant_species_colors', 'obj'],
+  ['plant_species_symbols', 'obj'],
+  ['plant_species_codes', 'obj'],
+  ['layers', 'arr'],
+  ['plants', 'arr'],
+  ['zones', 'arr'],
+  ['annotations', 'arr'],
+  ['measurement_guides', 'arr'],
+  ['consortiums', 'arr'],
+  ['groups', 'arr'],
+  ['timeline', 'arr'],
+  ['budget', 'arr'],
+  ['budget_currency', 'currency'],
+  ['views', 'arr'],
+  ['stories', 'arr'],
+  ['created_at', 'str'],
+  ['updated_at', 'str'],
+]
+
+function createFieldDefault(kind: DefaultKind): unknown {
+  if (kind === 'arr') return []
+  if (kind === 'obj') return {}
+  if (kind === 'null') return null
+  return kind === 'currency' ? DEFAULT_BUDGET_CURRENCY : ''
+}
+
+function normalizeDocumentKnownFields<T extends Record<string, unknown>>(file: T): CanopiFile {
+  const record: Record<string, unknown> = { version: file.version }
+  for (const [key, kind] of KNOWN_FIELD_DEFAULTS) {
+    record[key] = file[key] ?? createFieldDefault(kind)
   }
+  record.extra = normalizePersistedExtra(file.extra as CanopiFile['extra'])
+  for (const key of WRITTEN_ONLY_WHEN_PRESENT) {
+    const value = file[key]
+    if (value != null) record[key] = value
+  }
+  return record as unknown as ReturnType<typeof normalizeNewDocument>
+}
+
+type DeepReadonly<T> = T extends readonly (infer U)[]
+  ? readonly DeepReadonly<U>[]
+  : T extends object
+    ? { readonly [K in keyof T]: DeepReadonly<T[K]> }
+    : T
+
+/**
+ * Flatten an in-memory v10 Design's `extra` bag back to root keys for JSON serialization
+ * (exact inverse of `extractDocumentExtra`).
+ */
+export function flattenDocumentForJson(
+  file: DeepReadonly<CanopiFile> | CanopiFile | { readonly version: number; readonly name: string; readonly extra?: unknown },
+): Record<string, unknown> {
+  const wire: Record<string, unknown> = {}
+  if (file.extra && typeof file.extra === 'object' && !Array.isArray(file.extra)) {
+    for (const [key, value] of Object.entries(file.extra)) {
+      if (!KNOWN_CANOPI_KEY_SET.has(key)) {
+        Object.defineProperty(wire, key, {
+          configurable: true,
+          enumerable: true,
+          value,
+          writable: true,
+        })
+      }
+    }
+  }
+  const record = file as unknown as Record<string, unknown>
+  for (const key of KNOWN_CANOPI_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(record, key)) continue
+    const value = record[key]
+    if (WRITTEN_ONLY_WHEN_PRESENT.has(key) && value == null) continue
+    Object.defineProperty(wire, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true,
+    })
+  }
+  return wire
+}
+
+const REQUIRED_ARRAY_KEYS = [
+  'layers',
+  'plants',
+  'zones',
+  'annotations',
+  'consortiums',
+  'groups',
+  'timeline',
+  'budget',
+] as const
+
+/** Lightweight structural guard for a supported Canopi 2.x (v9 or v10) Design record. */
+export function isCurrentCanopiDocument(value: unknown): value is CanopiFile {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  if (Object.prototype.hasOwnProperty.call(record, 'extra')) return false
+  if (
+    (record.version !== CURRENT_CANOPI_FILE_VERSION && record.version !== 9)
+    || typeof record.name !== 'string'
+    || typeof record.created_at !== 'string'
+    || typeof record.updated_at !== 'string'
+  ) {
+    return false
+  }
+  return REQUIRED_ARRAY_KEYS.every((key) => Array.isArray(record[key]))
 }

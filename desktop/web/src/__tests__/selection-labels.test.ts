@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ScenePlantEntity, ScenePoint } from '../canvas/runtime/scene'
-import { computePinnedPlantNameLabels, computeSelectionLabels } from '../canvas/runtime/selection-labels'
-import { createTestRendererView } from './support/scene-renderer-snapshot'
+import { computePinnedPlantNameLabels, computeSelectionLabels, projectScenePlantLabels } from '../canvas/runtime/selection-labels'
+import { createTestRendererView, createTestSceneRendererSnapshot } from './support/scene-renderer-snapshot'
 import './support/camera-tolerance'
 
 function createViewport(overrides: Partial<{ x: number; y: number; scale: number }> = {}) {
@@ -45,39 +45,45 @@ describe('selection labels', () => {
 
   it('computes one label for a single selected unpinned plant', () => {
     const plants = [createPlant({ id: 'a', position: { x: 10, y: 20 } })]
+    const viewport = createViewport({ scale: 1 })
+    const anchor = createTestRendererView(viewport).worldToScreen({ x: 10, y: 20 })
     const result = computeSelectionLabels(
       plants,
       new Set(['a']),
-      createViewport({ scale: 1 }).scale,
+      viewport.scale,
       new Map(),
     )
     expect(result).toHaveLength(1)
     expect(result[0]!.canonicalName).toBe('Malus domestica')
-    expect(landing(result[0]!, createViewport({ scale: 1 })).x).toBeCloseTo(10, 6)
+    expect(landing(result[0]!, viewport).x).toBeCloseTo(anchor.x, 6)
   })
 
   it('places a selected plant label below the glyph at low zoom', () => {
+    const viewport = createViewport({ scale: 1 })
+    const anchor = createTestRendererView(viewport).worldToScreen({ x: 10, y: 20 })
     const result = computeSelectionLabels(
       [createPlant({ id: 'a', position: { x: 10, y: 20 } })],
       new Set(['a']),
-      createViewport({ scale: 1 }).scale,
+      viewport.scale,
       new Map(),
     )
 
-    expect(landing(result[0]!, createViewport({ scale: 1 })).x).toBeCloseTo(10, 6)
-    expect(landing(result[0]!, createViewport({ scale: 1 })).y).toBeCloseTo(25, 2)
+    expect(landing(result[0]!, viewport).x).toBeCloseTo(anchor.x, 6)
+    expect(landing(result[0]!, viewport).y).toBeCloseTo(anchor.y + 5, 2)
   })
 
   it('hangs the selected plant label 2 px under its symbol at high zoom', () => {
+    const viewport = createViewport({ scale: 1000 })
+    const anchor = createTestRendererView(viewport).worldToScreen({ x: 10, y: 20 })
     const result = computeSelectionLabels(
       [createPlant({ id: 'a', position: { x: 10, y: 20 } })],
       new Set(['a']),
-      createViewport({ scale: 1000 }).scale,
+      viewport.scale,
       new Map(),
     )
 
-    expect(landing(result[0]!, createViewport({ scale: 1000 })).x).toBeCloseTo(10000, 5)
-    expect(landing(result[0]!, createViewport({ scale: 1000 })).y).toBeCloseTo(20016, 2)
+    expect(landing(result[0]!, viewport).x).toBeCloseTo(anchor.x, 5)
+    expect(landing(result[0]!, viewport).y).toBeCloseTo(anchor.y + 16, 2)
   })
 
   it('returns empty array when multiple plants are selected', () => {
@@ -125,7 +131,7 @@ describe('selection labels', () => {
     expect(result[0]!.fontStyle).toBe('normal')
   })
 
-  it('falls back to abbreviated canonical name when no common name exists', () => {
+  it('falls back to full canonical name when no common name exists', () => {
     const plant = createPlant({ id: 'a', commonName: null, canonicalName: 'Lavandula angustifolia' })
     const result = computeSelectionLabels(
       [plant],
@@ -133,8 +139,25 @@ describe('selection labels', () => {
       createViewport().scale,
       new Map(),
     )
-    expect(result[0]!.text).toBe('L. ang.')
+    expect(result[0]!.text).toBe('Lavandula angustifolia')
     expect(result[0]!.fontStyle).toBe('italic')
+  })
+
+  it('includes the species code on selected and pinned plants when codes mode is active', () => {
+    const selected = createPlant({ id: 'a', canonicalName: 'Malus domestica', commonName: 'Apple', pinnedName: false })
+    const pinned = createPlant({ id: 'b', canonicalName: 'Lavandula angustifolia', commonName: null, pinnedName: true })
+    const base = createTestSceneRendererSnapshot({
+      scene: {
+        plants: [selected, pinned],
+        plantSpeciesCodes: { 'Malus domestica': 'MDO', 'Lavandula angustifolia': 'LAN' },
+      },
+    })
+    const snapshot = { ...base, selectionLabelPlantIds: new Set(['a']), plantLabels: 'codes' as const }
+    const projected = projectScenePlantLabels(snapshot, 20)
+    expect(projected.selectionLabels[0]?.text).toBe('MDO · Apple')
+    expect(projected.selectionLabels[0]?.fontStyle).toBe('normal')
+    expect(projected.pinnedPlantNameLabels[0]?.text).toBe('LAN · Lavandula angustifolia')
+    expect(projected.pinnedPlantNameLabels[0]?.fontStyle).toBe('italic')
   })
 
   it('fades pinned names smoothly on zoom reversal without changing saved pinning', () => {

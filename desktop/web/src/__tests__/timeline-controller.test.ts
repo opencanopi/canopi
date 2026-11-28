@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { addTimelineAction, deleteTimelineAction, updateTimelineAction } from '../app/design-edit'
 import {
+  designDirty,
   designSessionFixture,
   currentDesign,
-  nonCanvasRevision,
+  resetDirtyBaselines,
 } from './support/design-session-state'
 
 beforeEach(() => {
-  designSessionFixture.nonCanvasRevision = 0
   designSessionFixture.file = {
     version: 9,
     name: 'test',
@@ -54,7 +54,7 @@ describe('Design Edit Timeline Actions', () => {
     })
 
     expect(currentDesign.value?.timeline.map((action) => action.order)).toEqual([0, 1])
-    expect(nonCanvasRevision.value).toBe(2)
+    expect(designDirty.value).toBe(true)
   })
 
   it('does not dirty when an update is a no-op', () => {
@@ -69,11 +69,11 @@ describe('Design Edit Timeline Actions', () => {
       targets: [],
       depends_on: null,
     })
-    designSessionFixture.nonCanvasRevision = 0
+    resetDirtyBaselines()
 
     updateTimelineAction('a', { description: 'first' })
 
-    expect(nonCanvasRevision.value).toBe(0)
+    expect(designDirty.value).toBe(false)
   })
 
   it('deletes actions and marks the document dirty', () => {
@@ -88,11 +88,11 @@ describe('Design Edit Timeline Actions', () => {
       targets: [],
       depends_on: null,
     })
-    designSessionFixture.nonCanvasRevision = 0
+    resetDirtyBaselines()
 
     deleteTimelineAction('a')
 
     expect(currentDesign.value?.timeline).toEqual([])
-    expect(nonCanvasRevision.value).toBe(1)
+    expect(designDirty.value).toBe(true)
   })
 })

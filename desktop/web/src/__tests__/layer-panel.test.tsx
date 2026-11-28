@@ -1,40 +1,47 @@
 // @vitest-environment jsdom
 
+import { signal } from '@preact/signals'
 import { render } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../app/lidar/library-store', async () => ({
-  ...(await vi.importActual<typeof LibraryStoreModule>('../app/lidar/library-store')),
+vi.mock('../app/data-library/library-store', async () => ({
+  ...(await vi.importActual<typeof LibraryStoreModule>('../app/data-library/library-store')),
   installLidarLibraryObserver: () => () => {},
 }))
 
 import { LayersPanel as LayerPanel } from '../components/panels/LayersPanel'
 import { openLayerRow } from '../app/canvas-layer-presentation/open-row'
-import { lidarLibrary } from '../app/lidar/library-store'
+import { lidarLibrary } from '../app/data-library/library-store'
 import type { CanopiFile } from '../types/design'
 import { librarySnapshot, sourceItem } from './support/library-fixtures'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
-import { googleMapsApiKey, locale } from '../app/settings/state'
+import {
+  createDefaultMapLayersForTests as createDefaultMapLayers,
+  mapLayers,
+  googleMapsApiKey,
+  locale,
+} from '../app/settings/state'
+import { setCurrentCanvasHostView, type CanvasSurfaceState } from '../app/canvas-map-surface/host-view'
 import type { Settings } from '../types/settings'
 import {
   currentDesign,
   designSessionFixture,
 } from './support/design-session-state'
-import { activePanel, sidePanel } from '../app/shell/state'
+import { sidePanel } from '../app/shell/state'
 import {
   flushSettingsProjection,
   installSettingsProjection,
   resetSettingsProjectionForTests,
 } from '../app/settings/projection'
 import { setCurrentCanvasSession } from '../canvas/session'
+import type { LayerSlotId, LayerStatus } from '../maplibre/map-lifetime'
 import { createTestCanvasQuerySurface } from './support/canvas-query-surface'
 import {
   createTestCanvasCommandSurface,
   createTestCanvasRuntimeSurfaces,
 } from './support/canvas-runtime-surfaces'
 import { dropdownTrigger } from './support/dropdown-trigger'
-import type * as LibraryStoreModule from '../app/lidar/library-store'
+import type * as LibraryStoreModule from '../app/data-library/library-store'
 
 function baseSettings(): Settings {
   return {
@@ -118,14 +125,12 @@ describe('LayerPanel', () => {
     lidarLibrary.value = null
     mapLayers.value = createDefaultMapLayers()
     googleMapsApiKey.value = null
-    activePanel.value = 'canvas'
     sidePanel.value = 'favorites'
     installSettingsProjection({
       load: () => baseSettings(),
       save: saveSettings,
     })
     setCurrentCanvasSession(null)
-    activePanel.value = 'canvas'
     sidePanel.value = null
   })
 
@@ -148,7 +153,7 @@ describe('LayerPanel', () => {
     const radio = (label: string) => Array.from(group.querySelectorAll('label'))
       .find((option) => option.textContent?.startsWith(label))!.querySelector('input')!
     expect(Array.from(group.querySelectorAll('label')).map((option) => option.textContent))
-      .toEqual(['SatelliteGoogle', 'Street mapOpenFreeMap', 'NonePlain paper'])
+      .toEqual(['SatelliteFree imagery', 'Street mapOpenFreeMap', 'NonePlain paper'])
     expect(radio('Street map').checked).toBe(true)
     // The rows show how many layers there are; the header carries no bare count.
     expect(container.querySelector('header')?.textContent).not.toMatch(/\d/)
@@ -190,7 +195,7 @@ describe('LayerPanel', () => {
     await act(async () => { satellite.click() })
     expect(mapLayers.value.basemap.visible).toBe(true)
     expect(soften()?.checked).toBe(true)
-    expect(container.querySelector('input[type="password"]')).toBeTruthy()
+    expect(container.textContent).toContain('Map and imagery')
 
     // Opening a row elsewhere keeps the chosen background's settings in view.
     await act(async () => { nameButton('Plants').click() })
@@ -236,55 +241,23 @@ describe('LayerPanel', () => {
     expect(saveSettings).toHaveBeenCalledWith(expect.objectContaining({ basemap_style: 'positron' }))
   })
 
-  it('shows the optional Google key field without any imagery choice', async () => {
+  it('shows the active Satellite source and links to Settings › Map and imagery without an embedded key field (2.1-Q64)', async () => {
     await act(async () => {
       mapLayers.value = { ...createDefaultMapLayers(), satellite: { visible: true, opacity: 1 } }
       render(<LayerPanel />, container)
     })
 
     expect(container.querySelector('button[aria-label="Imagery"]')).toBeNull()
-    expect(container.querySelector('[role="listbox"], [role="option"]')).toBeNull()
-    expect(container.querySelector('input[type="password"]')).toBeTruthy()
-    expect(container.textContent).toContain('Google Maps API key')
-    expect(container.textContent).toContain("Without a key, Canopi uses Google's public satellite tiles.")
+    expect(container.querySelector('input[type="password"]')).toBeNull()
+    expect(container.textContent).toContain('Free imagery')
+    expect(container.textContent).toContain('Map and imagery')
     expect(container.querySelector('input[aria-label="Opacity: Satellite"]')).toBeTruthy()
-  })
 
-  it('saves the Google key trimmed without echoing it and clears it', async () => {
     await act(async () => {
-      mapLayers.value = { ...createDefaultMapLayers(), satellite: { visible: true, opacity: 1 } }
-      render(<LayerPanel />, container)
+      googleMapsApiKey.value = 'device-key'
     })
-
-    const keyInput = container.querySelector<HTMLInputElement>('input[type="password"]')
-    expect(keyInput).toBeTruthy()
-    await act(async () => {
-      if (!keyInput) return
-      keyInput.value = '  device-key  '
-      keyInput.dispatchEvent(new Event('input', { bubbles: true }))
-    })
-    await act(async () => {
-      container.querySelector('form')?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
-    })
-
-    expect(googleMapsApiKey.value).toBe('device-key')
-    expect(container.querySelector<HTMLInputElement>('input[type="password"]')?.value).toBe('')
+    expect(container.textContent).toContain('My Google key')
     expect(container.textContent).not.toContain('device-key')
-    expect(container.textContent).not.toContain("Without a key, Canopi uses Google's public satellite tiles.")
-    expect(container.textContent).toContain('Key saved on this device.')
-    await Promise.resolve()
-    expect(saveSettings).toHaveBeenLastCalledWith(expect.objectContaining({
-      google_maps_api_key: 'device-key',
-    }))
-    expect(saveSettings.mock.lastCall?.[0]).not.toHaveProperty('satellite_provider')
-
-    await act(async () => {
-      Array.from(container.querySelectorAll<HTMLButtonElement>('button'))
-        .find((button) => button.textContent === 'Clear key')
-        ?.dispatchEvent(new MouseEvent('click', { bubbles: true }))
-    })
-    expect(googleMapsApiKey.value).toBeNull()
-    expect(container.textContent).toContain("Without a key, Canopi uses Google's public satellite tiles.")
   })
 
   it('shows map layer detail controls without a Design Location action', async () => {
@@ -412,20 +385,20 @@ describe('LayerPanel', () => {
     expect(container.querySelector('input[aria-label="Opacity: Street map"]')).toBeTruthy()
     const radio = (value: string) => container.querySelector<HTMLInputElement>(`input[type="radio"][value="${value}"]`)!
     await act(async () => { radio('satellite').click() })
-    expect(container.querySelector('input[type="password"]')).toBeTruthy()
+    expect(container.textContent).toContain('Map and imagery')
     expect(container.querySelector('input[aria-label="Opacity: Satellite"]')).toBeTruthy()
     await act(async () => { radio('none').click() })
     expect(container.querySelector('input[aria-label^="Opacity: S"]')).toBeNull()
-    expect(container.querySelector('input[type="password"]')).toBeNull()
+    expect(container.textContent).not.toContain('Map and imagery')
   })
 
   describe('the Site data summary row (Desktop)', () => {
     function entry(id: string, name: string, visible: boolean, order: number) {
-      return { kind: 'Source' as const, id, name, visible, opacity: 1, order, ramp: null, reversed: false, range: null }
+      return { id, name, visible, opacity: 1, order, ramp: null, reversed: false, range: null }
     }
 
     function withSiteData(entries: ReturnType<typeof entry>[], visible = true): void {
-      designSessionFixture.file = { ...currentDesign.value!, lidar: { visible, entries } } as CanopiFile
+      designSessionFixture.file = { ...currentDesign.value!, site_data: { visible, entries } } as CanopiFile
     }
 
     const threeEntries = () => [entry('a', 'Ground', true, 0), entry('b', 'Surface', true, 1), entry('c', 'Canopy', false, 2)]
@@ -440,11 +413,11 @@ describe('LayerPanel', () => {
       const eye = container.querySelector<HTMLButtonElement>('button[aria-label="Hide Site data"]')!
       expect(eye.getAttribute('aria-pressed')).toBe('true')
       await act(async () => { eye.click() })
-      expect(currentDesign.value?.lidar?.visible).toBe(false)
-      expect(currentDesign.value?.lidar?.entries.map((item) => item.visible)).toEqual([true, true, false])
+      expect(currentDesign.value?.site_data?.visible).toBe(false)
+      expect(currentDesign.value?.site_data?.entries.map((item) => item.visible)).toEqual([true, true, false])
       expect(container.textContent).toContain('0 of 3 shown')
       await act(async () => { container.querySelector<HTMLButtonElement>('button[aria-label="Show Site data"]')!.click() })
-      expect(currentDesign.value?.lidar?.visible).toBe(true)
+      expect(currentDesign.value?.site_data?.visible).toBe(true)
       expect(container.textContent).toContain('2 of 3 shown')
     })
 
@@ -558,5 +531,31 @@ describe('LayerPanel', () => {
       hillshade_visible: true,
       hillshade_opacity: 0.3,
     }))
+  })
+
+  it('MAP-02 (2.1-Q351): shows failed library rows with the item name, no dead eye or open controls, and working Retry', async () => {
+    const retryLayer = vi.fn()
+    const rawId = 'lidar-result-1111-gen1-relief'
+    const layers = new Map<LayerSlotId, LayerStatus>([
+      ['background', { kind: 'ready' }],
+      [`library:${rawId}`, { kind: 'failed', reason: 'raster', label: 'North DEM' }],
+    ])
+    const surface = signal<CanvasSurfaceState>({ kind: 'map', map: { kind: 'ready', attempt: 1, layers }, retry: 'withheld' })
+    setCurrentCanvasHostView({ surface, ready: signal(true), retryMap: () => false, retryLayer })
+    try {
+      await act(async () => { render(<LayerPanel />, container) })
+      const libRow = Array.from(container.querySelectorAll('[role="listitem"]')).find((el) => el.textContent?.includes('North DEM'))
+      expect(libRow).toBeTruthy()
+      expect(libRow?.textContent).not.toContain(rawId)
+      expect(libRow?.querySelector('[data-layer-failed]')).toBeTruthy()
+      expect(libRow?.querySelector('button[aria-pressed]')).toBeNull()
+      expect(libRow?.querySelector('button[aria-expanded]')).toBeNull()
+      const retryButton = Array.from(libRow?.querySelectorAll('button') ?? []).find((button) => button.textContent?.trim() === 'Retry')
+      expect(retryButton).toBeTruthy()
+      await act(async () => { retryButton?.click() })
+      expect(retryLayer).toHaveBeenCalledWith(`library:${rawId}`)
+    } finally {
+      setCurrentCanvasHostView(null)
+    }
   })
 })

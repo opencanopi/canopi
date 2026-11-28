@@ -6,7 +6,7 @@
 id: no-session-identity-watch.typescript
 language: typescript
 severity: error
-message: "no-session-identity-watch (§18 F21): no module watches sessionIdentity to reset itself: modules register through core.onDesignOpened, which gives them the open Design scope. ADR 0024; owner desktop/web/src/app/document-session; target desktop/web/src/app/document-session/core (2b); example desktop/web/src/app/document-session/store.ts"
+message: "no-session-identity-watch (§18 F21): no module watches sessionIdentity to reset itself: modules register through core.onDesignOpened, which gives them the open Design scope. ADR 0024; owner desktop/web/src/app/document-session/core; target desktop/web/src/app/document-session/core (2b); example desktop/web/src/app/document-session/store.ts"
 files:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.ts"
 ignores:
@@ -15,7 +15,8 @@ ignores:
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.ts"
   - "{desktop/web,policy/fixtures/rules/*}/src/**/*.test.tsx"
   - "{desktop/web,policy/fixtures/rules/*}/src/generated/**"
-  - "{desktop/web,policy/fixtures/rules/*}/src/app/document-session/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/editions/gallery/**"
+  - "{desktop/web,policy/fixtures/rules/*}/src/app/document-session/core/**"
 rule:
   kind: member_expression
   has:

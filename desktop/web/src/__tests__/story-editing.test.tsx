@@ -12,13 +12,13 @@ import {
   designEmbeddedImageBytes,
   dismissStoryUndo,
   duplicateStep,
-  formatImageBytes,
   goToStepView,
   moveStepBy,
   readStoryImageFile,
   renameStory,
   type StoryImageDecoder,
   requestDeleteStep,
+  requestDeleteStory,
   selectedStep,
   selectStep,
   stepsShowingView,
@@ -26,9 +26,12 @@ import {
   undoStoryDelete,
   useCurrentViewForStep,
 } from '../app/stories'
-import { currentDesign, designSessionStore } from '../app/document-session/store'
+import { formatByteSize } from '../utils/format'
+import { createJsonSessionCodec, createSessionCore, installLiveSessionCore } from '../app/document-session/live-core'
+import { currentDesign } from '../app/document-session/store'
 import type { CanopiFile, RichTextBlock, SavedView, Story } from '../types/design'
-import { replaceCurrentDesignState } from './support/design-session-state'
+import { clearCurrentDesignState, replaceCurrentDesignState } from './support/design-session-state'
+import { createTestEditionPorts } from './support/test-edition-ports'
 import { hoveredTooltip } from './support/tooltip'
 
 const span = (text: string, marks: { bold?: boolean; italic?: boolean; link?: string | null } = {}) => ({
@@ -359,7 +362,7 @@ describe('story actions', () => {
     duplicateStep('visit', 'a')
 
     expect(currentDesign.value!.stories![0]!.steps).toHaveLength(1)
-    expect(storyUndo.value).toEqual({ message: 'These images do not fit: a Design holds at most 10 MB of images. Remove an image, then try again.', undo: null })
+    expect(storyUndo.value).toEqual({ message: 'These images do not fit: a Design holds at most 10.5 MB of images. Remove an image, then try again.', undo: null })
     undoStoryDelete()
     expect(currentDesign.value!.stories![0]!.steps).toHaveLength(1)
   })
@@ -372,8 +375,51 @@ describe('story actions', () => {
     expect(goToStepView('visit', 'missing')).toBe(false)
     renameStory('visit', 'Tour')
     expect(currentDesign.value!.stories![0]!.name).toBe('Tour')
-    designSessionStore.clearCurrentDesign()
+    clearCurrentDesignState()
     expect(createStory()).toBeNull()
+  })
+
+  it('routes story and step delete Undo through unified SessionCore history when a live core is installed', async () => {
+    const ports = createTestEditionPorts()
+    const core = createSessionCore({
+      designHome: {
+        read: async () => ({ kind: 'absent' }),
+        write: async () => ({ kind: 'written', version: 'v1' }),
+        listDrafts: async () => [],
+        deleteDraft: async () => ({ ok: true }),
+        onVersionChange: () => () => {},
+      },
+      fileAccess: ports.fileAccess,
+      lifecycle: ports.appLifecycle,
+      codec: createJsonSessionCodec({ designCore: ports.designCore }),
+      settings: { readLastOpenHome: async () => null, writeLastOpenHome: async () => {} },
+      newDesignFactory: () => ({
+        version: 10, name: 'Stories', description: null, plant_species_colors: {},
+        layers: [], plants: [], zones: [], annotations: [], consortiums: [], groups: [],
+        timeline: [], budget: [], budget_currency: 'EUR', views: [view('v1'), view('v2')], stories: [STORY],
+        created_at: '', updated_at: '', extra: {},
+      }),
+    })
+    const dispose = installLiveSessionCore(core)
+    try {
+      await core.createNew()
+
+      requestDeleteStep('visit', 'b')
+      expect(core.currentDesign.value?.document.stories?.[0]?.steps.map((s) => s.id)).toEqual(['a', 'c'])
+      expect(core.newestUndoable.value?.isDelete).toBe(true)
+      undoStoryDelete()
+      expect(core.currentDesign.value?.document.stories?.[0]?.steps.map((s) => s.id)).toEqual(['a', 'b', 'c'])
+      expect(core.canUndo.value).toBe(false)
+
+      requestDeleteStory('visit')
+      expect(core.currentDesign.value?.document.stories).toEqual([])
+      expect(core.newestUndoable.value?.isDelete).toBe(true)
+      undoStoryDelete()
+      expect(core.currentDesign.value?.document.stories?.map((s) => s.id)).toEqual(['visit'])
+      expect(core.canUndo.value).toBe(false)
+    } finally {
+      dispose()
+    }
   })
 })
 
@@ -381,8 +427,8 @@ describe('story images', () => {
   it('counts only embedded bytes and formats sizes for people', () => {
     expect(designEmbeddedImageBytes(currentDesign.value)).toBe(3)
     expect(designEmbeddedImageBytes(null)).toBe(0)
-    expect(formatImageBytes(1.5 * 1024 * 1024, 'en')).toBe('1.5 MB')
-    expect(formatImageBytes(10, 'fr')).toBe('0,1\u202fMo')
+    expect(formatByteSize(1_500_000, 'en')).toBe('1.5 MB')
+    expect(formatByteSize(100, 'fr')).toBe('0,1\u202fko')
   })
 
   it('refuses an image that would take the Design over 10 MB', async () => {

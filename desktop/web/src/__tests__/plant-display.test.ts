@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { decodeCanopiDesign } from '../app/contracts/design-ingestion'
-import { encodeCanopiDesign } from '../app/contracts/canopi-design-wire'
+import { decodeCanopiDesign, encodeCanopiDesign } from './support/design-wire'
 import { composeDocumentForSave } from '../app/contracts/document'
 import {
   readPlantDisplayOptions,
@@ -13,7 +12,7 @@ import { cyclePlantLabels } from '../app/plant-display/actions'
 import { currentPlantDisplay, designStrata } from '../app/plant-display/state'
 import { createAppCanvasRuntimeAppAdapter } from '../app/canvas-runtime/app-adapter'
 import { readWorkspaceBackgroundPresentation } from '../app/canvas-map-surface/workspace-activation-snapshot'
-import { createDefaultMapLayers, mapLayers } from '../app/map-layers/state'
+import { createDefaultMapLayersForTests as createDefaultMapLayers, mapLayers } from '../app/settings/state'
 import {
   buildPlantPresentationEntries,
   hitTestPlant,
@@ -30,7 +29,6 @@ import {
   plantDisplaysEqual,
   stratumDisplayColor,
   resolveDisplayedPlantColor,
-  setCanvasPlantDisplay,
   type PlantDisplay,
 } from '../canvas/runtime/plant-display'
 import { getPlantSymbolEdgeWidth } from '../canvas/runtime/scene-visuals'
@@ -43,7 +41,7 @@ import { designSessionFixture, replaceCurrentDesignState } from './support/desig
 
 function design(overrides: Partial<CanopiFile> = {}): CanopiFile {
   return {
-    version: 9,
+    version: 10,
     name: 'Display',
     description: null,
     plant_species_colors: {},
@@ -93,10 +91,7 @@ const consortium = (canonicalName: string, stratum: string) => ({
 })
 
 afterEach(() => {
-  setCanvasPlantDisplay(DEFAULT_PLANT_DISPLAY)
   designSessionFixture.file = null
-  // A display change dirties the Design; the next test opens its own clean one.
-  designSessionStore.clearCurrentDesign()
   mapLayers.value = createDefaultMapLayers()
 })
 
@@ -192,28 +187,33 @@ describe('plant display rules', () => {
       symbolScale: 1.5,
       strata: new Map([['Malus domestica', 'emergent']]),
     })
-    expect(setCanvasPlantDisplay(display)).toBe(true)
-    expect(setCanvasPlantDisplay(normalizePlantDisplay({ ...display, strata: new Map(display.strata) }))).toBe(false)
-    const after = buildPlantPresentationEntries(plants, context, new Set())
+    expect(plantDisplaysEqual(DEFAULT_PLANT_DISPLAY, display)).toBe(false)
+    expect(plantDisplaysEqual(display, normalizePlantDisplay({ ...display, strata: new Map(display.strata) }))).toBe(true)
+    const scaledContext = { ...context, plantDisplay: display }
+    const hitsAtScaled = (distance: number) => hitTestPlant(
+      plants[0]!,
+      { x: plants[0]!.position.x + distance, y: plants[0]!.position.y },
+      scaledContext,
+    )
+    const after = buildPlantPresentationEntries(plants, scaledContext, new Set())
     expect(after.map((entry) => entry.color)).toEqual([STRATUM_DISPLAY_COLORS.emergent, NO_STRATUM_DISPLAY_COLOR])
-    expect(plants.map((entry) => resolvePlantBaseColor(entry, new Map()))).toEqual(['#3E8E4E', '#3E8E4E'])
+    expect(plants.map((entry) => resolvePlantBaseColor(entry))).toEqual(['#3E8E4E', '#3E8E4E'])
     expect(after[0]!.radiusScreenPx).toBeCloseTo(before[0]!.radiusScreenPx * 1.5)
-    expect(hitsAt(scaledHitMetres * 0.999)).toBe(true)
-    expect(hitsAt(scaledHitMetres * 1.001)).toBe(false)
+    expect(hitsAtScaled(scaledHitMetres * 0.999)).toBe(true)
+    expect(hitsAtScaled(scaledHitMetres * 1.001)).toBe(false)
     expect(plants.every((entry) => entry.color === '#3E8E4E')).toBe(true)
-    expect(resolvePlantDisplayColor(plants[1]!, new Map())).toBe(NO_STRATUM_DISPLAY_COLOR)
+    expect(resolvePlantDisplayColor(plants[1]!, display)).toBe(NO_STRATUM_DISPLAY_COLOR)
 
     const print = buildCanvasPrintSnapshot({
       plantSpeciesColors: {}, plantSpeciesSymbols: {}, plantSpeciesCodes: {}, layers: [], plants,
       zones: [], annotations: [], measurementGuides: [], groups: [],
-    }, context)
+    }, scaledContext)
     expect(print.plants.map((entry) => entry.color)).toEqual([STRATUM_DISPLAY_COLORS.emergent, NO_STRATUM_DISPLAY_COLOR])
   })
 
   it('drops the symbol halo when Outline is off', () => {
     expect(getPlantSymbolEdgeWidth(20)).toBeGreaterThan(0)
-    setCanvasPlantDisplay({ ...DEFAULT_PLANT_DISPLAY, outline: false })
-    expect(getPlantSymbolEdgeWidth(20)).toBe(0)
+    expect(getPlantSymbolEdgeWidth(20, { ...DEFAULT_PLANT_DISPLAY, outline: false })).toBe(0)
   })
 })
 
@@ -224,7 +224,7 @@ describe('plant display as Design data', () => {
 
     setPlantDisplayOptions({ colorBy: 'one-color', oneColor: '#aa3355', labels: 'codes', symbolScale: 1.3, outline: false })
     expect(designSessionStore.designDirty.value).toBe(true)
-    expect(currentDesign.value?.extra?.plant_display).toEqual({
+    expect(currentDesign.value?.plant_display).toEqual({
       color_by: 'one_color', one_color: '#AA3355', symbol_scale: 1.3, outline: false, labels: 'codes',
     })
 
@@ -256,7 +256,7 @@ describe('plant display as Design data', () => {
 
     setStratumDisplayColor('high', '#112233')
     setStratumDisplayColor('none', '#445566')
-    expect(currentDesign.value?.extra?.plant_display).toMatchObject({ stratum_colors: { high: '#112233', none: '#445566' } })
+    expect(currentDesign.value?.plant_display).toMatchObject({ stratum_colors: { high: '#112233', none: '#445566' } })
     expect(currentPlantDisplay.value.stratumColors).toEqual({ high: '#112233', none: '#445566' })
     expect(currentDesign.value?.plant_species_colors).toEqual({ 'Malus domestica': '#3E8E4E' })
 
@@ -264,7 +264,7 @@ describe('plant display as Design data', () => {
     setStratumDisplayColor('high', STRATUM_DISPLAY_COLORS.high)
     expect(currentPlantDisplay.value.stratumColors).toEqual({ none: '#445566' })
     resetStratumDisplayColors()
-    expect(currentDesign.value?.extra).not.toHaveProperty('plant_display')
+    expect(currentDesign.value?.plant_display).toBeUndefined()
   })
 
   it('reads invalid stored options as defaults', () => {

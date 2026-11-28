@@ -37,7 +37,7 @@ vi.mock('@duckdb/duckdb-wasm', () => {
   }
 })
 
-import { createDuckDbReducedSpeciesCatalogReader } from '../web/duckdb-wasm-catalog'
+import { createDuckDbReducedSpeciesCatalogReader } from '../editions/web/duckdb-wasm-catalog'
 
 describe('DuckDB-WASM default database factory', () => {
   beforeEach(() => {

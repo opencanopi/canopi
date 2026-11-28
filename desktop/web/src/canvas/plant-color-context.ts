@@ -3,6 +3,5 @@ export interface SelectedPlantColorContext {
   singleSpeciesCanonicalName: string | null
   singleSpeciesCommonName: string | null
   sharedCurrentColor: string | null
-  suggestedColor: string | null
   singleSpeciesDefaultColor: string | null
 }

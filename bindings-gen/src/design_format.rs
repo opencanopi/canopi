@@ -169,7 +169,7 @@ pub(crate) fn render_known_canopi_keys() -> Result<String, Box<dyn std::error::E
     }
     file.push_str("] as const\n");
     file.push_str("\nexport type KnownCanopiKey = (typeof KNOWN_CANOPI_KEYS)[number]\n");
-    file.push_str("export type DocumentFileFieldOwner = 'document' | 'scene'\n\n");
+    file.push_str("export type DocumentFileFieldOwner = 'document' | 'scene' | 'format'\n\n");
     file.push_str("export const DOCUMENT_FILE_FIELD_OWNERS = {\n");
     for field in canopi_types::design::DESIGN_FILE_FIELDS {
         writeln!(file, "  {}: {:?},", field.key, field.owner.as_str())?;
@@ -179,7 +179,7 @@ pub(crate) fn render_known_canopi_keys() -> Result<String, Box<dyn std::error::E
 }
 
 pub(crate) fn render_canopi_design_format() -> Result<String, Box<dyn std::error::Error>> {
-    let schema = canopi_types::design::canopi_file_json_schema();
+    let schema = canopi_types::design::v10::canopi_file_v10_json_schema();
     validate_canopi_design_schema(&schema)?;
     let schema_json = serde_json::to_string_pretty(&schema)?;
     let mut file =
@@ -198,6 +198,16 @@ pub(crate) fn render_canopi_design_format() -> Result<String, Box<dyn std::error
         file,
         "export const WEB_MERCATOR_MAX_LATITUDE_DEG = {:?}",
         canopi_types::design::WEB_MERCATOR_MAX_LATITUDE_DEG,
+    )?;
+    writeln!(
+        file,
+        "export const WGS84_SEMI_MAJOR_AXIS_M = {:?}",
+        canopi_types::design::WGS84_SEMI_MAJOR_AXIS_M,
+    )?;
+    writeln!(
+        file,
+        "export const WGS84_FLATTENING = {:?}",
+        canopi_types::design::WGS84_FLATTENING,
     )?;
     writeln!(
         file,
@@ -231,8 +241,23 @@ pub(crate) fn render_canopi_design_format() -> Result<String, Box<dyn std::error
     )?;
     writeln!(
         file,
-        "export const STORY_IMAGES_MAX_TOTAL_BYTES = {}\n",
+        "export const STORY_IMAGES_MAX_TOTAL_BYTES = {}",
         canopi_types::views::STORY_IMAGES_MAX_TOTAL_BYTES,
+    )?;
+    writeln!(
+        file,
+        "export const STAMP_PAYLOAD_FLOOR = {}",
+        canopi_types::saved_object_stamps::STAMP_PAYLOAD_FLOOR,
+    )?;
+    writeln!(
+        file,
+        "export const STAMP_PAYLOAD_CURRENT = {}",
+        canopi_types::saved_object_stamps::STAMP_PAYLOAD_CURRENT,
+    )?;
+    writeln!(
+        file,
+        "export const MAX_STAMP_PAYLOAD_BYTES = {}\n",
+        canopi_types::saved_object_stamps::MAX_STAMP_PAYLOAD_BYTES,
     )?;
     file.push_str("export const CANOPI_DESIGN_INGESTION_ERROR_KINDS = [\n");
     for kind in canopi_types::design::CanopiDesignIngestionErrorKind::ALL {
@@ -263,7 +288,6 @@ fn validate_canopi_design_schema(
     let expected = canopi_types::design::DESIGN_FILE_FIELDS
         .iter()
         .map(|field| field.key)
-        .filter(|key| *key != "extra")
         .collect::<BTreeSet<_>>();
     if actual != expected {
         return Err(format!(
@@ -344,7 +368,7 @@ mod tests {
 
     #[test]
     fn generated_canopi_schema_matches_the_file_authority() {
-        let schema = canopi_types::design::canopi_file_json_schema();
+        let schema = canopi_types::design::v10::canopi_file_v10_json_schema();
         validate_canopi_design_schema(&schema).expect("Canopi schema should be consumable by Web");
     }
 
@@ -353,7 +377,7 @@ mod tests {
     /// emitted order must be sorted (serde_json without `preserve_order`, canopi-cyqd).
     #[test]
     fn generated_canopi_schema_emits_properties_in_sorted_key_order() {
-        let schema = canopi_types::design::canopi_file_json_schema();
+        let schema = canopi_types::design::v10::canopi_file_v10_json_schema();
         let emitted = serde_json::to_string_pretty(&schema).expect("schema serializes");
         let mut keys = schema["properties"]
             .as_object()
@@ -378,7 +402,7 @@ mod tests {
 
     #[test]
     fn generated_canopi_schema_rejects_decoder_keywords_before_emitting() {
-        let mut schema = canopi_types::design::canopi_file_json_schema();
+        let mut schema = canopi_types::design::v10::canopi_file_v10_json_schema();
         schema
             .as_object_mut()
             .expect("root schema object")
@@ -391,7 +415,7 @@ mod tests {
 
     #[test]
     fn generated_canopi_schema_rejects_unsupported_numeric_formats() {
-        let mut schema = canopi_types::design::canopi_file_json_schema();
+        let mut schema = canopi_types::design::v10::canopi_file_v10_json_schema();
         schema["properties"]["version"]["format"] = serde_json::json!("uint64");
 
         let error = validate_canopi_design_schema(&schema)

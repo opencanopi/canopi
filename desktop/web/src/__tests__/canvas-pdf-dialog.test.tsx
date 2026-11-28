@@ -18,11 +18,11 @@ it('opens with one overview and explicitly adds a whole-design field sheet', asy
   const canvas = { layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
     annotations: ['Water weekly', 'Protect from wind'].map((text, i) => ({ id: String(i), text, position: { x: 0, y: 0 }, fontSize: 14, rotation: 0 })) }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
-  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
     prepare: async ({ input, setup, labels }) => {
       const plan = buildPdfPlan(input, setup, text, labels)
       return { plan, bytes: plan.blocked ? null : new Uint8Array([1]) }
-    }, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { save: vi.fn(), dispose: vi.fn() },
+    }, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
     labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }),
     namePrintArea: number => `Area ${number}` })
   try {
@@ -38,8 +38,9 @@ it('opens with one overview and explicitly adds a whole-design field sheet', asy
     expect(workflow.state.value.result!.plan.pages).toHaveLength(1)
     await act(async () => { inSheet(button('Add field sheet')).click() })
     await act(async () => { inSheet(button('Whole Design')).click() })
-    for (const name of ['Fit', 'Zoom in', 'Zoom out', 'Automatic', 'Portrait', 'Landscape', 'Split into readable sheets']) inSheet(button(name))
-    inSheet(container.querySelector<HTMLInputElement>('input[aria-label="Canvas zoom (%)"]')!)
+    for (const name of ['Fit', 'North up', 'Automatic', 'Portrait', 'Landscape', 'Split into readable sheets']) inSheet(button(name))
+    inSheet(container.querySelector<HTMLButtonElement>('fieldset[aria-label="Scale"] button[aria-haspopup="listbox"]')!)
+    inSheet(container.querySelector<HTMLInputElement>('input[aria-label="Angle (°)"]')!)
     // Displacement is keyboard-driven on the focusable page editor.
     const editor = container.querySelector<SVGSVGElement>('[data-pdf-editor]')!
     expect(editor.getAttribute('tabindex')).toBe('0')
@@ -75,7 +76,7 @@ it('canopi-f47t.52.228.20: the PDF dialog has focus as it commits, so an Esc at 
   const container = document.createElement('div')
   document.body.append(container)
   const workflow = createPdfWorkflow({ capture: () => null, prepare: vi.fn(), resolveDisplayNames: vi.fn(), resolveHabits: vi.fn(),
-    delivery: { save: vi.fn(), dispose: vi.fn() }, labels: vi.fn(), namePrintArea: (number) => `Print area ${number}` })
+    delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: vi.fn(), namePrintArea: (number) => `Print area ${number}` })
   try {
     workflow.show()
     // A bare render commits and runs layout effects; after-paint work stays queued.
@@ -91,7 +92,7 @@ it('keeps keyboard commands inside the preview and returns focus when it closes'
   const launch = document.createElement('button'), container = document.createElement('div')
   document.body.append(launch, container); launch.focus()
   const workflow = createPdfWorkflow({ capture: () => null, prepare: vi.fn(), resolveDisplayNames: vi.fn(), resolveHabits: vi.fn(),
-    delivery: { save: vi.fn(), dispose: vi.fn() }, labels: vi.fn(), namePrintArea: (number) => `Print area ${number}` })
+    delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: vi.fn(), namePrintArea: (number) => `Print area ${number}` })
   const globalKey = vi.fn()
   window.addEventListener('keydown', globalKey)
   try {
@@ -114,8 +115,8 @@ it('offers only printable layers and sends checkbox changes to the export setup'
   const prepare = vi.fn(async () => ({ bytes: null, plan: { pages: [], angleDeg: 0, outlines: {}, blocked: 'empty' as const } }))
   const canvas = { layers: [{ name: 'plants', visible: true, opacity: 1 }, { name: 'annotations', visible: false, opacity: 1 }, { name: 'base', visible: true, opacity: 1 }], plants: [], zones: [], annotations: [], measurements: [] }
   const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true,
-    input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
-    delivery: { save: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
+    input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
+    delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
   try {
     await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
     const boxes = container.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:not([role="switch"])')
@@ -133,8 +134,8 @@ it('sets print-only plant colours and the north arrow from the side sheet', asyn
   const prepare = vi.fn(async (_preparation: PdfPreparation) => ({ bytes: null, plan: { pages: [], angleDeg: 0, outlines: {}, blocked: 'empty' as const } }))
   const canvas = { layers: [{ name: 'plants', visible: true, opacity: 1 }], plants: [], zones: [], annotations: [], measurements: [] }
   const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true,
-    input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
-    delivery: { save: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
+    input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
+    delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
   try {
     await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
     const radios = container.querySelectorAll<HTMLInputElement>('[role="radiogroup"][aria-label="Plant colors"] input[type="radio"]')
@@ -157,8 +158,8 @@ it('offers Map orientation under Plant colours, North up by default, and As on s
   const canvas = { layers: [{ name: 'plants', visible: true, opacity: 1 }], zones: [], annotations: [], measurements: [],
     plants: [{ id: 'p', canonicalName: 'Malus domestica', position: { x: 3, y: 4 }, color: '#123456', symbol: 'round', mark: [], pinnedName: false }] }
   const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true,
-    input: { name: 'Garden', locale: 'en', commonNames: {}, canvas, viewBearingDeg: 30 } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
-    delivery: { save: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
+    input: { name: 'Garden', locale: 'en', unitSystem: 'metric', commonNames: {}, canvas, viewBearingDeg: 30 } }), prepare, resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}),
+    delivery: { deliverFile: vi.fn(), dispose: vi.fn() }, labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }), namePrintArea: (number) => `Print area ${number}` })
   try {
     await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
     await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready'))
@@ -176,20 +177,20 @@ it('offers Map orientation under Plant colours, North up by default, and As on s
   } finally { render(null, container); workflow.dispose(); container.remove() }
 })
 
-it('creates explicitly drawn detail pages and edits their zoom and orientation independently', async () => {
+it('creates explicitly drawn detail pages and edits their angle, scale and orientation independently', async () => {
   const container = document.createElement('div'); document.body.append(container)
   const canvas = { layers: [{ name: 'zones', visible: true, opacity: 1 }], plants: [], annotations: [], measurements: [], zones: [
     { name: 'Wide bed', bounds: { x: 0, y: 0, width: 30, height: 5 }, path: 'M0 0 L30 0 L30 5 L0 5 Z', geometry: { kind: 'rect' as const, points: [{ x: 0, y: 0 }, { x: 30, y: 0 }, { x: 30, y: 5 }, { x: 0, y: 5 }] }, fill: null },
     { name: 'Tall bed', bounds: { x: 40, y: 0, width: 5, height: 30 }, path: 'M40 0 L45 0 L45 30 L40 30 Z', geometry: { kind: 'rect' as const, points: [{ x: 40, y: 0 }, { x: 45, y: 0 }, { x: 45, y: 30 }, { x: 40, y: 30 }] }, fill: null },
   ] }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
-  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
     prepare: async ({ input, setup, labels }) => ({ bytes: new Uint8Array([1]), plan: buildPdfPlan(input, setup, text, labels) }),
-    resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { save: vi.fn(), dispose: vi.fn() },
+    resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
     labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }),
     namePrintArea: (number) => `Print area ${number}` })
   const button = (name: string) => Array.from(container.querySelectorAll('button')).find((node) => node.getAttribute('aria-label') === name || node.textContent === name)!
-  const zoom = () => container.querySelector<HTMLInputElement>('input[type="number"]')!
+  const angleInput = () => container.querySelector<HTMLInputElement>('input[aria-label="Angle (°)"]')!
   try {
     await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
     const draw = async (width: number, height: number) => {
@@ -219,14 +220,16 @@ it('creates explicitly drawn detail pages and edits their zoom and orientation i
     await draw(200, 50)
     expect(container.querySelector('svg[data-pdf-page="2"]')).not.toBeNull()
     expect(container.querySelector('[data-pdf-editor]')!.getAttribute('viewBox')!.split(' ').map(Number)[2]).toBeGreaterThan(700)
-    expect(zoom().value).toBe('100')
-    await act(async () => { zoom().value = '137.5'; zoom().dispatchEvent(new Event('input', { bubbles: true })); zoom().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) })
-    expect(workflow.setup.value.views?.['area:1']?.zoom).toBe(137.5)
+    expect(angleInput().value).toBe('0')
+    await act(async () => { angleInput().value = '32'; angleInput().dispatchEvent(new Event('input', { bubbles: true })); angleInput().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) })
+    expect(workflow.setup.value.areas?.[0]?.angleDeg).toBe(32)
+    await act(async () => { workflow.setPageScale('area:1', { kind: 'ratio', denominator: 100 }) })
+    expect(workflow.setup.value.views?.['area:1']?.scale).toEqual({ kind: 'ratio', denominator: 100 })
     await act(async () => { button('Portrait').click() })
     expect(workflow.setup.value.views?.['area:1']?.orientation).toBe('portrait')
     await draw(50, 200)
     expect(container.querySelector('svg[data-pdf-page="3"]')).not.toBeNull()
-    expect(zoom().value).toBe('100')
+    expect(angleInput().value).toBe('0')
     const area = workflow.setup.value.areas![1]!
     const page = workflow.state.value.result!.plan.pages[2]!
     expect(page.width).toBeLessThan(page.height)
@@ -235,12 +238,9 @@ it('creates explicitly drawn detail pages and edits their zoom and orientation i
     expect(page.ground.y).toBeLessThanOrEqual(area.bounds.y)
     expect(page.ground.y + page.ground.height).toBeGreaterThanOrEqual(area.bounds.y + area.bounds.height)
     await act(async () => { button('View page: Print area 1').click() })
-    expect(zoom().value).toBe('137.5')
-    await act(async () => { zoom().focus(); zoom().value = ''; zoom().dispatchEvent(new Event('input', { bubbles: true })) })
-    await act(async () => { zoom().blur() })
-    expect(zoom().value).toBe('137.5')
+    expect(angleInput().value).toBe('32')
     await act(async () => { button('Fit').click() })
-    expect(workflow.setup.value.views?.['area:1']).toEqual({ zoom: 100, orientation: 'portrait', offset: { x: 0, y: 0 } })
+    expect(workflow.setup.value.views?.['area:1']).toEqual({ zoom: 100, scale: { kind: 'fit' }, orientation: 'portrait', offset: { x: 0, y: 0 } })
     const retained = workflow.setup.peek()
     await act(async () => { button('Add field sheet').click() })
     await act(async () => { document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })) })
@@ -259,9 +259,9 @@ it('returns to the source page when refreshed content no longer needs the select
     plants: Array.from({ length: 90 }, (_, i) => ({ id: String(i), canonicalName: 'Species ' + String(i).padStart(3, '0'),
       position: { x: i % 10, y: Math.floor(i / 10) }, color: '#000000', symbol: 'round', mark: [], pinnedName: false })) }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
-  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
     prepare: async ({ input, setup, labels }) => ({ bytes: new Uint8Array([1]), plan: buildPdfPlan(input, setup, text, labels) }),
-    resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { save: vi.fn(), dispose: vi.fn() },
+    resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
     labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Field observations', keyAndNotes: 'Key and notes', overview: 'Overview', plants: 'Plants', actualSize: 'Actual size' }),
     namePrintArea: (number) => 'Print area ' + number })
   try {
@@ -289,9 +289,9 @@ it('opens only the overview for an unreadable note and lets the user choose a de
   const canvas = { layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
     annotations: [{ id: 'long', text: 'Keep the complete instruction '.repeat(20), position: { x: 0, y: 0 }, fontSize: 14, rotation: 0 }] }
   const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
-  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', viewBearingDeg: 0, commonNames: {}, canvas } }),
+  const workflow = createPdfWorkflow({ capture: () => ({ identity: canvas, isCurrent: () => true, input: { name: 'Garden', locale: 'en', unitSystem: 'metric', viewBearingDeg: 0, commonNames: {}, canvas } }),
     prepare: async ({ input, setup, labels }) => ({ plan: buildPdfPlan(input, setup, text, labels), bytes: new Uint8Array([1]) }),
-    resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { save: vi.fn(), dispose: vi.fn() },
+    resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }), resolveHabits: async () => ({}), delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
     labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'Plants', actualSize: '100%' }),
     namePrintArea: number => `Area ${number}` })
   try {
@@ -299,13 +299,13 @@ it('opens only the overview for an unreadable note and lets the user choose a de
     await act(async () => { await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
     expect(workflow.state.value.result!.plan.pages.map(p => p.kind)).toEqual(['overview'])
     expect(container.querySelectorAll('button[aria-label^="View page:"]')).toHaveLength(1)
-    expect(container.querySelector('input[aria-label="Canvas zoom (%)"]')).not.toBeNull()
+    expect(container.querySelector('fieldset[aria-label="Scale"] button[aria-haspopup="listbox"]')).not.toBeNull()
     await act(async () => { workflow.addWholeDesign(); await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
     expect(workflow.state.value.result!.plan.pages.filter(p => p.kind === 'detail')).toHaveLength(1)
     const card = container.querySelector<HTMLButtonElement>('button[aria-label="View page: Area 1"]')!
     expect(card).not.toBeNull()
     await act(async () => { card.click() })
-    expect(container.querySelector('input[aria-label="Canvas zoom (%)"]')).not.toBeNull()
+    expect(container.querySelector('fieldset[aria-label="Scale"] button[aria-haspopup="listbox"]')).not.toBeNull()
     expect(container.querySelector('button[aria-label="Remove page: Area 1"]')).not.toBeNull()
   } finally { render(null, container); workflow.dispose(); container.remove() }
 })
@@ -319,4 +319,46 @@ it('PDF segmented controls size their columns from their own option count, so ev
   expect(group).toContain('display: grid')
   expect(group).toContain('grid-auto-flow: column')
   expect(group).not.toContain('grid-template-columns')
+})
+
+it('applies As on screen and saved view bearings from the page angle toolbar', async () => {
+  const container = document.createElement('div'); document.body.append(container)
+  const canvas = { layers: [{ name: 'annotations', visible: true, opacity: 1 }], plants: [], zones: [], measurements: [],
+    annotations: [{ id: 'a1', text: 'Check bearing', position: { x: 0, y: 0 }, fontSize: 14, rotation: 0 }] }
+  const text = createPdfTextEngine(new Map<PdfFontId, Uint8Array>([['latin', readFileSync('src/app/canvas-pdf/fonts/NotoSans-Regular.ttf')]]), 'en')
+  const workflow = createPdfWorkflow({
+    capture: () => ({
+      identity: canvas,
+      isCurrent: () => true,
+      input: {
+        name: 'Garden',
+        locale: 'en',
+        unitSystem: 'metric',
+        viewBearingDeg: 28,
+        savedViews: [{ id: 'v-south', name: 'South terrace', bearingDeg: 145 }],
+        commonNames: {},
+        canvas,
+      },
+    }),
+    prepare: async ({ input, setup, labels }) => ({ plan: buildPdfPlan(input, setup, text, labels), bytes: new Uint8Array([1]) }),
+    resolveDisplayNames: async () => ({ names: {}, englishFallbacks: [] }),
+    resolveHabits: async () => ({}),
+    delivery: { deliverFile: vi.fn(), dispose: vi.fn() },
+    labels: () => ({ ...englishPdfLabels, notes: 'Notes', observations: 'Observations', keyAndNotes: 'Key', overview: 'Overview', plants: 'Plants', actualSize: '100%' }),
+    namePrintArea: number => `Area ${number}`,
+  })
+  try {
+    await act(async () => { workflow.show(); render(<CanvasPdfDialog workflow={workflow} />, container) })
+    await act(async () => { await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
+    const angleGroup = container.querySelector('fieldset[aria-label="Page angle"]')!
+    const asOnScreen = Array.from(angleGroup.querySelectorAll('button')).find((b) => b.textContent === 'As on screen')!
+    await act(async () => { asOnScreen.click(); await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
+    expect(workflow.setup.value.views?.overview?.angleDeg).toBe(28)
+
+    const savedViewTrigger = angleGroup.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"]')!
+    await act(async () => { savedViewTrigger.click() })
+    const option = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]')).find((el) => el.textContent === 'South terrace')!
+    await act(async () => { option.click(); await vi.waitFor(() => expect(workflow.state.value.status).toBe('ready')) })
+    expect(workflow.setup.value.views?.overview?.angleDeg).toBe(145)
+  } finally { render(null, container); workflow.dispose(); container.remove() }
 })

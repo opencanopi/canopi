@@ -1,5 +1,5 @@
 // canvas/runtime/tools/tool-host.ts
-// Owner of the active tool and its armed source (§18 F29, ADR 0018). Invariant: only the ToolHost builds ToolGestures.
+// Owner of the active tool and its armed source (§18 F29, ADR 0018; map-input outcome owner for no-cancelled-literal). Invariant: only the ToolHost builds ToolGestures.
 //
 // Owns the ToolHost (spec §1.4, ADR 0018), the only code that builds ToolGestures. It converts the recogniser's screen
 // gestures to world points at event time, resolves modifiers (§2.3), applies the active tool's constraint and the grid
@@ -15,27 +15,23 @@
 // The module re-exports createToolScene and builds the context-menu port, so interaction-session.ts imports nothing else
 // from tools/ (P5b).
 
-import { untracked } from '@preact/signals'
+import { computed, signal, type ReadonlySignal, untracked } from '@preact/signals'
 import type { PointAction } from '../../point-editor/rules'
 import { CanvasRuntimeCleanupError, runCanvasRuntimeCleanups } from '../cleanup'
 import type { Gesture, MenuSource, PressTarget } from '../input/gestures'
 import type { TargetClass } from '../input/raw-input'
 import { createCanvasContextMenu } from '../interaction/canvas-context-menu'
-import type { ContextMenuPick, ContextMenuPort, GestureOutcome, PointerWorld, ToolHost, ToolHostDeps } from '../interaction-ports'
-import type { CancelReason, CanvasDropPayload, Modifiers, PointerKind, ToolHandleId, ToolId } from '../interaction-types'
-import type { CanvasDesignObjectSelectionModel } from '../runtime'
-import {
-  includesSceneDesignObjectTarget,
-  sceneDesignObjectTargetsEqual,
-  type SceneDesignObjectSelection,
-  type SceneDesignObjectTarget,
-} from '../scene/design-object-targets'
+import type { ContextMenuPick, ContextMenuPort, GestureOutcome, PointerWorld, ToolHost, ToolHostDeps, ToolHostState } from '../interaction-ports'
+import type { CancelReason, CanvasDropPayload, MapInputCancelReason, MapInputHandle, MapInputOutcome, MapInputRequest, Modifiers, PointerKind, ToolHandleId, ToolId } from '../interaction-types'
+import type { CanvasDesignObjectSelectionModel, CanvasEscapeLayer } from '../runtime'
+import { includesSceneDesignObjectTarget, sceneDesignObjectTargetsEqual, type SceneDesignObjectSelection, type SceneDesignObjectTarget } from '../scene/design-object-targets'
 import { isSceneTargetLayerLocked } from '../scene/group-members'
 import type { ScenePersistedState } from '../scene/types'
 import { EMPTY_SELECTION_MODEL } from '../scene-runtime/selection'
 import type { SceneEditCoordinator, SceneEditRunOptions, SceneEditTransaction } from '../scene-runtime/transactions'
-import type { ScreenPoint, ViewFrame, ViewScreen, ViewTransform, WorldPoint } from '../view/types'
+import type { ScreenPoint, ViewFrame, ViewScreen, ViewTransform, WorldPoint } from '../../../geo/view/types'
 import { applyToolConstraint, type ScreenAxes } from './constraints'
+import { screenBasisOf } from './screen-basis'
 import type { DraftPresentation, DraftShape, ToolHandle } from './draft'
 import { measureLabelShapes, selectedZoneMeasurementLabels, type EdgeDots } from './measure-labels'
 import { zoneEdgeSegment } from './hit-testing'
@@ -46,19 +42,7 @@ import { bandDraft } from './select/band'
 import { ROTATE_HANDLE_ID } from './select/rotate-handle'
 import { selectionScreenHull } from './select/selection-hull'
 import { snapAlongRay, snapWorldPoint, type SnapSettings } from './snapping'
-import type {
-  CanvasTool,
-  HitTarget,
-  ToolCommand,
-  ToolContext,
-  ToolEffects,
-  ToolModifiers,
-  ToolPoint,
-  ToolReply,
-  ToolScene,
-  ToolSource,
-  ToolView,
-} from './tool'
+import type { CanvasTool, HitTarget, ToolCommand, ToolContext, ToolEffects, ToolModifiers, ToolPoint, ToolReply, ToolScene, ToolSource, ToolView } from './tool'
 
 export { createToolScene } from './spatial-index'
 
@@ -89,12 +73,6 @@ const NUDGE_STEP_M = 0.1
 const NUDGE_LARGE_STEP_M = 1
 /** A pause this long ends a nudge series, so its edit commits. */
 const NUDGE_SERIES_IDLE_MS = 800
-/** The tools whose points Shift constrains (spec §2.3); of the handles, only the rotate handle (U36). */
-const SHIFT_CONSTRAINS: ReadonlySet<ToolId> = new Set<ToolId>([
-  'polygon', 'plant-spacing', 'line', 'measurement-guide', 'rectangle', 'ellipse', 'profile',
-])
-/** The drawing tools whose draft chips replace the selected zone's. */
-const ZONE_DRAFT_TOOLS: ReadonlySet<ToolId> = new Set<ToolId>(['line', 'rectangle', 'ellipse', 'polygon'])
 
 /** A press the host routed, from press to release or cancel. */
 interface LiveGesture {
@@ -159,10 +137,7 @@ export function createContextMenuPort(options: ContextMenuPortOptions): ContextM
       }
       if (request.at === 'selection') {
         const selection = selectionModel()
-        controller.openFromKeyboard(selection, selectionScreenHull(scene, selection, controllerOptions.view()), {
-          ...finish,
-          ...held,
-        })
+        controller.openFromKeyboard(selection, selectionScreenHull(scene, selection, controllerOptions.view()), { ...finish, ...held })
         return
       }
       const screen = request.screen ?? controllerOptions.view().worldToScreen(request.at)
@@ -170,31 +145,37 @@ export function createContextMenuPort(options: ContextMenuPortOptions): ContextM
       const selection = target ? selectionModel() : null
       const kept = request.holdsSelectionDeletes && selection
         && selection.editableTargets.length + selection.lockedTargets.length === 0 ? null : selection
-      controller.openAtPointer(
-        screen,
-        kept ?? (visible && !target ? EMPTY_SELECTION_MODEL : null),
-        {
-          ...finish,
-          ...(request.turnViewToEdge ? { turnViewToEdge: request.turnViewToEdge } : {}),
-          ...held,
-        },
-      )
+      controller.openAtPointer(screen, kept ?? (visible && !target ? EMPTY_SELECTION_MODEL : null), {
+        ...finish, ...(request.turnViewToEdge ? { turnViewToEdge: request.turnViewToEdge } : {}), ...held,
+      })
     },
     close: (closeOptions) => controller.close(closeOptions),
     isOpen: () => controller.isOpen(),
   }
 }
 
+const DEFAULT_ESC_STEPS: readonly CanvasEscapeLayer[] = ['gesture', 'nudge-series', 'tool-transient', 'tool', 'selection']
+
 export function createToolHost(deps: ToolHostDeps): ToolHost {
   const pointerListeners = new Set<(point: PointerWorld | null) => void>()
+  const emptyGroundTapListeners = new Set<(world: WorldPoint) => void>()
   /** Transactions a tool began and has not committed or aborted: its Scene Edit is open. */
   const openEdits = new Set<SceneEditTransaction>()
 
   let disposed = false
-  let currentId: ToolId = deps.toolState.active.peek()
+  /** Single authoritative state record for the active tool and its armed source (L11, §18 F29). */
+  const toolState = signal<ToolHostState>({ id: deps.initialTool ?? 'select', source: null })
+  const activeToolSignal: ReadonlySignal<ToolId> = computed(() => toolState.value.id)
+  const currentId = (): ToolId => toolState.peek().id
+  const activeSource = (): ToolSource | null => toolState.peek().source
+  interface PendingMapInput {
+    settled: boolean
+    readonly resolve: (outcome: MapInputOutcome<unknown>) => void
+    readonly onSettled?: (outcome: MapInputOutcome<unknown>) => void
+  }
+  let pendingRequest: PendingMapInput | null = null
   /** Armed at the end of construction and never cleared: the registry is total, so every id is a tool. */
   let activeTool!: CanvasTool
-  let activeSource: ToolSource | null = null
   let toolDraft: DraftPresentation | null = null
   let toolHandles: readonly ToolHandle[] = NO_HANDLES
   /** The handle the tool marks active (Select's selected corner). */
@@ -254,6 +235,8 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     metresPerPixelAt: (p) => frame().view.metresPerPixelAt(p),
     screenDistance: (a, b) => frame().view.screenDistance(a, b),
     screenAxesInWorld: () => frame().view.screenAxesInWorld(),
+    worldDeltaToScreen: (delta) => frame().view.worldDeltaToScreen(delta),
+    screenDeltaToWorld: (delta) => frame().view.screenDeltaToWorld(delta),
     screenAlignedRect: (a, b, options) => screenAlignedRect(frame().view, a, b, options),
   }
 
@@ -283,6 +266,15 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     })
   }
 
+  function settlePending(outcome: MapInputOutcome<unknown>): void {
+    const req = pendingRequest
+    if (!req || req.settled) return
+    req.settled = true
+    pendingRequest = null
+    req.resolve(outcome)
+    req.onSettled?.(outcome)
+  }
+
   /**
    * The fault rule (spec §1.4 "Faults"), at the outermost tool call only, once: the open edits are aborted, the live press
    * ends, the text entry closes and a fresh instance of the current tool is armed (Select if arming threw). The faulted
@@ -291,7 +283,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
    */
   function fault(error: unknown): unknown {
     faulting = true
-    const id = selectOnFault ? 'select' : currentId
+    const id = selectOnFault ? 'select' : currentId()
     live = null
     const errors: unknown[] = [error]
     for (const step of [abortOpenEdits, closeTextEntry, () => rearm(id)]) {
@@ -308,20 +300,14 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function rearm(id: ToolId): void {
     if (disposed) return
     try {
-      activate(id, id === currentId ? activeSource : null)
+      activate(id, id === currentId() ? activeSource() : null)
     } catch (failure) {
       if (id !== 'select') {
         activate('select', null)
-        followArmedTool()
+        deps.onToolChanged?.('select')
       }
       throw failure
     }
-  }
-
-  /** A fault outside setTool armed Select: the session's tool signal follows it through the tool-request path, so the rail
-   *  and the card name the tool that runs (B6). setTool's own caller names its fallback itself. */
-  function followArmedTool(): void {
-    if (deps.toolState.active.peek() !== currentId) deps.toolState.set(currentId)
   }
 
   function afterToolCall(): void {
@@ -372,9 +358,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
         toolGuidance = guidance
         if (callDepth === 0) publishGuidance()
       },
-      requestTool(id) {
-        if (owns()) requestTool(id)
-      },
+      requestTool: (id) => { if (owns()) requestTool(id) },
       requestTextEntry(request, submit, onCancel) {
         if (!owns()) return
         deps.chrome.requestTextEntry(request, (text) => {
@@ -391,18 +375,10 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
           if (owns()) callTool(() => onCancel?.())
         })
       },
-      closeTextEntry() {
-        if (owns()) closeTextEntry()
-      },
-      requestFocus() {
-        if (owns()) deps.focus.focusMap()
-      },
-      finishProfile(points) {
-        if (owns()) deps.finishProfile?.(points)
-      },
-      refuseLockedMove() {
-        if (owns()) deps.lockedMoveRefused()
-      },
+      closeTextEntry: () => { if (owns()) closeTextEntry() },
+      requestFocus: () => { if (owns()) deps.focus.focusMap() },
+      completeRequest: (value) => { if (owns()) settlePending({ kind: 'picked', value }) },
+      refuseLockedMove: () => { if (owns()) deps.lockedMoveRefused() },
     }
     return {
       view,
@@ -484,11 +460,12 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
 
   /** Modifiers by meaning (spec §2.3), read from the event that carries them, with no platform dependency. */
   function resolveModifiers(mods: Modifiers, handle: ToolHandleId | null): ToolModifiers {
+    const constrainHeld = mods.shift || (deps.touchConstrain?.read() ?? false)
     return {
       additive: mods.shift || mods.ctrl || mods.meta,
       subtractive: mods.alt,
-      constrain: mods.shift && (handle === ROTATE_HANDLE_ID || SHIFT_CONSTRAINS.has(currentId)),
-      noSnap: (mods.ctrl || mods.meta) && currentId === 'plant-spacing',
+      constrain: constrainHeld && (handle === ROTATE_HANDLE_ID || Boolean(deps.toolRow?.(currentId()).shiftConstrains)),
+      noSnap: (mods.ctrl || mods.meta) && currentId() === 'plant-spacing',
     }
   }
 
@@ -505,7 +482,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     const constraint = modifiers.constrain ? activeTool.constraint?.() ?? null : null
     if (!constraint) return { world, free, constrained: world, snapped: free, modifiers, pointer }
     // Shift's steps turn against the screen axes (spec §4.7), which are the world's at bearing 0, bit for bit.
-    const axes: ScreenAxes = frame().view.screenAxesInWorld()
+    const axes: ScreenAxes = screenBasisOf(frame().view)
     const constrained = applyToolConstraint(constraint, world, axes)
     if (constraint.kind === 'rotation-delta') {
       return { world, free, constrained, snapped: constrained, modifiers, pointer }
@@ -542,7 +519,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function decorationShapes(): DraftShape[] {
     if (zoneDraftHidesChips()) return []
     const selection = deps.scene.selection()
-    const labels = selectedZoneMeasurementLabels(deps.scene.persisted, selection)
+    const labels = selectedZoneMeasurementLabels(deps.scene.persisted, selection, deps.scene.groundMeasure, deps.settings.unitSystem?.() ?? 'metric', deps.settings.locale?.() ?? 'en')
     if (labels.length === 0) return []
     const view = frame().view
     return measureLabelShapes(labels, (a, b) => view.screenDistance(a, b), shownEdgeDots(selection[0]!.id, view))
@@ -554,11 +531,11 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     const edges = new Set(shownHandles().flatMap((handle) =>
       handle.glyph === 'midpoint' && handle.id.startsWith(prefix) ? [Number(handle.id.slice(prefix.length))] : []))
     const zone = edges.size > 0 ? deps.scene.persisted.zones.find((entry) => entry.id === zoneId) : undefined
-    return zone ? { corners: zone.points, edges, screenAxes: view.screenAxesInWorld() } : undefined
+    return zone ? { corners: zone.points, edges, screenAxes: screenBasisOf(view) } : undefined
   }
 
   function zoneDraftHidesChips(): boolean {
-    if (!ZONE_DRAFT_TOOLS.has(currentId)) return false
+    if (!deps.toolRow?.(currentId()).zoneDraft) return false
     return toolDraft?.shapes.some((shape) =>
       shape.kind === 'label' && (shape.tone === 'measure' || shape.tone === 'measure-quiet')) ?? false
   }
@@ -578,7 +555,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
    * update.
    */
   function shownHandles(): readonly ToolHandle[] {
-    if (currentId !== 'select') return toolHandles
+    if (currentId() !== 'select') return toolHandles
     const affordancesShown = frame().mode === 'site'
       && !deps.chrome.isTextEntryOpen()
       && (!hasActiveSceneEdit() || (live?.kind === 'handle' && !live.mutated))
@@ -601,7 +578,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   }
 
   function resetCursor(): void {
-    deps.chrome.setCursor(pinHovered ? 'pointer' : cursorForTool(currentId))
+    deps.chrome.setCursor(pinHovered ? 'pointer' : (deps.toolRow?.(currentId()).cursor ?? 'default'))
   }
 
   /** The Design pin's hover (canopi-n2cg): its tooltip and the pointer cursor, while a mouse or pen rests on it in overview. */
@@ -638,7 +615,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function passiveHover(world: WorldPoint, at: ScreenPoint, pointer: PointerKind): void {
     const visible = objectTarget(deps.scene.hitAt(world, { pointer, includeLocked: true }))
     deps.hover(visible)
-    deps.chrome.setTooltip(visible?.kind === 'plant' ? { target: visible, at } : null)
+    deps.chrome.setTooltip(visible ? { target: visible, at } : null)
   }
 
   /** The tool's hover, then the passive hover unless the tool handled it. */
@@ -719,7 +696,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     deps.admission.runWhenSettled(() => {
       deps.menu.close()
       // Today's Text took the click that found its note field open to commit the note, and placed nothing (spec §3.2).
-      pressCommitsNote = button === 'primary' && currentId === 'text' && deps.chrome.isTextEntryOpen()
+      pressCommitsNote = button === 'primary' && currentId() === 'text' && deps.chrome.isTextEntryOpen()
       focusMap()
       return true
     }, false)
@@ -897,30 +874,17 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
             kind: 'handle-drag', phase: 'end', handle: gesture.handle!, point: gesture.start, start: gesture.start,
           }))
         } else {
+          const heardBy = tool.id
           const point = pointAt(g.at, g.mods, g.pointer)
-          // The tool that hears the tap decides the pin, not the one it may arm (Profile requests Select as it finishes).
-          const heardBy = currentId
           callTool(() => tool.gesture({ kind: 'tap', point, hit: hitAt(point.world, g.pointer), clickCount: g.clickCount }))
-          pinAfterTap(heardBy, gesture, point.world)
+          if (frame().mode === 'site' && (heardBy === 'hand' || (heardBy === 'select' && gesture.startHit === null))) {
+            for (const listener of [...emptyGroundTapListeners]) listener(point.world)
+          }
         }
       } finally {
         endLive({ screen: g.at, mods: g.mods, pointer: g.pointer })
       }
     })
-  }
-
-  /**
-   * The Site data pin (spec §3.8, fixture J10; U49 Q17): a tap no tool uses pins its point once the tool has heard it, and
-   * claims nothing. That is a Select tap whose press hit nothing (Select cleared the selection; inside a zone away from its
-   * outline is empty ground, canopi-qd2k), or
-   * any Pan-tool tap; never another tool, a handle, a drag or overview. `heardBy` is the tool the tap reached, read before
-   * the tool ran. deps.pin is absent on Web and while the Site data panel is closed.
-   */
-  function pinAfterTap(heardBy: ToolId, gesture: LiveGesture, world: WorldPoint): void {
-    if (!deps.pin || frame().mode !== 'site') return
-    const pins = heardBy === 'hand'
-      || (heardBy === 'select' && gesture.startHit === null)
-    if (pins) deps.pin(world)
   }
 
   // ── Drops ────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -985,7 +949,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     const transform = frame().view
     const world = transform.screenToWorld(at)
     if (payload.kind === 'saved-stamp') {
-      return savedObjectStampGhostShapes(deps.scene, payload.stamp, snap(world, false), view.bearingDeg)
+      return savedObjectStampGhostShapes(deps.scene, payload.stamp, snap(world, false), view.bearingDeg, view.bearingDeg)
     }
     if (payload.kind !== 'species' || !deps.scene.isLayerOpenForCreation('plants')) return null
     const corner = transform.screenToWorld({ x: at.x + DROP_CUE_PX, y: at.y + DROP_CUE_PX })
@@ -1019,6 +983,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     if (payload.kind === 'saved-stamp') {
       placeSavedObjectStamp(deps.edits, deps.scene, payload.stamp, point, {
         rotationDeg: view.bearingDeg,
+        bearingDeg: view.bearingDeg,
         onCommitted: () => dropped('saved-stamp'),
       })
     } else if (payload.kind === 'species' && payload.species) {
@@ -1340,14 +1305,25 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
    */
   function edgeTurnAt(world: WorldPoint, pointer: PointerKind): (() => void) | null {
     const hit = deps.scene.hitAt(world, { pointer, includeLocked: true, zoneEdge: true })
-    if (hit?.kind !== 'zone-edge') return null
-    const zone = deps.scene.persisted.zones.find((entry) => entry.id === hit.zoneId)
-    const edge = zone ? zoneEdgeSegment(zone, hit.edgeIndex) : null
-    if (!edge) return null
-    const [a, b] = [{ x: edge[0].x, y: edge[0].y }, { x: edge[1].x, y: edge[1].y }]
-    return () => {
-      if (!disposed) deps.navigation.turnToEdge(a, b)
+    if (hit?.kind === 'zone-edge') {
+      const zone = deps.scene.persisted.zones.find((entry) => entry.id === hit.zoneId)
+      const edge = zone ? zoneEdgeSegment(zone, hit.edgeIndex) : null
+      if (!edge) return null
+      const [a, b] = [{ x: edge[0].x, y: edge[0].y }, { x: edge[1].x, y: edge[1].y }]
+      return () => {
+        if (!disposed) deps.navigation.turnToEdge(a, b)
+      }
     }
+    const objectHit = deps.scene.hitAt(world, { pointer, includeLocked: true })
+    if (objectHit?.kind === 'object' && objectHit.target.kind === 'measurement-guide') {
+      const guide = deps.scene.persisted.measurementGuides.find((entry) => entry.id === objectHit.target.id)
+      if (!guide) return null
+      const [a, b] = [{ x: guide.start.x, y: guide.start.y }, { x: guide.end.x, y: guide.end.y }]
+      return () => {
+        if (!disposed) deps.navigation.turnToEdge(a, b)
+      }
+    }
+    return null
   }
 
   function notifySceneChanged(): void {
@@ -1358,14 +1334,23 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
 
   // ── Arming ───────────────────────────────────────────────────────────────────────────────────────────────────────
 
-  function requestTool(id: ToolId): void {
-    deps.toolState.set(id)
-    if (currentId !== id) setTool(id, null)
+  function requestTool(id: ToolId, cancelReason: MapInputCancelReason = 'tool-change'): void {
+    const previous = currentId()
+    if (previous !== id) {
+      deps.touchConstrain?.reset()
+      settlePending({ kind: 'cancelled', reason: cancelReason })
+      arm(id, null)
+    } else if (cancelReason === 'escape') {
+      settlePending({ kind: 'cancelled', reason: 'escape' })
+    }
+    deps.onToolChanged?.(currentId(), previous)
   }
 
-  function activate(id: ToolId, source: ToolSource | null): void {
-    currentId = id
-    activeSource = source
+  function activate(
+    id: ToolId,
+    source: ToolSource | null,
+  ): void {
+    toolState.value = { id, source }
     draftHidden = false
     toolDraft = null
     toolHandles = NO_HANDLES
@@ -1385,22 +1370,67 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
     resetCursor()
   }
 
-  /** One tool call: any throw while arming, the tool left's cancellation included, arms a fresh Select (spec §1.4 "Faults"). */
-  function setTool(id: ToolId, source: ToolSource | null): void {
-    if (disposed) return
+  /**
+   * Arms a tool with an optional source and map-input request (L11, §18 F29). Any prior pending request settles once
+   * as `'superseded'` (when another request replaces it) or `'tool-change'`. Re-arming the same tool with `source`
+   * omitted preserves its current source. Any throw while arming arms a fresh Select.
+   */
+  function arm<T = unknown>(
+    id: ToolId,
+    source?: ToolSource | null,
+    request?: MapInputRequest<T>,
+  ): MapInputHandle<T> {
+    if (disposed) {
+      const detached: MapInputOutcome<T> = { kind: 'detached' }
+      request?.onSettled?.(detached)
+      return { settled: Promise.resolve(detached), cancel() {} }
+    }
+    if (pendingRequest) {
+      settlePending({ kind: 'cancelled', reason: request ? 'superseded' : 'tool-change' })
+    }
+    let resolveOutcome!: (outcome: MapInputOutcome<T>) => void
+    const settled = new Promise<MapInputOutcome<T>>((resolve) => {
+      resolveOutcome = resolve
+    })
+    const entry: PendingMapInput = {
+      settled: false,
+      resolve: (outcome) => resolveOutcome(outcome as MapInputOutcome<T>),
+      ...(request?.onSettled
+        ? { onSettled: (outcome: MapInputOutcome<unknown>) => request.onSettled!(outcome as MapInputOutcome<T>) }
+        : {}),
+    }
+    pendingRequest = entry
     callTool(() => {
       try {
-        const changing = id !== currentId
+        const changing = id !== currentId()
         if (changing) closeTextEntry()
         cancelTransientInteraction('tool-change')
-        if (!changing) return
+        if (!changing) {
+          const prev = toolState.peek()
+          const nextSource = source === undefined ? prev.source : source
+          toolState.value = { id, source: nextSource }
+          if (nextSource !== prev.source && activeTool.sourceChanged) activeTool.sourceChanged(nextSource)
+          return
+        }
         activeTool.deactivate('switch')
-        activate(id, source)
+        activate(id, source ?? null)
       } catch (error) {
         selectOnFault = true
+        settlePending({ kind: 'cancelled', reason: 'tool-change' })
         throw error
       }
     })
+    return {
+      settled,
+      cancel(reason: MapInputCancelReason = 'escape') {
+        if (pendingRequest === entry) settlePending({ kind: 'cancelled', reason })
+      },
+    }
+  }
+
+  function escapeTool(): void {
+    if (disposed) return
+    requestTool('select', 'escape')
   }
 
   // ── Nudges ───────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -1418,13 +1448,17 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   }
 
   function nudge(direction: ScreenPoint, large: boolean): 'handled' | 'refused' | 'pass' {
-    if (disposed || currentId !== 'select' || live || frame().mode === 'overview') return 'pass'
+    if (disposed || currentId() !== 'select' || live || frame().mode === 'overview') return 'pass'
     if (deps.scene.selection().length === 0) return 'pass'
     const { right, down } = frame().view.screenAxesInWorld()
     const step = large ? NUDGE_LARGE_STEP_M : NUDGE_STEP_M
+    const rawX = right.x * direction.x + down.x * direction.y
+    const rawY = right.y * direction.x + down.y * direction.y
+    const rawLen = Math.hypot(rawX, rawY)
+    const scaleStep = rawLen > 1e-12 ? step / rawLen : 0
     const delta = {
-      x: (right.x * direction.x + down.x * direction.y) * step + 0,
-      y: (right.y * direction.x + down.y * direction.y) * step + 0,
+      x: rawX * scaleStep + 0,
+      y: rawY * scaleStep + 0,
     }
     if (!deps.nudge.nudgeSelected(delta)) return 'refused'
     nudging = true
@@ -1450,9 +1484,9 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   function placeAt(world: WorldPoint): ToolReply {
     if (frame().mode === 'overview') return 'pass'
     return deps.admission.runWhenSettled(() => {
-      if (currentId !== 'plant-stamp') requestTool('plant-stamp')
+      if (currentId() !== 'plant-stamp') requestTool('plant-stamp')
       const tool = activeTool
-      if (currentId !== 'plant-stamp') return 'pass'
+      if (currentId() !== 'plant-stamp') return 'pass'
       return callTool(() => tool.command({ kind: 'place-at', world: snap(world, false) }))
     }, 'pass' as ToolReply)
   }
@@ -1462,9 +1496,13 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
   const unsubscribeFrames = deps.frames.onViewFrame('tools', onFrame)
   // Listeners run untracked: a readout's own signal reads never become this subscription's dependencies.
   const unsubscribeSettled = deps.frames.settledViewFrame.subscribe((next) => untracked(() => onSettledFrame(next)))
-  activate(currentId, null)
+  activate(currentId(), null)
 
   return {
+    state: toolState,
+    activeTool: activeToolSignal,
+    arm,
+    escapeTool,
     gesture(g: Gesture): GestureOutcome {
       if (disposed) return NOTHING
       if (g.kind === 'hover' || g.kind === 'press') pointerKind = g.pointer
@@ -1523,13 +1561,6 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
       }, false)
       return !admitted || duringEdit ? QUARANTINE : NOTHING
     },
-    setTool,
-    sourceChanged(source: ToolSource | null): void {
-      if (disposed) return
-      activeSource = source
-      const tool = activeTool
-      if (tool.sourceChanged) callTool(() => tool.sourceChanged!(source))
-    },
     rawPress,
     notePointer(screen: ScreenPoint): void {
       if (disposed) return
@@ -1542,22 +1573,17 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
         flush()
       }
     },
-    sceneChanged(): void {
-      if (!disposed) notifySceneChanged()
-    },
+    sceneChanged: () => { if (!disposed) notifySceneChanged() },
     textEntryOpen: () => !disposed && deps.chrome.isTextEntryOpen(),
     holdsReorigin: () => !disposed && holdsReorigin(),
     hasLiveGesture: () => live !== null,
     activeToolHasEscapeTransient: () => activeTool.hasTransient() && !activeTool.escapeLeaves,
-    activeToolIsSelect: () => currentId === 'select',
+    activeToolIsSelect: () => currentId() === 'select',
+    activeToolEscSteps: () => deps.toolRow?.(currentId()).escSteps ?? DEFAULT_ESC_STEPS,
     nudge,
     hasNudgeSeries: () => nudging,
-    endNudgeSeries(commit: boolean): void {
-      if (!disposed) endNudgeSeries(commit)
-    },
-    released(): void {
-      if (!disposed) releasedOutsideTool()
-    },
+    endNudgeSeries: (commit: boolean) => { if (!disposed) endNudgeSeries(commit) },
+    released: () => { if (!disposed) releasedOutsideTool() },
     interrupted(): void {
       if (disposed) return
       // After a window blur the pointer may be anywhere: nothing is re-emitted until it hovers the map again.
@@ -1574,6 +1600,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
       if (disposed) return
       lastHover = null
       runCanvasRuntimeCleanups([
+        () => settlePending({ kind: 'cancelled', reason: 'design-closed' }),
         () => closeTextEntry(),
         () => cancelTransientInteraction('document-replaced'),
         () => deps.menu.close(),
@@ -1581,9 +1608,9 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
           try {
             const tool = activeTool
             callTool(() => tool.deactivate('document-replaced'))
-            activate(currentId, null)
+            activate('select', null)
           } finally {
-            followArmedTool()
+            deps.onToolChanged?.(currentId())
           }
         },
       ], 'Tool host document replacement preparation failed')
@@ -1607,12 +1634,19 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
         pointerListeners.delete(listener)
       }
     },
+    subscribeEmptyGroundTap(listener) {
+      emptyGroundTapListeners.add(listener)
+      return () => {
+        emptyGroundTapListeners.delete(listener)
+      }
+    },
     dispose(): void {
       if (disposed) return
       const tool = activeTool
       // From here no tool owns its effects, and a fault aborts the open edits but arms nothing.
       disposed = true
       runCanvasRuntimeCleanups([
+        () => settlePending({ kind: 'detached' }),
         () => unsubscribeFrames(),
         () => unsubscribeSettled(),
         () => endNudgeSeries(true),
@@ -1625,6 +1659,7 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
         () => setPinHovered(false),
         () => {
           pointerListeners.clear()
+          emptyGroundTapListeners.clear()
           if (publishedToolDraft || publishedDropPreview || publishedDecorations) deps.renderer.setDraft(null)
           if (publishedHandles.length > 0) deps.chrome.setHandles(NO_HANDLES, null)
           deps.guidance(null)
@@ -1635,24 +1670,6 @@ export function createToolHost(deps: ToolHostDeps): ToolHost {
 }
 
 // ── Pure helpers ───────────────────────────────────────────────────────────────────────────────────────────────────
-
-/** The cursor of each tool (as before v2, at a4c86d39, pointer-utils.ts cursorForTool); no tool sets its own. */
-function cursorForTool(tool: ToolId): string {
-  switch (tool) {
-    case 'hand': return 'grab'
-    case 'text': return 'text'
-    case 'line':
-    case 'measurement-guide':
-    case 'rectangle':
-    case 'ellipse':
-    case 'polygon':
-    case 'profile':
-    case 'plant-stamp':
-    case 'object-stamp':
-    case 'plant-spacing': return 'crosshair'
-    default: return 'default'
-  }
-}
 
 /** A point menu the host opened (A16) and what it stood on then (pointMenuOn). */
 interface OpenPointMenu {
@@ -1679,25 +1696,15 @@ function sameHandles(a: readonly ToolHandle[], b: readonly ToolHandle[]): boolea
   return a === b || (a.length === b.length && JSON.stringify(a) === JSON.stringify(b))
 }
 
-function insideScreen(at: ScreenPoint, screen: ViewScreen): boolean {
-  return at.x >= 0 && at.y >= 0 && at.x <= screen.width && at.y <= screen.height
-}
-
-function clampToScreen(at: ScreenPoint, screen: ViewScreen): ScreenPoint {
-  return {
-    x: Math.min(Math.max(at.x, 0), screen.width),
-    y: Math.min(Math.max(at.y, 0), screen.height),
-  }
-}
-
-/** A screen-aligned rectangle from two world corners (ToolView.screenAlignedRect). */
+function insideScreen(at: ScreenPoint, screen: ViewScreen): boolean { return at.x >= 0 && at.y >= 0 && at.x <= screen.width && at.y <= screen.height }
+function clampToScreen(at: ScreenPoint, screen: ViewScreen): ScreenPoint { return { x: Math.min(Math.max(at.x, 0), screen.width), y: Math.min(Math.max(at.y, 0), screen.height) } }
 function screenAlignedRect(
-  view: ViewTransform,
-  a: WorldPoint,
-  b: WorldPoint,
-  options: { readonly square?: boolean } = {},
+  view: ViewTransform, a: WorldPoint, b: WorldPoint, options: { readonly square?: boolean } = {},
 ): { readonly center: WorldPoint; readonly width: number; readonly height: number; readonly rotationDeg: number } {
-  const { right, down } = view.screenAxesInWorld()
+  const rotationDeg = view.camera.bearingDeg
+  const rad = (rotationDeg * Math.PI) / 180
+  const right = { x: Math.cos(rad), y: Math.sin(rad) }
+  const down = { x: 0 - right.y, y: right.x }
   let across = (b.x - a.x) * right.x + (b.y - a.y) * right.y
   let along = (b.x - a.x) * down.x + (b.y - a.y) * down.y
   if (options.square) {
@@ -1705,21 +1712,9 @@ function screenAlignedRect(
     across = (across < 0 ? -1 : 1) * side
     along = (along < 0 ? -1 : 1) * side
   }
-  const rotationDeg = view.camera.bearingDeg
-  return {
-    center: {
-      x: a.x + (right.x * across + down.x * along) / 2,
-      y: a.y + (right.y * across + down.y * along) / 2,
-    },
-    width: Math.abs(across),
-    height: Math.abs(along),
-    rotationDeg,
-  }
+  return { center: { x: a.x + (right.x * across + down.x * along) / 2, y: a.y + (right.y * across + down.y * along) / 2 }, width: Math.abs(across), height: Math.abs(along), rotationDeg }
 }
-
-function objectTarget(hit: HitTarget | null): SceneDesignObjectTarget | null {
-  return hit?.kind === 'object' ? hit.target : null
-}
+function objectTarget(hit: HitTarget | null): SceneDesignObjectTarget | null { return hit?.kind === 'object' ? hit.target : null }
 
 const NOTHING_PICKED: ContextMenuPick = Object.freeze({ visible: null, target: null })
 
