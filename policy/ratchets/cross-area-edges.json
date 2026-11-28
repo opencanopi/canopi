@@ -841,6 +841,10 @@
     "canopi-format-wasm -> canopi-types": {
       "count": 1
     },
+    "canopi-support -> canopi-types": {
+      "count": 1,
+      "bead": "canopi-f47t.52.190"
+    },
     "canopi-types -> canopi-redact": {
       "count": 1
     },
