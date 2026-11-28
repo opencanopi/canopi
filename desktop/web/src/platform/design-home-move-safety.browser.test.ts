@@ -522,4 +522,30 @@ describe('platform/design-home.browser move & tab safety (#826 & #848 B1-B3, SF1
     expect((JSON.parse((idb2.stores.get('drafts')!.get('draft-c') as StoredDraftRecord).content) as { name: string }).name).toBe('C1 edited in 2.1')
     store2.dispose()
   })
+
+  it('skips starting designCore legacy migration and reports no error when closeForPageHide or dispose fires mid-sync', async () => {
+    for (const teardown of ['pagehide', 'dispose'] as const) {
+      const idb = new MiniFakeIdb()
+      const storage = makeMemoryStorage()
+      const baseCore = makeFakeDesignCore()
+      const decode = vi.fn(baseCore.decode)
+      const failures: unknown[] = []
+      const store = createBrowserDesignHomeStore({
+        factory: idb.factory(),
+        legacyStorage: storage,
+        designCore: { decode, encode: baseCore.encode },
+        onMigrationFailed: (e) => failures.push(e),
+      })
+      expect(await store.open()).toEqual({ kind: 'ready' })
+      storage.setItem(LEGACY_DRAFTS_KEY, legacyPayload([{ id: 'draft-unload', name: 'Unload' }]))
+      const syncing = store.syncLegacyStorage()
+      await Promise.resolve()
+      if (teardown === 'pagehide') store.closeForPageHide()
+      else store.dispose()
+      await syncing
+      expect(decode, `decode must not start format worker after ${teardown}`).not.toHaveBeenCalled()
+      expect(failures, `no spurious migration failure after ${teardown}`).toEqual([])
+      store.dispose()
+    }
+  })
 })

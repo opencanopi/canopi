@@ -338,12 +338,14 @@ async function launchWithUnkeptDrafts(page: Page, locale: string): Promise<void>
     [SETTINGS_KEY]: JSON.stringify({ version: 3, settings: { locale, basemap_visible: false } }),
     [DRAFTS_KEY]: JSON.stringify({ version: 3, drafts, draftFiles: Object.fromEntries(drafts.map(({ id, name }) => [id, { ...file, name }])) }),
   }
-  await page.goto('')
-  await page.evaluate((values) => {
-    localStorage.clear()
-    for (const [key, value] of Object.entries(values)) localStorage.setItem(key, value)
+  // Seed before the single navigation: goto + localStorage.setItem + reload races with the first page's
+  // async IDB open and can cancel an in-flight design-core.worker module fetch in WebKit.
+  await page.addInitScript((values) => {
+    for (const [key, value] of Object.entries(values)) {
+      if (localStorage.getItem(key) === null) localStorage.setItem(key, value)
+    }
   }, records)
-  await page.reload()
+  await page.goto('')
   await expect(page.locator('[data-save-status] [data-draft-warning]')).toBeVisible()
 }
 

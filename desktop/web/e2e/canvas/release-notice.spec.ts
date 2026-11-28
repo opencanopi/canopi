@@ -249,12 +249,14 @@ async function launchWithDraft(page: Page, locale: string, kept: boolean): Promi
       draftFiles: { 'draft-orchard': { ...file, name: 'Orchard' } },
     }),
   }
-  await page.goto('')
-  await page.evaluate((values) => {
-    localStorage.clear()
-    for (const [key, value] of Object.entries(values)) localStorage.setItem(key, value)
+  // Seed before the single navigation: goto + localStorage.setItem + reload races with the first page's
+  // async IDB open and can cancel an in-flight design-core.worker module fetch in WebKit.
+  await page.addInitScript((values) => {
+    for (const [key, value] of Object.entries(values)) {
+      if (localStorage.getItem(key) === null) localStorage.setItem(key, value)
+    }
   }, records)
-  await page.reload()
+  await page.goto('')
   await expect(page.locator('[data-workspace-title-bar] [data-save-status]')).toBeVisible()
   await expect(page.locator('[data-save-status] [data-draft-warning]')).toHaveCount(kept ? 0 : 1)
 }

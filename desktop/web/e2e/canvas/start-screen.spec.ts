@@ -40,9 +40,14 @@ async function openWithDrafts(page: Page): Promise<void> {
     drafts,
     draftFiles: Object.fromEntries(drafts.map(({ id, name }) => [id, { ...file, name }])),
   }
+  // Seed before the single navigation: goto + localStorage.setItem + reload races with the first page's
+  // async IDB open and can cancel an in-flight design-core.worker module fetch in WebKit.
+  await page.addInitScript((value) => {
+    if (localStorage.getItem('canopi:web-app-data:v3:drafts') === null) {
+      localStorage.setItem('canopi:web-app-data:v3:drafts', value)
+    }
+  }, JSON.stringify(record))
   await page.goto('')
-  await page.evaluate((value) => localStorage.setItem('canopi:web-app-data:v3:drafts', value), JSON.stringify(record))
-  await page.reload()
   const compact = page.getByRole('menubar', { name: 'Menus' }).getByRole('menuitem', { name: 'Menu' })
   if (await compact.isVisible()) await compact.click()
   await page.getByRole('menuitem', { name: 'File' }).click()
