@@ -256,17 +256,18 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
 
   const moveStores = { draftsStore: DRAFTS_STORE, metaStore: META_STORE, moveKey: MOVE_RECORD_KEY } as const
 
-  const runSyncLegacyAttempt = async (): Promise<'done' | 'retry'> => {
-    const raw = options.legacyStorage?.getItem(LEGACY_DRAFTS_KEY)
-    if (!raw) return 'done'
-    const conn = await openDb()
-    if (!conn) return 'done'
-    const sourceHash = await sha256Hex(raw)
-    const existingMove = await readMoveMetaRecord(conn, moveStores)
-    if (existingMove?.state === 'live' && existingMove.sourceHash === sourceHash) return 'done'
-    const entries = parseLegacyDraftsEnvelope(raw)
-    if (entries.length === 0) return 'done'
-    const prepared = await prepareLegacyDrafts(entries, options.designCore, now().toISOString())
+  const isInactive = (): boolean => disposed || pageHidden
+  const staleAttemptResult = (): 'done' | 'retry' => (isInactive() ? 'done' : 'retry')
+  const reportMigrationFailed = (error: unknown): void => {
+    if (!isInactive()) options.onMigrationFailed?.(error)
+  }
+
+  const commitLegacySync = async (
+    conn: IDBDatabase,
+    existingMove: Awaited<ReturnType<typeof readMoveMetaRecord>>,
+    prepared: Awaited<ReturnType<typeof prepareLegacyDrafts>>,
+    sourceHash: string,
+  ): Promise<'done' | 'retry'> => {
     if (existingMove?.state === 'live') {
       const committed = await runOlderTabLegacyCopy({
         conn, stores: moveStores, prepared, sourceHash, expectedRev: existingMove.rev, appVersion, onOlderTabCopy: options.onOlderTabCopy,
@@ -276,19 +277,36 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
     const swapped = await runInitialLegacyMove({
       conn, stores: moveStores, prepared, sourceHash, appVersion,
       legacyStorage: options.legacyStorage, designCore: options.designCore,
-      onOlderTabCopy: options.onOlderTabCopy, onMigrationFailed: options.onMigrationFailed,
+      onOlderTabCopy: options.onOlderTabCopy, onMigrationFailed: reportMigrationFailed,
     })
-    if (swapped) return 'done'
+    if (swapped || isInactive()) return 'done'
+    if (conn !== db) return 'retry'
     const after = await readMoveMetaRecord(conn, moveStores)
     return after?.state === 'live' ? 'retry' : 'done'
   }
 
+  const runSyncLegacyAttempt = async (): Promise<'done' | 'retry'> => {
+    const raw = isInactive() ? null : options.legacyStorage?.getItem(LEGACY_DRAFTS_KEY)
+    if (!raw) return 'done'
+    const conn = await openDb()
+    if (!conn) return 'done'
+    const sourceHash = await sha256Hex(raw)
+    if (conn !== db) return staleAttemptResult()
+    const existingMove = await readMoveMetaRecord(conn, moveStores)
+    if (conn !== db) return staleAttemptResult()
+    if (existingMove?.state === 'live' && existingMove.sourceHash === sourceHash) return 'done'
+    const entries = parseLegacyDraftsEnvelope(raw)
+    if (entries.length === 0) return 'done'
+    const prepared = await prepareLegacyDrafts(entries, options.designCore, now().toISOString())
+    return conn !== db ? staleAttemptResult() : commitLegacySync(conn, existingMove, prepared, sourceHash)
+  }
+
   const runSyncLegacyOnce = async (): Promise<void> => {
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < 2 && !isInactive(); attempt += 1) {
       try {
         if ((await runSyncLegacyAttempt()) === 'done') return
       } catch (error) {
-        options.onMigrationFailed?.(error)
+        reportMigrationFailed(error)
         return
       }
     }
@@ -301,11 +319,15 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
       return
     }
     syncInFlight = (async () => {
-      do {
-        syncQueued = false
-        await runSyncLegacyOnce()
-      } while (syncQueued && !disposed)
-    })().finally(() => { syncInFlight = null })
+      try {
+        do {
+          syncQueued = false
+          await runSyncLegacyOnce()
+        } while (syncQueued && !disposed)
+      } finally {
+        syncInFlight = null
+      }
+    })()
     await syncInFlight
   }
 
