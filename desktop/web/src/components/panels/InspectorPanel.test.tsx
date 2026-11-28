@@ -4,7 +4,6 @@ import { act } from 'preact/test-utils'
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeInspector, inspectorOpen, openInspector } from '../../app/planning-view/state'
-import { zoneDimensionsVisible } from '../../app/canvas-settings/signals'
 import { installSpeciesCatalogWorkbench, type SpeciesCatalogWorkbench } from '../../app/plant-browser'
 import { locale, unitSystem } from '../../app/settings/state'
 import { currentCanvasSession } from '../../canvas/session'
@@ -98,12 +97,15 @@ describe('InspectorPanel', () => {
   }
   const plane = createSessionPlane({ lon: 2.35, lat: 48.85 })
   const sceneRev = signal(0)
+  const zoneDimensionsVisible = signal(true)
+  let restoreWorkbench: (() => void) | null = null
 
   function mountWithSelection(editableTargets: readonly { kind: string; id: string }[], persisted = makePersistedScene()) {
     currentCanvasSession.value = {
       queries: {
         revision: { scene: sceneRev },
         sessionPlane: signal(plane),
+        zoneDimensionsVisible,
         getSceneSnapshot: () => persisted,
         getDesignObjectSelection: () => ({
           editableTargets,
@@ -114,6 +116,13 @@ describe('InspectorPanel', () => {
       },
       commands: {
         sceneEdits: edits,
+        chrome: {
+          toggleGrid: vi.fn(),
+          toggleSnapToGrid: vi.fn(),
+          toggleZoneDimensions: () => {
+            zoneDimensionsVisible.value = !zoneDimensionsVisible.value
+          },
+        },
       },
     } as unknown as CanvasRuntimeSurfaces
     return act(() => render(<InspectorPanel />, container))
@@ -146,6 +155,8 @@ describe('InspectorPanel', () => {
   })
 
   afterEach(async () => {
+    restoreWorkbench?.()
+    restoreWorkbench = null
     await act(() => render(null, container))
     container.remove()
     currentCanvasSession.value = null
@@ -316,7 +327,7 @@ describe('InspectorPanel', () => {
         is_favorite: false,
       },
     ])
-    installSpeciesCatalogWorkbench({ searchCloseMatches: searchSpy } as unknown as SpeciesCatalogWorkbench)
+    restoreWorkbench = installSpeciesCatalogWorkbench({ searchCloseMatches: searchSpy } as unknown as SpeciesCatalogWorkbench)
     const scene = makePersistedScene()
     scene.plants.push({ ...scene.plants[0]!, id: 'p-2', position: { x: 5, y: 5 } })
     await mountWithSelection([{ kind: 'plant', id: 'p-1' }, { kind: 'plant', id: 'p-2' }], scene)
@@ -331,6 +342,8 @@ describe('InspectorPanel', () => {
 
     const option = container.querySelector<HTMLButtonElement>('[data-replace-species-option="Castanea sativa"]')!
     expect(option).not.toBeNull()
+    expect(option.parentElement?.getAttribute('role')).toBe('none')
+    expect(option.querySelector('em')?.getAttribute('lang')).toBe('la')
     await act(() => option.click())
 
     const submit = container.querySelector<HTMLButtonElement>('#inspector-replace-species-submit')!
@@ -344,5 +357,73 @@ describe('InspectorPanel', () => {
       canopySpreadM: null,
       adoptSpeciesSpread: false,
     })
+  })
+
+  it('does not re-commit rounded dimension values on non-dirty blur or double-commit after Enter', async () => {
+    const scene = makePersistedScene()
+    // 3.75 m displays as "3.8 m" (1 decimal place); tabbing out without typing must not overwrite 3.75 m.
+    scene.zones[0] = {
+      ...scene.zones[0]!,
+      points: [{ x: -1.875, y: -1 }, { x: 1.875, y: -1 }, { x: 1.875, y: 1 }, { x: -1.875, y: 1 }],
+    }
+    await mountWithSelection([{ kind: 'zone', id: 'z-rect' }], scene)
+    const widthInput = container.querySelector<HTMLInputElement>('#inspector-width')!
+    expect(widthInput.value).toBe('3.7 m')
+
+    await act(() => {
+      widthInput.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+    expect(edits.editZoneDimensions).not.toHaveBeenCalled()
+
+    // Committing via Enter clears dirty so the subsequent blur does not fire a duplicate edit.
+    await commitTextInput('inspector-width', '5 m', true)
+    expect(edits.editZoneDimensions).toHaveBeenCalledTimes(1)
+    await act(() => {
+      widthInput.dispatchEvent(new FocusEvent('focusout', { bubbles: true }))
+    })
+    expect(edits.editZoneDimensions).toHaveBeenCalledTimes(1)
+  })
+
+  it('resets species search state when selection changes and ignores stale async responses', async () => {
+    let resolveFirst!: (items: readonly unknown[]) => void
+    const firstPromise = new Promise<readonly unknown[]>((resolve) => {
+      resolveFirst = resolve
+    })
+    const searchSpy = vi.fn().mockReturnValueOnce(firstPromise)
+    restoreWorkbench = installSpeciesCatalogWorkbench({ searchCloseMatches: searchSpy } as unknown as SpeciesCatalogWorkbench)
+
+    const scene = makePersistedScene()
+    scene.plants.push({ ...scene.plants[0]!, id: 'p-2', position: { x: 5, y: 5 } })
+    await mountWithSelection([{ kind: 'plant', id: 'p-1' }], scene)
+
+    const searchInput = container.querySelector<HTMLInputElement>('#inspector-replace-species-search')!
+    await act(() => {
+      searchInput.value = 'malus'
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    expect(searchInput.value).toBe('malus')
+
+    // Switch selection before the in-flight search resolves.
+    await mountWithSelection([{ kind: 'plant', id: 'p-2' }], scene)
+    expect(container.querySelector<HTMLInputElement>('#inspector-replace-species-search')!.value).toBe('')
+
+    await act(async () => {
+      resolveFirst([{ canonical_name: 'Castanea sativa', common_name: 'Sweet chestnut', width_max_m: 15 }])
+      await Promise.resolve()
+    })
+    expect(container.querySelector('[data-replace-species-option="Castanea sativa"]')).toBeNull()
+  })
+
+  it('locks aspect ratio on ellipse zones proportionally', async () => {
+    const scene = makePersistedScene()
+    scene.zones[0] = { ...scene.zones[0]!, id: 'z-ellipse', zoneType: 'ellipse' }
+    await mountWithSelection([{ kind: 'zone', id: 'z-ellipse' }], scene)
+    const lockBtn = container.querySelector<HTMLButtonElement>('#inspector-aspect-lock')!
+    await act(() => lockBtn.click())
+    await commitTextInput('inspector-width', '8 m', true)
+    const call = vi.mocked(edits.editZoneDimensions!).mock.calls.at(-1)!
+    expect(call[0]).toBe('z-ellipse')
+    expect(call[1].widthM).toBeCloseTo(8, 5)
+    expect(call[1].heightM).toBeCloseTo(4, 2)
   })
 })

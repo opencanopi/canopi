@@ -234,6 +234,7 @@ export interface CanvasSceneEditCommandSurface {
 export interface CanvasChromeCommandSurface {
   toggleGrid(): void
   toggleSnapToGrid(): void
+  toggleZoneDimensions?(): void
 }
 
 export interface CanvasLayerCommandSurface {
@@ -299,6 +300,8 @@ export interface CanvasQuerySurface {
   readonly view: ViewReadSurface
   // The open Design's metre frame; null only before the first hydration.
   readonly sessionPlane: ReadonlySignal<SessionPlane | null>
+  /** Canvas-only visibility of zone dimension callouts; defaults to true when omitted. */
+  readonly zoneDimensionsVisible?: ReadonlySignal<boolean>
   capturePrintSnapshot(): CanvasPrintSnapshot | null
   /**
    * The settled scene as a saved view shows it in `view`, for an off-screen

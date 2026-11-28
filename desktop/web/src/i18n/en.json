@@ -2303,6 +2303,9 @@
     "replaceSpeciesPlaceholder": "Search species to replace…",
     "adoptSpeciesSpread": "Adopt species canopy spread",
     "replaceSpeciesAction": "Replace species",
-    "selectedPlantsCount": "{{count}} plants selected"
+    "selectedPlantsCount_one": "{{count, number}} plant selected",
+    "selectedPlantsCount_few": "{{count, number}} plants selected",
+    "selectedPlantsCount_many": "{{count, number}} plants selected",
+    "selectedPlantsCount_other": "{{count, number}} plants selected"
   }
 }

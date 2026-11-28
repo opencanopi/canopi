@@ -252,7 +252,7 @@ export function formatArea(sqMeters: number, system: UnitSystem, locale: string,
 }
 
 /** Formats a length or area dimension via `Intl.NumberFormat` without noisy trailing fractional zeros. */
-export function formatDimension(
+function formatDimension(
   kind: 'length' | 'area',
   siValue: number,
   system: UnitSystem,

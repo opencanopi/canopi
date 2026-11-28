@@ -2303,6 +2303,9 @@
     "replaceSpeciesPlaceholder": "Cerca specie da sostituire…",
     "adoptSpeciesSpread": "Adotta ampiezza chioma della specie",
     "replaceSpeciesAction": "Sostituisci specie",
-    "selectedPlantsCount": "{{count}} piante selezionate"
+    "selectedPlantsCount_one": "{{count, number}} pianta selezionata",
+    "selectedPlantsCount_few": "{{count, number}} piante selezionate",
+    "selectedPlantsCount_many": "{{count, number}} piante selezionate",
+    "selectedPlantsCount_other": "{{count, number}} piante selezionate"
   }
 }

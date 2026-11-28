@@ -97,7 +97,9 @@ export function SelectionChip({ placement = 'map' }: {
 function canInspectSelection(
   selectionModel: ReturnType<NonNullable<typeof currentCanvasQuerySurface.value>['getDesignObjectSelection']> | null,
 ): boolean {
-  return selectionModel?.editableTargets.length === 1 && selectionModel.editableTargets[0]?.kind !== 'group'
+  const targets = selectionModel?.editableTargets ?? []
+  if (targets.length === 1) return targets[0]?.kind !== 'group'
+  return targets.length > 1 && targets.every((target) => target.kind === 'plant')
 }
 
 function isOnlyPlants(summary: MapSelectionSummary): boolean {

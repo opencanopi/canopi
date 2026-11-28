@@ -122,8 +122,8 @@
 
 .aspectLockButton[aria-pressed='true'] {
   border-color: var(--color-accent);
-  background: var(--color-accent-subtle);
-  color: var(--color-text);
+  background: var(--color-accent-soft);
+  color: var(--color-accent-ink);
 }
 
 .checkboxRow {
@@ -176,7 +176,8 @@
 }
 
 .speciesOption[aria-selected='true'] {
-  background: var(--color-accent-subtle);
+  background: var(--color-accent-soft);
+  box-shadow: inset 3px 0 0 var(--color-accent);
 }
 
 .speciesNames {

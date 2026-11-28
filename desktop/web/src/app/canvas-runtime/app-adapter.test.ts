@@ -9,7 +9,8 @@ import { CanvasPlantLabelResolver } from '../../canvas/runtime/plant-labels'
 import { CanvasSpeciesCache } from './species-cache'
 import { t } from '../../i18n'
 import type { Settings } from '../../types/settings'
-import { gridVisible } from '../canvas-settings/signals'
+import { gridVisible, zoneDimensionsVisible } from '../canvas-settings/signals'
+import { setStoryPresentationHidesEditingAids } from '../story-presentation/overrides'
 import { composeDocumentForSave } from '../contracts/document'
 import { createTestSessionCore } from '../../__tests__/support/session-core-fixture'
 import type { CanopiFile } from '../../types/design'
@@ -218,6 +219,116 @@ describe('reduced motion', () => {
     host.surfaces.commands.viewport.rotateBy(1)
     expect(bearing()).toBeCloseTo(30, 6)
     await host.destroy()
+  })
+
+  it('reactively toggles zoneDimensionsVisible via chrome surface and suppresses it during story presentation', async () => {
+    const { createLiveTestCanvasRuntimeHost } = await import('../../__tests__/support/live-canvas-runtime')
+    zoneDimensionsVisible.value = true
+    setStoryPresentationHidesEditingAids(false)
+    const appAdapter = createAdapter()
+    const host = createLiveTestCanvasRuntimeHost({ screen: { width: 800, height: 600 }, appAdapter })
+
+    try {
+      expect(host.surfaces.queries.zoneDimensionsVisible?.value).toBe(true)
+
+      host.surfaces.commands.chrome.toggleZoneDimensions?.()
+      expect(zoneDimensionsVisible.value).toBe(false)
+      expect(host.surfaces.queries.zoneDimensionsVisible?.value).toBe(false)
+
+      host.surfaces.commands.chrome.toggleZoneDimensions?.()
+      expect(zoneDimensionsVisible.value).toBe(true)
+      expect(host.surfaces.queries.zoneDimensionsVisible?.value).toBe(true)
+
+      // Story presentation suppresses zone dimension callouts without mutating the user preference.
+      setStoryPresentationHidesEditingAids(true)
+      expect(host.surfaces.queries.zoneDimensionsVisible?.value).toBe(false)
+      expect(zoneDimensionsVisible.value).toBe(true)
+
+      setStoryPresentationHidesEditingAids(false)
+      expect(host.surfaces.queries.zoneDimensionsVisible?.value).toBe(true)
+    } finally {
+      setStoryPresentationHidesEditingAids(false)
+      zoneDimensionsVisible.value = true
+      await host.destroy()
+    }
+  })
+
+  it('commits replacePlantsSpecies as one compound Undo/Redo edit and respects locked plants layer', async () => {
+    const { createLiveTestCanvasRuntimeHost } = await import('../../__tests__/support/live-canvas-runtime')
+    const host = createLiveTestCanvasRuntimeHost({ screen: { width: 800, height: 600 } })
+
+    try {
+      const design = {
+        version: 10,
+        name: 'Bulk replace test',
+        ...host.surfaces.documents.serializeSceneFields(),
+        plants: [
+          {
+            id: 'p-1',
+            canonical_name: 'Malus domestica',
+            common_name: 'Apple',
+            position: { lon: 2.35, lat: 48.85 },
+            canopy_spread_m: 4,
+            color: '#4caf50',
+            locked: false,
+          },
+          {
+            id: 'p-2',
+            canonical_name: 'Pyrus communis',
+            common_name: 'Pear',
+            position: { lon: 2.3501, lat: 48.8501 },
+            canopy_spread_m: 5,
+            color: '#8bc34a',
+            locked: false,
+          },
+        ],
+      } as unknown as CanopiFile
+      host.surfaces.documents.loadDocument(design)
+
+      const replaced = host.surfaces.commands.sceneEdits.replacePlantsSpecies(['p-1', 'p-2'], {
+        canonicalName: 'Juglans regia',
+        commonName: 'Walnut',
+        canopySpreadM: 12,
+        adoptSpeciesSpread: true,
+      })
+      expect(replaced).toBe(true)
+      expect(host.surfaces.queries.getSceneSnapshot().plants.map((p) => p.canonicalName)).toEqual([
+        'Juglans regia',
+        'Juglans regia',
+      ])
+      expect(host.surfaces.queries.getSceneSnapshot().plants.map((p) => p.canopySpreadM)).toEqual([12, 12])
+
+      // Single Undo restores both plants atomically.
+      host.surfaces.commands.history.undo()
+      expect(host.surfaces.queries.getSceneSnapshot().plants.map((p) => p.canonicalName)).toEqual([
+        'Malus domestica',
+        'Pyrus communis',
+      ])
+      expect(host.surfaces.queries.getSceneSnapshot().plants.map((p) => p.canopySpreadM)).toEqual([4, 5])
+
+      // Single Redo re-applies both plants atomically.
+      host.surfaces.commands.history.redo()
+      expect(host.surfaces.queries.getSceneSnapshot().plants.map((p) => p.canonicalName)).toEqual([
+        'Juglans regia',
+        'Juglans regia',
+      ])
+
+      // Locking the plants layer refuses replacement.
+      host.surfaces.commands.layers.setSceneLayerLocked('plants', true)
+      const blocked = host.surfaces.commands.sceneEdits.replacePlantsSpecies(['p-1', 'p-2'], {
+        canonicalName: 'Castanea sativa',
+        commonName: 'Sweet chestnut',
+        canopySpreadM: 15,
+        adoptSpeciesSpread: false,
+      })
+      expect(blocked).toBe(false)
+      expect(host.surfaces.queries.getSceneSnapshot().plants.map((p) => p.canonicalName)).toEqual([
+        'Juglans regia',
+        'Juglans regia',
+      ])
+    } finally {
+      await host.destroy()
+    }
   })
 })
 

@@ -2303,6 +2303,9 @@
     "replaceSpeciesPlaceholder": "搜索要替换的物种…",
     "adoptSpeciesSpread": "采用物种冠幅",
     "replaceSpeciesAction": "替换物种",
-    "selectedPlantsCount": "已选择 {{count}} 株植物"
+    "selectedPlantsCount_one": "已选择 {{count, number}} 株植物",
+    "selectedPlantsCount_few": "已选择 {{count, number}} 株植物",
+    "selectedPlantsCount_many": "已选择 {{count, number}} 株植物",
+    "selectedPlantsCount_other": "已选择 {{count, number}} 株植物"
   }
 }

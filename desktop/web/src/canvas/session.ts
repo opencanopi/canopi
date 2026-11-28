@@ -1,5 +1,6 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import type {
+  CanvasChromeCommandSurface,
   CanvasCommandSurface,
   CanvasDocumentSurface,
   CanvasKeyboardPort,
@@ -34,6 +35,9 @@ export const currentCanvasSceneEditCommandSurface = computed<CanvasSceneEditComm
 )
 export const currentCanvasPlantPresentationCommandSurface = computed<CanvasPlantPresentationCommandSurface | null>(() =>
   currentCanvasSession.value?.commands.plantPresentation ?? null,
+)
+export const currentCanvasChromeCommandSurface = computed<CanvasChromeCommandSurface | null>(() =>
+  currentCanvasSession.value?.commands.chrome ?? null,
 )
 export const currentCanvasSpeciesFocusCommands = computed(() =>
   currentCanvasSession.value?.commands.speciesFocus ?? null,

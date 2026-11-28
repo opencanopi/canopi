@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'preact/hooks'
-import { toggleZoneDimensions, zoneDimensionsVisible } from '../../app/canvas-settings/signals'
 import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { closeInspector } from '../../app/planning-view/state'
 import { locale, unitSystem } from '../../app/settings/state'
@@ -9,7 +8,8 @@ import {
   readSegmentDimensions,
 } from '../../canvas/runtime/dimension-math'
 import {
-  currentCanvasCommandSurface,
+  currentCanvasChromeCommandSurface,
+  currentCanvasPlantPresentationCommandSurface,
   currentCanvasQuerySurface,
   currentCanvasSceneEditCommandSurface,
 } from '../../canvas/session'
@@ -41,14 +41,19 @@ function InspectorTextField({
 }) {
   const [draft, setDraft] = useState(formatted)
   const [invalid, setInvalid] = useState(false)
+  const dirtyRef = useRef(false)
 
   useEffect(() => {
     setDraft(formatted)
     setInvalid(false)
+    dirtyRef.current = false
   }, [formatted])
 
   const commit = () => {
-    setInvalid(!parseAndCommit(draft))
+    if (!dirtyRef.current) return
+    const ok = parseAndCommit(draft)
+    setInvalid(!ok)
+    if (ok) dirtyRef.current = false
   }
 
   return (
@@ -61,6 +66,7 @@ function InspectorTextField({
         value={draft}
         aria-invalid={invalid ? 'true' : 'false'}
         onInput={(e) => {
+          dirtyRef.current = true
           setDraft(e.currentTarget.value)
           setInvalid(false)
         }}
@@ -134,13 +140,14 @@ function NumberField({
 }
 
 function CanvasZoneDimensionsToggle() {
+  const visible = currentCanvasQuerySurface.value?.zoneDimensionsVisible?.value ?? true
   return (
     <label className={styles.checkboxRow} htmlFor="inspector-zone-dimensions-visible">
       <input
         id="inspector-zone-dimensions-visible"
         type="checkbox"
-        checked={zoneDimensionsVisible.value}
-        onChange={() => toggleZoneDimensions()}
+        checked={visible}
+        onChange={() => currentCanvasChromeCommandSurface.peek()?.toggleZoneDimensions?.()}
       />
       <span className={styles.checkboxLabel}>{t('inspector.showCanvasZoneDimensions')}</span>
     </label>
@@ -302,6 +309,18 @@ function PlantSpeciesReplaceSection({
   const searchSeqRef = useRef(0)
   const unit = unitSystem.value
   const activeLocale = locale.value
+  const selectionKey = plantIds.join('\0')
+
+  useEffect(() => {
+    searchSeqRef.current += 1
+    setQuery('')
+    setResults([])
+    setSelected(null)
+    setAdoptSpread(false)
+    return () => {
+      searchSeqRef.current += 1
+    }
+  }, [selectionKey])
 
   const onSearchInput = (next: string) => {
     setQuery(next)
@@ -331,10 +350,12 @@ function PlantSpeciesReplaceSection({
       adoptSpeciesSpread: adoptSpread,
     })
     if (ok) {
-      void currentCanvasCommandSurface
+      void currentCanvasPlantPresentationCommandSurface
         .peek()
-        ?.plantPresentation?.ensureSpeciesCacheEntries([selected.canonical_name], locale.peek())
-        .catch(() => {})
+        ?.ensureSpeciesCacheEntries([selected.canonical_name], locale.peek())
+        .catch(() => {
+          // Best-effort presentation cache warm-up; the species replacement is already committed.
+        })
       setQuery('')
       setResults([])
       setSelected(null)
@@ -359,7 +380,7 @@ function PlantSpeciesReplaceSection({
             const isSelected = selected?.canonical_name === item.canonical_name
             const hasSpread = typeof item.width_max_m === 'number' && Number.isFinite(item.width_max_m) && item.width_max_m > 0
             return (
-              <li key={item.canonical_name}>
+              <li key={item.canonical_name} role="none">
                 <button
                   type="button"
                   role="option"
@@ -370,7 +391,7 @@ function PlantSpeciesReplaceSection({
                 >
                   <span className={styles.speciesNames}>
                     {item.common_name ? <span className={styles.speciesCommon}>{item.common_name}</span> : null}
-                    <em className={styles.speciesCanonical}>{item.canonical_name}</em>
+                    <em className={styles.speciesCanonical} lang="la">{item.canonical_name}</em>
                   </span>
                   {hasSpread ? (
                     <span className={styles.speciesSpread}>

@@ -2300,9 +2300,12 @@
     "lockAspectRatio": "Verrouiller les proportions",
     "showCanvasZoneDimensions": "Afficher les dimensions des zones sur la carte",
     "replaceSpecies": "Remplacer l’espèce",
-    "replaceSpeciesPlaceholder": "Rechercher une espèce de remplacement…",
+    "replaceSpeciesPlaceholder": "Chercher une espèce…",
     "adoptSpeciesSpread": "Adopter l’envergure de l’espèce",
     "replaceSpeciesAction": "Remplacer l’espèce",
-    "selectedPlantsCount": "{{count}} plantes sélectionnées"
+    "selectedPlantsCount_one": "{{count, number}} plante sélectionnée",
+    "selectedPlantsCount_few": "{{count, number}} plantes sélectionnées",
+    "selectedPlantsCount_many": "{{count, number}} plantes sélectionnées",
+    "selectedPlantsCount_other": "{{count, number}} plantes sélectionnées"
   }
 }

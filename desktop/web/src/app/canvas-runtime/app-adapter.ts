@@ -102,6 +102,9 @@ export function createAppCanvasRuntimeAppAdapter(
           settings.snapToGrid = !settings.snapToGrid
         }, { persist: 'immediate' })
       },
+      toggleZoneDimensionsVisible: () => {
+        zoneDimensionsVisible.value = !zoneDimensionsVisible.value
+      },
       subscribeTheme: (onChange) => effect(() => {
         void theme.value
         onChange()

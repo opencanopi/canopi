@@ -2303,6 +2303,9 @@
     "replaceSpeciesPlaceholder": "Поиск вида для замены…",
     "adoptSpeciesSpread": "Применить ширину кроны вида",
     "replaceSpeciesAction": "Заменить вид",
-    "selectedPlantsCount": "Выбрано растений: {{count}}"
+    "selectedPlantsCount_one": "Выбрано {{count, number}} растение",
+    "selectedPlantsCount_few": "Выбрано {{count, number}} растения",
+    "selectedPlantsCount_many": "Выбрано {{count, number}} растений",
+    "selectedPlantsCount_other": "Выбрано {{count, number}} растения"
   }
 }

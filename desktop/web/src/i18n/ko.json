@@ -2303,6 +2303,9 @@
     "replaceSpeciesPlaceholder": "교체할 종 검색…",
     "adoptSpeciesSpread": "종의 수관 폭 적용",
     "replaceSpeciesAction": "종 교체",
-    "selectedPlantsCount": "식물 {{count}}개 선택됨"
+    "selectedPlantsCount_one": "식물 {{count, number}}개 선택됨",
+    "selectedPlantsCount_few": "식물 {{count, number}}개 선택됨",
+    "selectedPlantsCount_many": "식물 {{count, number}}개 선택됨",
+    "selectedPlantsCount_other": "식물 {{count, number}}개 선택됨"
   }
 }

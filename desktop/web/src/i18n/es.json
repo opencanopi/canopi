@@ -2303,6 +2303,9 @@
     "replaceSpeciesPlaceholder": "Buscar especie para reemplazar…",
     "adoptSpeciesSpread": "Adoptar amplitud de copa de la especie",
     "replaceSpeciesAction": "Reemplazar especie",
-    "selectedPlantsCount": "{{count}} plantas seleccionadas"
+    "selectedPlantsCount_one": "{{count, number}} planta seleccionada",
+    "selectedPlantsCount_few": "{{count, number}} plantas seleccionadas",
+    "selectedPlantsCount_many": "{{count, number}} plantas seleccionadas",
+    "selectedPlantsCount_other": "{{count, number}} plantas seleccionadas"
   }
 }

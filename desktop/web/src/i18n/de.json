@@ -2303,6 +2303,9 @@
     "replaceSpeciesPlaceholder": "Art zum Ersetzen suchen…",
     "adoptSpeciesSpread": "Kronenbreite der Art übernehmen",
     "replaceSpeciesAction": "Art ersetzen",
-    "selectedPlantsCount": "{{count}} Pflanzen ausgewählt"
+    "selectedPlantsCount_one": "{{count, number}} Pflanze ausgewählt",
+    "selectedPlantsCount_few": "{{count, number}} Pflanzen ausgewählt",
+    "selectedPlantsCount_many": "{{count, number}} Pflanzen ausgewählt",
+    "selectedPlantsCount_other": "{{count, number}} Pflanzen ausgewählt"
   }
 }

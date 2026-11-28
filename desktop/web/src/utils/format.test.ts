@@ -9,7 +9,6 @@ import {
   formatByteSize,
   formatCatalogSize,
   formatCurrency,
-  formatDimension,
   formatElevation,
   formatFixed,
   formatLength,
@@ -307,10 +306,10 @@ describe('normalized dimension formatting (formatDimension / formatNormalizedLen
   })
 
   it('respects locale decimal separators and round-trips through parseQuantity', () => {
-    expect(formatDimension('length', 1500, 'metric', 'de-DE')).toBe('1,5 km')
-    expect(formatDimension('area', 15_000, 'metric', 'de-DE')).toBe('1,5 ha')
-    expect(formatDimension('length', 4, 'metric', 'de-DE')).toBe('4 m')
-    expect(formatDimension('length', 1.5, 'metric', 'fr-FR')).toMatch(/^1,5[\s\u00a0\u202f]m$/)
+    expect(formatNormalizedLength(1500, 'metric', 'de-DE')).toBe('1,5 km')
+    expect(formatNormalizedArea(15_000, 'metric', 'de-DE')).toBe('1,5 ha')
+    expect(formatNormalizedLength(4, 'metric', 'de-DE')).toBe('4 m')
+    expect(formatNormalizedLength(1.5, 'metric', 'fr-FR')).toMatch(/^1,5[\s\u00a0\u202f]m$/)
 
     for (const loc of ['en-US', 'de-DE', 'fr-FR', 'ja']) {
       const formatted = formatNormalizedLength(4, 'metric', loc)

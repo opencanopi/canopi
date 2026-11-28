@@ -118,7 +118,7 @@ interface SceneCanvasCommandSurfaceOptions {
   >
   readonly settings: Pick<
     CanvasRuntimeSettingsAdapter,
-    'toggleGridVisible' | 'toggleSnapToGrid'
+    'toggleGridVisible' | 'toggleSnapToGrid' | 'toggleZoneDimensionsVisible'
   >
   readonly armInteractionTool: <T = unknown>(id: ToolId, source?: ToolSource | null, request?: MapInputRequest<T>) => MapInputHandle<T>
   /** The active interaction session's Plant a row spacing field. */
@@ -224,6 +224,7 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
     this.chrome = {
       toggleGrid: () => this.options.settings.toggleGridVisible(),
       toggleSnapToGrid: () => this.options.settings.toggleSnapToGrid(),
+      toggleZoneDimensions: () => this.options.settings.toggleZoneDimensionsVisible?.(),
     }
     this.layers = {
       setSceneLayerVisibility: (name, visible) => this.setSceneLayerState(name, { visible }),

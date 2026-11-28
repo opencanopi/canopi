@@ -186,6 +186,7 @@ export interface CanvasRuntimeSettingsAdapter {
   commitPlantSpacingIntervalMeters(meters: number): void
   toggleGridVisible(): void
   toggleSnapToGrid(): void
+  toggleZoneDimensionsVisible?(): void
   subscribeTheme(onChange: () => void): () => void
   subscribeLocale(onChange: () => void): () => void
   subscribeUnitSystem?(onChange: () => void): () => void

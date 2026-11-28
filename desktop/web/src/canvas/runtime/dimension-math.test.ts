@@ -235,5 +235,27 @@ describe('dimension-math and hover-tooltip-content', () => {
     adoptMut!(s)
     expect(s.plants[0]).toMatchObject({ canonicalName: 'Juglans regia', commonName: 'English walnut', canopySpreadM: 12 })
     expect(s.plants[1]).toMatchObject({ canonicalName: 'Juglans regia', commonName: 'English walnut', canopySpreadM: 12 })
+
+    // All-locked selection refuses replacement cleanly.
+    const allLocked = prepareReplacePlantsSpecies(s, ['p-locked'], {
+      canonicalName: 'Pyrus communis',
+      commonName: 'Pear',
+      canopySpreadM: 6,
+      adoptSpeciesSpread: true,
+    })
+    expect(allLocked).toBeNull()
+
+    // Plants inside a locked group are skipped while unlocked plants still update.
+    s.groups = [{ kind: 'group', id: 'g-locked', name: 'Locked', members: [{ kind: 'plant', id: 'p-2' }], locked: true }]
+    const groupMut = prepareReplacePlantsSpecies(s, ['p-1', 'p-2'], {
+      canonicalName: 'Pyrus communis',
+      commonName: 'Pear',
+      canopySpreadM: 6,
+      adoptSpeciesSpread: false,
+    })
+    expect(groupMut).not.toBeNull()
+    groupMut!(s)
+    expect(s.plants[0]!.canonicalName).toBe('Pyrus communis')
+    expect(s.plants[1]!.canonicalName).toBe('Juglans regia')
   })
 })

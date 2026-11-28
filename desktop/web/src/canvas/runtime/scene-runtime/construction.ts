@@ -331,9 +331,14 @@ export function createSceneRuntimeConstruction(
     isRuntimeActive: () => runtimeActive,
     isSpatialEditingEnabled: () => cameraHost.frames.viewFrame.peek().mode === 'site',
   })
+  const zoneDimensionsVisible = signal(appAdapter.settings.readZoneDimensionsVisible?.() ?? true)
+  disposeEffects.push(appAdapter.settings.subscribeChromeOverlay(() => {
+    zoneDimensionsVisible.value = appAdapter.settings.readZoneDimensionsVisible?.() ?? true
+  }))
   const querySurface = createSceneCanvasQuerySurface({
     revision,
     sceneStore,
+    zoneDimensionsVisible,
     frames: cameraHost.frames,
     settledReader,
     mutations,

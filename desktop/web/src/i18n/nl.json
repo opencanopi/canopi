@@ -2303,6 +2303,9 @@
     "replaceSpeciesPlaceholder": "Zoek soort om te vervangen…",
     "adoptSpeciesSpread": "Kroonbreedte van soort overnemen",
     "replaceSpeciesAction": "Soort vervangen",
-    "selectedPlantsCount": "{{count}} planten geselecteerd"
+    "selectedPlantsCount_one": "{{count, number}} plant geselecteerd",
+    "selectedPlantsCount_few": "{{count, number}} planten geselecteerd",
+    "selectedPlantsCount_many": "{{count, number}} planten geselecteerd",
+    "selectedPlantsCount_other": "{{count, number}} planten geselecteerd"
   }
 }
