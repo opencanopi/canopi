@@ -107,6 +107,7 @@ export interface SceneRuntimeConstruction {
   readonly documentSurface: SceneCanvasDocumentSurface
   readonly querySurface: SceneCanvasQuerySurface
   readonly panelTargetAdapter: SceneRuntimePanelTargetAdapter
+  readonly syncZoneDimensionsVisible: () => void
   readonly disposeEffects: Array<() => void>
 }
 
@@ -332,9 +333,9 @@ export function createSceneRuntimeConstruction(
     isSpatialEditingEnabled: () => cameraHost.frames.viewFrame.peek().mode === 'site',
   })
   const zoneDimensionsVisible = signal(appAdapter.settings.readZoneDimensionsVisible?.() ?? true)
-  disposeEffects.push(appAdapter.settings.subscribeChromeOverlay(() => {
+  const syncZoneDimensionsVisible = () => {
     zoneDimensionsVisible.value = appAdapter.settings.readZoneDimensionsVisible?.() ?? true
-  }))
+  }
   const querySurface = createSceneCanvasQuerySurface({
     revision,
     sceneStore,
@@ -364,6 +365,7 @@ export function createSceneRuntimeConstruction(
     documentSurface,
     querySurface,
     panelTargetAdapter,
+    syncZoneDimensionsVisible,
     disposeEffects,
   }
 }

@@ -400,6 +400,7 @@ export class SceneCanvasRuntime {
         this._invalidate()
       },
       onChromeOverlay: () => {
+        this._construction.syncZoneDimensionsVisible()
         this._syncEditingAids()
         this._interaction?.refreshTranslations()
       },

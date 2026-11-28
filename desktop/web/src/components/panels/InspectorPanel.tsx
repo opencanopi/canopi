@@ -535,28 +535,31 @@ function renderTargetInspector(
   return null
 }
 
+function renderInspectorContent(
+  queries: NonNullable<typeof currentCanvasQuerySurface.value> | null,
+  edits: CanvasSceneEditCommandSurface | null,
+) {
+  if (!queries || !edits) return null
+  void queries.revision.scene.value
+  const editableTargets = queries.getDesignObjectSelection().editableTargets
+  if (editableTargets.length === 1) {
+    const plane = queries.sessionPlane?.value ?? null
+    if (!plane) return null
+    return renderTargetInspector(editableTargets[0]!, queries.getSceneSnapshot(), plane, edits)
+  }
+  if (editableTargets.length > 1 && editableTargets.every((target) => target.kind === 'plant')) {
+    return <BulkPlantReplaceSection plantIds={editableTargets.map((target) => target.id)} edits={edits} />
+  }
+  return null
+}
+
 /**
  * Docked Edit dimensions & Style inspector (panel on desktop, sheet on phones;
  * 2.1-Q149, 2.1-Q153, 2.1-Q160, 2.1-Q353, 2.1-Q355).
  * No typed target area; polygons expose side lengths, interior angles, and centre lat/lon only.
  */
 export function InspectorPanel() {
-  const queries = currentCanvasQuerySurface.value
-  const edits = currentCanvasSceneEditCommandSurface.value
-  void queries?.revision.scene.value
-  const plane = queries?.sessionPlane?.value ?? null
-  const selection = queries?.getDesignObjectSelection() ?? null
-  const persisted = queries?.getSceneSnapshot() ?? null
-  const editableTargets = selection?.editableTargets ?? []
-  const primaryTarget = editableTargets.length === 1 ? editableTargets[0]! : null
-  const multiPlantIds = editableTargets.length > 1 && editableTargets.every((target) => target.kind === 'plant')
-    ? editableTargets.map((target) => target.id)
-    : null
-  const content = primaryTarget && persisted && plane && edits
-    ? renderTargetInspector(primaryTarget, persisted, plane, edits)
-    : multiPlantIds && edits
-      ? <BulkPlantReplaceSection plantIds={multiPlantIds} edits={edits} />
-      : null
+  const content = renderInspectorContent(currentCanvasQuerySurface.value, currentCanvasSceneEditCommandSurface.value)
 
   return (
     <aside className={styles.panel} data-inspector-panel aria-label={t('inspector.title')}>

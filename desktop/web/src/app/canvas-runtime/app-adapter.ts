@@ -17,7 +17,7 @@ import {
 } from '../settings/state'
 
 import { presentedMapLayers, storyPresentationHidesEditingAids, storyPresentationOverrides } from '../story-presentation/overrides'
-import { gridVisible, zoneDimensionsVisible } from '../canvas-settings/signals'
+import { gridVisible, toggleZoneDimensions, zoneDimensionsVisible } from '../canvas-settings/signals'
 import { mutateSettingsProjection } from '../settings/projection'
 import { composeDocumentForSave } from '../contracts/document'
 import { activeSessionCore, getLiveSessionCore } from '../document-session/live-core'
@@ -103,7 +103,7 @@ export function createAppCanvasRuntimeAppAdapter(
         }, { persist: 'immediate' })
       },
       toggleZoneDimensionsVisible: () => {
-        zoneDimensionsVisible.value = !zoneDimensionsVisible.value
+        toggleZoneDimensions()
       },
       subscribeTheme: (onChange) => effect(() => {
         void theme.value
