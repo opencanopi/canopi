@@ -152,7 +152,7 @@ describe('Selection chip', () => {
     await select([{ kind: 'plant', id: 'apricot-1' }, { kind: 'plant', id: 'apricot-2' }])
     expect(chip()!.dataset.selectionChip).toBe('bar')
     expect(status()).toBe('2 plants · Apricot · 5 m apart')
-    expect(buttons()).toEqual(['Same species', 'Size', 'Clear'])
+    expect(buttons()).toEqual(['Same species', 'Clear'])
 
     await act(() => chip()!.querySelector<HTMLButtonElement>('button')!.click())
     expect(selectSpecies).toHaveBeenCalledWith(['Prunus armeniaca'])
