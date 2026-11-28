@@ -275,6 +275,15 @@ export interface PlantFieldEdit {
   readonly quantity?: number
 }
 
+export interface PlantSpeciesReplacement {
+  readonly canonicalName: string
+  readonly commonName?: string | null
+  /** Optional mature canopy spread in metres from the species catalog; omitted/null/<=0 when sparse. */
+  readonly canopySpreadM?: number | null
+  /** When true and `canopySpreadM` is finite & > 0, adopt the replacement species' spread; otherwise keep existing spread. */
+  readonly adoptSpeciesSpread?: boolean
+}
+
 export interface AnnotationFieldEdit {
   readonly text?: string
   readonly fontSize?: number
@@ -359,6 +368,54 @@ export function prepareEditAnnotationFields(
   if (text === note.text && fontSize === note.fontSize) return null
   return (draft) => {
     draft.annotations = draft.annotations.map((c) => c.id === annotationId ? { ...c, text, fontSize } : c)
+  }
+}
+
+export function prepareReplacePlantsSpecies(
+  persisted: ScenePersistedState,
+  plantIds: readonly string[],
+  replacement: PlantSpeciesReplacement,
+): ((draft: ScenePersistedState) => void) | null {
+  const canonicalName = replacement.canonicalName.trim()
+  if (!canonicalName || plantIds.length === 0) return null
+  const targetIds = new Set(plantIds)
+  const lockedGroupPlantIds = new Set<string>()
+  for (const group of persisted.groups) {
+    if (!group.locked) continue
+    for (const member of group.members) {
+      if (member.kind === 'plant') lockedGroupPlantIds.add(member.id)
+    }
+  }
+  const commonName = replacement.commonName?.trim() || null
+  const validSpread = replacement.adoptSpeciesSpread === true
+    && typeof replacement.canopySpreadM === 'number'
+    && Number.isFinite(replacement.canopySpreadM)
+    && replacement.canopySpreadM > 0
+    ? replacement.canopySpreadM
+    : undefined
+
+  let changed = false
+  const nextPlants = persisted.plants.map((plant) => {
+    if (!targetIds.has(plant.id) || plant.locked || lockedGroupPlantIds.has(plant.id)) return plant
+    const nextSpread = validSpread !== undefined ? validSpread : plant.canopySpreadM
+    if (
+      plant.canonicalName === canonicalName
+      && plant.commonName === commonName
+      && plant.canopySpreadM === nextSpread
+    ) {
+      return plant
+    }
+    changed = true
+    return {
+      ...plant,
+      canonicalName,
+      commonName,
+      canopySpreadM: nextSpread,
+    }
+  })
+  if (!changed) return null
+  return (draft) => {
+    draft.plants = nextPlants
   }
 }
 

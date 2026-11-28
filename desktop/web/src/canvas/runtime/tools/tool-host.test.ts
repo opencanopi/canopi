@@ -1255,6 +1255,31 @@ describe('ToolHost', () => {
       expect(h.renderer.lastDraft()).toEqual({ shapes: [edgeChip, ...chips] })
     })
 
+    it('hides selected-zone dimension callouts when canvas zone dimensions visibility is toggled off and restores them when toggled back on', () => {
+      useStubTools(stubTool('select'))
+      let visible = true
+      const h = harness({
+        tool: 'select',
+        scene: { zones: [bed()] },
+        settings: {
+          plantSpacingIntervalM: () => 1,
+          commitPlantSpacingIntervalM: () => {},
+          zoneDimensionsVisible: () => visible,
+        },
+      })
+      h.select(Z1)
+      const chips = selectedZoneChips(h)
+      expect(h.renderer.lastDraft()).toEqual({ shapes: chips })
+
+      visible = false
+      h.host.refreshTranslations()
+      expect(h.renderer.lastDraft()).toBeNull()
+
+      visible = true
+      h.host.refreshTranslations()
+      expect(h.renderer.lastDraft()).toEqual({ shapes: chips })
+    })
+
     it('a tool call that mutates the open transaction invalidates', () => {
       let edit: SceneEditTransaction | null = null
       const rectangle: StubTool = stubTool('rectangle', {

@@ -1144,6 +1144,7 @@
     "file.saveAs": "名前を付けて保存…",
     "edit.group": "グループ化",
     "view.toolNames": "ツール名",
+    "view.zoneDimensions": "ゾーン寸法",
     "file.save": "保存",
     "file.export": "エクスポート",
     "view.backgroundNone": "なし",
@@ -2295,6 +2296,16 @@
     "plantedDate": "植栽日",
     "notes": "メモ",
     "noteText": "メモ本文",
-    "fontSize": "文字サイズ"
+    "fontSize": "文字サイズ",
+    "lockAspectRatio": "縦横比を固定",
+    "showCanvasZoneDimensions": "地図上にゾーン寸法を表示",
+    "replaceSpecies": "種を置換",
+    "replaceSpeciesPlaceholder": "置換する種を検索…",
+    "adoptSpeciesSpread": "種の樹冠幅を適用",
+    "replaceSpeciesAction": "種を置換",
+    "selectedPlantsCount_one": "植物 {{count, number}} 件を選択中",
+    "selectedPlantsCount_few": "植物 {{count, number}} 件を選択中",
+    "selectedPlantsCount_many": "植物 {{count, number}} 件を選択中",
+    "selectedPlantsCount_other": "植物 {{count, number}} 件を選択中"
   }
 }

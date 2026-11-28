@@ -38,6 +38,7 @@ const IDLE_TOOL_STATE: ToolHostState = Object.freeze({ id: 'select', source: nul
 interface SceneCanvasQuerySurfaceOptions {
   readonly revision: CanvasQueryRevision
   readonly sceneStore: SceneStateReader & SceneDocumentReader
+  readonly zoneDimensionsVisible?: ReadonlySignal<boolean>
   /** The runtime camera's frames: `view`, the label coverage and the frame's scale (which sizes screen-sized notes in
    *  the selection model) read them. */
   readonly frames: ViewFrameSource
@@ -74,6 +75,7 @@ export function createSceneCanvasQuerySurface(options: SceneCanvasQuerySurfaceOp
 
 class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
   readonly view: ViewReadSurface
+  readonly zoneDimensionsVisible: ReadonlySignal<boolean>
   private readonly boundToolState = signal<ReadonlySignal<ToolHostState> | null>(null)
   readonly toolState: ReadonlySignal<ToolHostState> = computed(() => this.boundToolState.value?.value ?? IDLE_TOOL_STATE)
   readonly activeTool: ReadonlySignal<ToolId> = computed(() => this.toolState.value.id)
@@ -87,6 +89,7 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
   constructor(private readonly options: SceneCanvasQuerySurfaceOptions) {
     // The frames place the Scene's metres; their ground is read on the Scene's plane.
     this.view = createViewReadSurface(options.frames)
+    this.zoneDimensionsVisible = options.zoneDimensionsVisible ?? signal(true)
   }
 
   bindToolState(source: ReadonlySignal<ToolHostState> | null): void {

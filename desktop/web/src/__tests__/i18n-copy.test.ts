@@ -57,6 +57,7 @@ const PLACEHOLDER_BUDGETS: Record<string, number> = {
   'canvas.calendar.addSpeciesPlaceholder': DOCK_FIELD,
   'designNotebook.newSectionPlaceholder': DOCK_FIELD,
   'filters.searchFields': DOCK_FIELD,
+  'inspector.replaceSpeciesPlaceholder': DOCK_FIELD,
   'start.searchDesigns': DOCK_FIELD,
   'canvas.placeSearch.placeholder': 26,
   // The Site data filter sits in the 440 px panel above the rows (spec §9.5).

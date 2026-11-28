@@ -37,8 +37,8 @@ export function SelectionChip({ placement = 'map' }: {
   // The summary hook re-renders the chip on selection and scene changes (locks included).
   const selectionModel = queries?.getDesignObjectSelection() ?? null
   const renameZoneId = loneEditableZoneId(selectionModel)
-  const canInspect = canInspectSelection(selectionModel)
   const bar = placement === 'bar'
+  const canInspect = canInspectSelection(selectionModel, bar)
   return (
     <div className={styles.chip} role="group" aria-label={t('canvas.selectionChip.label')} data-selection-chip={bar ? 'bar' : 'bottom'}>
       <span className={styles.text} role="status" aria-live="polite">
@@ -96,8 +96,12 @@ export function SelectionChip({ placement = 'map' }: {
 
 function canInspectSelection(
   selectionModel: ReturnType<NonNullable<typeof currentCanvasQuerySurface.value>['getDesignObjectSelection']> | null,
+  bar: boolean,
 ): boolean {
-  return selectionModel?.editableTargets.length === 1 && selectionModel.editableTargets[0]?.kind !== 'group'
+  const targets = selectionModel?.editableTargets ?? []
+  if (targets.length === 1) return targets[0]?.kind !== 'group'
+  // On phones (placement="bar"), keep multi-plant selection bar to Same species + Clear so 360 px locales stay on one line (canopi-f47t.54).
+  return !bar && targets.length > 1 && targets.every((target) => target.kind === 'plant')
 }
 
 function isOnlyPlants(summary: MapSelectionSummary): boolean {

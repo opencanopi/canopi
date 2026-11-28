@@ -164,11 +164,11 @@ describe('Selection chip', () => {
     await act(() => render(<SelectionChip />, container))
     await select([{ kind: 'plant', id: 'apricot-1' }, { kind: 'plant', id: 'apricot-2' }])
     expect(status()).toBe('2 plants · Apricot · 5 m apart')
-    expect(buttons()).toEqual(['Select all of this species', 'Clear selection'])
+    expect(buttons()).toEqual(['Select all of this species', 'Dimensions', 'Clear selection'])
 
     await select([{ kind: 'plant', id: 'apricot-1' }, { kind: 'plant', id: 'apricot-2' }, { kind: 'plant', id: 'apricot-3' }])
     expect(status()).toBe('3 plants · Apricot · 5 m apart')
-    expect(buttons()).toEqual(['Clear selection'])
+    expect(buttons()).toEqual(['Dimensions', 'Clear selection'])
   })
 
   it('counts species across plants, expanding groups, and falls back to the scientific name', async () => {
@@ -317,7 +317,7 @@ describe('Selection chip', () => {
     await select([{ kind: 'plant', id: 'apricot-1' }, { kind: 'plant', id: 'fig-1' }])
     await act(() => { locale.value = 'fr' })
     expect(status()).toBe('2 plantes · 2 espèces · espacées de 15 m')
-    expect(buttons()).toEqual(['Effacer la sélection'])
+    expect(buttons()).toEqual(['Dimensions', 'Effacer la sélection'])
   })
 
   it('sits apart from the finder chip: a separate bottom chip in the visible map area', async () => {

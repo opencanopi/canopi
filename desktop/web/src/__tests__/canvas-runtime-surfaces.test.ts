@@ -137,6 +137,7 @@ function createCommandSurface() {
       editZoneDimensions: () => false,
       editMeasurementGuideDimensions: () => false,
       editPlantFields: () => false,
+      replacePlantsSpecies: () => false,
       editAnnotationFields: () => false,
       setSpeciesCode: () => false,
       rotateSelected: () => {},

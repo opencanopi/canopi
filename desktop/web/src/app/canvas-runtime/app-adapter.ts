@@ -17,7 +17,7 @@ import {
 } from '../settings/state'
 
 import { presentedMapLayers, storyPresentationHidesEditingAids, storyPresentationOverrides } from '../story-presentation/overrides'
-import { gridVisible } from '../canvas-settings/signals'
+import { gridVisible, toggleZoneDimensions, zoneDimensionsVisible } from '../canvas-settings/signals'
 import { mutateSettingsProjection } from '../settings/projection'
 import { composeDocumentForSave } from '../contracts/document'
 import { activeSessionCore, getLiveSessionCore } from '../document-session/live-core'
@@ -82,8 +82,9 @@ export function createAppCanvasRuntimeAppAdapter(
     settings: {
       readLocale: () => locale.value,
       readUnitSystem: () => unitSystem.value,
-      // Presenting a story shows the map without the grid.
+      // Presenting a story shows the map without the grid or zone dimension callouts.
       readChromeOverlay: () => ({ gridVisible: gridVisible.value && !storyPresentationHidesEditingAids.value }),
+      readZoneDimensionsVisible: () => zoneDimensionsVisible.value && !storyPresentationHidesEditingAids.value,
       readSnapToGridEnabled: () => snapToGridEnabled.value,
       readScrollWheel: () => scrollWheel.peek(),
       readPlantSpacingIntervalMeters: () => plantSpacingIntervalM.value,
@@ -101,6 +102,9 @@ export function createAppCanvasRuntimeAppAdapter(
           settings.snapToGrid = !settings.snapToGrid
         }, { persist: 'immediate' })
       },
+      toggleZoneDimensionsVisible: () => {
+        toggleZoneDimensions()
+      },
       subscribeTheme: (onChange) => effect(() => {
         void theme.value
         onChange()
@@ -115,6 +119,7 @@ export function createAppCanvasRuntimeAppAdapter(
       }),
       subscribeChromeOverlay: (onChange) => effect(() => {
         void gridVisible.value
+        void zoneDimensionsVisible.value
         void storyPresentationHidesEditingAids.value
         onChange()
       }),

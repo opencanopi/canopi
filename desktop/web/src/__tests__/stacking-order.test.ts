@@ -156,6 +156,7 @@ describe('the tooltip layer', () => {
     const INLINE_LISTS = new Map([
       ['components/panels/lidar/DataLibraryView.tsx', 'the data library\'s list stays in its panel'],
       ['components/panels/CalendarSpeciesPicker.tsx', 'drawn inside the calendar editor\'s role="dialog" (CalendarPanel.tsx)'],
+      ['components/panels/InspectorPanel.tsx', 'the species replacement list stays in its panel'],
     ])
     const missing: string[] = []
     for (const path of sources(SRC).filter((entry) => /\.tsx?$/.test(entry))) {

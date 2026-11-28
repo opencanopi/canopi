@@ -212,6 +212,7 @@ export interface ToolSettingsPort {
   commitPlantSpacingIntervalM(metres: number): void
   unitSystem?(): UnitSystem
   locale?(): string
+  zoneDimensionsVisible?(): boolean
 }
 
 export interface ToolContext {

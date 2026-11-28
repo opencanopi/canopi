@@ -1144,6 +1144,7 @@
     "file.saveAs": "另存为…",
     "edit.group": "编组",
     "view.toolNames": "工具名称",
+    "view.zoneDimensions": "区域尺寸",
     "file.save": "保存",
     "file.export": "导出",
     "view.backgroundNone": "无",
@@ -2295,6 +2296,16 @@
     "plantedDate": "种植日期",
     "notes": "备注",
     "noteText": "备注内容",
-    "fontSize": "字号"
+    "fontSize": "字号",
+    "lockAspectRatio": "锁定纵横比",
+    "showCanvasZoneDimensions": "在地图上显示区域尺寸",
+    "replaceSpecies": "替换物种",
+    "replaceSpeciesPlaceholder": "搜索要替换的物种…",
+    "adoptSpeciesSpread": "采用物种冠幅",
+    "replaceSpeciesAction": "替换物种",
+    "selectedPlantsCount_one": "已选择 {{count, number}} 株植物",
+    "selectedPlantsCount_few": "已选择 {{count, number}} 株植物",
+    "selectedPlantsCount_many": "已选择 {{count, number}} 株植物",
+    "selectedPlantsCount_other": "已选择 {{count, number}} 株植物"
   }
 }

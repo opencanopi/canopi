@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
+import { speciesCatalogWorkbench } from '../../app/plant-browser'
 import { closeInspector } from '../../app/planning-view/state'
 import { locale, unitSystem } from '../../app/settings/state'
 import {
@@ -7,6 +8,8 @@ import {
   readSegmentDimensions,
 } from '../../canvas/runtime/dimension-math'
 import {
+  currentCanvasChromeCommandSurface,
+  currentCanvasPlantPresentationCommandSurface,
   currentCanvasQuerySurface,
   currentCanvasSceneEditCommandSurface,
 } from '../../canvas/session'
@@ -19,8 +22,9 @@ import type {
   SceneZoneEntity,
 } from '../../canvas/runtime/scene'
 import type { SessionPlane } from '../../geo/session-plane'
+import type { SpeciesListItem } from '../../types/species'
 import { t } from '../../i18n'
-import { formatLength, formatNumber, formatPercent, parseLocalizedNumber, parseQuantity } from '../../utils/format'
+import { formatNormalizedLength, formatNumber, formatPercent, parseLocalizedNumber, parseQuantity } from '../../utils/format'
 import { CanopiColorPicker } from '../canvas/CanopiColorPicker'
 import styles from './InspectorPanel.module.css'
 
@@ -37,14 +41,19 @@ function InspectorTextField({
 }) {
   const [draft, setDraft] = useState(formatted)
   const [invalid, setInvalid] = useState(false)
+  const dirtyRef = useRef(false)
 
   useEffect(() => {
     setDraft(formatted)
     setInvalid(false)
+    dirtyRef.current = false
   }, [formatted])
 
   const commit = () => {
-    setInvalid(!parseAndCommit(draft))
+    if (!dirtyRef.current) return
+    const ok = parseAndCommit(draft)
+    setInvalid(!ok)
+    if (ok) dirtyRef.current = false
   }
 
   return (
@@ -57,6 +66,7 @@ function InspectorTextField({
         value={draft}
         aria-invalid={invalid ? 'true' : 'false'}
         onInput={(e) => {
+          dirtyRef.current = true
           setDraft(e.currentTarget.value)
           setInvalid(false)
         }}
@@ -89,7 +99,7 @@ function DimensionField({
     <InspectorTextField
       id={id}
       label={label}
-      formatted={formatLength(valueM, unit, activeLocale)}
+      formatted={formatNormalizedLength(valueM, unit, activeLocale)}
       parseAndCommit={(raw) => {
         const parsed = parseQuantity('length', raw, unit, activeLocale)
         if (parsed === null || parsed <= 0) return false
@@ -129,6 +139,21 @@ function NumberField({
   )
 }
 
+function CanvasZoneDimensionsToggle() {
+  const visible = currentCanvasQuerySurface.value?.zoneDimensionsVisible?.value ?? true
+  return (
+    <label className={styles.checkboxRow} htmlFor="inspector-zone-dimensions-visible">
+      <input
+        id="inspector-zone-dimensions-visible"
+        type="checkbox"
+        checked={visible}
+        onChange={() => currentCanvasChromeCommandSurface.peek()?.toggleZoneDimensions?.()}
+      />
+      <span className={styles.checkboxLabel}>{t('inspector.showCanvasZoneDimensions')}</span>
+    </label>
+  )
+}
+
 function ZoneDimensionsSection({
   zone,
   plane,
@@ -138,42 +163,80 @@ function ZoneDimensionsSection({
   readonly plane: SessionPlane
   readonly edits: CanvasSceneEditCommandSurface
 }) {
+  const [aspectLocked, setAspectLocked] = useState(false)
+  useEffect(() => {
+    setAspectLocked(false)
+  }, [zone.id])
+
   const rectDims = readRectOrEllipseDimensions(zone, plane)
   if (rectDims) {
+    const commitWidth = (widthM: number) => {
+      if (aspectLocked && rectDims.widthM > 0 && rectDims.heightM > 0) {
+        edits.editZoneDimensions(zone.id, { widthM, heightM: (widthM / rectDims.widthM) * rectDims.heightM })
+      } else {
+        edits.editZoneDimensions(zone.id, { widthM })
+      }
+    }
+    const commitHeight = (heightM: number) => {
+      if (aspectLocked && rectDims.widthM > 0 && rectDims.heightM > 0) {
+        edits.editZoneDimensions(zone.id, { widthM: (heightM / rectDims.heightM) * rectDims.widthM, heightM })
+      } else {
+        edits.editZoneDimensions(zone.id, { heightM })
+      }
+    }
     return (
-      <div className={styles.grid}>
-        <DimensionField id="inspector-width" label={t('inspector.width')} valueM={rectDims.widthM} onCommit={(widthM) => edits.editZoneDimensions(zone.id, { widthM })} />
-        <DimensionField id="inspector-height" label={t('inspector.height')} valueM={rectDims.heightM} onCommit={(heightM) => edits.editZoneDimensions(zone.id, { heightM })} />
-        <NumberField id="inspector-rotation" label={t('inspector.rotation')} value={rectDims.rotationDeg} onCommit={(rotationDeg) => edits.editZoneDimensions(zone.id, { rotationDeg })} />
-        <NumberField id="inspector-center-lat" label={t('inspector.centerLat')} value={rectDims.center.lat} decimals={6} onCommit={(lat) => edits.editZoneDimensions(zone.id, { center: { lon: rectDims.center.lon, lat } })} />
-        <NumberField id="inspector-center-lon" label={t('inspector.centerLon')} value={rectDims.center.lon} decimals={6} onCommit={(lon) => edits.editZoneDimensions(zone.id, { center: { lon, lat: rectDims.center.lat } })} />
-      </div>
+      <>
+        <div className={styles.grid}>
+          <DimensionField id="inspector-width" label={t('inspector.width')} valueM={rectDims.widthM} onCommit={commitWidth} />
+          <DimensionField id="inspector-height" label={t('inspector.height')} valueM={rectDims.heightM} onCommit={commitHeight} />
+          <button
+            id="inspector-aspect-lock"
+            type="button"
+            className={styles.aspectLockButton}
+            data-aspect-lock-toggle
+            aria-pressed={aspectLocked ? 'true' : 'false'}
+            onClick={() => setAspectLocked((prev) => !prev)}
+          >
+            {t('inspector.lockAspectRatio')}
+          </button>
+          <NumberField id="inspector-rotation" label={t('inspector.rotation')} value={rectDims.rotationDeg} onCommit={(rotationDeg) => edits.editZoneDimensions(zone.id, { rotationDeg })} />
+          <NumberField id="inspector-center-lat" label={t('inspector.centerLat')} value={rectDims.center.lat} decimals={6} onCommit={(lat) => edits.editZoneDimensions(zone.id, { center: { lon: rectDims.center.lon, lat } })} />
+          <NumberField id="inspector-center-lon" label={t('inspector.centerLon')} value={rectDims.center.lon} decimals={6} onCommit={(lon) => edits.editZoneDimensions(zone.id, { center: { lon, lat: rectDims.center.lat } })} />
+        </div>
+        <CanvasZoneDimensionsToggle />
+      </>
     )
   }
   const polyDims = readPolygonDimensions(zone, plane)
   if (polyDims) {
     return (
-      <div className={styles.grid}>
-        {polyDims.sideLengthsM.map((lenM, idx) => (
-          <DimensionField key={`side-${idx}`} id={`inspector-side-${idx}`} label={t('inspector.side', { index: idx + 1 })} valueM={lenM} onCommit={(sideLengthM) => edits.editZoneDimensions(zone.id, { sideIndex: idx, sideLengthM })} />
-        ))}
-        {polyDims.interiorAnglesDeg.map((deg, idx) => (
-          <NumberField key={`angle-${idx}`} id={`inspector-corner-${idx}`} label={t('inspector.cornerAngle', { index: idx + 1 })} value={deg} onCommit={(cornerAngleDeg) => edits.editZoneDimensions(zone.id, { cornerIndex: idx, cornerAngleDeg })} />
-        ))}
-        <NumberField id="inspector-center-lat" label={t('inspector.centerLat')} value={polyDims.center.lat} decimals={6} onCommit={(lat) => edits.editZoneDimensions(zone.id, { center: { lon: polyDims.center.lon, lat } })} />
-        <NumberField id="inspector-center-lon" label={t('inspector.centerLon')} value={polyDims.center.lon} decimals={6} onCommit={(lon) => edits.editZoneDimensions(zone.id, { center: { lon, lat: polyDims.center.lat } })} />
-      </div>
+      <>
+        <div className={styles.grid}>
+          {polyDims.sideLengthsM.map((lenM, idx) => (
+            <DimensionField key={`side-${idx}`} id={`inspector-side-${idx}`} label={t('inspector.side', { index: idx + 1 })} valueM={lenM} onCommit={(sideLengthM) => edits.editZoneDimensions(zone.id, { sideIndex: idx, sideLengthM })} />
+          ))}
+          {polyDims.interiorAnglesDeg.map((deg, idx) => (
+            <NumberField key={`angle-${idx}`} id={`inspector-corner-${idx}`} label={t('inspector.cornerAngle', { index: idx + 1 })} value={deg} onCommit={(cornerAngleDeg) => edits.editZoneDimensions(zone.id, { cornerIndex: idx, cornerAngleDeg })} />
+          ))}
+          <NumberField id="inspector-center-lat" label={t('inspector.centerLat')} value={polyDims.center.lat} decimals={6} onCommit={(lat) => edits.editZoneDimensions(zone.id, { center: { lon: polyDims.center.lon, lat } })} />
+          <NumberField id="inspector-center-lon" label={t('inspector.centerLon')} value={polyDims.center.lon} decimals={6} onCommit={(lon) => edits.editZoneDimensions(zone.id, { center: { lon, lat: polyDims.center.lat } })} />
+        </div>
+        <CanvasZoneDimensionsToggle />
+      </>
     )
   }
   if (zone.points.length < 2) return null
   const lineDims = readSegmentDimensions(zone.points[0]!, zone.points[zone.points.length - 1]!, plane)
   return (
-    <div className={styles.grid}>
-      <DimensionField id="inspector-length" label={t('inspector.length')} valueM={lineDims.lengthM} onCommit={(lengthM) => edits.editZoneDimensions(zone.id, { lengthM })} />
-      <NumberField id="inspector-angle" label={t('inspector.angle')} value={lineDims.angleDeg} onCommit={(angleDeg) => edits.editZoneDimensions(zone.id, { angleDeg })} />
-      <NumberField id="inspector-center-lat" label={t('inspector.centerLat')} value={lineDims.center.lat} decimals={6} onCommit={(lat) => edits.editZoneDimensions(zone.id, { center: { lon: lineDims.center.lon, lat } })} />
-      <NumberField id="inspector-center-lon" label={t('inspector.centerLon')} value={lineDims.center.lon} decimals={6} onCommit={(lon) => edits.editZoneDimensions(zone.id, { center: { lon, lat: lineDims.center.lat } })} />
-    </div>
+    <>
+      <div className={styles.grid}>
+        <DimensionField id="inspector-length" label={t('inspector.length')} valueM={lineDims.lengthM} onCommit={(lengthM) => edits.editZoneDimensions(zone.id, { lengthM })} />
+        <NumberField id="inspector-angle" label={t('inspector.angle')} value={lineDims.angleDeg} onCommit={(angleDeg) => edits.editZoneDimensions(zone.id, { angleDeg })} />
+        <NumberField id="inspector-center-lat" label={t('inspector.centerLat')} value={lineDims.center.lat} decimals={6} onCommit={(lat) => edits.editZoneDimensions(zone.id, { center: { lon: lineDims.center.lon, lat } })} />
+        <NumberField id="inspector-center-lon" label={t('inspector.centerLon')} value={lineDims.center.lon} decimals={6} onCommit={(lon) => edits.editZoneDimensions(zone.id, { center: { lon, lat: lineDims.center.lat } })} />
+      </div>
+      <CanvasZoneDimensionsToggle />
+    </>
   )
 }
 
@@ -232,41 +295,190 @@ function GuideInspectorSection({
   )
 }
 
+function PlantSpeciesReplaceSection({
+  plantIds,
+  edits,
+}: {
+  readonly plantIds: readonly string[]
+  readonly edits: CanvasSceneEditCommandSurface
+}) {
+  const [query, setQuery] = useState('')
+  const [results, setResults] = useState<readonly SpeciesListItem[]>([])
+  const [selected, setSelected] = useState<SpeciesListItem | null>(null)
+  const [adoptSpread, setAdoptSpread] = useState(false)
+  const searchSeqRef = useRef(0)
+  const unit = unitSystem.value
+  const activeLocale = locale.value
+  const selectionKey = plantIds.join('\0')
+
+  useEffect(() => {
+    searchSeqRef.current += 1
+    setQuery('')
+    setResults([])
+    setSelected(null)
+    setAdoptSpread(false)
+    return () => {
+      searchSeqRef.current += 1
+    }
+  }, [selectionKey])
+
+  const onSearchInput = (next: string) => {
+    setQuery(next)
+    setSelected(null)
+    const trimmed = next.trim()
+    const seq = ++searchSeqRef.current
+    if (!trimmed) {
+      setResults([])
+      return
+    }
+    void speciesCatalogWorkbench
+      .searchCloseMatches(trimmed, 8)
+      .then((items) => {
+        if (searchSeqRef.current === seq) setResults(items)
+      })
+      .catch(() => {
+        if (searchSeqRef.current === seq) setResults([])
+      })
+  }
+
+  const applyReplacement = () => {
+    if (!selected) return
+    const ok = edits.replacePlantsSpecies(plantIds, {
+      canonicalName: selected.canonical_name,
+      commonName: selected.common_name,
+      canopySpreadM: selected.width_max_m,
+      adoptSpeciesSpread: adoptSpread,
+    })
+    if (ok) {
+      void currentCanvasPlantPresentationCommandSurface
+        .peek()
+        ?.ensureSpeciesCacheEntries([selected.canonical_name], locale.peek())
+        .catch(() => {
+          // Best-effort presentation cache warm-up; the species replacement is already committed.
+        })
+      setQuery('')
+      setResults([])
+      setSelected(null)
+    }
+  }
+
+  return (
+    <section className={styles.section} data-replace-species-section>
+      <h3 className={styles.sectionTitle}>{t('inspector.replaceSpecies')}</h3>
+      <input
+        id="inspector-replace-species-search"
+        type="text"
+        className={styles.input}
+        value={query}
+        placeholder={t('inspector.replaceSpeciesPlaceholder')}
+        aria-label={t('inspector.replaceSpecies')}
+        onInput={(e) => onSearchInput(e.currentTarget.value)}
+      />
+      {results.length > 0 && (
+        <ul className={styles.speciesList} role="listbox" aria-label={t('inspector.replaceSpecies')}>
+          {results.map((item) => {
+            const isSelected = selected?.canonical_name === item.canonical_name
+            const hasSpread = typeof item.width_max_m === 'number' && Number.isFinite(item.width_max_m) && item.width_max_m > 0
+            return (
+              <li key={item.canonical_name} role="none">
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected ? 'true' : 'false'}
+                  className={styles.speciesOption}
+                  data-replace-species-option={item.canonical_name}
+                  onClick={() => setSelected(item)}
+                >
+                  <span className={styles.speciesNames}>
+                    {item.common_name ? <span className={styles.speciesCommon}>{item.common_name}</span> : null}
+                    <em className={styles.speciesCanonical} lang="la">{item.canonical_name}</em>
+                  </span>
+                  {hasSpread ? (
+                    <span className={styles.speciesSpread}>
+                      {formatNormalizedLength(item.width_max_m!, unit, activeLocale)}
+                    </span>
+                  ) : null}
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <label className={styles.checkboxRow} htmlFor="inspector-replace-adopt-spread">
+        <input
+          id="inspector-replace-adopt-spread"
+          type="checkbox"
+          checked={adoptSpread}
+          onChange={(e) => setAdoptSpread(e.currentTarget.checked)}
+        />
+        <span className={styles.checkboxLabel}>{t('inspector.adoptSpeciesSpread')}</span>
+      </label>
+      <button
+        id="inspector-replace-species-submit"
+        type="button"
+        className={styles.primaryButton}
+        disabled={!selected}
+        onClick={applyReplacement}
+      >
+        {t('inspector.replaceSpeciesAction')}
+      </button>
+    </section>
+  )
+}
+
 function PlantInspectorSection({ plant, edits }: { readonly plant: ScenePlantEntity; readonly edits: CanvasSceneEditCommandSurface }) {
   return (
-    <section className={styles.section}>
-      <h3 className={styles.sectionTitle}>{t('inspector.dimensions')}</h3>
-      <div className={styles.grid}>
-        <DimensionField id="inspector-plant-spread" label={t('inspector.canopySpread')} valueM={plant.canopySpreadM ?? 0} onCommit={(canopySpreadM) => edits.editPlantFields(plant.id, { canopySpreadM })} />
-        <NumberField id="inspector-plant-quantity" label={t('inspector.quantity')} value={plant.quantity ?? 1} decimals={0} onCommit={(q) => edits.editPlantFields(plant.id, { quantity: Math.max(1, Math.round(q)) })} />
-      </div>
-      <label className={styles.field} htmlFor="inspector-plant-date">
-        <span className={styles.label}>{t('inspector.plantedDate')}</span>
-        <input
-          id="inspector-plant-date"
-          type="date"
-          className={styles.input}
-          value={plant.plantedDate ?? ''}
-          onInput={(e) => {
-            const v = e.currentTarget.value.trim()
-            edits.editPlantFields(plant.id, { plantedDate: v || null })
-          }}
-        />
-      </label>
-      <label className={styles.field} htmlFor="inspector-plant-notes">
-        <span className={styles.label}>{t('inspector.notes')}</span>
-        <textarea
-          id="inspector-plant-notes"
-          className={styles.textarea}
-          rows={3}
-          value={plant.notes ?? ''}
-          onFocusOut={(e) => {
-            const v = e.currentTarget.value.trim()
-            edits.editPlantFields(plant.id, { notes: v || null })
-          }}
-        />
-      </label>
-    </section>
+    <>
+      <section className={styles.section}>
+        <h3 className={styles.sectionTitle}>{t('inspector.dimensions')}</h3>
+        <div className={styles.grid}>
+          <DimensionField id="inspector-plant-spread" label={t('inspector.canopySpread')} valueM={plant.canopySpreadM ?? 0} onCommit={(canopySpreadM) => edits.editPlantFields(plant.id, { canopySpreadM })} />
+          <NumberField id="inspector-plant-quantity" label={t('inspector.quantity')} value={plant.quantity ?? 1} decimals={0} onCommit={(q) => edits.editPlantFields(plant.id, { quantity: Math.max(1, Math.round(q)) })} />
+        </div>
+        <label className={styles.field} htmlFor="inspector-plant-date">
+          <span className={styles.label}>{t('inspector.plantedDate')}</span>
+          <input
+            id="inspector-plant-date"
+            type="date"
+            className={styles.input}
+            value={plant.plantedDate ?? ''}
+            onInput={(e) => {
+              const v = e.currentTarget.value.trim()
+              edits.editPlantFields(plant.id, { plantedDate: v || null })
+            }}
+          />
+        </label>
+        <label className={styles.field} htmlFor="inspector-plant-notes">
+          <span className={styles.label}>{t('inspector.notes')}</span>
+          <textarea
+            id="inspector-plant-notes"
+            className={styles.textarea}
+            rows={3}
+            value={plant.notes ?? ''}
+            onFocusOut={(e) => {
+              const v = e.currentTarget.value.trim()
+              edits.editPlantFields(plant.id, { notes: v || null })
+            }}
+          />
+        </label>
+      </section>
+      <PlantSpeciesReplaceSection plantIds={[plant.id]} edits={edits} />
+    </>
+  )
+}
+
+function BulkPlantReplaceSection({
+  plantIds,
+  edits,
+}: {
+  readonly plantIds: readonly string[]
+  readonly edits: CanvasSceneEditCommandSurface
+}) {
+  return (
+    <>
+      <p className={styles.selectionSummary}>{t('inspector.selectedPlantsCount', { count: plantIds.length })}</p>
+      <PlantSpeciesReplaceSection plantIds={plantIds} edits={edits} />
+    </>
   )
 }
 
@@ -323,22 +535,31 @@ function renderTargetInspector(
   return null
 }
 
+function renderInspectorContent(
+  queries: NonNullable<typeof currentCanvasQuerySurface.value> | null,
+  edits: CanvasSceneEditCommandSurface | null,
+) {
+  if (!queries || !edits) return null
+  void queries.revision.scene.value
+  const editableTargets = queries.getDesignObjectSelection().editableTargets
+  if (editableTargets.length === 1) {
+    const plane = queries.sessionPlane?.value ?? null
+    if (!plane) return null
+    return renderTargetInspector(editableTargets[0]!, queries.getSceneSnapshot(), plane, edits)
+  }
+  if (editableTargets.length > 1 && editableTargets.every((target) => target.kind === 'plant')) {
+    return <BulkPlantReplaceSection plantIds={editableTargets.map((target) => target.id)} edits={edits} />
+  }
+  return null
+}
+
 /**
  * Docked Edit dimensions & Style inspector (panel on desktop, sheet on phones;
  * 2.1-Q149, 2.1-Q153, 2.1-Q160, 2.1-Q353, 2.1-Q355).
  * No typed target area; polygons expose side lengths, interior angles, and centre lat/lon only.
  */
 export function InspectorPanel() {
-  const queries = currentCanvasQuerySurface.value
-  const edits = currentCanvasSceneEditCommandSurface.value
-  void queries?.revision.scene.value
-  const plane = queries?.sessionPlane?.value ?? null
-  const selection = queries?.getDesignObjectSelection() ?? null
-  const persisted = queries?.getSceneSnapshot() ?? null
-  const primaryTarget = selection?.editableTargets.length === 1 ? selection.editableTargets[0]! : null
-  const content = primaryTarget && persisted && plane && edits
-    ? renderTargetInspector(primaryTarget, persisted, plane, edits)
-    : null
+  const content = renderInspectorContent(currentCanvasQuerySurface.value, currentCanvasSceneEditCommandSurface.value)
 
   return (
     <aside className={styles.panel} data-inspector-panel aria-label={t('inspector.title')}>

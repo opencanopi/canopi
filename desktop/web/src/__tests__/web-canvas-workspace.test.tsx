@@ -756,6 +756,7 @@ function fakeCommandSurface(): CanvasCommandSurface {
       editZoneDimensions: vi.fn(() => true),
       editMeasurementGuideDimensions: vi.fn(() => true),
       editPlantFields: vi.fn(() => true),
+      replacePlantsSpecies: vi.fn(() => true),
       editAnnotationFields: vi.fn(() => true),
       setSpeciesCode: vi.fn(() => true),
       rotateSelected: vi.fn(),

@@ -1144,6 +1144,7 @@
     "file.saveAs": "다른 이름으로 저장…",
     "edit.group": "그룹화",
     "view.toolNames": "도구 이름",
+    "view.zoneDimensions": "구역 치수",
     "file.save": "저장",
     "file.export": "내보내기",
     "view.backgroundNone": "없음",
@@ -2295,6 +2296,16 @@
     "plantedDate": "식재일",
     "notes": "메모",
     "noteText": "메모 내용",
-    "fontSize": "글자 크기"
+    "fontSize": "글자 크기",
+    "lockAspectRatio": "가로세로 비율 잠금",
+    "showCanvasZoneDimensions": "지도에 구역 치수 표시",
+    "replaceSpecies": "종 교체",
+    "replaceSpeciesPlaceholder": "교체할 종 검색…",
+    "adoptSpeciesSpread": "종의 수관 폭 적용",
+    "replaceSpeciesAction": "종 교체",
+    "selectedPlantsCount_one": "식물 {{count, number}}개 선택됨",
+    "selectedPlantsCount_few": "식물 {{count, number}}개 선택됨",
+    "selectedPlantsCount_many": "식물 {{count, number}}개 선택됨",
+    "selectedPlantsCount_other": "식물 {{count, number}}개 선택됨"
   }
 }

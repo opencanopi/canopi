@@ -714,7 +714,7 @@ describe('command registry canvas tool switching', () => {
       'view.resetNorth', 'view.turnViewLeft', 'view.turnViewRight', 'canvas.tool.hand', 'view.searchPlace',
       'view.saveCurrentView', 'view.manageViews',
       'canvas.toggleGrid', 'canvas.toggleSnapToGrid',
-      'view.labels:none', 'view.labels:codes', 'view.labels:names', 'view.toggleToolNames',
+      'view.labels:none', 'view.labels:codes', 'view.labels:names', 'view.toggleToolNames', 'view.toggleZoneDimensions',
       'nav.layers', 'nav.siteData', 'nav.speciesKey', 'nav.plantDb', 'nav.favorites',
       'nav.calendar', 'nav.budget', 'nav.consortium', 'nav.designNotebook', 'nav.stories',
       'view.backgroundSatellite', 'view.backgroundMap', 'view.backgroundNone', 'view.toggleTheme',

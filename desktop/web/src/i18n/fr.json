@@ -1144,6 +1144,7 @@
     "file.saveAs": "Enregistrer sous…",
     "edit.group": "Grouper",
     "view.toolNames": "Noms des outils",
+    "view.zoneDimensions": "Dimensions des zones",
     "file.save": "Enregistrer",
     "file.export": "Exporter",
     "view.backgroundNone": "Aucun",
@@ -2295,6 +2296,16 @@
     "plantedDate": "Date de plantation",
     "notes": "Notes",
     "noteText": "Texte de la note",
-    "fontSize": "Taille du texte"
+    "fontSize": "Taille du texte",
+    "lockAspectRatio": "Verrouiller les proportions",
+    "showCanvasZoneDimensions": "Afficher les dimensions des zones sur la carte",
+    "replaceSpecies": "Remplacer l’espèce",
+    "replaceSpeciesPlaceholder": "Chercher une espèce…",
+    "adoptSpeciesSpread": "Adopter l’envergure de l’espèce",
+    "replaceSpeciesAction": "Remplacer l’espèce",
+    "selectedPlantsCount_one": "{{count, number}} plante sélectionnée",
+    "selectedPlantsCount_few": "{{count, number}} plantes sélectionnées",
+    "selectedPlantsCount_many": "{{count, number}} plantes sélectionnées",
+    "selectedPlantsCount_other": "{{count, number}} plantes sélectionnées"
   }
 }
