@@ -249,7 +249,7 @@ flowchart LR
   canopi_desktop["canopi-desktop: shell, commands, services, stores, catalog, LiDAR"]
   canopi_types["canopi-types: contract shapes"]
   canopi_redact["canopi-redact: Redactor, RedactedText (skeleton)"]
-  canopi_support["canopi-support: durable files"]
+  canopi_support["canopi-support: durable files, executor, time"]
   canopi_format
   bindings_gen["bindings-gen: emitter"]
   canopi_desktop --> canopi_types
@@ -257,6 +257,7 @@ flowchart LR
   canopi_desktop --> canopi_support
   canopi_desktop --> canopi_format
   canopi_format --> canopi_types
+  canopi_support --> canopi_types
   canopi_types --> canopi_redact
   canopi_format_wasm --> canopi_types
   canopi_format_wasm --> canopi_format
