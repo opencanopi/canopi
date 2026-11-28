@@ -2,6 +2,7 @@ import { currentCanvasQuerySurface, getCurrentCanvasSession } from '../../canvas
 import type { CanvasDesignObjects } from '../../canvas/runtime/runtime'
 import { createSessionPlane } from '../../geo/session-plane'
 import { editionPorts } from '../../platform/edition-ports'
+import type { GeoPoint } from '../../types/design'
 
 /** WGS84 `[west, south, east, north]`. */
 export type GroundBox = readonly [number, number, number, number]
@@ -15,14 +16,8 @@ export type ImportCoverage =
   | { readonly kind: 'covers' | 'partial'; readonly widthM: number; readonly heightM: number }
   | { readonly kind: 'apart'; readonly distanceM: number }
 
-/** The box around the Design's plants, zones, notes and measurement guides; null while it has none. */
-export function designGroundBox(objects: CanvasDesignObjects): GroundBox | null {
-  const points = [
-    ...objects.plants.map((plant) => plant.position),
-    ...objects.zones.flatMap((zone) => zone.points),
-    ...objects.annotations.map((annotation) => annotation.position),
-    ...objects.measurementGuides.flatMap((guide) => [guide.start, guide.end]),
-  ]
+/** The WGS84 box around geographic outline points; null while empty. */
+function groundBoxOfPoints(points: readonly GeoPoint[]): GroundBox | null {
   if (points.length === 0) return null
   let [west, south, east, north] = [Infinity, Infinity, -Infinity, -Infinity]
   for (const point of points) {
@@ -32,6 +27,16 @@ export function designGroundBox(objects: CanvasDesignObjects): GroundBox | null 
     north = Math.max(north, point.lat)
   }
   return [west, south, east, north]
+}
+
+/** The box around the Design's plants, zones, notes and measurement guides; null while it has none. */
+export function designGroundBox(objects: CanvasDesignObjects): GroundBox | null {
+  return groundBoxOfPoints([
+    ...objects.plants.map((plant) => plant.position),
+    ...objects.zones.flatMap((zone) => zone.points),
+    ...objects.annotations.map((annotation) => annotation.position),
+    ...objects.measurementGuides.flatMap((guide) => [guide.start, guide.end]),
+  ])
 }
 
 /** How the files' box lies against the Design's box. */
@@ -78,8 +83,8 @@ export function coverageCanvas(): object | null {
  * extent readable, or the check itself failed (import still validates).
  */
 export async function checkImportCoverage(paths: readonly string[]): Promise<ImportCoverage | null> {
-  const objects = getCurrentCanvasSession()?.queries.getSettledDesignObjects() ?? null
-  const design = objects ? designGroundBox(objects) : null
+  const outline = getCurrentCanvasSession()?.queries.getSettledDesignOutline() ?? null
+  const design = outline ? groundBoxOfPoints(outline) : null
   if (!design || paths.length === 0) return null
   try {
     const coverage = await editionPorts().dataLibrary.importCoverage(paths)

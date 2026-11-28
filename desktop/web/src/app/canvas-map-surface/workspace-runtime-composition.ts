@@ -227,9 +227,12 @@ export function createWorkspaceRuntimeComposition(
           }))
         }
         // The chart hover changes at scrub rate: its own effect feeds the map's hover source, never the contributions read.
+        // A story presentation hides it alongside the Site data pin and profile line (2.1-Q106).
         const readSiteHover = options.mapContributions.readSiteHover
         if (siteHover && readSiteHover) {
-          effectDisposers.push(dependencies.installEffect(() => siteHover.publish(readSiteHover())))
+          effectDisposers.push(dependencies.installEffect(() => {
+            siteHover.publish(storyPresentationHidesEditingAids.value ? null : readSiteHover())
+          }))
         }
         // The device location, at fix rate, on its own feed: a story presentation hides it (it shows the story's map only, Q12).
         const readUserLocation = options.mapContributions.readUserLocation

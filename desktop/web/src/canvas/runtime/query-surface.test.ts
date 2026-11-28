@@ -13,6 +13,9 @@ import {
   type SceneInteractionEventHarness,
 } from '../../__tests__/support/canvas-interaction-events'
 import { createTestSceneCanvasRuntime } from '../../__tests__/support/detached-canvas-app-adapter'
+import { createSessionPlane } from '../../geo/session-plane'
+import { CURRENT_CANOPI_FILE_VERSION } from '../../generated/canopi-design-format'
+import type { CanopiFile } from '../../types/design'
 import type { SceneCanvasRuntime } from './scene-runtime'
 import type { PointerWorld } from './interaction-ports'
 import type * as IpcSpeciesModule from '../../ipc/species'
@@ -96,5 +99,54 @@ describe('the runtime query surface', () => {
     expect(points[0]!.world.y).toBeCloseTo(expected.y, 9)
     stop()
     runtime.destroy()
+  })
+
+  it('getSettledDesignOutline returns rotated rectangle zone corners in WGS84 from the zone kernel (2.1-Q45)', () => {
+    const plane = createSessionPlane({ lon: 2.35, lat: 48.85 })
+    const unrotated = [
+      plane.toGeo({ x: -50, y: -10 }),
+      plane.toGeo({ x: 50, y: -10 }),
+      plane.toGeo({ x: 50, y: 10 }),
+      plane.toGeo({ x: -50, y: 10 }),
+    ]
+    const file: CanopiFile = {
+      version: CURRENT_CANOPI_FILE_VERSION,
+      name: 'Rotated zone',
+      description: null,
+      plant_species_colors: {},
+      layers: [{ name: 'zones', visible: true, locked: false, opacity: 1 }],
+      plants: [],
+      zones: [{
+        id: 'rect-1',
+        name: 'Rotated',
+        zone_type: 'rect',
+        rotation: 45,
+        points: unrotated,
+        fill_color: null,
+        notes: null,
+        locked: false,
+      }],
+      annotations: [],
+      measurement_guides: [],
+      consortiums: [],
+      groups: [],
+      timeline: [],
+      budget: [],
+      budget_currency: 'EUR',
+      created_at: '2026-10-01T00:00:00.000Z',
+      updated_at: '2026-10-01T00:00:00.000Z',
+    }
+    const runtime = createTestSceneCanvasRuntime()
+    try {
+      runtime.documentSurface.loadDocument(file)
+      const outline = runtime.querySurface.getSettledDesignOutline()
+      expect(outline).toHaveLength(4)
+      const maxLat = Math.max(...outline!.map((point) => point.lat))
+      const unrotatedMaxLat = Math.max(...unrotated.map((point) => point.lat))
+      // Rotating the 100 m x 20 m rectangle 45° pushes its northern corner well past the unrotated ±10 m band.
+      expect(maxLat).toBeGreaterThan(unrotatedMaxLat + 0.0002)
+    } finally {
+      runtime.destroy()
+    }
   })
 })

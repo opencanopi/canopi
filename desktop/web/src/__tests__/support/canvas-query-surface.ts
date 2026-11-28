@@ -1,4 +1,5 @@
 import { buildCanvasPrintSnapshot } from '../../canvas/runtime/print-snapshot'
+import { designOutlinePoints } from '../../canvas/runtime/scene-extent'
 import { createTestSceneRendererSnapshot } from './scene-renderer-snapshot'
 import { computed, signal, type ReadonlySignal, type Signal } from '@preact/signals'
 import {
@@ -12,7 +13,7 @@ import type {
 } from '../../canvas/runtime/runtime'
 import type { PointerWorld, ToolHostState } from '../../canvas/runtime/interaction-ports'
 import type { ToolId, ToolSource } from '../../canvas/runtime/interaction-types'
-import type { PlacedPlant } from '../../types/design'
+import type { GeoPoint, PlacedPlant } from '../../types/design'
 import type { SpeciesCacheEntry } from '../../canvas/runtime/presentation-data'
 import { createViewReadSurface } from '../../geo/view/frame-source'
 import type { ViewReadSurface } from '../../geo/view/read-surface'
@@ -175,6 +176,16 @@ export function createTestCanvasQuerySurface({
       return settled
         ? { plants: [...currentPlants], zones: [], annotations: [], measurementGuides: [], groups: [] }
         : null
+    },
+    getSettledDesignOutline: () => {
+      void admissionRevision.value
+      if (!settled) return null
+      const plane = sessionPlaneSignal.peek()
+      const points: GeoPoint[] = currentPlants.map((plant) => plant.position)
+      if (plane) {
+        for (const point of designOutlinePoints(scene)) points.push(plane.toGeo(point))
+      }
+      return points
     },
     getLocalizedCommonNames: () => currentLocalizedNames,
     getSpeciesCache: () => speciesCache,

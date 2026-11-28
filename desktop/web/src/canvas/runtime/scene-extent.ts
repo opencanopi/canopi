@@ -126,6 +126,16 @@ function zoneOutline(zone: SceneZoneEntity): readonly WorldPoint[] {
   return getZoneExtentPoints(zone)
 }
 
+/** Outline points of every placed object in the Scene (plants, zone outlines, notes, measurement guides), in plane metres. */
+export function designOutlinePoints(scene: ScenePersistedState): WorldPoint[] {
+  const points: WorldPoint[] = []
+  for (const plant of scene.plants) points.push(plant.position)
+  for (const zone of scene.zones) points.push(...zoneOutline(zone))
+  for (const annotation of scene.annotations) points.push(annotation.position)
+  for (const guide of scene.measurementGuides) points.push(guide.start, guide.end)
+  return points
+}
+
 /**
  * A regular polygon around the ellipse (a disc when `radiusY` is omitted) turned by `rotationDeg` about its centre, as zones turn:
  * its sides touch the shape, and at rotation 0 the ones facing the axes lie on its box.

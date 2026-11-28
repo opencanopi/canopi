@@ -321,6 +321,8 @@ export interface CanvasQuerySurface {
   getSettledPlacedPlants(): PlacedPlant[] | null
   /** Canonical lon/lat design objects, as a save would write them; null while busy. */
   getSettledDesignObjects(): CanvasDesignObjects | null
+  /** Geographic outline points (WGS84 lon/lat) of every placed object, zones decoded by the zone kernel; null while busy. */
+  getSettledDesignOutline(): GeoPoint[] | null
   getLocalizedCommonNames(): ReadonlyMap<string, string | null>
   /**
    * The catalog entries loaded for the Design's species (stratum, width): a plant without its own colour takes its
