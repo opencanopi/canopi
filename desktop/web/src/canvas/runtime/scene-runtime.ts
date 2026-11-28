@@ -226,6 +226,7 @@ export class SceneCanvasRuntime {
       readPlantSpacingIntervalMeters: () => this._appAdapter.settings.readPlantSpacingIntervalMeters(),
       readUnitSystem: () => this._appAdapter.settings.readUnitSystem?.() ?? 'metric',
       readLocale: () => this._appAdapter.settings.readLocale(),
+      readZoneDimensionsVisible: () => this._appAdapter.settings.readZoneDimensionsVisible?.() ?? true,
       commitPlantSpacingIntervalMeters: (meters) =>
         this._appAdapter.settings.commitPlantSpacingIntervalMeters(meters),
       translate: this._appAdapter.translate,
@@ -400,6 +401,7 @@ export class SceneCanvasRuntime {
       },
       onChromeOverlay: () => {
         this._syncEditingAids()
+        this._interaction?.refreshTranslations()
       },
       onMapBackdrop: (backdrop) => {
         if (!this._presentation.setMapBackdrop(backdrop)) return

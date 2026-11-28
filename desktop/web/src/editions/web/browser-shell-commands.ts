@@ -61,6 +61,7 @@ export const BROWSER_SHELL_CAPABILITY_IDS = [
   'navigateDesignNotebook',
   'navigateStories',
   'toggleToolNames',
+  'toggleZoneDimensions',
   'showSatellite',
   'showMap',
   'showNoBackground',

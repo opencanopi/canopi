@@ -13,6 +13,7 @@ import {
   openSaveViewDialog,
 } from '../saved-views'
 import type { ShellCommandCapabilities, ShellCommandState } from '../shell-commands'
+import { toggleZoneDimensions, zoneDimensionsVisible } from '../canvas-settings/signals'
 import { toggleToolNames, toolRailShowsNames } from '../tool-rail/learning'
 
 /**
@@ -46,6 +47,10 @@ export function createWorkspaceShellCapabilities() {
     toggleToolNames: {
       execute: toggleToolNames,
       isChecked: () => toolRailShowsNames.value,
+    },
+    toggleZoneDimensions: {
+      execute: toggleZoneDimensions,
+      isChecked: () => zoneDimensionsVisible.value,
     },
     showSatellite: {
       execute: () => setMapBackground('satellite'),

@@ -40,6 +40,7 @@ export type ShellCommandId =
   | 'view.saveCurrentView'
   | 'view.manageViews'
   | 'view.toggleToolNames'
+  | 'view.toggleZoneDimensions'
   | 'view.backgroundSatellite'
   | 'view.backgroundMap'
   | 'view.backgroundNone'

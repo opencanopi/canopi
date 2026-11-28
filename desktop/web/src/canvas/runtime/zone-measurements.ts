@@ -1,5 +1,5 @@
 import type { GroundMeasure } from '../../geo/session-plane'
-import { formatArea, formatLength, type UnitSystem } from '../../utils/format'
+import { formatNormalizedArea, formatNormalizedLength, type UnitSystem } from '../../utils/format'
 import type { ScenePoint } from './scene'
 import { degreesToRadians, polygonArea, rotatePointAround } from './zone-geometry'
 
@@ -168,11 +168,11 @@ function createEdgeLabel(
 }
 
 export function formatMetricDistance(value: number, system: UnitSystem = 'metric', activeLocale = 'en'): string {
-  return formatLength(Math.abs(value), system, activeLocale, { trimTrailingZeros: true })
+  return formatNormalizedLength(Math.abs(value), system, activeLocale)
 }
 
 export function formatMetricArea(value: number, system: UnitSystem = 'metric', activeLocale = 'en'): string {
-  return formatArea(Math.abs(value), system, activeLocale, { trimTrailingZeros: true })
+  return formatNormalizedArea(Math.abs(value), system, activeLocale)
 }
 
 function segmentLength(a: ScenePoint, b: ScenePoint, measure?: GroundMeasure): number {

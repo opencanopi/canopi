@@ -251,6 +251,25 @@ export function formatArea(sqMeters: number, system: UnitSystem, locale: string,
   return formatQuantity('area', sqMeters, system, locale, options)
 }
 
+/** Formats a length or area dimension via `Intl.NumberFormat` without noisy trailing fractional zeros. */
+export function formatDimension(
+  kind: 'length' | 'area',
+  siValue: number,
+  system: UnitSystem,
+  locale: string,
+  options?: FormatQuantityOptions,
+): string {
+  return formatQuantity(kind, Number.isFinite(siValue) ? siValue : 0, system, locale, { trimTrailingZeros: true, ...options })
+}
+
+export function formatNormalizedLength(meters: number, system: UnitSystem, locale: string, options?: FormatQuantityOptions): string {
+  return formatDimension('length', meters, system, locale, options)
+}
+
+export function formatNormalizedArea(sqMeters: number, system: UnitSystem, locale: string, options?: FormatQuantityOptions): string {
+  return formatDimension('area', sqMeters, system, locale, options)
+}
+
 export function formatTemperature(celsius: number, system: UnitSystem, locale: string, options?: FormatQuantityOptions): string {
   return formatQuantity('temperature', celsius, system, locale, options)
 }

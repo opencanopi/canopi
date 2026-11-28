@@ -6,6 +6,7 @@ import {
   prepareEditGuideDimensions,
   prepareEditPlantFields,
   prepareEditZoneDimensions,
+  prepareReplacePlantsSpecies,
   prepareSetSpeciesCode,
   prepareSetZoneStyle,
   readPolygonDimensions,
@@ -177,5 +178,62 @@ describe('dimension-math and hover-tooltip-content', () => {
     expect(formatHoverTooltipContent(s, { kind: 'zone', id: 'missing' }, plane, names, 'metric', 'en')).toBeNull()
     expect(readRectOrEllipseDimensions({ ...s.zones[0]!, zoneType: 'polygon' }, plane)).toBeNull()
     expect(readPolygonDimensions(s.zones[0]!, plane)).toBeNull()
+  })
+
+  it('prepares bulk plant species replacement in one mutation, preserving spread on sparse catalog data and skipping locked plants', () => {
+    const s = makeScene()
+    s.plants.push(
+      {
+        ...s.plants[0]!,
+        id: 'p-2',
+        canonicalName: 'Pyrus communis',
+        commonName: 'Pear',
+        canopySpreadM: 5,
+        position: { x: 4, y: 2 },
+        notes: 'Keep notes',
+      },
+      {
+        ...s.plants[0]!,
+        id: 'p-locked',
+        locked: true,
+        canonicalName: 'Malus domestica',
+        commonName: 'Apple',
+        canopySpreadM: 3,
+        position: { x: 6, y: 2 },
+      },
+    )
+
+    // Invalid / empty inputs return null (no-op, no Undo entry).
+    expect(prepareReplacePlantsSpecies(s, [], { canonicalName: 'Castanea sativa' })).toBeNull()
+    expect(prepareReplacePlantsSpecies(s, ['p-1'], { canonicalName: '   ' })).toBeNull()
+    expect(prepareReplacePlantsSpecies(s, ['p-locked'], { canonicalName: 'Castanea sativa' })).toBeNull()
+
+    // Sparse species (no commonName, null canopySpreadM) even with adoptSpeciesSpread: true preserves each plant's spread and clears stale commonName.
+    const sparseMut = prepareReplacePlantsSpecies(s, ['p-1', 'p-2', 'p-locked'], {
+      canonicalName: 'Castanea sativa',
+      commonName: null,
+      canopySpreadM: null,
+      adoptSpeciesSpread: true,
+    })
+    expect(sparseMut).not.toBeNull()
+    sparseMut!(s)
+    expect(s.plants[0]).toMatchObject({ id: 'p-1', canonicalName: 'Castanea sativa', commonName: null, canopySpreadM: 4 })
+    expect(s.plants[1]).toMatchObject({ id: 'p-2', canonicalName: 'Castanea sativa', commonName: null, canopySpreadM: 5, notes: 'Keep notes' })
+    expect(s.plants[2]).toMatchObject({ id: 'p-locked', canonicalName: 'Malus domestica', commonName: 'Apple', canopySpreadM: 3 })
+
+    // Replacing with identical values returns null (no duplicate Undo entry).
+    expect(prepareReplacePlantsSpecies(s, ['p-1', 'p-2'], { canonicalName: 'Castanea sativa', commonName: null })).toBeNull()
+
+    // Adopting species canopy spread when catalog provides a finite positive value updates all editable targets together.
+    const adoptMut = prepareReplacePlantsSpecies(s, ['p-1', 'p-2'], {
+      canonicalName: 'Juglans regia',
+      commonName: 'English walnut',
+      canopySpreadM: 12,
+      adoptSpeciesSpread: true,
+    })
+    expect(adoptMut).not.toBeNull()
+    adoptMut!(s)
+    expect(s.plants[0]).toMatchObject({ canonicalName: 'Juglans regia', commonName: 'English walnut', canopySpreadM: 12 })
+    expect(s.plants[1]).toMatchObject({ canonicalName: 'Juglans regia', commonName: 'English walnut', canopySpreadM: 12 })
   })
 })

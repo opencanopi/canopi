@@ -9,9 +9,12 @@ import {
   formatByteSize,
   formatCatalogSize,
   formatCurrency,
+  formatDimension,
   formatElevation,
   formatFixed,
   formatLength,
+  formatNormalizedArea,
+  formatNormalizedLength,
   formatNumber,
   formatPercent,
   formatPrecision,
@@ -277,5 +280,43 @@ describe('general number, percent, fixed, precision, and currency helpers', () =
     expect(formatCurrency(12.5, 'USD', 'en-US')).toBe('$12.50')
     expect(currencySymbol('EUR', 'en-US')).toBe('€')
     expect(formatQuantity('length', 10, 'metric', 'en-US')).toBe('10 m')
+  })
+})
+
+describe('normalized dimension formatting (formatDimension / formatNormalizedLength / formatNormalizedArea)', () => {
+  it('trims noisy trailing zeros while preserving fractional precision across metric and US customary', () => {
+    expect(formatNormalizedLength(4, 'metric', 'en-US')).toBe('4 m')
+    expect(formatNormalizedLength(1.5, 'metric', 'en-US')).toBe('1.5 m')
+    expect(formatNormalizedLength(1500, 'metric', 'en-US')).toBe('1.5 km')
+    expect(formatNormalizedLength(1250, 'metric', 'en-US')).toBe('1.25 km')
+    expect(formatNormalizedLength(2000, 'metric', 'en-US')).toBe('2 km')
+    expect(formatNormalizedLength(0.75, 'metric', 'en-US')).toBe('75 cm')
+    expect(formatNormalizedLength(-0.000001, 'metric', 'en-US')).toBe('0 cm')
+    expect(formatNormalizedLength(Number.NaN, 'metric', 'en-US')).toBe('0 cm')
+
+    expect(formatNormalizedLength(0.9144, 'us_customary', 'en-US')).toBe('3 ft')
+    expect(formatNormalizedLength(1.6764, 'us_customary', 'en-US')).toBe('5′ 6″')
+    expect(formatNormalizedLength(1609.344, 'us_customary', 'en-US')).toBe('1 mi')
+    expect(formatNormalizedLength(1609.344 * 1.5, 'us_customary', 'en-US')).toBe('1.5 mi')
+
+    expect(formatNormalizedArea(120, 'metric', 'en-US')).toBe('120 m²')
+    expect(formatNormalizedArea(15_000, 'metric', 'en-US')).toBe('1.5 ha')
+    expect(formatNormalizedArea(20_000, 'metric', 'en-US')).toBe('2 ha')
+    expect(formatNormalizedArea(4046.8564224, 'us_customary', 'en-US')).toBe('1 ac')
+    expect(formatNormalizedArea(4046.8564224 * 2.25, 'us_customary', 'en-US')).toBe('2.25 ac')
+  })
+
+  it('respects locale decimal separators and round-trips through parseQuantity', () => {
+    expect(formatDimension('length', 1500, 'metric', 'de-DE')).toBe('1,5 km')
+    expect(formatDimension('area', 15_000, 'metric', 'de-DE')).toBe('1,5 ha')
+    expect(formatDimension('length', 4, 'metric', 'de-DE')).toBe('4 m')
+    expect(formatDimension('length', 1.5, 'metric', 'fr-FR')).toMatch(/^1,5[\s\u00a0\u202f]m$/)
+
+    for (const loc of ['en-US', 'de-DE', 'fr-FR', 'ja']) {
+      const formatted = formatNormalizedLength(4, 'metric', loc)
+      expect(parseQuantity('length', formatted, 'metric', loc)).toBeCloseTo(4, 6)
+      const frac = formatNormalizedLength(2.5, 'metric', loc)
+      expect(parseQuantity('length', frac, 'metric', loc)).toBeCloseTo(2.5, 6)
+    }
   })
 })

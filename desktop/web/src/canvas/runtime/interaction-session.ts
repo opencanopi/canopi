@@ -93,6 +93,7 @@ export interface SceneInteractionSessionDeps {
   readPlantSpacingIntervalMeters: () => number
   readUnitSystem?: () => UnitSystem
   readLocale?: () => string
+  readZoneDimensionsVisible?: () => boolean
   commitPlantSpacingIntervalMeters: (meters: number) => void
   translate: CanvasRuntimeTranslator
   setHoveredTarget: (target: SceneDesignObjectTarget | null) => void
@@ -321,6 +322,7 @@ class DefaultSceneInteractionSession implements SceneInteractionSession {
           commitPlantSpacingIntervalM: _deps.commitPlantSpacingIntervalMeters,
           unitSystem: () => _deps.readUnitSystem?.() ?? 'metric',
           locale: () => _deps.readLocale?.() ?? 'en',
+          zoneDimensionsVisible: () => _deps.readZoneDimensionsVisible?.() ?? true,
         },
         snapping: () => ({ grid: _deps.readSnapToGridEnabled() }),
         translate: _deps.translate as ToolHostDeps['translate'],

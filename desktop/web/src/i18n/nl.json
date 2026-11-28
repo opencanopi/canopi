@@ -1144,6 +1144,7 @@
     "file.saveAs": "Opslaan als…",
     "edit.group": "Groeperen",
     "view.toolNames": "Gereedschapsnamen",
+    "view.zoneDimensions": "Zone-afmetingen",
     "file.save": "Opslaan",
     "file.export": "Exporteren",
     "view.backgroundNone": "Geen",
@@ -2295,6 +2296,13 @@
     "plantedDate": "Plantdatum",
     "notes": "Notities",
     "noteText": "Notitietekst",
-    "fontSize": "Tekstgrootte"
+    "fontSize": "Tekstgrootte",
+    "lockAspectRatio": "Beeldverhouding vergrendelen",
+    "showCanvasZoneDimensions": "Zone-afmetingen op kaart tonen",
+    "replaceSpecies": "Soort vervangen",
+    "replaceSpeciesPlaceholder": "Zoek soort om te vervangen…",
+    "adoptSpeciesSpread": "Kroonbreedte van soort overnemen",
+    "replaceSpeciesAction": "Soort vervangen",
+    "selectedPlantsCount": "{{count}} planten geselecteerd"
   }
 }

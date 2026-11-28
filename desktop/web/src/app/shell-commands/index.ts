@@ -49,6 +49,7 @@ type ShellCommandIdByCapability = {
   readonly saveCurrentView: 'view.saveCurrentView'
   readonly manageViews: 'view.manageViews'
   readonly toggleToolNames: 'view.toggleToolNames'
+  readonly toggleZoneDimensions: 'view.toggleZoneDimensions'
   readonly showSatellite: 'view.backgroundSatellite'
   readonly showMap: 'view.backgroundMap'
   readonly showNoBackground: 'view.backgroundNone'
@@ -247,6 +248,7 @@ const RAW_SHELL_COMMAND_DESCRIPTORS: readonly ShellCommandDescriptor[] = [
   { capabilityId: 'saveCurrentView', id: 'view.saveCurrentView', labelKey: 'menu.view.saveCurrentView', palette: true, menu: { id: 'view', section: 2 } },
   { capabilityId: 'manageViews', id: 'view.manageViews', labelKey: 'menu.view.manageViews', palette: true, menu: { id: 'view', section: 2 } },
   { capabilityId: 'toggleToolNames', id: 'view.toggleToolNames', labelKey: 'menu.view.toolNames', palette: true, check: 'checkbox', menu: { id: 'view', section: 0 } },
+  { capabilityId: 'toggleZoneDimensions', id: 'view.toggleZoneDimensions', labelKey: 'menu.view.zoneDimensions', palette: true, check: 'checkbox', menu: { id: 'view', section: 0 } },
   { capabilityId: 'showSatellite', id: 'view.backgroundSatellite', labelKey: 'menu.view.backgroundSatellite', palette: true, check: 'radio', menu: { id: 'view', section: 1, submenu: 'background' } },
   { capabilityId: 'showMap', id: 'view.backgroundMap', labelKey: 'menu.view.backgroundMap', palette: true, check: 'radio', menu: { id: 'view', section: 1, submenu: 'background' } },
   { capabilityId: 'showNoBackground', id: 'view.backgroundNone', labelKey: 'menu.view.backgroundNone', palette: true, check: 'radio', menu: { id: 'view', section: 1, submenu: 'background' } },

@@ -174,6 +174,8 @@ export interface CanvasRuntimeSettingsAdapter {
   readLocale(): string
   readUnitSystem?(): UnitSystem
   readChromeOverlay(): CanvasRuntimeChromeSettingsSnapshot
+  /** Canvas-only visibility of zone dimension callouts; defaults to true when omitted. */
+  readZoneDimensionsVisible?(): boolean
   readSnapToGridEnabled(): boolean
   /** Settings › Canvas › Pointing device: what a plain wheel does; pinch and Ctrl wheel always zoom. */
   readScrollWheel(): CanvasScrollWheelSetting

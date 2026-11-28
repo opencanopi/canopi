@@ -4,6 +4,8 @@ import { act } from 'preact/test-utils'
 import { signal } from '@preact/signals'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { closeInspector, inspectorOpen, openInspector } from '../../app/planning-view/state'
+import { zoneDimensionsVisible } from '../../app/canvas-settings/signals'
+import { installSpeciesCatalogWorkbench, type SpeciesCatalogWorkbench } from '../../app/plant-browser'
 import { locale, unitSystem } from '../../app/settings/state'
 import { currentCanvasSession } from '../../canvas/session'
 import type { CanvasRuntimeSurfaces, CanvasSceneEditCommandSurface } from '../../canvas/runtime/runtime'
@@ -91,6 +93,7 @@ describe('InspectorPanel', () => {
     setZoneStyle: vi.fn(() => true),
     editMeasurementGuideDimensions: vi.fn(() => true),
     editPlantFields: vi.fn(() => true),
+    replacePlantsSpecies: vi.fn(() => true),
     editAnnotationFields: vi.fn(() => true),
   }
   const plane = createSessionPlane({ lon: 2.35, lat: 48.85 })
@@ -138,6 +141,7 @@ describe('InspectorPanel', () => {
     document.body.append(container)
     locale.value = 'en'
     unitSystem.value = 'metric'
+    zoneDimensionsVisible.value = true
     vi.clearAllMocks()
   })
 
@@ -243,5 +247,102 @@ describe('InspectorPanel', () => {
     expect(edits.editAnnotationFields).toHaveBeenCalledWith('a-1', { text: 'Updated note' })
     await commitTextInput('inspector-note-font-size', '20')
     expect(edits.editAnnotationFields).toHaveBeenCalledWith('a-1', { fontSize: 20 })
+  })
+
+  it('locks aspect ratio on rect zones so changing width or height scales the other axis proportionally', async () => {
+    await mountWithSelection([{ kind: 'zone', id: 'z-rect' }])
+    const widthInput = container.querySelector<HTMLInputElement>('#inspector-width')!
+    // Normalized dimension formatting omits trailing .0 on whole metres.
+    expect(widthInput.value).toBe('4 m')
+
+    const lockBtn = container.querySelector<HTMLButtonElement>('#inspector-aspect-lock')!
+    expect(lockBtn.getAttribute('aria-pressed')).toBe('false')
+    await act(() => lockBtn.click())
+    expect(lockBtn.getAttribute('aria-pressed')).toBe('true')
+
+    // Rect is 4 m x 2 m (2:1). Setting width to 8 m scales height to ~4 m in one edit.
+    await commitTextInput('inspector-width', '8 m', true)
+    const widthCall = vi.mocked(edits.editZoneDimensions!).mock.calls.at(-1)!
+    expect(widthCall[0]).toBe('z-rect')
+    expect(widthCall[1].widthM).toBeCloseTo(8, 5)
+    expect(widthCall[1].heightM).toBeCloseTo(4, 2)
+
+    // Setting height to 1 m scales width to ~2 m in one edit.
+    await commitTextInput('inspector-height', '1 m', true)
+    const heightCall = vi.mocked(edits.editZoneDimensions!).mock.calls.at(-1)!
+    expect(heightCall[0]).toBe('z-rect')
+    expect(heightCall[1].heightM).toBeCloseTo(1, 5)
+    expect(heightCall[1].widthM).toBeCloseTo(2, 2)
+
+    // Unlocking restores independent axis editing.
+    await act(() => lockBtn.click())
+    expect(lockBtn.getAttribute('aria-pressed')).toBe('false')
+    await commitTextInput('inspector-width', '6 m', true)
+    expect(edits.editZoneDimensions).toHaveBeenLastCalledWith('z-rect', { widthM: 6 })
+  })
+
+  it('toggles canvas-only zone dimensions visibility from the zone inspector', async () => {
+    await mountWithSelection([{ kind: 'zone', id: 'z-rect' }])
+    const toggle = container.querySelector<HTMLInputElement>('#inspector-zone-dimensions-visible')!
+    expect(toggle.checked).toBe(true)
+    await act(() => toggle.click())
+    expect(zoneDimensionsVisible.value).toBe(false)
+    await act(() => toggle.click())
+    expect(zoneDimensionsVisible.value).toBe(true)
+  })
+
+  it('bulk replaces species across multi-selected plants in one transaction and handles sparse catalog entries', async () => {
+    const searchSpy = vi.fn().mockResolvedValue([
+      {
+        canonical_name: 'Castanea sativa',
+        slug: 'castanea-sativa',
+        common_name: 'Sweet chestnut',
+        common_name_2: null,
+        matched_common_name: null,
+        is_name_fallback: false,
+        family: null,
+        genus: null,
+        height_max_m: null,
+        hardiness_zone_min: null,
+        hardiness_zone_max: null,
+        growth_rate: null,
+        stratum: null,
+        habit: null,
+        climate_zones: [],
+        life_cycles: [],
+        edibility_rating: null,
+        medicinal_rating: null,
+        width_max_m: null,
+        is_favorite: false,
+      },
+    ])
+    installSpeciesCatalogWorkbench({ searchCloseMatches: searchSpy } as unknown as SpeciesCatalogWorkbench)
+    const scene = makePersistedScene()
+    scene.plants.push({ ...scene.plants[0]!, id: 'p-2', position: { x: 5, y: 5 } })
+    await mountWithSelection([{ kind: 'plant', id: 'p-1' }, { kind: 'plant', id: 'p-2' }], scene)
+
+    const searchInput = container.querySelector<HTMLInputElement>('#inspector-replace-species-search')!
+    await act(async () => {
+      searchInput.value = 'castanea'
+      searchInput.dispatchEvent(new Event('input', { bubbles: true }))
+      await Promise.resolve()
+    })
+    expect(searchSpy).toHaveBeenCalledWith('castanea', 8)
+
+    const option = container.querySelector<HTMLButtonElement>('[data-replace-species-option="Castanea sativa"]')!
+    expect(option).not.toBeNull()
+    await act(() => option.click())
+
+    const submit = container.querySelector<HTMLButtonElement>('#inspector-replace-species-submit')!
+    expect(submit.disabled).toBe(false)
+    await act(() => submit.click())
+
+    expect(edits.replacePlantsSpecies).toHaveBeenCalledTimes(1)
+    expect(edits.replacePlantsSpecies).toHaveBeenCalledWith(['p-1', 'p-2'], {
+      canonicalName: 'Castanea sativa',
+      commonName: 'Sweet chestnut',
+      canopySpreadM: null,
+      adoptSpeciesSpread: false,
+    })
   })
 })

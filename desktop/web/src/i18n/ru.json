@@ -1144,6 +1144,7 @@
     "file.saveAs": "Сохранить как…",
     "edit.group": "Сгруппировать",
     "view.toolNames": "Названия инструментов",
+    "view.zoneDimensions": "Размеры зон",
     "file.save": "Сохранить",
     "file.export": "Экспорт",
     "view.backgroundNone": "Нет",
@@ -2295,6 +2296,13 @@
     "plantedDate": "Дата посадки",
     "notes": "Заметки",
     "noteText": "Текст заметки",
-    "fontSize": "Размер текста"
+    "fontSize": "Размер текста",
+    "lockAspectRatio": "Сохранять пропорции",
+    "showCanvasZoneDimensions": "Показывать размеры зон на карте",
+    "replaceSpecies": "Заменить вид",
+    "replaceSpeciesPlaceholder": "Поиск вида для замены…",
+    "adoptSpeciesSpread": "Применить ширину кроны вида",
+    "replaceSpeciesAction": "Заменить вид",
+    "selectedPlantsCount": "Выбрано растений: {{count}}"
   }
 }

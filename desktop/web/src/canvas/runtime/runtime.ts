@@ -195,6 +195,16 @@ export interface CanvasSceneEditCommandSurface {
       readonly quantity?: number
     },
   ): boolean
+  /** Replaces the species of one or more editable plants in a single compound undoable edit. */
+  replacePlantsSpecies(
+    plantIds: readonly string[],
+    replacement: {
+      readonly canonicalName: string
+      readonly commonName?: string | null
+      readonly canopySpreadM?: number | null
+      readonly adoptSpeciesSpread?: boolean
+    },
+  ): boolean
   /** Edits a text note's text or font size in one undoable edit. */
   editAnnotationFields(
     annotationId: string,

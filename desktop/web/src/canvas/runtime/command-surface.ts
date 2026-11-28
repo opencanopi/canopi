@@ -4,6 +4,7 @@ import {
   prepareEditGuideDimensions,
   prepareEditPlantFields,
   prepareEditZoneDimensions,
+  prepareReplacePlantsSpecies,
   prepareSetSpeciesCode,
   prepareSetZoneStyle,
 } from './dimension-math'
@@ -213,6 +214,7 @@ class SceneCanvasCommandRole implements CanvasCommandSurface {
       editZoneDimensions: (zoneId, edit) => this.options.mutations.runSettledMutation('edit-zone-dimensions', { layer: 'zones', target: { kind: 'zone', id: zoneId } }, (p, plane) => prepareEditZoneDimensions(p, plane, zoneId, edit)),
       editMeasurementGuideDimensions: (guideId, edit) => this.options.mutations.runSettledMutation('edit-measurement-guide-dimensions', { layer: 'measurement-guides', target: { kind: 'measurement-guide', id: guideId } }, (p, plane) => prepareEditGuideDimensions(p, plane, guideId, edit)),
       editPlantFields: (plantId, edit) => this.options.mutations.runSettledMutation('edit-plant-fields', { layer: 'plants', target: { kind: 'plant', id: plantId } }, (p) => prepareEditPlantFields(p, plantId, edit)),
+      replacePlantsSpecies: (plantIds, replacement) => this.options.mutations.runSettledMutation('replace-plants-species', { layer: 'plants' }, (p) => prepareReplacePlantsSpecies(p, plantIds, replacement)),
       editAnnotationFields: (annotationId, edit) => this.options.mutations.runSettledMutation('edit-annotation-fields', { layer: 'annotations', target: { kind: 'annotation', id: annotationId } }, (p) => prepareEditAnnotationFields(p, annotationId, edit)),
       setSpeciesCode: (canonicalName, code) => this.options.mutations.runSettledMutation('set-species-code', null, (p) => prepareSetSpeciesCode(p, canonicalName, code)),
       rotateSelected: (degrees) => this.runSpatialEdit(() => this.options.mutations.rotateSelected(degrees)),

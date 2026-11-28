@@ -75,6 +75,7 @@ type DesktopShellCapabilityId =
   | 'navigateStories'
   | 'startProfile'
   | 'toggleToolNames'
+  | 'toggleZoneDimensions'
   | 'showSatellite'
   | 'showMap'
   | 'showNoBackground'
