@@ -77,11 +77,13 @@ class MiniFakeIdb {
           onerror: null as ((ev: { preventDefault(): void }) => void) | null,
         }
         const deliverOpen = () => {
+          let closed = false
           const db = {
             objectStoreNames: { contains: (n: string) => this.stores.has(n) },
             onversionchange: null as (() => void) | null,
-            close: () => { this.closedCount += 1 },
+            close: () => { closed = true; this.closedCount += 1 },
             transaction: (names: string | string[], mode: IDBTransactionMode) => {
+              if (closed) throw new DOMException('The database connection is closing.', 'InvalidStateError')
               const storeList = Array.isArray(names) ? names : [names]
               const tx = {
                 mode,
@@ -547,5 +549,46 @@ describe('platform/design-home.browser move & tab safety (#826 & #848 B1-B3, SF1
       expect(failures, `no spurious migration failure after ${teardown}`).toEqual([])
       store.dispose()
     }
+  })
+
+  it('recovers cleanly from transient pagehide and reopenAfterPageShow mid-migration without onMigrationFailed', async () => {
+    const idb = new MiniFakeIdb()
+    const storage = makeMemoryStorage()
+    const baseCore = makeFakeDesignCore()
+    const failures: unknown[] = []
+    let releaseDecode: (() => void) | null = null
+    let markDecodeStarted!: () => void
+    const decodeStarted = new Promise<void>((resolve) => { markDecodeStarted = resolve })
+    let decodePaused = false
+    const store = createBrowserDesignHomeStore({
+      factory: idb.factory(),
+      legacyStorage: storage,
+      designCore: {
+        encode: baseCore.encode,
+        async decode(bytes) {
+          if (!decodePaused) {
+            decodePaused = true
+            await new Promise<void>((resolve) => {
+              releaseDecode = resolve
+              markDecodeStarted()
+            })
+          }
+          return baseCore.decode(bytes)
+        },
+      },
+      onMigrationFailed: (e) => failures.push(e),
+    })
+    expect(await store.open()).toEqual({ kind: 'ready' })
+    storage.setItem(LEGACY_DRAFTS_KEY, legacyPayload([{ id: 'draft-bfcache', name: 'Transient Hide' }]))
+    const initialSync = store.syncLegacyStorage()
+    await decodeStarted
+    store.closeForPageHide()
+    const reopened = store.reopenAfterPageShow()
+    releaseDecode!()
+    await Promise.all([initialSync, reopened])
+    expect(failures, 'transient pagehide -> reopen must not report onMigrationFailed').toEqual([])
+    expect((idb.stores.get('meta')!.get('move') as DraftMoveMetaRecord | undefined)?.state).toBe('live')
+    expect(idb.stores.get('drafts')!.has('draft-bfcache')).toBe(true)
+    store.dispose()
   })
 })

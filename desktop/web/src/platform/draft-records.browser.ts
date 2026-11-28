@@ -257,6 +257,10 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
   const moveStores = { draftsStore: DRAFTS_STORE, metaStore: META_STORE, moveKey: MOVE_RECORD_KEY } as const
 
   const isInactive = (): boolean => disposed || pageHidden
+  const staleAttemptResult = (): 'done' | 'retry' => (isInactive() ? 'done' : 'retry')
+  const reportMigrationFailed = (error: unknown): void => {
+    if (!isInactive()) options.onMigrationFailed?.(error)
+  }
 
   const commitLegacySync = async (
     conn: IDBDatabase,
@@ -273,9 +277,10 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
     const swapped = await runInitialLegacyMove({
       conn, stores: moveStores, prepared, sourceHash, appVersion,
       legacyStorage: options.legacyStorage, designCore: options.designCore,
-      onOlderTabCopy: options.onOlderTabCopy, onMigrationFailed: options.onMigrationFailed,
+      onOlderTabCopy: options.onOlderTabCopy, onMigrationFailed: reportMigrationFailed,
     })
     if (swapped || isInactive()) return 'done'
+    if (conn !== db) return 'retry'
     const after = await readMoveMetaRecord(conn, moveStores)
     return after?.state === 'live' ? 'retry' : 'done'
   }
@@ -284,14 +289,16 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
     const raw = isInactive() ? null : options.legacyStorage?.getItem(LEGACY_DRAFTS_KEY)
     if (!raw) return 'done'
     const conn = await openDb()
-    if (!conn || isInactive()) return 'done'
+    if (!conn) return 'done'
     const sourceHash = await sha256Hex(raw)
-    const existingMove = isInactive() ? null : await readMoveMetaRecord(conn, moveStores)
-    if (isInactive() || (existingMove?.state === 'live' && existingMove.sourceHash === sourceHash)) return 'done'
+    if (conn !== db) return staleAttemptResult()
+    const existingMove = await readMoveMetaRecord(conn, moveStores)
+    if (conn !== db) return staleAttemptResult()
+    if (existingMove?.state === 'live' && existingMove.sourceHash === sourceHash) return 'done'
     const entries = parseLegacyDraftsEnvelope(raw)
     if (entries.length === 0) return 'done'
     const prepared = await prepareLegacyDrafts(entries, options.designCore, now().toISOString())
-    return isInactive() ? 'done' : commitLegacySync(conn, existingMove, prepared, sourceHash)
+    return conn !== db ? staleAttemptResult() : commitLegacySync(conn, existingMove, prepared, sourceHash)
   }
 
   const runSyncLegacyOnce = async (): Promise<void> => {
@@ -299,7 +306,7 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
       try {
         if ((await runSyncLegacyAttempt()) === 'done') return
       } catch (error) {
-        if (!isInactive()) options.onMigrationFailed?.(error)
+        reportMigrationFailed(error)
         return
       }
     }
@@ -312,11 +319,15 @@ export function createDraftRecordsStore(options: DraftRecordsStoreOptions = {}):
       return
     }
     syncInFlight = (async () => {
-      do {
-        syncQueued = false
-        await runSyncLegacyOnce()
-      } while (syncQueued && !disposed)
-    })().finally(() => { syncInFlight = null })
+      try {
+        do {
+          syncQueued = false
+          await runSyncLegacyOnce()
+        } while (syncQueued && !disposed)
+      } finally {
+        syncInFlight = null
+      }
+    })()
     await syncInFlight
   }
 
