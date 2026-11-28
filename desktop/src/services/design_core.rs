@@ -78,18 +78,24 @@ pub async fn decode_design(
     executor: &NativeOperationExecutor,
     bytes: Vec<u8>,
 ) -> Result<DecodeDesignReply, Failure> {
-    executor
+    let reply = executor
         .run_typed(
             NativeOperationClass::Local,
             "design_core.decode",
             move || {
-                Ok(match core_decode_design(&bytes) {
+                Ok::<_, Failure>(match core_decode_design(&bytes) {
                     Ok(opened) => DecodeDesignReply::Ok(Box::new(opened)),
                     Err(refusal) => DecodeDesignReply::Err(refusal),
                 })
             },
         )
-        .await
+        .await?;
+    if matches!(reply, DecodeDesignReply::Ok(_)) {
+        // Design names and paths are user content; logs reach Diagnostic Bundles
+        // and the release smoke (scripts/release_smoke.py).
+        tracing::info!("Design loaded");
+    }
+    Ok(reply)
 }
 
 /// Validates and canonically encodes a v10 `.canopi` Design (2.1-M156, 2.1-M539).
@@ -469,5 +475,55 @@ mod tests {
         assert_eq!(round_tripped.consortiums, payload.consortiums);
         assert_eq!(round_tripped.budget, payload.budget);
         assert_eq!(round_tripped.timeline, payload.timeline);
+    }
+
+    #[test]
+    fn decode_design_logs_design_loaded_without_user_content_and_stays_quiet_on_refusal() {
+        let executor = NativeOperationExecutor::production();
+        let design =
+            crate::design::format::create_new_design("Secret Orchard", "2026-10-01T00:00:00Z");
+        let bytes = serde_json::to_vec(&design).unwrap();
+
+        let (reply, ok_logs) = crate::services::design_files::capture_logs(|| {
+            tauri::async_runtime::block_on(decode_design(&executor, bytes)).unwrap()
+        });
+        assert!(matches!(reply, DecodeDesignReply::Ok(_)));
+        assert!(ok_logs.contains("Design loaded"), "{ok_logs}");
+        assert!(!ok_logs.contains("Secret Orchard"), "{ok_logs}");
+
+        let (err_reply, err_logs) = crate::services::design_files::capture_logs(|| {
+            tauri::async_runtime::block_on(decode_design(&executor, b"not json".to_vec())).unwrap()
+        });
+        assert!(matches!(err_reply, DecodeDesignReply::Err(_)));
+        assert!(!err_logs.contains("Design loaded"), "{err_logs}");
+    }
+
+    #[test]
+    fn home_write_logs_design_saved_without_user_content() {
+        use std::sync::Arc;
+
+        use crate::host::home::{DesktopHomeStore, FileGrantRegistry};
+        use crate::test_scratch::TestScratch;
+        use canopi_types::design_home::HomeWrite;
+
+        let root = TestScratch::new("home-write-logs");
+        let (app_data, designs) = (root.join("app-data"), root.join("designs"));
+        std::fs::create_dir_all(&app_data).unwrap();
+        std::fs::create_dir_all(&designs).unwrap();
+        let grants = Arc::new(FileGrantRegistry::default());
+        let store = DesktopHomeStore::production(&app_data, Arc::clone(&grants));
+        let file_path = designs.join("private_orchard.canopi");
+        let grant = grants.grant(&file_path).unwrap();
+        let design =
+            crate::design::format::create_new_design("Secret Orchard", "2026-10-01T00:00:00Z");
+        let payload = serde_json::to_vec(&design).unwrap();
+
+        let (outcome, logs) = crate::services::design_files::capture_logs(|| {
+            store.write(grant.as_str(), &payload, None, false)
+        });
+        assert!(matches!(outcome, HomeWrite::Written { .. }));
+        assert!(logs.contains("Design saved"), "{logs}");
+        assert!(!logs.contains("Secret Orchard"), "{logs}");
+        assert!(!logs.contains("private_orchard.canopi"), "{logs}");
     }
 }

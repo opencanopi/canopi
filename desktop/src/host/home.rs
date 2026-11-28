@@ -356,6 +356,8 @@ impl<F: DurableFs> DesktopHomeStore<F> {
         if matches!(outcome, HomeWrite::Written { .. }) {
             // Record Recents outside the target lock so saves refresh Recents order (F6/N2).
             self.record_recent_from_bytes(&resolved, bytes);
+            // Design names and paths are user content; logs reach Diagnostic Bundles.
+            tracing::info!("Design saved");
         }
         outcome
     }
