@@ -74,6 +74,7 @@ function createQuerySurface() {
     getPlacedPlants: () => [],
     getSettledPlacedPlants: () => [],
     getSettledDesignObjects: () => null,
+    getSettledDesignOutline: () => null,
     getLocalizedCommonNames: () => new Map<string, string | null>(),
     getEnglishFallbackNames: () => new Map<string, string>(),
     getSpeciesCache: () => new Map(),

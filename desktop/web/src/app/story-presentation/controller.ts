@@ -1,5 +1,9 @@
 import { computed, effect, signal, untracked, type ReadonlySignal } from '@preact/signals'
-import { currentCanvasQuerySurface, getCurrentCanvasCommandSurface } from '../../canvas/session'
+import {
+  currentCanvasQuerySurface,
+  getCurrentCanvasCommandSurface,
+  setCurrentCanvasEditingAidsHidden,
+} from '../../canvas/session'
 import type { PlantLabelMode } from '../../canvas/runtime/plant-display'
 import type { ViewCamera } from '../../geo/view/types'
 import type { PanelTarget, SavedView, Story, StoryStep } from '../../types/design'
@@ -104,6 +108,7 @@ export function presentStory(storyId: string, index = 0, options: StoryPresentat
     index: clampIndex(index, story.steps.length),
   }
   setStoryPresentationHidesEditingAids(true)
+  setCurrentCanvasEditingAidsHidden(true)
   presentedScreen = null
   const disposeStep = effect(watchPresentation)
   const disposeScreen = effect(watchSettledScreen)
@@ -147,7 +152,6 @@ export function leaveStoryPresentation(): void {
   appliedStepKey = null
   active.value = null
   setStoryPresentationOverrides(null)
-  setStoryPresentationHidesEditingAids(false)
   setPresentingAttribute(false)
   const sameDesign = current.session === designSessionStore.sessionIdentity.peek()
   const commands = getCurrentCanvasCommandSurface()
@@ -158,6 +162,8 @@ export function leaveStoryPresentation(): void {
     commands.speciesFocus.focus(saved.speciesFocus)
     commands.viewport.showCamera(saved.camera, { motion: 'jump' })
   }
+  setStoryPresentationHidesEditingAids(false)
+  setCurrentCanvasEditingAidsHidden(false)
   exitFullScreen()
   scheduleReturnFocus(sameDesign)
 }

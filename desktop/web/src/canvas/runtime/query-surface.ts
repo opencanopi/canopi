@@ -1,9 +1,10 @@
 import { computed, signal, type ReadonlySignal } from '@preact/signals'
 import { buildCanvasPrintSnapshot } from './print-snapshot'
 import { getCanvasPlantNameLabels } from './automatic-detail'
+import { designOutlinePoints } from './scene-extent'
 import { isPlantLayerShown } from './scene-visuals'
 import { isWorkspaceOverviewScale } from '../../geo/workspace-camera-policy'
-import type { PlacedPlant } from '../../types/design'
+import type { GeoPoint, PlacedPlant } from '../../types/design'
 import type { SelectedPlantColorContext } from '../plant-color-context'
 import type { SelectedPlantSymbolContext } from '../plant-symbol-context'
 import type {
@@ -216,6 +217,13 @@ class SceneCanvasQueryRole implements SceneCanvasQuerySurface {
         measurementGuides: file.measurement_guides ?? [],
         groups: file.groups,
       }
+    }, null)
+  }
+  getSettledDesignOutline(): GeoPoint[] | null {
+    void this.options.settledReader.revision.value
+    return this.options.settledReader.readWhenSettled(() => {
+      const plane = this.options.sceneStore.sessionPlane
+      return designOutlinePoints(this.options.sceneStore.persisted).map((point) => plane.toGeo(point))
     }, null)
   }
   getLocalizedCommonNames(): ReadonlyMap<string, string | null> {

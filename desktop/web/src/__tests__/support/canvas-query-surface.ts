@@ -1,4 +1,5 @@
 import { buildCanvasPrintSnapshot } from '../../canvas/runtime/print-snapshot'
+import { designOutlinePoints } from '../../canvas/runtime/scene-extent'
 import { createTestSceneRendererSnapshot } from './scene-renderer-snapshot'
 import { computed, signal, type ReadonlySignal, type Signal } from '@preact/signals'
 import {
@@ -12,7 +13,7 @@ import type {
 } from '../../canvas/runtime/runtime'
 import type { PointerWorld, ToolHostState } from '../../canvas/runtime/interaction-ports'
 import type { ToolId, ToolSource } from '../../canvas/runtime/interaction-types'
-import type { PlacedPlant } from '../../types/design'
+import type { GeoPoint, PlacedPlant } from '../../types/design'
 import type { SpeciesCacheEntry } from '../../canvas/runtime/presentation-data'
 import { createViewReadSurface } from '../../geo/view/frame-source'
 import type { ViewReadSurface } from '../../geo/view/read-surface'
@@ -175,6 +176,42 @@ export function createTestCanvasQuerySurface({
       return settled
         ? { plants: [...currentPlants], zones: [], annotations: [], measurementGuides: [], groups: [] }
         : null
+    },
+    getSettledDesignOutline: () => {
+      void admissionRevision.value
+      if (!settled) return null
+      const plane = sessionPlaneSignal.peek()
+      const points: GeoPoint[] = []
+      for (const plant of currentPlants) {
+        const spread = plant.canopy_spread_m
+        if (typeof spread === 'number' && Number.isFinite(spread) && spread > 0) {
+          const localPlane = plane ?? createSessionPlane(plant.position)
+          const synthetic = {
+            ...createDefaultScenePersistedState(),
+            plants: [{
+              kind: 'plant' as const,
+              id: plant.id,
+              locked: false,
+              canonicalName: plant.canonical_name,
+              commonName: null,
+              color: null,
+              canopySpreadM: spread,
+              position: localPlane.toPlane(plant.position),
+              rotationDeg: null,
+              notes: null,
+              plantedDate: null,
+              quantity: null,
+            }],
+          }
+          for (const point of designOutlinePoints(synthetic)) points.push(localPlane.toGeo(point))
+        } else {
+          points.push(plant.position)
+        }
+      }
+      if (plane) {
+        for (const point of designOutlinePoints(scene)) points.push(plane.toGeo(point))
+      }
+      return points
     },
     getLocalizedCommonNames: () => currentLocalizedNames,
     getSpeciesCache: () => speciesCache,

@@ -79,6 +79,14 @@ export function getCurrentCanvasLayerCommandSurface(): CanvasLayerCommandSurface
   return currentCanvasLayerCommandSurface.value
 }
 
+const presentationHidesEditingAids = signal(false)
+/** Whether an active story presentation is temporarily hiding editing aids on the canvas session. */
+export const currentCanvasEditingAidsHidden: ReadonlySignal<boolean> = presentationHidesEditingAids
+
+export function setCurrentCanvasEditingAidsHidden(hidden: boolean): void {
+  presentationHidesEditingAids.value = hidden
+}
+
 export function setCurrentCanvasSession(surfaces: CanvasRuntimeSurfaces | null): void {
   currentCanvasSession.value = surfaces
 }

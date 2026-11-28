@@ -3,7 +3,7 @@ import { canvasPaintRevision, readCanvasPaintTokens } from '../../canvas/theme-r
 import type { DesignSessionStore } from '../document-session/store'
 import { isDarkMapBackdrop, mapBackdropOf, mapTerrainStateOf } from '../settings/state'
 import { myLocation } from '../my-location/session'
-import { presentedMapLayers } from '../story-presentation/overrides'
+import { presentedMapLayers, storyPresentationHidesEditingAids } from '../story-presentation/overrides'
 import type { MapLibreApi } from '../../maplibre/loader'
 import type { TerrainLayerState, TerrainProtocolSupport } from '../../maplibre/terrain'
 import { loadMapLibreTerrainSupport } from '../../maplibre/terrain-loader'
@@ -91,7 +91,7 @@ export function readWorkspaceMapContributions(
     lidar,
     terrain,
     overlays: {
-      site: overview ? null : site,
+      site: overview || storyPresentationHidesEditingAids.value ? null : site,
       mapBackdrop: mapBackdropOf(presented),
       paintTokens: readCanvasPaintTokens(),
     },

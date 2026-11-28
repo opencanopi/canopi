@@ -830,6 +830,7 @@ function fakeQuerySurface(): CanvasQuerySurface {
     getPlacedPlants: vi.fn(() => []),
     getSettledPlacedPlants: vi.fn(() => []),
     getSettledDesignObjects: vi.fn(() => null),
+    getSettledDesignOutline: vi.fn(() => null),
     getLocalizedCommonNames: vi.fn(() => new Map()),
     getEnglishFallbackNames: vi.fn(() => new Map()),
     getSpeciesCache: vi.fn(() => new Map()),

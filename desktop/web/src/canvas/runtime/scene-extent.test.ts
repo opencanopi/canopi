@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { DEFAULT_PLANT_DISPLAY } from './plant-display'
 import type { PlantPresentationContext } from './plant-presentation'
 import { createDefaultScenePersistedState, type ScenePersistedState } from './scene'
-import { sceneExtentPoints, selectionExtentPoints } from './scene-extent'
+import { designOutlinePoints, sceneExtentPoints, selectionExtentPoints } from './scene-extent'
 
 function makeScene(): ScenePersistedState {
   return {
@@ -144,5 +144,42 @@ describe('scene-extent', () => {
       { plantContext },
     )(10)
     expect(groupPoints.length).toBe(36)
+  })
+
+  it('designOutlinePoints emits plant canopy spread polygons and falls back to position without positive spread (2.1-Q45)', () => {
+    const withCanopy: ScenePersistedState = {
+      ...createDefaultScenePersistedState(),
+      plants: [
+        {
+          kind: 'plant',
+          id: 'p-spread',
+          locked: false,
+          canonicalName: 'Juglans regia',
+          commonName: 'Walnut',
+          color: null,
+          canopySpreadM: 12,
+          position: { x: 10, y: 20 },
+          rotationDeg: null,
+          notes: null,
+          plantedDate: null,
+          quantity: null,
+        },
+      ],
+    }
+    const spreadPoints = designOutlinePoints(withCanopy)
+    expect(spreadPoints).toHaveLength(32)
+    expect(Math.max(...spreadPoints.map((p) => p.x))).toBeCloseTo(16, 9)
+    expect(Math.min(...spreadPoints.map((p) => p.x))).toBeCloseTo(4, 9)
+    expect(Math.max(...spreadPoints.map((p) => p.y))).toBeCloseTo(26, 9)
+    expect(Math.min(...spreadPoints.map((p) => p.y))).toBeCloseTo(14, 9)
+
+    const withoutCanopy: ScenePersistedState = {
+      ...createDefaultScenePersistedState(),
+      plants: [
+        { ...withCanopy.plants[0]!, id: 'p-null', canopySpreadM: null },
+        { ...withCanopy.plants[0]!, id: 'p-zero', canopySpreadM: 0, position: { x: 3, y: 4 } },
+      ],
+    }
+    expect(designOutlinePoints(withoutCanopy)).toEqual([{ x: 10, y: 20 }, { x: 3, y: 4 }])
   })
 })
